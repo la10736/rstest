@@ -1,0 +1,12 @@
+[package]
+name = "rstest"
+version = "0.1.0"
+authors = ["michele <michele.damico@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "0.12", features = ["full", "parsing", "extra-traits"] }
+proc-macro2 = { version = "0.2" }
+quote = "0.4"
