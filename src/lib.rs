@@ -206,33 +206,26 @@ mod test {
         )"#;
 
         let l = parse_meta_list(meta_args).unwrap(  );
-        println!("{:?}", l);
 
         assert!(!l.is_empty());
     }
 
-    #[test]
-    fn parametrize_no_name_vec_and_array() {
-        let meta_args = r#"(
-            expected, input,
-            case(4, Unwrap("vec![1,3]")),
-            case(10, Unwrap("[2,3,5]"), name=)
-        )"#;
-
-        let data = parse_parametrize_data(meta_args).unwrap();
-
-        let c0: TestCase = ["4", "vec![1, 3]"].as_ref().into();
-        let c1: TestCase = ["10", "[2,3,5]"].as_ref().into();
-
-        assert_eq!(&vec![Ident::from("expected"), Ident::from("input")],
-                   &data.args);
-        assert_eq!(&vec![c0, c1], &data.cases);
-    }
-
 //    #[test]
-//    fn cosa_fare() {
-//        assert!(false, "Scrivere un test end2end che guarda l'output di cargo test e aggancia \
-//                        questa dipendenza")
+//    fn parametrize_no_name_vec_and_array() {
+//        let meta_args = r#"(
+//            expected, input,
+//            case(4, Unwrap("vec![1,3]")),
+//            case(10, Unwrap("[2,3,5]"), name=)
+//        )"#;
+//
+//        let data = parse_parametrize_data(meta_args).unwrap();
+//
+//        let c0: TestCase = ["4", "vec![1, 3]"].as_ref().into();
+//        let c1: TestCase = ["10", "[2,3,5]"].as_ref().into();
+//
+//        assert_eq!(&vec![Ident::from("expected"), Ident::from("input")],
+//                   &data.args);
+//        assert_eq!(&vec![c0, c1], &data.cases);
 //    }
 }
 

@@ -10,3 +10,6 @@ proc-macro = true
 syn = { version = "0.12", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = { version = "0.2" }
 quote = "0.4"
+
+[dev-dependencies]
+temp_testdir = { git = "https://github.com/la10736/temp_testdir" }
