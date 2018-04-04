@@ -154,8 +154,6 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream,
     res.into()
 }
 
-
-
 #[cfg(test)]
 mod test {
     use super::*;

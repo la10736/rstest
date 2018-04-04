@@ -13,3 +13,4 @@ quote = "0.4"
 
 [dev-dependencies]
 temp_testdir = { git = "https://github.com/la10736/temp_testdir" }
+rstest_util = { git = "https://github.com/la10736/rstest_util" }
