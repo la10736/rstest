@@ -1,4 +1,4 @@
-#![feature(proc_macro, try_from)]
+#![feature(proc_macro, try_from, underscore_lifetimes)]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -123,13 +123,23 @@ fn parse_parametrize_data<S: AsRef<str>>(meta_args: S) -> Result<ParametrizeInfo
     })
 }
 
-fn arg_2_fixture_call(arg: &syn::FnArg) -> Option<syn::Stmt> {
+fn arg_2_fixture_call_str(arg: &syn::FnArg) -> Option<String> {
     if let &syn::FnArg::Captured(ref a) = arg {
-        let name = a.pat.clone().into_tokens();
-        syn::parse_str(&format!("let {} = {}();", name, name)).ok()
+        let declaration = a.pat.clone().into_tokens();
+        let name = if let syn::Pat::Ident(ref p) = a.pat {
+            p.ident
+        } else {
+            panic!("Argument should be a identity")
+        };
+        let t = a.ty.clone().into_tokens();
+        Some(format!("let {}: {} = {}();", declaration, t, name))
     } else {
         None
     }
+}
+
+fn arg_2_fixture_call(arg: &syn::FnArg) -> Option<syn::Stmt> {
+    arg_2_fixture_call_str(arg).and_then(|line| syn::parse_str(&line).ok())
 }
 
 #[proc_macro_attribute]
@@ -236,6 +246,34 @@ mod test {
         let l = parse_meta_list(meta_args).unwrap();
 
         assert!(!l.is_empty());
+    }
+
+    fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg, syn::token::Comma> {
+        if let &syn::Item::Fn(ref item_fn) = item {
+            return item_fn.decl.inputs.iter();
+        } else {
+            panic!("Wrong ast!")
+        }
+    }
+
+    #[test]
+    fn extract_fixture_call_arg() {
+        let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
+        let args = fn_args(&ast).next().unwrap();
+
+        let line = arg_2_fixture_call_str(args);
+
+        assert_eq!("let fix: String = fix();", &line.unwrap());
+    }
+
+    #[test]
+    fn extract_fixture_should_add_mut_too() {
+        let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
+        let args = fn_args(&ast).next().unwrap();
+
+        let line = arg_2_fixture_call_str(args);
+
+        assert_eq!("let mut fix: String = fix();", &line.unwrap());
     }
 
 //    #[test]
