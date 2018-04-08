@@ -3,6 +3,8 @@ extern crate rstest;
 
 use rstest::rstest;
 
+pub fn fixture() -> u32 { 42 }
+
 #[rstest]
 fn should_success(fixture: u32) {
     assert_eq!(fixture, 42);

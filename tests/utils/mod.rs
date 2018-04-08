@@ -72,9 +72,11 @@ impl<S> TestResults<S>
     pub fn assert(&self, output: ::std::process::Output) {
         let tests = &self.0;
 
-        let expected_code = if !self.should_fail() { 0 } else { 101 };
+        let (expected_code, msg) = if !self.should_fail()
+            { (0, "Unexpected fails!") } else { (101, "Some test should fail!") };
         assert_eq!(Some(expected_code), output.status.code(),
-                   "Console: {}", output.stderr.str());
+                   "{}\n Console: \nOUT:\n{}\nERR:\n{}\n",
+                   msg, output.stdout.str(), output.stderr.str());
 
         let output = output.stdout.str();
         assert_in!(output, format!("running {} test", tests.len()));

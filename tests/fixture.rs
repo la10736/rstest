@@ -13,14 +13,14 @@ use prj::Project;
 #[test]
 fn happy_path_one_success_and_one_fail() {
     let root = TempDir::default();
-    let project = Project::new(&root).create();
-
-    project.set_code_file(resources("fixture_simple.rs"));
-
-    let output = project.compile().unwrap();
+    let output = Project::new(&root)
+        .create()
+        .set_code_file(resources("fixture_simple.rs"))
+        .run_tests()
+        .unwrap();
 
     TestResults::new()
         .ok("should_success")
-        .ok("should_fail")
+        .fail("should_fail")
         .assert(output);
 }

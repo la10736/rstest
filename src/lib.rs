@@ -40,7 +40,7 @@ fn parse_meta_list<S: AsRef<str>>(meta: S) -> Option<Vec<NestedMeta>> {
 #[derive(Debug)]
 enum RsTestError {
     UnknownParameterOption(String),
-    UnknownErr
+    UnknownErr,
 }
 
 #[derive(Default, Debug)]
@@ -60,7 +60,7 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
             let res: Result<Vec<_>, _> = l.nested.iter().map(
                 |e|
                     parse_str::<Expr>(&format!("{}", e.into_tokens()
-                        )).or(Err(RsTestError::UnknownErr))
+                    )).or(Err(RsTestError::UnknownErr))
             ).collect();
             res.map(TestCase)
         } else {
@@ -72,9 +72,9 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
 impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
     fn from(strings: &[S]) -> Self {
         TestCase(strings
-                .iter()
-                .map(|s| parse_str(s.as_ref()).unwrap())
-                .collect()
+            .iter()
+            .map(|s| parse_str(s.as_ref()).unwrap())
+            .collect()
         )
     }
 }
@@ -123,11 +123,41 @@ fn parse_parametrize_data<S: AsRef<str>>(meta_args: S) -> Result<ParametrizeInfo
     })
 }
 
+fn arg_2_fixture_call(arg: &syn::FnArg) -> Option<syn::Stmt> {
+    if let &syn::FnArg::Captured(ref a) = arg {
+        let name = a.pat.clone().into_tokens();
+        syn::parse_str(&format!("let {} = {}();", name, name)).ok()
+    } else {
+        None
+    }
+}
+
+#[proc_macro_attribute]
+pub fn rstest(_args: proc_macro::TokenStream,
+              input: proc_macro::TokenStream)
+              -> proc_macro::TokenStream {
+    let ast = syn::parse(input.clone()).unwrap();
+    if let syn::Item::Fn(ref item_fn) = ast {
+        let name = item_fn.ident;
+        let inner = item_fn.block.clone();
+        let fixtures = item_fn.decl.inputs.iter().filter_map(arg_2_fixture_call).collect::<Vec<_>>();
+        let res: quote::Tokens = quote! {
+            #[test]
+            fn #name() {
+                #(#fixtures)*
+                #inner
+            }
+        };
+        res.into()
+    } else {
+        input
+    }
+}
+
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream,
                           input: proc_macro::TokenStream)
-    -> proc_macro::TokenStream {
-
+                          -> proc_macro::TokenStream {
     let params = parse_parametrize_data(format!("{}", args)).unwrap();
     let mut res = quote::Tokens::default();
 
@@ -203,7 +233,7 @@ mod test {
             case(4, pippo="pluto", Unwrap("vec![1,3]"), name="my_name")
         )"#;
 
-        let l = parse_meta_list(meta_args).unwrap(  );
+        let l = parse_meta_list(meta_args).unwrap();
 
         assert!(!l.is_empty());
     }

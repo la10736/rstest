@@ -63,11 +63,12 @@ impl Project {
         self
     }
 
-    pub fn set_code_file<P: AsRef<Path>>(&self, src: P) {
+    pub fn set_code_file<P: AsRef<Path>>(&mut self, src: P) -> &mut Self {
         std::fs::copy(
             src,
             self.code_path(),
         ).unwrap();
+        self
     }
 
     pub fn append_code<S: AsRef<str>>(&self, code: S) {
