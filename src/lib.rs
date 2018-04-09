@@ -1,4 +1,4 @@
-#![feature(proc_macro, try_from, underscore_lifetimes)]
+#![feature(proc_macro, try_from, underscore_lifetimes, match_default_bindings)]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -52,6 +52,29 @@ struct ParametrizeInfo {
 #[derive(PartialEq, Eq, Debug)]
 struct TestCase(Vec<Expr>);
 
+fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, RsTestError> {
+    parse_str::<Expr>(s.as_ref())
+        .or(Err(RsTestError::UnknownErr))
+}
+
+fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
+    match a {
+        &syn::NestedMeta::Literal(ref l) =>
+            parse_expression(format!("{}", l.into_tokens())),
+        &syn::NestedMeta::Meta(ref opt) => {
+            match opt {
+                &syn::Meta::List(ref arg) if arg.ident.as_ref() == "Unwrap" =>
+                    match &arg.nested.first().unwrap().value() {
+                        &syn::NestedMeta::Literal(syn::Lit::Str(inner_unwrap)) =>
+                            parse_expression(inner_unwrap.value()),
+                        _ => panic!("Unexpected case argument: {:?}", opt),
+                    },
+                nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
+            }
+        },
+    }
+}
+
 impl<'a> TryFrom<&'a MetaList> for TestCase {
     type Error = RsTestError;
 
@@ -59,8 +82,7 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
         if l.ident.as_ref() == "case" {
             let res: Result<Vec<_>, _> = l.nested.iter().map(
                 |e|
-                    parse_str::<Expr>(&format!("{}", e.into_tokens()
-                    )).or(Err(RsTestError::UnknownErr))
+                    parse_case_arg(e)
             ).collect();
             res.map(TestCase)
         } else {
@@ -276,22 +298,24 @@ mod test {
         assert_eq!("let mut fix: String = fix();", &line.unwrap());
     }
 
-//    #[test]
-//    fn parametrize_no_name_vec_and_array() {
-//        let meta_args = r#"(
-//            expected, input,
-//            case(4, Unwrap("vec![1,3]")),
-//            case(10, Unwrap("[2,3,5]"), name=)
-//        )"#;
-//
-//        let data = parse_parametrize_data(meta_args).unwrap();
-//
-//        let c0: TestCase = ["4", "vec![1, 3]"].as_ref().into();
-//        let c1: TestCase = ["10", "[2,3,5]"].as_ref().into();
-//
-//        assert_eq!(&vec![Ident::from("expected"), Ident::from("input")],
-//                   &data.args);
-//        assert_eq!(&vec![c0, c1], &data.cases);
-//    }
+    #[test]
+    fn parametrize_no_name_vec_and_array() {
+        let meta_args = r#"(
+            expected, input,
+            case(4, Unwrap("vec![1,3]")),
+            case(10, Unwrap("[2,3,5]"))
+        )"#;
+
+        let data = parse_parametrize_data(meta_args).unwrap();
+
+        let c0: TestCase = ["4", "vec![1, 3]"].as_ref().into();
+        let c1: TestCase = ["10", "[2,3,5]"].as_ref().into();
+
+        assert_eq!(&vec![Ident::from("expected"), Ident::from("input")],
+                   &data.args);
+        assert_eq!(&c0, &data.cases[0]);
+        assert_eq!(&c1, &data.cases[1]);
+        assert_eq!(&vec![c0, c1], &data.cases);
+    }
 }
 
