@@ -145,23 +145,31 @@ fn parse_parametrize_data<S: AsRef<str>>(meta_args: S) -> Result<ParametrizeInfo
     })
 }
 
-fn arg_2_fixture_call_str(arg: &syn::FnArg) -> Option<String> {
+fn default_fixture_name(a: &syn::ArgCaptured) -> syn::Expr {
+    if let syn::Pat::Ident(ref p) = a.pat {
+        syn::parse_str(&format!("{}()", p.ident)).unwrap()
+    } else {
+        panic!("Argument should be a identity")
+    }
+}
+
+fn arg_2_fixture_str(arg: &syn::FnArg, fixture: Option<syn::Expr>) -> Option<String> {
     if let &syn::FnArg::Captured(ref a) = arg {
         let declaration = a.pat.clone().into_tokens();
-        let name = if let syn::Pat::Ident(ref p) = a.pat {
-            p.ident
-        } else {
-            panic!("Argument should be a identity")
-        };
+        let fixture = fixture.unwrap_or_else(|| default_fixture_name(a));
         let t = a.ty.clone().into_tokens();
-        Some(format!("let {}: {} = {}();", declaration, t, name))
+        Some(format!("let {}: {} = {};", declaration, t, fixture.into_tokens()))
     } else {
         None
     }
 }
 
+fn arg_2_fixture(arg: &syn::FnArg, fixture: Option<syn::Expr>) -> Option<syn::Stmt> {
+    arg_2_fixture_str(arg, fixture).and_then(|line| syn::parse_str(&line).ok())
+}
+
 fn arg_2_fixture_call(arg: &syn::FnArg) -> Option<syn::Stmt> {
-    arg_2_fixture_call_str(arg).and_then(|line| syn::parse_str(&line).ok())
+    arg_2_fixture(arg, None)
 }
 
 #[proc_macro_attribute]
@@ -172,7 +180,10 @@ pub fn rstest(_args: proc_macro::TokenStream,
     if let syn::Item::Fn(ref item_fn) = ast {
         let name = item_fn.ident;
         let inner = item_fn.block.clone();
-        let fixtures = item_fn.decl.inputs.iter().filter_map(arg_2_fixture_call).collect::<Vec<_>>();
+        let fixtures = item_fn.decl.inputs
+            .iter()
+            .filter_map(arg_2_fixture_call)
+            .collect::<Vec<_>>();
         let res: quote::Tokens = quote! {
             #[test]
             fn #name() {
@@ -199,16 +210,20 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream,
         let inner = item_fn.block.clone();
 
         for (n, case) in params.cases.iter().enumerate() {
-            let args = &params.args;
-            let vals = &case.0;
+            let fixtures = item_fn.decl.inputs
+                .iter()
+                .zip(case.0.iter())
+                .filter_map(|(arg, val)|
+                    arg_2_fixture(arg, Some(val.clone())))
+                .collect::<Vec<_>>();
             let name = Ident::from(format!("{}_case_{}", fname, n));
             let tcase = quote! {
-            #[test]
-            fn #name() {
-                #(let #args = #vals; )*
-                #inner
-            }
-        };
+                #[test]
+                fn #name() {
+                    #(#fixtures)*
+                    #inner
+                }
+            };
             res.append_all(tcase);
         };
     }
@@ -283,9 +298,9 @@ mod test {
         let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
 
-        let line = arg_2_fixture_call_str(args);
+        let line = arg_2_fixture_str(args, None);
 
-        assert_eq!("let fix: String = fix();", &line.unwrap());
+        assert_eq!("let fix: String = fix ( );", &line.unwrap());
     }
 
     #[test]
@@ -293,9 +308,21 @@ mod test {
         let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
 
-        let line = arg_2_fixture_call_str(args);
+        let line = arg_2_fixture_str(args, None);
 
-        assert_eq!("let mut fix: String = fix();", &line.unwrap());
+        assert_eq!("let mut fix: String = fix ( );", &line.unwrap());
+    }
+
+    #[test]
+    fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
+        let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
+        let call = syn::parse_str("bar()").unwrap();
+        let args = fn_args(&ast).next().unwrap();
+
+        let line = arg_2_fixture_str(args,
+                                     Some(call));
+
+        assert_eq!("let mut fix: String = bar ( );", &line.unwrap());
     }
 
     #[test]

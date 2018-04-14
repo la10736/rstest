@@ -78,3 +78,18 @@ fn parametrize_simple_happy_path() {
         .ok("strlen_test_case_1")
         .assert(output);
 }
+
+#[test]
+fn parametrize_mut() {
+    let root = TempDir::default().permanent();
+    let output = Project::new(&root)
+        .create()
+        .set_code_file(resources("parametrize_mut.rs"))
+        .run_tests()
+        .unwrap();
+
+    TestResults::new()
+        .ok("add_test_case_0")
+        .ok("add_test_case_1")
+        .assert(output);
+}
