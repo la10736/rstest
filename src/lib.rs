@@ -1,4 +1,5 @@
-#![feature(proc_macro, try_from, underscore_lifetimes, match_default_bindings)]
+#![feature(proc_macro, try_from, underscore_lifetimes, match_default_bindings,
+conservative_impl_trait)]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -71,7 +72,7 @@ fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
                     },
                 nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
             }
-        },
+        }
     }
 }
 
@@ -153,12 +154,27 @@ fn default_fixture_name(a: &syn::ArgCaptured) -> syn::Expr {
     }
 }
 
+fn captured_arg(arg: &syn::FnArg) -> &syn::ArgCaptured {
+    if let syn::FnArg::Captured(ref a) = arg {
+        a
+    } else {
+        panic!("Not a valid arg '{:?}'", arg)
+    }
+}
+
+fn arg_name(arg: &syn::FnArg) -> &syn::Ident {
+    if let syn::Pat::Ident(ref a) = captured_arg(arg).pat {
+        &a.ident
+    } else {
+        panic!("Not a valid arg '{:?}'", arg)
+    }
+}
+
 fn arg_2_fixture_str(arg: &syn::FnArg, fixture: Option<syn::Expr>) -> Option<String> {
     if let &syn::FnArg::Captured(ref a) = arg {
         let declaration = a.pat.clone().into_tokens();
         let fixture = fixture.unwrap_or_else(|| default_fixture_name(a));
-        let t = a.ty.clone().into_tokens();
-        Some(format!("let {}: {} = {};", declaration, t, fixture.into_tokens()))
+        Some(format!("let {} = {};", declaration, fixture.into_tokens()))
     } else {
         None
     }
@@ -168,8 +184,12 @@ fn arg_2_fixture(arg: &syn::FnArg, fixture: Option<syn::Expr>) -> Option<syn::St
     arg_2_fixture_str(arg, fixture).and_then(|line| syn::parse_str(&line).ok())
 }
 
-fn arg_2_fixture_call(arg: &syn::FnArg) -> Option<syn::Stmt> {
-    arg_2_fixture(arg, None)
+fn fixtures<'a>(item_fn: &'a syn::ItemFn,
+                resolvers: Vec<Option<syn::Expr>>) -> impl Iterator<Item=syn::Stmt> + 'a {
+    item_fn.decl.inputs
+        .iter()
+        .zip(resolvers.into_iter())
+        .filter_map(|(arg, resolver)| arg_2_fixture(arg, resolver))
 }
 
 #[proc_macro_attribute]
@@ -180,10 +200,8 @@ pub fn rstest(_args: proc_macro::TokenStream,
     if let syn::Item::Fn(ref item_fn) = ast {
         let name = item_fn.ident;
         let inner = item_fn.block.clone();
-        let fixtures = item_fn.decl.inputs
-            .iter()
-            .filter_map(arg_2_fixture_call)
-            .collect::<Vec<_>>();
+        let aa = item_fn.decl.inputs.iter().map(|_| None).collect();
+        let fixtures = fixtures(item_fn, aa);
         let res: quote::Tokens = quote! {
             #[test]
             fn #name() {
@@ -197,38 +215,44 @@ pub fn rstest(_args: proc_macro::TokenStream,
     }
 }
 
+fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> quote::Tokens {
+    let mut res = quote::Tokens::default();
+    let fname = item_fn.ident;
+
+    let orig = item_fn.clone();
+
+    res.append_all(quote! {
+            #[cfg(test)]
+            #orig
+        }
+    );
+    for (n, case) in params.cases.iter().enumerate() {
+        let fixtures = fixtures(item_fn, case.0.iter().cloned().map(|v| Some(v)).collect());
+        let name = Ident::from(format!("{}_case_{}", fname, n));
+        let args = item_fn.decl.inputs.iter().map(arg_name);
+        let tcase = quote! {
+                #[test]
+                fn #name() {
+                    #(#fixtures)*
+                    #fname(#(#args),*)
+                }
+            };
+        res.append_all(tcase);
+    };
+    println!("{}", res);
+    res
+}
+
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream,
                           input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream {
     let params = parse_parametrize_data(format!("{}", args)).unwrap();
-    let mut res = quote::Tokens::default();
-
-    let ast = syn::parse(input).unwrap();
-    if let syn::Item::Fn(ref item_fn) = ast {
-        let fname = item_fn.ident;
-        let inner = item_fn.block.clone();
-
-        for (n, case) in params.cases.iter().enumerate() {
-            let fixtures = item_fn.decl.inputs
-                .iter()
-                .zip(case.0.iter())
-                .filter_map(|(arg, val)|
-                    arg_2_fixture(arg, Some(val.clone())))
-                .collect::<Vec<_>>();
-            let name = Ident::from(format!("{}_case_{}", fname, n));
-            let tcase = quote! {
-                #[test]
-                fn #name() {
-                    #(#fixtures)*
-                    #inner
-                }
-            };
-            res.append_all(tcase);
-        };
+    if let syn::Item::Fn(ref item_fn) = syn::parse(input).unwrap() {
+        add_parametrize_cases(item_fn, params).into()
+    } else {
+        panic!("Should be a fn item");
     }
-
-    res.into()
 }
 
 #[cfg(test)]
@@ -287,7 +311,7 @@ mod test {
 
     fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg, syn::token::Comma> {
         if let &syn::Item::Fn(ref item_fn) = item {
-            return item_fn.decl.inputs.iter();
+            item_fn.decl.inputs.iter()
         } else {
             panic!("Wrong ast!")
         }
@@ -300,7 +324,7 @@ mod test {
 
         let line = arg_2_fixture_str(args, None);
 
-        assert_eq!("let fix: String = fix ( );", &line.unwrap());
+        assert_eq!("let fix = fix ( );", &line.unwrap());
     }
 
     #[test]
@@ -310,20 +334,78 @@ mod test {
 
         let line = arg_2_fixture_str(args, None);
 
-        assert_eq!("let mut fix: String = fix ( );", &line.unwrap());
+        assert_eq!("let mut fix = fix ( );", &line.unwrap());
     }
 
     #[test]
     fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
-        let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
+        let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
         let call = syn::parse_str("bar()").unwrap();
         let args = fn_args(&ast).next().unwrap();
 
         let line = arg_2_fixture_str(args,
                                      Some(call));
 
-        assert_eq!("let mut fix: String = bar ( );", &line.unwrap());
+        assert_eq!("let fix = bar ( );", &line.unwrap());
     }
+
+    #[derive(Default)]
+    struct Resolver<'a>(std::collections::HashMap<String, &'a syn::Expr>);
+
+    impl<'a> Resolver<'a> {
+        fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a syn::Expr) {
+            self.0.insert(ident.as_ref().to_string(), expr);
+        }
+
+        fn resolve(&self, arg: &syn::FnArg) -> Option<&syn::Expr> {
+            if let syn::FnArg::Captured(_) = arg {
+                self.0.get(&arg_name(arg).to_string())
+                    .map(|&a| a)
+            } else {
+                None
+            }
+        }
+    }
+
+    #[test]
+    fn resolver_should_return_the_given_expression() {
+        let ast = syn::parse_str("fn function(foo: String) {}").unwrap();
+        let arg = fn_args(&ast).next().unwrap();
+        let expected = syn::parse_str("bar()").unwrap();
+        let mut resolver = Resolver::default();
+
+        resolver.add("foo", &expected);
+
+        assert_eq!(&expected, resolver.resolve(&arg).unwrap())
+    }
+
+    #[test]
+    fn resolver_should_return_none_for_unknown_argument() {
+        let ast = syn::parse_str("fn function(foo: String) {}").unwrap();
+        let arg = fn_args(&ast).next().unwrap();
+        let resolver = Resolver::default();
+
+        assert!(resolver.resolve(&arg).is_none())
+    }
+
+//    #[test]
+//    fn resolver_build_from_test_case_and_args() {
+//        let ast = syn::parse_str("fn tcase(expected: usize, input: &str) {}").unwrap();
+//        let args = fn_args(&ast).collect::<Vec<_>>();
+//        let meta_args = r#"(
+//            expected, input,
+//            case(5, "ciao"),
+//            case(3, "Foo")
+//        )"#;
+//
+//        let parametrize = parse_parametrize_data(meta_args).unwrap();
+//
+//        let resolver = Resolver::from(parametrize.args, parametrize.cases[0]);
+//
+//        assert_eq!(&syn::Expr::Lit{ attr: vec![],
+//            lit: syn::Lit::Int(syn::LitInt::new(5, syn::IntSuffix::None))}, resolver.get(args[0]));
+//        assert_eq!(&syn::Expr::Lit(), resolver.get(args[1]));
+//    }
 
     #[test]
     fn parametrize_no_name_vec_and_array() {

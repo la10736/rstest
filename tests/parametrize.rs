@@ -64,14 +64,18 @@ fn parametrize_simple_should_compile() {
     assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
 }
 
+fn run_test(res: &str) -> std::process::Output {
+    let root = TempDir::default().permanent();
+    Project::new(&root)
+        .create()
+        .set_code_file(resources(res))
+        .run_tests()
+        .unwrap()
+}
+
 #[test]
 fn parametrize_simple_happy_path() {
-    let root = TempDir::default().permanent();
-    let output = Project::new(&root)
-        .create()
-        .set_code_file(resources("parametrize_simple.rs"))
-        .run_tests()
-        .unwrap();
+    let output = run_test("parametrize_simple.rs");
 
     TestResults::new()
         .ok("strlen_test_case_0")
@@ -81,15 +85,21 @@ fn parametrize_simple_happy_path() {
 
 #[test]
 fn parametrize_mut() {
-    let root = TempDir::default().permanent();
-    let output = Project::new(&root)
-        .create()
-        .set_code_file(resources("parametrize_mut.rs"))
-        .run_tests()
-        .unwrap();
+    let output = run_test("parametrize_mut.rs");
 
     TestResults::new()
         .ok("add_test_case_0")
         .ok("add_test_case_1")
+        .assert(output);
+}
+
+
+#[test]
+fn parametrize_generic() {
+    let output = run_test("parametrize_generic.rs");
+
+    TestResults::new()
+        .ok("strlen_test_case_0")
+        .ok("strlen_test_case_1")
         .assert(output);
 }
