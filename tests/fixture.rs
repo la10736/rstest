@@ -10,14 +10,28 @@ pub mod utils;
 use utils::*;
 use prj::Project;
 
+fn run_test(res: &str) -> std::process::Output {
+    let root = TempDir::default().permanent();
+    Project::new(&root)
+        .create()
+        .set_code_file(resources(res))
+        .run_tests()
+        .unwrap()
+}
+
 #[test]
 fn happy_path_one_success_and_one_fail() {
-    let root = TempDir::default();
-    let output = Project::new(&root)
-        .create()
-        .set_code_file(resources("fixture_simple.rs"))
-        .run_tests()
-        .unwrap();
+    let output = run_test("fixture_simple.rs");
+
+    TestResults::new()
+        .ok("should_success")
+        .fail("should_fail")
+        .assert(output);
+}
+
+#[test]
+fn mutable_fixture() {
+    let output = run_test("fixture_mut.rs");
 
     TestResults::new()
         .ok("should_success")

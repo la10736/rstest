@@ -220,15 +220,17 @@ pub fn rstest(_args: proc_macro::TokenStream,
               -> proc_macro::TokenStream {
     let ast = syn::parse(input.clone()).unwrap();
     if let syn::Item::Fn(ref item_fn) = ast {
+        let orig = item_fn.clone();
         let name = item_fn.ident;
-        let inner = item_fn.block.clone();
         let resolver = Resolver::default();
         let fixtures = fixtures(item_fn, &resolver);
+        let args = item_fn.decl.inputs.iter().map(arg_name);
         let res: quote::Tokens = quote! {
             #[test]
             fn #name() {
+                #orig
                 #(#fixtures)*
-                #inner
+                #name(#(#args),*)
             }
         };
         res.into()
