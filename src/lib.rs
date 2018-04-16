@@ -172,11 +172,10 @@ fn arg_name(arg: &syn::FnArg) -> &syn::Ident {
 
 fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
     if let &syn::FnArg::Captured(ref a) = arg {
-        let declaration = a.pat.clone().into_tokens();
         let fixture = resolver
             .resolve(arg).map(|e| e.clone())
             .unwrap_or_else(|| default_fixture_name(a));
-        Some(format!("let {} = {};", declaration, fixture.into_tokens()))
+        Some(format!("let {} = {};", arg_name(arg), fixture.into_tokens()))
     } else {
         None
     }
@@ -352,14 +351,14 @@ mod test {
     }
 
     #[test]
-    fn extract_fixture_should_add_mut_too() {
+    fn extract_fixture_should_not_add_mut() {
         let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
         let resolver = Resolver::default();
 
         let line = arg_2_fixture_str(args, &resolver);
 
-        assert_eq!("let mut fix = fix ( );", &line.unwrap());
+        assert_eq!("let fix = fix ( );", &line.unwrap());
     }
 
     #[test]
