@@ -263,7 +263,6 @@ fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> quot
             };
         res.append_all(tcase);
     };
-    println!("{}", res);
     res
 }
 
