@@ -170,26 +170,49 @@ fn arg_name(arg: &syn::FnArg) -> &syn::Ident {
     }
 }
 
-fn arg_2_fixture_str(arg: &syn::FnArg, fixture: Option<syn::Expr>) -> Option<String> {
+fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
     if let &syn::FnArg::Captured(ref a) = arg {
         let declaration = a.pat.clone().into_tokens();
-        let fixture = fixture.unwrap_or_else(|| default_fixture_name(a));
+        let fixture = resolver
+            .resolve(arg).map(|e| e.clone())
+            .unwrap_or_else(|| default_fixture_name(a));
         Some(format!("let {} = {};", declaration, fixture.into_tokens()))
     } else {
         None
     }
 }
 
-fn arg_2_fixture(arg: &syn::FnArg, fixture: Option<syn::Expr>) -> Option<syn::Stmt> {
-    arg_2_fixture_str(arg, fixture).and_then(|line| syn::parse_str(&line).ok())
+fn arg_2_fixture(arg: &syn::FnArg, resolver: &Resolver) -> Option<syn::Stmt> {
+    arg_2_fixture_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
 }
 
-fn fixtures<'a>(item_fn: &'a syn::ItemFn,
-                resolvers: Vec<Option<syn::Expr>>) -> impl Iterator<Item=syn::Stmt> + 'a {
+#[derive(Default)]
+struct Resolver<'a>(std::collections::HashMap<String, &'a syn::Expr>);
+
+impl<'a> Resolver<'a> {
+    fn new(args: &Vec<syn::Ident>, case: &'a TestCase) -> Self {
+        Resolver(
+            args.iter()
+                .zip(case.0.iter())
+                .map(|(&name, expr)| (name.to_string(), expr))
+                .collect()
+        )
+    }
+
+    fn resolve(&self, arg: &syn::FnArg) -> Option<&syn::Expr> {
+        if let syn::FnArg::Captured(_) = arg {
+            self.0.get(&arg_name(arg).to_string())
+                .map(|&a| a)
+        } else {
+            None
+        }
+    }
+}
+
+fn fixtures<'a>(item_fn: &'a syn::ItemFn, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
     item_fn.decl.inputs
         .iter()
-        .zip(resolvers.into_iter())
-        .filter_map(|(arg, resolver)| arg_2_fixture(arg, resolver))
+        .filter_map(move |arg| arg_2_fixture(arg, resolver))
 }
 
 #[proc_macro_attribute]
@@ -200,8 +223,8 @@ pub fn rstest(_args: proc_macro::TokenStream,
     if let syn::Item::Fn(ref item_fn) = ast {
         let name = item_fn.ident;
         let inner = item_fn.block.clone();
-        let aa = item_fn.decl.inputs.iter().map(|_| None).collect();
-        let fixtures = fixtures(item_fn, aa);
+        let resolver = Resolver::default();
+        let fixtures = fixtures(item_fn, &resolver);
         let res: quote::Tokens = quote! {
             #[test]
             fn #name() {
@@ -227,7 +250,8 @@ fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> quot
         }
     );
     for (n, case) in params.cases.iter().enumerate() {
-        let fixtures = fixtures(item_fn, case.0.iter().cloned().map(|v| Some(v)).collect());
+        let resolver = Resolver::new(&params.args, &case);
+        let fixtures = fixtures(item_fn, &resolver);
         let name = Ident::from(format!("{}_case_{}", fname, n));
         let args = item_fn.decl.inputs.iter().map(arg_name);
         let tcase = quote! {
@@ -321,8 +345,9 @@ mod test {
     fn extract_fixture_call_arg() {
         let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
+        let resolver = Resolver::default();
 
-        let line = arg_2_fixture_str(args, None);
+        let line = arg_2_fixture_str(args, &resolver);
 
         assert_eq!("let fix = fix ( );", &line.unwrap());
     }
@@ -331,8 +356,9 @@ mod test {
     fn extract_fixture_should_add_mut_too() {
         let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
+        let resolver = Resolver::default();
 
-        let line = arg_2_fixture_str(args, None);
+        let line = arg_2_fixture_str(args, &resolver);
 
         assert_eq!("let mut fix = fix ( );", &line.unwrap());
     }
@@ -342,30 +368,20 @@ mod test {
         let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
         let call = syn::parse_str("bar()").unwrap();
         let args = fn_args(&ast).next().unwrap();
+        let mut resolver = Resolver::default();
+        resolver.add("fix", &call);
 
-        let line = arg_2_fixture_str(args,
-                                     Some(call));
+        let line = arg_2_fixture_str(args, &resolver);
 
         assert_eq!("let fix = bar ( );", &line.unwrap());
     }
-
-    #[derive(Default)]
-    struct Resolver<'a>(std::collections::HashMap<String, &'a syn::Expr>);
 
     impl<'a> Resolver<'a> {
         fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a syn::Expr) {
             self.0.insert(ident.as_ref().to_string(), expr);
         }
-
-        fn resolve(&self, arg: &syn::FnArg) -> Option<&syn::Expr> {
-            if let syn::FnArg::Captured(_) = arg {
-                self.0.get(&arg_name(arg).to_string())
-                    .map(|&a| a)
-            } else {
-                None
-            }
-        }
     }
+
 
     #[test]
     fn resolver_should_return_the_given_expression() {
@@ -388,24 +404,24 @@ mod test {
         assert!(resolver.resolve(&arg).is_none())
     }
 
-//    #[test]
-//    fn resolver_build_from_test_case_and_args() {
-//        let ast = syn::parse_str("fn tcase(expected: usize, input: &str) {}").unwrap();
-//        let args = fn_args(&ast).collect::<Vec<_>>();
-//        let meta_args = r#"(
-//            expected, input,
-//            case(5, "ciao"),
-//            case(3, "Foo")
-//        )"#;
-//
-//        let parametrize = parse_parametrize_data(meta_args).unwrap();
-//
-//        let resolver = Resolver::from(parametrize.args, parametrize.cases[0]);
-//
-//        assert_eq!(&syn::Expr::Lit{ attr: vec![],
-//            lit: syn::Lit::Int(syn::LitInt::new(5, syn::IntSuffix::None))}, resolver.get(args[0]));
-//        assert_eq!(&syn::Expr::Lit(), resolver.get(args[1]));
-//    }
+    #[test]
+    fn resolver_build_from_test_case_and_args() {
+        let ast = syn::parse_str("fn tcase(expected: usize, bar: u32, input: &str) {}").unwrap();
+        let args = fn_args(&ast).collect::<Vec<_>>();
+        let meta_args = r#"(
+            expected, input,
+            case(5, "ciao"),
+            case(3, "Foo")
+        )"#;
+
+        let parametrize = parse_parametrize_data(meta_args).unwrap();
+
+        let resolver = Resolver::new(&parametrize.args, &parametrize.cases[0]);
+
+        assert_eq!(&parametrize.cases[0].0[0], resolver.resolve(&args[0]).unwrap());
+        assert_eq!(&parametrize.cases[0].0[1], resolver.resolve(&args[2]).unwrap());
+        assert!(resolver.resolve(&args[1]).is_none());
+    }
 
     #[test]
     fn parametrize_no_name_vec_and_array() {

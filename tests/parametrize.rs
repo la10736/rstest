@@ -103,3 +103,13 @@ fn parametrize_generic() {
         .ok("strlen_test_case_1")
         .assert(output);
 }
+
+#[test]
+fn parametrize_fallback() {
+    let output = run_test("parametrize_fallback.rs");
+
+    TestResults::new()
+        .ok("sum_case_0")
+        .ok("sum_case_1")
+        .assert(output);
+}
