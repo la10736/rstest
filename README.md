@@ -12,14 +12,11 @@ The core idea is that every input arguments of your test function will be resolv
 
 Example:
 
-```
+```rust
 #![feature(proc_macro)]
-
 extern crate rstest;
 
-
 use rstest::rstest;
-
 
 pub fn fixture() -> u32 { 42 }
 
@@ -36,7 +33,7 @@ fn should_fail(fixture: u32) {
 
 Moreover you can use `rstest_parametrize` attribute to implement table based tests.  An example is the best way to explain it
 
-```
+```rust
 #![feature(proc_macro)]
 extern crate rstest;
 
