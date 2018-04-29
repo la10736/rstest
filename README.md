@@ -50,3 +50,14 @@ fn strlen_test(expected: usize, input: &str) {
 ```
 
 You can find more examples in `resources` directory and in [`rs8080`](https://github.com/la10736/rs8080) that use this module intensely.
+
+## License
+
+Licensed under either of
+
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
