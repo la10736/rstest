@@ -2,10 +2,11 @@
 
 **Disclaimer**: that is just a proof of concept.
 
-`rstest` use procedural macro to implement simple fixtures and table based tests. To use it you need nightly toolchain and add follow line to your `Cargo.toml` file (I didn't published `rstest` yet):
+`rstest` use procedural macro to implement simple fixtures and table based tests. To use it you need nightly toolchain and add follow lines to your `Cargo.toml` file (I didn't published `rstest` yet):
 
 ```
-rand = { git = "https://github.com/la10736/rstest" } 
+[dev-dependencies]
+rstest = { git = "https://github.com/la10736/rstest" }
 ```
 
 The core idea is that every input arguments of your test function will be resolved by call a function with the same name. You should also use `mut` argument or generic types. 
@@ -14,6 +15,7 @@ Example:
 
 ```rust
 #![feature(proc_macro)]
+#[cfg(test)]
 extern crate rstest;
 
 use rstest::rstest;
@@ -35,6 +37,7 @@ Moreover you can use `rstest_parametrize` attribute to implement table based tes
 
 ```rust
 #![feature(proc_macro)]
+#[cfg(test)]
 extern crate rstest;
 
 use rstest::rstest_parametrize;
