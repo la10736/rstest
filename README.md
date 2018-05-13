@@ -9,7 +9,7 @@
 rstest = { git = "https://github.com/la10736/rstest" }
 ```
 
-The core idea is that every input arguments of your test function will be resolved by call a function with the same name. You should also use `mut` argument or generic types. 
+The core idea is that every input arguments of your test function will be resolved by call a function with the same name. You can also use `mut` argument or generic types. 
 
 Example:
 
