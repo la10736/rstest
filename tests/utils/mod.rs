@@ -82,7 +82,7 @@ impl<S> TestResults<S>
         assert_in!(output, format!("running {} test", tests.len()));
 
         self.for_each(
-            |t| assert!(output.contains(&format!("test {} ... {}", t.name(), t.msg())))
+            |t| assert_in!(output, format!("test {} ... {}", t.name(), t.msg()))
         );
 
         if self.should_fail() {

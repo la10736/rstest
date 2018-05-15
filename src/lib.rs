@@ -222,11 +222,13 @@ pub fn rstest(_args: proc_macro::TokenStream,
     if let syn::Item::Fn(ref item_fn) = ast {
         let orig = item_fn.clone();
         let name = item_fn.ident;
+        let attrs = item_fn.attrs.clone();
         let resolver = Resolver::default();
         let fixtures = fixtures(item_fn, &resolver);
         let args = item_fn.decl.inputs.iter().map(arg_name);
         let res: quote::Tokens = quote! {
             #[test]
+            #(#attrs)*
             fn #name() {
                 #orig
                 #(#fixtures)*
@@ -254,9 +256,11 @@ fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> quot
         let resolver = Resolver::new(&params.args, &case);
         let fixtures = fixtures(item_fn, &resolver);
         let name = Ident::from(format!("{}_case_{}", fname, n));
+        let attrs = item_fn.attrs.clone();
         let args = item_fn.decl.inputs.iter().map(arg_name);
         let tcase = quote! {
                 #[test]
+                #(#attrs)*
                 fn #name() {
                     #(#fixtures)*
                     #fname(#(#args),*)

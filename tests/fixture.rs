@@ -38,3 +38,13 @@ fn mutable_fixture() {
         .fail("should_fail")
         .assert(output);
 }
+
+#[test]
+fn should_panic() {
+    let output = run_test("fixture_panic.rs");
+
+    TestResults::new()
+        .ok("should_success")
+        .fail("should_fail")
+        .assert(output);
+}

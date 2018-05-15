@@ -113,3 +113,14 @@ fn parametrize_fallback() {
         .ok("sum_case_1")
         .assert(output);
 }
+
+#[test]
+fn parametrize_should_panic() {
+    let output = run_test("parametrize_panic.rs");
+
+    TestResults::new()
+        .ok("fail_case_0")
+        .ok("fail_case_1")
+        .fail("fail_case_2")
+        .assert(output);
+}
