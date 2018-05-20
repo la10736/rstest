@@ -60,16 +60,19 @@ fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, RsTestError> {
 
 fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
     match a {
-        &syn::NestedMeta::Literal(ref l) =>
+        syn::NestedMeta::Literal(l) =>
             parse_expression(format!("{}", l.into_tokens())),
-        &syn::NestedMeta::Meta(ref opt) => {
+        syn::NestedMeta::Meta(opt) => {
             match opt {
-                &syn::Meta::List(ref arg) if arg.ident.as_ref() == "Unwrap" =>
-                    match &arg.nested.first().unwrap().value() {
-                        &syn::NestedMeta::Literal(syn::Lit::Str(inner_unwrap)) =>
+                syn::Meta::List(arg) if arg.ident.as_ref() == "Unwrap" =>
+                    match arg.nested.first().unwrap().value() {
+                        syn::NestedMeta::Literal(syn::Lit::Str(inner_unwrap)) =>
                             parse_expression(inner_unwrap.value()),
                         _ => panic!("Unexpected case argument: {:?}", opt),
                     },
+                syn::Meta::Word(term) => {
+                    parse_expression(term.to_string())
+                }
                 nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
             }
         }
@@ -337,6 +340,17 @@ mod test {
         assert!(!l.is_empty());
     }
 
+    #[test]
+    fn parse_meta_should_accept_bool_as_literal() {
+        let meta_args = r#"(
+            case(true, false)
+        )"#;
+
+        let l = parse_meta_list(meta_args).unwrap();
+
+        assert!(!l.is_empty());
+    }
+
     fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg, syn::token::Comma> {
         if let &syn::Item::Fn(ref item_fn) = item {
             item_fn.decl.inputs.iter()
@@ -445,6 +459,22 @@ mod test {
         assert_eq!(&c0, &data.cases[0]);
         assert_eq!(&c1, &data.cases[1]);
         assert_eq!(&vec![c0, c1], &data.cases);
+    }
+
+    #[test]
+    fn parametrize_with_two_bool_attributes() {
+        let meta_args = r#"(
+            first, second,
+            case(true, false),
+        )"#;
+
+        let data = parse_parametrize_data(meta_args).unwrap();
+
+        let c0: TestCase = ["true", "false"].as_ref().into();
+
+        assert_eq!(&vec![Ident::from("first"), Ident::from("second")],
+                   &data.args);
+        assert_eq!(&vec![c0], &data.cases);
     }
 }
 

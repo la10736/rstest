@@ -124,3 +124,13 @@ fn parametrize_should_panic() {
         .fail("fail_case_2")
         .assert(output);
 }
+
+#[test]
+fn parametrize_bool() {
+    let output = run_test("parametrize_bool.rs");
+
+    TestResults::new()
+        .ok("bool_case_0")
+        .fail("bool_case_1")
+        .assert(output);
+}
