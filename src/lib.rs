@@ -1,5 +1,4 @@
-#![feature(proc_macro, try_from, underscore_lifetimes, match_default_bindings,
-conservative_impl_trait)]
+#![feature(proc_macro, try_from)]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -27,7 +26,7 @@ fn attribute(input: &str) -> Attribute {
 
 
 fn parse_meta_list<S: AsRef<str>>(meta: S) -> Option<Vec<NestedMeta>> {
-    let meta = format!("#[foo{}]", meta.as_ref().to_string());
+    let meta = format!("#[foo({})]", meta.as_ref().to_string());
     attribute(&meta).interpret_meta().map(
         |m| match m {
             Meta::List(data) => {
@@ -297,7 +296,7 @@ mod test {
 
     #[test]
     fn parse_empty_meta() {
-        assert!(parse_meta_list("()").unwrap().is_empty());
+        assert!(parse_meta_list("").unwrap().is_empty());
     }
 
     fn meta<M: From<Meta>>(name: &str) -> M {
@@ -308,16 +307,16 @@ mod test {
     fn parse_simple_meta() {
         let expected: Vec<NestedMeta> = vec![meta("first"), meta("second")];
 
-        assert_eq!(expected, parse_meta_list("(first, second)").unwrap());
+        assert_eq!(expected, parse_meta_list("first, second").unwrap());
     }
 
     #[test]
     fn extract_parametrize_no_names_happy_path() {
-        let meta_args = r#"(
+        let meta_args = r#"
             expected, input,
             case(5, "ciao"),
             case(3, "Foo")
-        )"#;
+        "#;
 
         let data = parse_parametrize_data(meta_args).unwrap();
 
@@ -331,9 +330,9 @@ mod test {
 
     #[test]
     fn parse_complex_meta() {
-        let meta_args = r#"(
+        let meta_args = r#"
             case(4, pippo="pluto", Unwrap("vec![1,3]"), name="my_name")
-        )"#;
+        "#;
 
         let l = parse_meta_list(meta_args).unwrap();
 
@@ -342,9 +341,9 @@ mod test {
 
     #[test]
     fn parse_meta_should_accept_bool_as_literal() {
-        let meta_args = r#"(
+        let meta_args = r#"
             case(true, false)
-        )"#;
+        "#;
 
         let l = parse_meta_list(meta_args).unwrap();
 
@@ -426,11 +425,11 @@ mod test {
     fn resolver_build_from_test_case_and_args() {
         let ast = syn::parse_str("fn tcase(expected: usize, bar: u32, input: &str) {}").unwrap();
         let args = fn_args(&ast).collect::<Vec<_>>();
-        let meta_args = r#"(
+        let meta_args = r#"
             expected, input,
             case(5, "ciao"),
             case(3, "Foo")
-        )"#;
+        "#;
 
         let parametrize = parse_parametrize_data(meta_args).unwrap();
 
@@ -443,11 +442,11 @@ mod test {
 
     #[test]
     fn parametrize_no_name_vec_and_array() {
-        let meta_args = r#"(
+        let meta_args = r#"
             expected, input,
             case(4, Unwrap("vec![1,3]")),
             case(10, Unwrap("[2,3,5]"))
-        )"#;
+        "#;
 
         let data = parse_parametrize_data(meta_args).unwrap();
 
@@ -463,10 +462,10 @@ mod test {
 
     #[test]
     fn parametrize_with_two_bool_attributes() {
-        let meta_args = r#"(
+        let meta_args = r#"
             first, second,
             case(true, false),
-        )"#;
+        "#;
 
         let data = parse_parametrize_data(meta_args).unwrap();
 
