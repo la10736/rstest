@@ -1,7 +1,5 @@
 # A simple `pytest` clone for Rust
 
-**Disclaimer**: that is just a proof of concept.
-
 `rstest` use procedural macro to implement simple fixtures and table based tests. To use it you need nightly toolchain and add follow lines to your `Cargo.toml` file (I didn't published `rstest` yet):
 
 ```
@@ -14,7 +12,6 @@ The core idea is that every input arguments of your test function will be resolv
 Example:
 
 ```rust
-#![feature(proc_macro)]
 #[cfg(test)]
 extern crate rstest;
 
@@ -36,7 +33,6 @@ fn should_fail(fixture: u32) {
 Moreover you can use `rstest_parametrize` attribute to implement table based tests.  An example is the best way to explain it
 
 ```rust
-#![feature(proc_macro)]
 #[cfg(test)]
 extern crate rstest;
 

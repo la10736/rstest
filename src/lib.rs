@@ -1,5 +1,3 @@
-#![feature(proc_macro, try_from)]
-
 extern crate proc_macro;
 extern crate proc_macro2;
 #[macro_use]
@@ -8,7 +6,6 @@ extern crate syn;
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use std::convert::TryFrom;
 use syn::*;
 use syn::buffer::TokenBuffer;
 
@@ -23,7 +20,6 @@ fn attribute(input: &str) -> Attribute {
         Err(err) => panic!(err),
     }
 }
-
 
 fn parse_meta_list<S: AsRef<str>>(meta: S) -> Option<Vec<NestedMeta>> {
     let meta = format!("#[foo({})]", meta.as_ref().to_string());
@@ -76,6 +72,14 @@ fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
             }
         }
     }
+}
+
+trait TryFrom<T>: Sized
+    where T: Sized
+{
+    type Error;
+
+    fn try_from(t: T) -> Result<Self, Self::Error>;
 }
 
 impl<'a> TryFrom<&'a MetaList> for TestCase {
