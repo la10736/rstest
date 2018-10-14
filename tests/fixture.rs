@@ -1,6 +1,4 @@
 extern crate temp_testdir;
-#[macro_use]
-extern crate rstest_util;
 
 use temp_testdir::TempDir;
 

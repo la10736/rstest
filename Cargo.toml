@@ -1,7 +1,16 @@
 [package]
 name = "rstest"
-version = "0.1.0"
-authors = ["michele <michele.damico@gmail.com>"]
+version = "0.2.0"
+authors = ["Michele d'Amico <michele.damico@gmail.com>"]
+homepage = "https://github.com/la10736/rstest"
+description = """
+A simple `pytest` clone for Rust. It use procedural macro
+to implement fixtures and table based tests.
+"""
+repository = "https://github.com/la10736/rstest"
+license = "MIT/Apache-2.0"
+keywords = ["test", "fixture"]
+categories = ["test"]
 
 [lib]
 proc-macro = true
@@ -13,4 +22,3 @@ quote = "0.4"
 
 [dev-dependencies]
 temp_testdir = { git = "https://github.com/la10736/temp_testdir" }
-rstest_util = { git = "https://github.com/la10736/rstest_util" }

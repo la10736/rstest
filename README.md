@@ -1,13 +1,17 @@
 # A simple `pytest` clone for Rust
 
-`rstest` use procedural macro to implement simple fixtures and table based tests. To use it you need nightly toolchain and add follow lines to your `Cargo.toml` file (I didn't published `rstest` yet):
+`rstest` use procedural macro to implement simple fixtures and table based tests.
+To use it you need at least 1.30 toolchain (beta channel till 2018-10-25)
+and add follow lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = { git = "https://github.com/la10736/rstest" }
+rstest = "0.2"
 ```
 
-The core idea is that every input arguments of your test function will be resolved by call a function with the same name. You can also use `mut` argument or generic types. 
+The core idea is that every input arguments of your test function will
+be resolved by call a function with the same name. You can also use
+`mut` argument or generic types.
 
 Example:
 
@@ -30,7 +34,8 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-Moreover you can use `rstest_parametrize` attribute to implement table based tests.  An example is the best way to explain it
+Moreover you can use `rstest_parametrize` attribute to implement table
+based tests.  An example is the best way to explain it
 
 ```rust
 #[cfg(test)]

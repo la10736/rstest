@@ -1,3 +1,5 @@
-
+/.idea
 /target/
 **/*.rs.bk
+Cargo.lock
+rstest.iml
