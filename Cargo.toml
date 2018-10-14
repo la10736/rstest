@@ -10,7 +10,7 @@ to implement fixtures and table based tests.
 repository = "https://github.com/la10736/rstest"
 license = "MIT/Apache-2.0"
 keywords = ["test", "fixture"]
-categories = ["test"]
+categories = ["development-tools::testing"]
 
 [lib]
 proc-macro = true
@@ -21,4 +21,4 @@ proc-macro2 = { version = "0.2" }
 quote = "0.4"
 
 [dev-dependencies]
-temp_testdir = { git = "https://github.com/la10736/temp_testdir" }
+temp_testdir = "0.2"
