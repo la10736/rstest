@@ -1,6 +1,6 @@
 [package]
 name = "rstest"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
@@ -11,6 +11,7 @@ repository = "https://github.com/la10736/rstest"
 license = "MIT/Apache-2.0"
 keywords = ["test", "fixture"]
 categories = ["development-tools::testing"]
+readme = "README.md"
 
 [lib]
 proc-macro = true
