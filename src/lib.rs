@@ -8,6 +8,7 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::*;
 use syn::buffer::TokenBuffer;
+use quote::TokenStreamExt;
 
 fn attribute(input: &str) -> Attribute {
     let tokens = input.parse::<TokenStream>().unwrap();
@@ -56,10 +57,10 @@ fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, RsTestError> {
 fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
     match a {
         syn::NestedMeta::Literal(l) =>
-            parse_expression(format!("{}", l.into_tokens())),
+            parse_expression(format!("{}", l.into_token_stream())),
         syn::NestedMeta::Meta(opt) => {
             match opt {
-                syn::Meta::List(arg) if arg.ident.as_ref() == "Unwrap" =>
+                syn::Meta::List(arg) if &arg.ident == "Unwrap" =>
                     match arg.nested.first().unwrap().value() {
                         syn::NestedMeta::Literal(syn::Lit::Str(inner_unwrap)) =>
                             parse_expression(inner_unwrap.value()),
@@ -86,7 +87,7 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
     type Error = RsTestError;
 
     fn try_from(l: &'a MetaList) -> Result<Self, Self::Error> {
-        if l.ident.as_ref() == "case" {
+        if l.ident == "case" {
             let res: Result<Vec<_>, _> = l.nested.iter().map(
                 |e|
                     parse_case_arg(e)
@@ -120,7 +121,7 @@ fn parse_meta_item(meta: Meta) -> Option<ParametrizeElement> {
     use ParametrizeElement::*;
     match meta {
         Word(ident) => Some(Arg(ident)),
-        List(ref l) if l.ident.as_ref() == "case" => {
+        List(ref l) if l.ident == "case" => {
             TestCase::try_from(l).map(Case).ok()
         }
         _ => None
@@ -181,7 +182,7 @@ fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
         let fixture = resolver
             .resolve(arg).map(|e| e.clone())
             .unwrap_or_else(|| default_fixture_name(a));
-        Some(format!("let {} = {};", arg_name(arg), fixture.into_tokens()))
+        Some(format!("let {} = {};", arg_name(arg), fixture.into_token_stream()))
     } else {
         None
     }
@@ -199,7 +200,7 @@ impl<'a> Resolver<'a> {
         Resolver(
             args.iter()
                 .zip(case.0.iter())
-                .map(|(&name, expr)| (name.to_string(), expr))
+                .map(|(ref name, expr)| (name.to_string(), expr))
                 .collect()
         )
     }
@@ -227,12 +228,12 @@ pub fn rstest(_args: proc_macro::TokenStream,
     let ast = syn::parse(input.clone()).unwrap();
     if let syn::Item::Fn(ref item_fn) = ast {
         let orig = item_fn.clone();
-        let name = item_fn.ident;
+        let name = &item_fn.ident;
         let attrs = item_fn.attrs.clone();
         let resolver = Resolver::default();
         let fixtures = fixtures(item_fn, &resolver);
         let args = item_fn.decl.inputs.iter().map(arg_name);
-        let res: quote::Tokens = quote! {
+        let res = quote_spanned! { name.span() =>
             #[test]
             #(#attrs)*
             fn #name() {
@@ -247,21 +248,20 @@ pub fn rstest(_args: proc_macro::TokenStream,
     }
 }
 
-fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> quote::Tokens {
-    let mut res = quote::Tokens::default();
-    let fname = item_fn.ident;
+fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> TokenStream {
+    let fname = &item_fn.ident;
 
     let orig = item_fn.clone();
 
-    res.append_all(quote! {
+    let mut res = quote! {
             #[cfg(test)]
             #orig
-        }
-    );
+        };
+
     for (n, case) in params.cases.iter().enumerate() {
         let resolver = Resolver::new(&params.args, &case);
         let fixtures = fixtures(item_fn, &resolver);
-        let name = Ident::from(format!("{}_case_{}", fname, n));
+        let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
         let attrs = item_fn.attrs.clone();
         let args = item_fn.decl.inputs.iter().map(arg_name);
         let tcase = quote! {
@@ -292,6 +292,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream,
 #[cfg(test)]
 mod test {
     use super::*;
+    use proc_macro2::Span;
 
     #[test]
     fn parse_invalid_meta() {
@@ -303,8 +304,12 @@ mod test {
         assert!(parse_meta_list("").unwrap().is_empty());
     }
 
+    fn ident(name: &str) -> Ident {
+        Ident::new(name, Span::call_site())
+    }
+
     fn meta<M: From<Meta>>(name: &str) -> M {
-        Meta::Word(name.into()).into()
+        Meta::Word(ident(name)).into()
     }
 
     #[test]
@@ -324,7 +329,7 @@ mod test {
 
         let data = parse_parametrize_data(meta_args).unwrap();
 
-        assert_eq!(&vec![Ident::from("expected"), Ident::from("input")], &data.args);
+        assert_eq!(&vec![ident("expected"), ident("input")], &data.args);
 
         let c0: TestCase = ["5", "\"ciao\""].as_ref().into();
         let c1 = ["3", "\"Foo\""].as_ref().into();
@@ -354,7 +359,7 @@ mod test {
         assert!(!l.is_empty());
     }
 
-    fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg, syn::token::Comma> {
+    fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg> {
         if let &syn::Item::Fn(ref item_fn) = item {
             item_fn.decl.inputs.iter()
         } else {
@@ -457,7 +462,7 @@ mod test {
         let c0: TestCase = ["4", "vec![1, 3]"].as_ref().into();
         let c1: TestCase = ["10", "[2,3,5]"].as_ref().into();
 
-        assert_eq!(&vec![Ident::from("expected"), Ident::from("input")],
+        assert_eq!(&vec![ident("expected"), ident("input")],
                    &data.args);
         assert_eq!(&c0, &data.cases[0]);
         assert_eq!(&c1, &data.cases[1]);
@@ -475,7 +480,7 @@ mod test {
 
         let c0: TestCase = ["true", "false"].as_ref().into();
 
-        assert_eq!(&vec![Ident::from("first"), Ident::from("second")],
+        assert_eq!(&vec![ident("first"), ident("second")],
                    &data.args);
         assert_eq!(&vec![c0], &data.cases);
     }
