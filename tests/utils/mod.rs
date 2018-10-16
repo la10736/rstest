@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::borrow::Cow;
+use std::thread;
 
 
 pub fn resources<O: AsRef<Path>>(name: O) -> PathBuf {
@@ -143,4 +144,8 @@ impl<B: AsRef<[u8]>> Stringable for B {
     fn str(&self) -> Cow<str> {
         String::from_utf8_lossy(self.as_ref())
     }
+}
+
+pub fn testname() -> String {
+    thread::current().name().unwrap().to_string()
 }

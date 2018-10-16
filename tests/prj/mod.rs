@@ -6,10 +6,15 @@ use std::{
     io::Write,
 };
 
-#[derive(Clone)]
+use toml_edit::{Document, Item, Array};
+use std::fs::File;
+use std::io::Read;
+use toml_edit::Table;
+
 pub struct Project {
     root: PathBuf,
     name: OsString,
+    ws: std::sync::Mutex<()>,
 }
 
 impl Project {
@@ -17,6 +22,7 @@ impl Project {
         Self {
             root: root.as_ref().to_owned(),
             name: "project".into(),
+            ws: std::sync::Mutex::new(()),
         }
     }
 
@@ -101,5 +107,35 @@ impl Project {
             .unwrap() {
             panic!("cargo add return an error code");
         }
+    }
+
+    fn cargo_toml(&self) -> PathBuf {
+        let mut path = self.path().clone();
+        path.push("Cargo.toml");
+        path
+    }
+
+    pub fn workspace_add(&self, prj: &str) {
+        let _guard = self.ws.lock().expect("Cannot lock workspace resource");
+        let mut orig = String::new();
+        let path = &self.cargo_toml();
+        File::open(path)
+            .expect("cannot open Cargo.toml")
+            .read_to_string(&mut orig)
+            .expect("cannot read Cargo.toml");
+
+        let mut doc = orig.parse::<Document>().expect("invalid Cargo.toml");
+
+        let a : Array = Array::default();
+
+        doc["workspace"].or_insert(Item::Table(Table::new()))
+            ["members"].or_insert(Item::Value(a.into()))
+            .as_array_mut().map(|a| a.push(prj));
+
+        File::create(path)
+            .expect("cannot update Cargo.toml")
+            .write(doc.to_string().as_bytes())
+            .expect("cannot write Cargo.toml");
+
     }
 }
