@@ -13,6 +13,7 @@ pub enum TestResult<S: AsRef<str>> {
     Fail(S),
 }
 
+#[macro_export]
 macro_rules! assert_in {
     ($text:expr, $message:expr) => ({
         match (&$text, &$message) {

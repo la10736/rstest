@@ -16,17 +16,20 @@ lazy_static! {
     static ref root_project: Project = Project::new(root_dir.as_ref()).create();
 }
 
-
-fn run_test(res: &str) -> std::process::Output {
+fn prj(res: &str) -> Project {
     let prj_name = testname();
 
     root_project.workspace_add(&prj_name);
 
-    Project::new(root_project.path())
+    let mut prj = Project::new(root_project.path())
         .name(prj_name)
-        .create()
-        .set_code_file(resources(res))
-        .run_tests()
+        .create();
+    prj.set_code_file(resources(res));
+    prj
+}
+
+fn run_test(res: &str) -> std::process::Output {
+    prj(res).run_tests()
         .unwrap()
 }
 
@@ -58,4 +61,15 @@ fn should_panic() {
         .ok("should_success")
         .fail("should_fail")
         .assert(output);
+}
+
+#[test]
+fn should_show_correct_errors() {
+    let output = prj("fixture_errors.rs").run_tests().unwrap();
+
+    eprintln!("{}", output.stderr.str());
+
+    assert_in!(output.stderr.str(), "12 | #[rstest]\n   | ^^^^^^^^^ did you mean `fixture`?\n");
+    assert_in!(output.stderr.str(), "9 |     let a: u32 = \"\";\n  |                  ^^ expected u32, found reference");
+    assert_in!(output.stderr.str(), "17 | fn error_fixture_wrong_type(fixture: String) {\n   |                             ^^^^^^^\n   |                             |\n   |                             expected struct `std::string::String`, found u32");
 }

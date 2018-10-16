@@ -233,7 +233,7 @@ pub fn rstest(_args: proc_macro::TokenStream,
         let resolver = Resolver::default();
         let fixtures = fixtures(item_fn, &resolver);
         let args = item_fn.decl.inputs.iter().map(arg_name);
-        let res = quote_spanned! { name.span() =>
+        let res = quote! {
             #[test]
             #(#attrs)*
             fn #name() {
