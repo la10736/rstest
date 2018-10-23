@@ -6,33 +6,11 @@ extern crate syn;
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::*;
-use syn::buffer::TokenBuffer;
 use quote::TokenStreamExt;
 
-fn attribute(input: &str) -> Attribute {
-    let tokens = input.parse::<TokenStream>().unwrap();
-    let buf = TokenBuffer::new2(tokens);
-    match Attribute::parse_outer(buf.begin()) {
-        Ok((e, rest)) => {
-            assert!(rest.eof());
-            e
-        }
-        Err(err) => panic!(err),
-    }
-}
-
-fn parse_meta_list<S: AsRef<str>>(meta: S) -> Option<Vec<NestedMeta>> {
-    let meta = format!("#[foo({})]", meta.as_ref().to_string());
-    attribute(&meta).interpret_meta().map(
-        |m| match m {
-            Meta::List(data) => {
-                data.nested.into_iter().collect()
-            }
-            _ => { panic!("Unexpected!") }
-        }
-    )
-}
+use syn::*;
+use syn::parse::{Parse, ParseStream, Result as PResult};
+use syn::punctuated::Punctuated;
 
 #[derive(Debug)]
 enum RsTestError {
@@ -128,13 +106,12 @@ fn parse_meta_item(meta: Meta) -> Option<ParametrizeElement> {
     }
 }
 
-fn parse_parametrize_data<S: AsRef<str>>(meta_args: S) -> Result<ParametrizeInfo, RsTestError> {
-    let metas = parse_meta_list(meta_args);
+fn parse_parametrize_data(metas: Vec<NestedMeta>) -> PResult<ParametrizeInfo> {
     let mut args = vec![];
     let mut cases = vec![];
     use syn::NestedMeta::*;
     use ParametrizeElement::*;
-    for meta in metas.unwrap_or_default() {
+    for meta in metas {
         match meta {
             Meta(m) => {
                 if let Some(item) = parse_meta_item(m) {
@@ -277,11 +254,19 @@ fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> Toke
     res
 }
 
+impl Parse for ParametrizeInfo {
+    fn parse(input: ParseStream) -> PResult<Self> {
+        let all = Punctuated::<NestedMeta, Token![,]>::parse_separated_nonempty(input)?;
+        parse_parametrize_data(all.into_iter().collect())
+    }
+}
+
 #[proc_macro_attribute]
-pub fn rstest_parametrize(args: proc_macro::TokenStream,
-                          input: proc_macro::TokenStream)
-                          -> proc_macro::TokenStream {
-    let params = parse_parametrize_data(format!("{}", args)).unwrap();
+pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
+                          -> proc_macro::TokenStream
+{
+    let params = parse_macro_input!(args as ParametrizeInfo);
+
     if let syn::Item::Fn(ref item_fn) = syn::parse(input).unwrap() {
         add_parametrize_cases(item_fn, params).into()
     } else {
@@ -292,72 +277,6 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream,
 #[cfg(test)]
 mod test {
     use super::*;
-    use proc_macro2::Span;
-
-    #[test]
-    fn parse_invalid_meta() {
-        assert!(parse_meta_list(" aa bb").is_none());
-    }
-
-    #[test]
-    fn parse_empty_meta() {
-        assert!(parse_meta_list("").unwrap().is_empty());
-    }
-
-    fn ident(name: &str) -> Ident {
-        Ident::new(name, Span::call_site())
-    }
-
-    fn meta<M: From<Meta>>(name: &str) -> M {
-        Meta::Word(ident(name)).into()
-    }
-
-    #[test]
-    fn parse_simple_meta() {
-        let expected: Vec<NestedMeta> = vec![meta("first"), meta("second")];
-
-        assert_eq!(expected, parse_meta_list("first, second").unwrap());
-    }
-
-    #[test]
-    fn extract_parametrize_no_names_happy_path() {
-        let meta_args = r#"
-            expected, input,
-            case(5, "ciao"),
-            case(3, "Foo")
-        "#;
-
-        let data = parse_parametrize_data(meta_args).unwrap();
-
-        assert_eq!(&vec![ident("expected"), ident("input")], &data.args);
-
-        let c0: TestCase = ["5", "\"ciao\""].as_ref().into();
-        let c1 = ["3", "\"Foo\""].as_ref().into();
-
-        assert_eq!(&vec![c0, c1], &data.cases);
-    }
-
-    #[test]
-    fn parse_complex_meta() {
-        let meta_args = r#"
-            case(4, pippo="pluto", Unwrap("vec![1,3]"), name="my_name")
-        "#;
-
-        let l = parse_meta_list(meta_args).unwrap();
-
-        assert!(!l.is_empty());
-    }
-
-    #[test]
-    fn parse_meta_should_accept_bool_as_literal() {
-        let meta_args = r#"
-            case(true, false)
-        "#;
-
-        let l = parse_meta_list(meta_args).unwrap();
-
-        assert!(!l.is_empty());
-    }
 
     fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg> {
         if let &syn::Item::Fn(ref item_fn) = item {
@@ -428,61 +347,6 @@ mod test {
         let resolver = Resolver::default();
 
         assert!(resolver.resolve(&arg).is_none())
-    }
-
-    #[test]
-    fn resolver_build_from_test_case_and_args() {
-        let ast = syn::parse_str("fn tcase(expected: usize, bar: u32, input: &str) {}").unwrap();
-        let args = fn_args(&ast).collect::<Vec<_>>();
-        let meta_args = r#"
-            expected, input,
-            case(5, "ciao"),
-            case(3, "Foo")
-        "#;
-
-        let parametrize = parse_parametrize_data(meta_args).unwrap();
-
-        let resolver = Resolver::new(&parametrize.args, &parametrize.cases[0]);
-
-        assert_eq!(&parametrize.cases[0].0[0], resolver.resolve(&args[0]).unwrap());
-        assert_eq!(&parametrize.cases[0].0[1], resolver.resolve(&args[2]).unwrap());
-        assert!(resolver.resolve(&args[1]).is_none());
-    }
-
-    #[test]
-    fn parametrize_no_name_vec_and_array() {
-        let meta_args = r#"
-            expected, input,
-            case(4, Unwrap("vec![1,3]")),
-            case(10, Unwrap("[2,3,5]"))
-        "#;
-
-        let data = parse_parametrize_data(meta_args).unwrap();
-
-        let c0: TestCase = ["4", "vec![1, 3]"].as_ref().into();
-        let c1: TestCase = ["10", "[2,3,5]"].as_ref().into();
-
-        assert_eq!(&vec![ident("expected"), ident("input")],
-                   &data.args);
-        assert_eq!(&c0, &data.cases[0]);
-        assert_eq!(&c1, &data.cases[1]);
-        assert_eq!(&vec![c0, c1], &data.cases);
-    }
-
-    #[test]
-    fn parametrize_with_two_bool_attributes() {
-        let meta_args = r#"
-            first, second,
-            case(true, false),
-        "#;
-
-        let data = parse_parametrize_data(meta_args).unwrap();
-
-        let c0: TestCase = ["true", "false"].as_ref().into();
-
-        assert_eq!(&vec![ident("first"), ident("second")],
-                   &data.args);
-        assert_eq!(&vec![c0], &data.cases);
     }
 }
 
