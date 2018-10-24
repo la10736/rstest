@@ -53,7 +53,7 @@ fn strlen_test(expected: usize, input: &str) {
 }
 ```
 
-You can find more examples in [`resources`] directory and in [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) that use this module intensely.
+You can find more examples in [resources] directory and in [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) that use this module intensely.
 
 ## License
 
