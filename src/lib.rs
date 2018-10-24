@@ -9,8 +9,10 @@ use quote::ToTokens;
 use quote::TokenStreamExt;
 
 use syn::*;
-use syn::parse::{Parse, ParseStream, Result as PResult};
+use syn::parse::Result as PResult;
 use syn::punctuated::Punctuated;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
 
 #[derive(Debug)]
 enum RsTestError {
@@ -95,13 +97,17 @@ enum ParametrizeElement {
 }
 
 fn parse_meta_item(meta: Meta) -> Option<ParametrizeElement> {
-    use syn::Meta::*;
     use ParametrizeElement::*;
     match meta {
-        Word(ident) => Some(Arg(ident)),
-        List(ref l) if l.ident == "case" => {
-            TestCase::try_from(l).map(Case).ok()
-        }
+        syn::Meta::Word(ident) => Some(Arg(ident)),
+        syn::Meta::List(ref l) if l.ident == "case" => { TestCase::try_from(l).map(Case).ok() }
+        _ => None
+    }
+}
+
+fn extract_meta(nm: NestedMeta) -> Option<Meta> {
+    match nm {
+        syn::NestedMeta::Meta(m) => Some(m),
         _ => None
     }
 }
@@ -109,21 +115,19 @@ fn parse_meta_item(meta: Meta) -> Option<ParametrizeElement> {
 fn parse_parametrize_data(metas: Vec<NestedMeta>) -> PResult<ParametrizeInfo> {
     let mut args = vec![];
     let mut cases = vec![];
-    use syn::NestedMeta::*;
     use ParametrizeElement::*;
-    for meta in metas {
-        match meta {
-            Meta(m) => {
-                if let Some(item) = parse_meta_item(m) {
-                    match item {
-                        Arg(arg) => args.push(arg),
-                        Case(case) => cases.push(case),
-                    }
+
+    metas.into_iter()
+        .filter_map(extract_meta)
+        .filter_map(parse_meta_item)
+        .for_each(
+            |item| {
+                match item {
+                    Arg(arg) => args.push(arg),
+                    Case(case) => cases.push(case),
                 }
             }
-            _ => {}
-        };
-    }
+        );
     Ok(ParametrizeInfo {
         args,
         cases,
