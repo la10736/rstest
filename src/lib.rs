@@ -196,55 +196,56 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures<'a>(item_fn: &'a syn::ItemFn, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
-    item_fn.decl.inputs
-        .iter()
-        .filter_map(move |arg| arg_2_fixture(arg, resolver))
+fn fixtures<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
+        args.filter_map(move |arg| arg_2_fixture(arg, resolver))
+}
+
+fn fn_args(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::FnArg> {
+    item_fn.decl.inputs.iter()
+}
+
+fn fn_args_name(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::Ident> {
+    fn_args(item_fn).map(arg_name)
 }
 
 #[proc_macro_attribute]
 pub fn rstest(_args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
-    let ast = syn::parse(input.clone()).unwrap();
-    if let syn::Item::Fn(ref item_fn) = ast {
-        let orig = item_fn.clone();
-        let name = &item_fn.ident;
-        let attrs = item_fn.attrs.clone();
-        let resolver = Resolver::default();
-        let fixtures = fixtures(item_fn, &resolver);
-        let args = item_fn.decl.inputs.iter().map(arg_name);
-        let res = quote! {
-            #[test]
-            #(#attrs)*
-            fn #name() {
-                #orig
-                #(#fixtures)*
-                #name(#(#args),*)
-            }
-        };
-        res.into()
-    } else {
-        input
-    }
+    let test = parse_macro_input!(input as ItemFn);
+    let name = &test.ident;
+    let attrs = &test.attrs;
+    let resolver = Resolver::default();
+    let fixtures = fixtures(fn_args(&test), &resolver);
+    let args = fn_args_name(&test);
+    let res = quote! {
+        #[test]
+        #(#attrs)*
+        fn #name() {
+            #test
+            #(#fixtures)*
+            #name(#(#args),*)
+        }
+    };
+    res.into()
 }
 
-fn add_parametrize_cases(item_fn: &syn::ItemFn, params: ParametrizeInfo) -> TokenStream {
-    let fname = &item_fn.ident;
-
-    let orig = item_fn.clone();
+fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStream {
+    let fname = &test.ident;
 
     let mut res = quote! {
             #[cfg(test)]
-            #orig
+            #test
         };
+
+    // TODO: Move to fold trait impl
 
     for (n, case) in params.cases.iter().enumerate() {
         let resolver = Resolver::new(&params.args, &case);
-        let fixtures = fixtures(item_fn, &resolver);
+        let fixtures = fixtures(fn_args(&test), &resolver);
         let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
-        let attrs = item_fn.attrs.clone();
-        let args = item_fn.decl.inputs.iter().map(arg_name);
+        let attrs = &test.attrs;
+        let args = fn_args_name(&test);
         let tcase = quote! {
                 #[test]
                 #(#attrs)*
@@ -271,11 +272,9 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 {
     let params = parse_macro_input!(args as ParametrizeInfo);
 
-    if let syn::Item::Fn(ref item_fn) = syn::parse(input).unwrap() {
-        add_parametrize_cases(item_fn, params).into()
-    } else {
-        panic!("Should be a fn item");
-    }
+    let test = parse_macro_input!(input as ItemFn);
+
+    add_parametrize_cases(test, params).into()
 }
 
 #[cfg(test)]
