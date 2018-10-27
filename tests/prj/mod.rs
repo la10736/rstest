@@ -10,10 +10,11 @@ use toml_edit::{Document, Item, Array};
 use std::fs::File;
 use std::io::Read;
 use toml_edit::Table;
+use std::borrow::Cow;
 
 pub struct Project {
+    pub name: OsString,
     root: PathBuf,
-    name: OsString,
     ws: std::sync::Mutex<()>,
 }
 
@@ -24,6 +25,10 @@ impl Project {
             name: "project".into(),
             ws: std::sync::Mutex::new(()),
         }
+    }
+
+    pub fn get_name(&self) -> Cow<str> {
+        self.name.to_string_lossy()
     }
 
     pub fn name<O: AsRef<OsStr>>(mut self, name: O) -> Self {

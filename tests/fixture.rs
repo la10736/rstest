@@ -1,14 +1,15 @@
 extern crate temp_testdir;
 extern crate toml_edit;
 
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
 use temp_testdir::TempDir;
 
 pub mod prj;
 pub mod utils;
 
-use utils::*;
+use utils::{*, deindent::Deindent};
 use prj::Project;
 
 lazy_static! {
@@ -65,11 +66,71 @@ fn should_panic() {
 
 #[test]
 fn should_show_correct_errors() {
-    let output = prj("fixture_errors.rs").run_tests().unwrap();
+    let prj = prj("fixture_errors.rs");
+    let output = prj.run_tests().unwrap();
+    let name = prj.get_name();
 
-    eprintln!("{}", output.stderr.str());
+    assert_in!(output.stderr.str(), format!("
+        error[E0425]: cannot find function `no_fixture` in this scope
+          --> {}/src/lib.rs:12:1
+           |
+        12 | #[rstest]
+           | ^^^^^^^^^ did you mean `fixture`?
+        ", name).deindent());
 
-    assert_in!(output.stderr.str(), "12 | #[rstest]\n   | ^^^^^^^^^ did you mean `fixture`?\n");
-    assert_in!(output.stderr.str(), "9 |     let a: u32 = \"\";\n  |                  ^^ expected u32, found reference");
-    assert_in!(output.stderr.str(), "17 | fn error_fixture_wrong_type(fixture: String) {\n   |                             ^^^^^^^\n   |                             |\n   |                             expected struct `std::string::String`, found u32");
+    assert_in!(output.stderr.str(), format!(r#"
+        error[E0308]: mismatched types
+         --> {}/src/lib.rs:9:18
+          |
+        9 |     let a: u32 = "";
+          |                  ^^ expected u32, found reference
+          |
+          = note: expected type `u32`
+                     found type `&'static str`
+        "#, name).deindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error[E0308]: mismatched types
+          --> {}/src/lib.rs:17:29
+           |
+        17 | fn error_fixture_wrong_type(fixture: String) {{
+           |                             ^^^^^^^
+           |                             |
+           |                             expected struct `std::string::String`, found u32
+           |                             help: try using a conversion method: `fixture.to_string()`
+           |
+           = note: expected type `std::string::String`
+                      found type `u32`
+        ", name).deindent());
+}
+
+#[test]
+fn should_reject_no_item_function() {
+    let prj = prj("fixture_reject_no_item_function.rs");
+    let output = prj.run_tests().unwrap();
+    let name = prj.get_name();
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+         --> {}/src/lib.rs:6:1
+          |
+        6 | struct Foo;
+          | ^^^^^^
+        ", name).deindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+         --> {}/src/lib.rs:9:1
+          |
+        9 | impl Foo {{}}
+          | ^^^^
+        ", name).deindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+          --> {}/src/lib.rs:12:1
+           |
+        12 | mod mod_baz {{}}
+           | ^^^
+        ", name).deindent());
 }

@@ -1,8 +1,8 @@
 # A simple `pytest` clone for Rust
 
-`rstest` use procedural macro to implement simple fixtures and table based tests.
-To use it you need at least 1.30 toolchain (beta channel till 2018-10-25)
-and add follow lines to your `Cargo.toml` file:
+`rstest` use procedural macro to implement simple fixtures and table
+based tests. To use it you need at least 1.30 toolchain and add follow
+lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]

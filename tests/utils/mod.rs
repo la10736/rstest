@@ -20,8 +20,8 @@ macro_rules! assert_in {
             (text_val, message_val) => {
                 if !text_val.contains(message_val) {
                     panic!(r#"assertion failed: `text not contains message`
-         text: `{:?}`,
-         message: `{:?}`"#, text_val, message_val)
+         text: `{}`,
+         message: `{}`"#, text_val, message_val)
                 }
             }
         }
@@ -34,8 +34,8 @@ macro_rules! assert_in {
             (text_val, message_val) => {
                 if !text_val.contains(message_val) {
                     panic!(r#"assertion failed: `text not contains message`
-         text: `{:?}`,
-         message: `{:?}`: {}"#, text_val, message_val, format_args!($($arg)+))
+         text: `{}`,
+         message: `{}`: {}"#, text_val, message_val, format_args!($($arg)+))
                 }
             }
         }
@@ -149,4 +149,35 @@ impl<B: AsRef<[u8]>> Stringable for B {
 
 pub fn testname() -> String {
     thread::current().name().unwrap().to_string()
+}
+
+pub mod deindent {
+    pub trait Deindent {
+        fn deindent(self) -> String;
+    }
+
+    impl <S: AsRef<str>> Deindent for S {
+        fn deindent(self) -> String {
+            use std::fmt::Write;
+            let message = self.as_ref();
+            let skip = min_indent_size(message);
+            let mut output = String::new();
+            message.lines().for_each(|l|
+                writeln!(&mut output, "{}", &l[skip.min(l.len())..])
+                    .unwrap());
+            output
+        }
+    }
+
+    fn min_indent_size(message: &str) -> usize {
+        let skip = message.lines()
+            .filter(|l| l.len() > 0)
+            .map(|l| count_start(l, ' '))
+            .min().unwrap_or(0);
+        skip
+    }
+
+    fn count_start(l: &str, ch: char) -> usize {
+        l.chars().take_while(|&c| c == ch ).count()
+    }
 }
