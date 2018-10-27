@@ -3,28 +3,12 @@ extern crate toml_edit;
 
 #[macro_use] extern crate lazy_static;
 
-use temp_testdir::TempDir;
-
 pub mod prj;
 pub mod utils;
+pub mod root;
 
 use utils::*;
-use prj::Project;
-
-lazy_static! {
-    static ref root_dir: TempDir = TempDir::default().permanent();
-    static ref root_project: Project = Project::new(root_dir.as_ref()).create();
-}
-
-fn prj() -> Project {
-    let prj_name = testname();
-
-    root_project.workspace_add(&prj_name);
-
-    Project::new(root_project.path())
-        .name(prj_name)
-        .create()
-}
+use root::prj;
 
 #[test]
 fn one_success_test() {

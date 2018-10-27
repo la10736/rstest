@@ -74,7 +74,7 @@ impl Project {
         self
     }
 
-    pub fn set_code_file<P: AsRef<Path>>(&mut self, src: P) -> &mut Self {
+    pub fn set_code_file<P: AsRef<Path>>(self, src: P) -> Self {
         std::fs::copy(
             src,
             self.code_path(),

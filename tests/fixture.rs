@@ -1,32 +1,18 @@
 extern crate temp_testdir;
 extern crate toml_edit;
-
 #[macro_use]
 extern crate lazy_static;
 
-use temp_testdir::TempDir;
-
 pub mod prj;
 pub mod utils;
+pub mod root;
 
 use utils::{*, deindent::Deindent};
 use prj::Project;
 
-lazy_static! {
-    static ref root_dir: TempDir = TempDir::default().permanent();
-    static ref root_project: Project = Project::new(root_dir.as_ref()).create();
-}
-
 fn prj(res: &str) -> Project {
-    let prj_name = testname();
-
-    root_project.workspace_add(&prj_name);
-
-    let mut prj = Project::new(root_project.path())
-        .name(prj_name)
-        .create();
-    prj.set_code_file(resources(res));
-    prj
+    root::prj()
+        .set_code_file(resources(res))
 }
 
 fn run_test(res: &str) -> std::process::Output {
