@@ -16,6 +16,11 @@ readme = "README.md"
 [lib]
 proc-macro = true
 
+[features]
+default = []
+# Depends on nightly
+dump_args = []
+
 [dependencies]
 syn = { version = "0.15", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = { version = "0.4" }

@@ -1,3 +1,4 @@
+#![cfg_attr(all(feature = "nightly", feature = "dump_args"),feature(specialization))]
 extern crate proc_macro;
 extern crate proc_macro2;
 #[macro_use]
