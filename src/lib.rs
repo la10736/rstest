@@ -164,7 +164,7 @@ fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
         let fixture = resolver
             .resolve(arg).map(|e| e.clone())
             .unwrap_or_else(|| default_fixture_name(a));
-        Some(format!("let {} = {};", arg_name(arg), fixture.into_token_stream()))
+        Some(format!("let {name} = {fix};", name=arg_name(arg), fix=fixture.into_token_stream()))
     } else {
         None
     }
@@ -172,6 +172,18 @@ fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
 
 fn arg_2_fixture(arg: &syn::FnArg, resolver: &Resolver) -> Option<syn::Stmt> {
     arg_2_fixture_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
+}
+
+fn arg_2_fixture_dump_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
+    if let &syn::FnArg::Captured(ref a) = arg {
+        Some(format!(r#"dump("{name}", &{name});"#, name=arg_name(arg)))
+    } else {
+        None
+    }
+}
+
+fn arg_2_fixture_dump(arg: &syn::FnArg, resolver: &Resolver) -> Option<syn::Stmt> {
+    arg_2_fixture_dump_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
 }
 
 #[derive(Default)]
@@ -201,6 +213,10 @@ fn fixtures<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Res
         args.filter_map(move |arg| arg_2_fixture(arg, resolver))
 }
 
+fn fixtures_dump<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
+    args.filter_map(move |arg| arg_2_fixture_dump(arg, resolver))
+}
+
 fn fn_args(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::FnArg> {
     item_fn.decl.inputs.iter()
 }
@@ -218,6 +234,7 @@ pub fn rstest(_args: proc_macro::TokenStream,
     let attrs = &test.attrs;
     let resolver = Resolver::default();
     let fixtures = fixtures(fn_args(&test), &resolver);
+    let fixtures_dump = fixtures_dump(fn_args(&test), &resolver);
     let args = fn_args_name(&test);
     let res = quote! {
         #[test]
@@ -225,6 +242,8 @@ pub fn rstest(_args: proc_macro::TokenStream,
         fn #name() {
             #test
             #(#fixtures)*
+            #(#fixtures_dump)*
+            println!("----- TEST START -----");
             #name(#(#args),*)
         }
     };

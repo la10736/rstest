@@ -1,0 +1,11 @@
+[package]
+name = "playground"
+version = "0.1.0"
+authors = ["michele <michele.damico@gmail.com>"]
+edition = "2018"
+
+[dependencies.rstest]
+path = "../"
+version = "*"
+default-features = false
+features = ["dump_args"]
