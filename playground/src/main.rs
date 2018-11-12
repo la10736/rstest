@@ -2,11 +2,16 @@
 extern crate rstest;
 
 use rstest::rstest;
-use std::fmt::{Debug, Formatter, Error};
-use std::fmt::Display;
+use std::fmt::Debug;
 
 fn pippo() -> u32 {
     42
+}
+
+struct Foo(i32);
+
+fn foo() -> Foo {
+    Foo(42)
 }
 
 #[rstest]
@@ -18,6 +23,18 @@ fn ok(pippo: u32) {
 fn fail(pippo: u32) {
     assert_eq!(43, pippo);
 }
+
+#[rstest]
+fn ok_foo(foo: Foo) {
+    assert_eq!(42, foo.0);
+}
+
+#[rstest]
+fn fail_foo(foo: Foo) {
+    assert_eq!(43, foo.0);
+}
+
+
 
 trait DisplayString {
     fn display_string(&self) -> String {

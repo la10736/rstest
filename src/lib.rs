@@ -1,4 +1,4 @@
-#![cfg_attr(all(feature = "nightly", feature = "dump_args"),feature(specialization))]
+#![cfg_attr(all(feature = "nightly", feature = "dump_args"), feature(specialization))]
 extern crate proc_macro;
 extern crate proc_macro2;
 #[macro_use]
@@ -6,14 +6,13 @@ extern crate quote;
 extern crate syn;
 
 use proc_macro2::TokenStream;
-use quote::ToTokens;
 use quote::TokenStreamExt;
-
+use quote::ToTokens;
 use syn::*;
-use syn::parse::Result as PResult;
-use syn::punctuated::Punctuated;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
+use syn::parse::Result as PResult;
+use syn::punctuated::Punctuated;
 
 #[derive(Debug)]
 enum RsTestError {
@@ -164,7 +163,7 @@ fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
         let fixture = resolver
             .resolve(arg).map(|e| e.clone())
             .unwrap_or_else(|| default_fixture_name(a));
-        Some(format!("let {name} = {fix};", name=arg_name(arg), fix=fixture.into_token_stream()))
+        Some(format!("let {name} = {fix};", name = arg_name(arg), fix = fixture.into_token_stream()))
     } else {
         None
     }
@@ -174,9 +173,9 @@ fn arg_2_fixture(arg: &syn::FnArg, resolver: &Resolver) -> Option<syn::Stmt> {
     arg_2_fixture_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
 }
 
-fn arg_2_fixture_dump_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
-    if let &syn::FnArg::Captured(ref a) = arg {
-        Some(format!(r#"dump("{name}", &{name});"#, name=arg_name(arg)))
+fn arg_2_fixture_dump_str(arg: &syn::FnArg, _resolver: &Resolver) -> Option<String> {
+    if let &syn::FnArg::Captured(ref _a) = arg {
+        Some(format!(r#"println!("{name} = {{}}", &{name}.display_string());"#, name = arg_name(arg)))
     } else {
         None
     }
@@ -209,12 +208,20 @@ impl<'a> Resolver<'a> {
     }
 }
 
+fn fixtures_apply<'a, A>( args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, f: A)
+    -> impl Iterator<Item=syn::Stmt> + 'a
+    where A: Fn(&'a syn::FnArg, &'a Resolver) -> Option<syn::Stmt> + 'a
+{
+    args.filter_map(move |arg| f(arg, resolver))
+}
+
+
 fn fixtures<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
-        args.filter_map(move |arg| arg_2_fixture(arg, resolver))
+    fixtures_apply(args, resolver, arg_2_fixture)
 }
 
 fn fixtures_dump<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
-    args.filter_map(move |arg| arg_2_fixture_dump(arg, resolver))
+    fixtures_apply(args, resolver, arg_2_fixture_dump)
 }
 
 fn fn_args(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::FnArg> {
@@ -242,8 +249,9 @@ pub fn rstest(_args: proc_macro::TokenStream,
         fn #name() {
             #test
             #(#fixtures)*
+            println!("{:-^40}", " TEST ARGUMENTS ");
             #(#fixtures_dump)*
-            println!("----- TEST START -----");
+            println!("{:-^40}", " TEST START ");
             #name(#(#args),*)
         }
     };
