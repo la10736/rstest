@@ -241,7 +241,10 @@ pub fn rstest(_args: proc_macro::TokenStream,
     let attrs = &test.attrs;
     let resolver = Resolver::default();
     let fixtures = fixtures(fn_args(&test), &resolver);
+    #[cfg(feature = "trace_all")]
     let fixtures_dump = fixtures_dump(fn_args(&test), &resolver);
+    #[cfg(not(feature = "trace_all"))]
+    let fixtures_dump = std::iter::empty::<Stmt>();
     let args = fn_args_name(&test);
     let res = quote! {
         #[test]

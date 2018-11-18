@@ -1,4 +1,4 @@
-#![feature(specialization)]
+#![cfg_attr(feature = "trace_all", feature(specialization))]
 extern crate rstest;
 
 use rstest::rstest;
@@ -42,7 +42,9 @@ trait DisplayString {
     }
 }
 
+#[cfg(feature = "trace_all")]
 impl<T> DisplayString for T {}
+
 impl<T: Debug> DisplayString for T {
     fn display_string(&self) -> String {
         format!("{:?}", self)
@@ -54,11 +56,14 @@ fn dump<V: DisplayString>(name: &str, val: &V) {
 }
 
 fn main() {
-
     let v = 32;
     struct O {};
     let o = O {};
 
     dump(stringify!(v), &v);
-    dump(stringify!(o), &o);
+    #[cfg(feature = "trace_all")]
+        {
+            let o = O {};
+            dump(stringify!(o), &o);
+        }
 }

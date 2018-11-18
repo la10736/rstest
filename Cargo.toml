@@ -19,7 +19,7 @@ proc-macro = true
 [features]
 default = []
 # Depends on nightly
-dump_args = []
+trace_all = []
 
 [dependencies]
 syn = { version = "0.15", features = ["full", "parsing", "extra-traits"] }

@@ -4,8 +4,13 @@ version = "0.1.0"
 authors = ["michele <michele.damico@gmail.com>"]
 edition = "2018"
 
+
+[features]
+default = []
+# Depends on nightly
+trace_all = ["rstest/trace_all"]
+
+
 [dependencies.rstest]
 path = "../"
 version = "*"
-default-features = false
-features = ["dump_args"]
