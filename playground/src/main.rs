@@ -58,7 +58,6 @@ fn dump<V: DisplayString>(name: &str, val: &V) {
 fn main() {
     let v = 32;
     struct O {};
-    let o = O {};
 
     dump(stringify!(v), &v);
     #[cfg(feature = "trace_all")]

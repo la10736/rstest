@@ -208,8 +208,8 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures_apply<'a, A>( args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, f: A)
-    -> impl Iterator<Item=syn::Stmt> + 'a
+fn fixtures_apply<'a, A>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, f: A)
+                         -> impl Iterator<Item=syn::Stmt> + 'a
     where A: Fn(&'a syn::FnArg, &'a Resolver) -> Option<syn::Stmt> + 'a
 {
     args.filter_map(move |arg| f(arg, resolver))
@@ -232,6 +232,20 @@ fn fn_args_name(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::Ident> {
     fn_args(item_fn).map(arg_name)
 }
 
+#[cfg(feature = "trace_all")]
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> proc_macro2::TokenStream {
+    let fixtures_dump = fixtures_dump(args, &resolver);
+    quote! {
+            println!("{:-^40}", " TEST ARGUMENTS ");
+            #(#fixtures_dump)*
+        }
+}
+
+#[cfg(not(feature = "trace_all"))]
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> proc_macro2::TokenStream {
+    proc_macro2::TokenStream::default()
+}
+
 #[proc_macro_attribute]
 pub fn rstest(_args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
@@ -240,11 +254,9 @@ pub fn rstest(_args: proc_macro::TokenStream,
     let name = &test.ident;
     let attrs = &test.attrs;
     let resolver = Resolver::default();
+    let args = fn_args(&test);
     let fixtures = fixtures(fn_args(&test), &resolver);
-    #[cfg(feature = "trace_all")]
-    let fixtures_dump = fixtures_dump(fn_args(&test), &resolver);
-    #[cfg(not(feature = "trace_all"))]
-    let fixtures_dump = std::iter::empty::<Stmt>();
+    let trace = trace_arguments(fn_args(&test), &resolver);
     let args = fn_args_name(&test);
     let res = quote! {
         #[test]
@@ -252,8 +264,7 @@ pub fn rstest(_args: proc_macro::TokenStream,
         fn #name() {
             #test
             #(#fixtures)*
-            println!("{:-^40}", " TEST ARGUMENTS ");
-            #(#fixtures_dump)*
+            #trace
             println!("{:-^40}", " TEST START ");
             #name(#(#args),*)
         }
