@@ -98,6 +98,16 @@ fn parametrize_generic() {
 }
 
 #[test]
+fn parametrize_impl_param() {
+    let (output, _) = run_test("parametrize_impl_param.rs");
+
+    TestResults::new()
+        .ok("strlen_test_case_0")
+        .ok("strlen_test_case_1")
+        .assert(output);
+}
+
+#[test]
 fn parametrize_fallback() {
     let (output, _) = run_test("parametrize_fallback.rs");
 
