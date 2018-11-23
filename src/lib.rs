@@ -181,8 +181,12 @@ fn arg_2_fixture_dump_str(arg: &syn::FnArg, _resolver: &Resolver) -> Option<Stri
     }
 }
 
-fn arg_2_fixture_dump(arg: &syn::FnArg, resolver: &Resolver) -> Option<syn::Stmt> {
-    arg_2_fixture_dump_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
+fn arg_2_fixture_dump(arg: &syn::FnArg, resolver: &Resolver, modifiers: &Modifiers) -> Option<syn::Stmt> {
+    if modifiers.trace_me(arg_name(arg)) {
+        arg_2_fixture_dump_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
+    } else {
+        None
+    }
 }
 
 #[derive(Default)]
@@ -208,8 +212,8 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures_apply<'a, A>( args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, f: A)
-    -> impl Iterator<Item=syn::Stmt> + 'a
+fn fixtures_apply<'a, A>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, f: A)
+                         -> impl Iterator<Item=syn::Stmt> + 'a
     where A: Fn(&'a syn::FnArg, &'a Resolver) -> Option<syn::Stmt> + 'a
 {
     args.filter_map(move |arg| f(arg, resolver))
@@ -220,8 +224,11 @@ fn fixtures<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Res
     fixtures_apply(args, resolver, arg_2_fixture)
 }
 
-fn fixtures_dump<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
-    fixtures_apply(args, resolver, arg_2_fixture_dump)
+fn fixtures_dump<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a,
+                     resolver: &'a Resolver, modifiers: &'a Modifiers)
+    -> impl Iterator<Item=syn::Stmt> + 'a
+{
+    fixtures_apply(args, resolver, move |a, r| arg_2_fixture_dump(a, r, modifiers))
 }
 
 fn fn_args(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::FnArg> {
@@ -232,19 +239,107 @@ fn fn_args_name(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::Ident> {
     fn_args(item_fn).map(arg_name)
 }
 
+#[derive(Debug)]
+enum RsTestAttribute {
+    Attr(Ident),
+    Tagged(Ident, Vec<Ident>),
+}
+
+
+use syn::spanned::Spanned;
+
+fn no_literal_nested(nested: NestedMeta) -> syn::parse::Result<Meta> {
+    match nested {
+        syn::NestedMeta::Meta(m) => Ok(m),
+        syn::NestedMeta::Literal(l) => Err(syn::parse::Error::new(l.span(), "Unexpected literal"))
+    }
+}
+
+fn just_word_meta(meta: Meta) -> syn::parse::Result<Ident> {
+    match meta {
+        syn::Meta::Word(ident) => Ok(ident),
+        other => Err(syn::parse::Error::new(other.span(), "Should be an ident"))
+    }
+}
+
+impl Parse for RsTestAttribute {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let meta = no_literal_nested(NestedMeta::parse(input)?)?;
+        use syn::Meta::*;
+        match meta {
+            Word(ident) => Ok(RsTestAttribute::Attr(ident)),
+            List(l) =>
+                Ok(RsTestAttribute::Tagged(l.ident,
+                                           l.nested.into_iter()
+                                               .map(no_literal_nested)
+                                               .collect::<syn::parse::Result<Vec<Meta>>>()?
+                                               .into_iter().map(just_word_meta)
+                                               .collect::<syn::parse::Result<Vec<Ident>>>()?,
+                )),
+            NameValue(nv) => Err(syn::parse::Error::new(nv.span(), "Invalid attribute"))
+        }
+    }
+}
+
+/// Parses a list of modifier separated by ::. Modifiers can me
+/// just _attribute_ or _tagged_attribute_
+///
+///     attribute_1::tagged_1(..)::..
+struct Modifiers {
+    modifiers: Vec<RsTestAttribute>
+}
+
+impl Parse for Modifiers {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let vars = Punctuated::<RsTestAttribute, Token![::]>::parse_terminated(input)?;
+        Ok(Modifiers {
+            modifiers: vars.into_iter().collect(),
+        })
+    }
+}
+
+impl Modifiers {
+    fn trace_me(&self, ident: &Ident) -> bool {
+        if self.autotrace() {
+            self.modifiers
+                .iter()
+                .filter(|&m|
+                    match m {
+                        RsTestAttribute::Tagged(i, args) if i == "notrace" =>
+                            args.iter().find(|&a| a == ident).is_some(),
+                        _ => false
+                    }
+                ).next().is_none()
+        } else { false }
+    }
+
+    fn autotrace(&self) -> bool {
+        if !cfg!(feature = "trace_all") {
+            self.modifiers
+                .iter()
+                .filter(|&m|
+                    match m {
+                        RsTestAttribute::Attr(i) if i == "autotrace" => true,
+                        _ => false
+                    }
+                ).next().is_some()
+        } else {
+            true
+        }
+    }
+}
+
 #[proc_macro_attribute]
-pub fn rstest(_args: proc_macro::TokenStream,
+pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
+    let modifiers = parse_macro_input!(args as Modifiers);
     let name = &test.ident;
     let attrs = &test.attrs;
     let resolver = Resolver::default();
     let fixtures = fixtures(fn_args(&test), &resolver);
-    #[cfg(feature = "trace_all")]
-    let fixtures_dump = fixtures_dump(fn_args(&test), &resolver);
-    #[cfg(not(feature = "trace_all"))]
-    let fixtures_dump = std::iter::empty::<Stmt>();
+    let fixtures_dump = fixtures_dump(fn_args(&test), &resolver, &modifiers);
     let args = fn_args_name(&test);
     let res = quote! {
         #[test]
