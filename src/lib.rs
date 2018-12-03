@@ -24,6 +24,7 @@ enum RsTestError {
 struct ParametrizeInfo {
     args: Vec<Ident>,
     cases: Vec<TestCase>,
+    modifier: Modifiers,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -89,8 +90,6 @@ impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
     }
 }
 
-impl ParametrizeInfo {}
-
 enum ParametrizeElement {
     Arg(Ident),
     Case(TestCase),
@@ -131,6 +130,7 @@ fn parse_parametrize_data(metas: Vec<NestedMeta>) -> PResult<ParametrizeInfo> {
     Ok(ParametrizeInfo {
         args,
         cases,
+        ..Default::default()
     })
 }
 
@@ -285,6 +285,7 @@ impl Parse for RsTestAttribute {
 /// just _attribute_ or _tagged_attribute_
 ///
 ///     attribute_1::tagged_1(..)::..
+#[derive(Default, Debug)]
 struct Modifiers {
     modifiers: Vec<RsTestAttribute>
 }
@@ -329,6 +330,18 @@ impl Modifiers {
     }
 }
 
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, modifiers: &'a Modifiers) -> proc_macro2::TokenStream {
+    let mut fixtures_dump = fixtures_dump(args, resolver, modifiers).peekable();
+    if fixtures_dump.peek().is_some() {
+        quote! {
+        println!("{:-^40}", " TEST ARGUMENTS ");
+        #(#fixtures_dump)*
+    }
+    }else {
+        Default::default()
+    }
+}
+
 #[proc_macro_attribute]
 pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
@@ -339,7 +352,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let attrs = &test.attrs;
     let resolver = Resolver::default();
     let fixtures = fixtures(fn_args(&test), &resolver);
-    let fixtures_dump = fixtures_dump(fn_args(&test), &resolver, &modifiers);
+    let trace_args = trace_arguments(fn_args(&test), &resolver, &modifiers);
     let args = fn_args_name(&test);
     let res = quote! {
         #[test]
@@ -347,8 +360,7 @@ pub fn rstest(args: proc_macro::TokenStream,
         fn #name() {
             #test
             #(#fixtures)*
-            println!("{:-^40}", " TEST ARGUMENTS ");
-            #(#fixtures_dump)*
+            #trace_args
             println!("{:-^40}", " TEST START ");
             #name(#(#args),*)
         }
