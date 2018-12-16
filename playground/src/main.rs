@@ -56,8 +56,8 @@ struct Baz(i32);
 struct NoDeb(i32);
 
 #[rstest_parametrize(i, baz, no_deb,
-    case(1, Unwrap("Baz(1)"), Unwrap("NoDeb(1)") ),
-    case(1, Unwrap("Baz(1)"), Unwrap("NoDeb(2)"))
+    case(1, Unwrap("Baz(2)"), Unwrap("NoDeb(1)") ),
+    case(3, Unwrap("Baz(4)"), Unwrap("NoDeb(2)"))
     :: autotrace :: notrace(no_deb)
 )]
 fn param_fail(i: i32, baz: Baz, no_deb: NoDeb) {

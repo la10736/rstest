@@ -9,33 +9,33 @@ use proc_macro2::TokenStream;
 use quote::TokenStreamExt;
 use quote::ToTokens;
 use syn::*;
+use syn::parse::Error;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
-use syn::parse::Result as PResult;
 use syn::punctuated::Punctuated;
+use std::result::Result as SResult;
 
-#[derive(Debug)]
-enum RsTestError {
-    UnknownParameterOption(String),
-    UnknownErr,
+#[derive(Default, Debug)]
+struct ParametrizeData {
+    args: Vec<Ident>,
+    cases: Vec<TestCase>,
 }
 
 #[derive(Default, Debug)]
 struct ParametrizeInfo {
-    args: Vec<Ident>,
-    cases: Vec<TestCase>,
+    data: ParametrizeData,
     modifier: Modifiers,
 }
 
 #[derive(PartialEq, Eq, Debug)]
 struct TestCase(Vec<Expr>);
 
-fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, RsTestError> {
+fn parse_expression<S: AsRef<str>>(s: S) -> SResult<Expr, String> {
     parse_str::<Expr>(s.as_ref())
-        .or(Err(RsTestError::UnknownErr))
+        .or(Err(format!("Cannot parse expression '{}'", s.as_ref())))
 }
 
-fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
+fn parse_case_arg(a: &syn::NestedMeta) -> SResult<Expr, Error> {
     match a {
         syn::NestedMeta::Literal(l) =>
             parse_expression(format!("{}", l.into_token_stream())),
@@ -53,7 +53,7 @@ fn parse_case_arg(a: &syn::NestedMeta) -> Result<Expr, RsTestError> {
                 nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
             }
         }
-    }
+    }.map_err(|m| Error::new(a.span(), m))
 }
 
 trait TryFrom<T>: Sized
@@ -61,21 +61,21 @@ trait TryFrom<T>: Sized
 {
     type Error;
 
-    fn try_from(t: T) -> Result<Self, Self::Error>;
+    fn try_from(t: T) -> SResult<Self, Self::Error>;
 }
 
 impl<'a> TryFrom<&'a MetaList> for TestCase {
-    type Error = RsTestError;
+    type Error = Error;
 
-    fn try_from(l: &'a MetaList) -> Result<Self, Self::Error> {
+    fn try_from(l: &'a MetaList) -> syn::parse::Result<Self> {
         if l.ident == "case" {
-            let res: Result<Vec<_>, _> = l.nested.iter().map(
+            let res: SResult<Vec<_>, _> = l.nested.iter().map(
                 |e|
                     parse_case_arg(e)
             ).collect();
             res.map(TestCase)
         } else {
-            Err(RsTestError::UnknownParameterOption(l.ident.to_string()))
+            Err(Error::new(l.span(), format!("Unknow action '{}'", l.ident)))
         }
     }
 }
@@ -95,43 +95,19 @@ enum ParametrizeElement {
     Case(TestCase),
 }
 
-fn parse_meta_item(meta: Meta) -> Option<ParametrizeElement> {
-    use ParametrizeElement::*;
-    match meta {
-        syn::Meta::Word(ident) => Some(Arg(ident)),
-        syn::Meta::List(ref l) if l.ident == "case" => { TestCase::try_from(l).map(Case).ok() }
-        _ => None
-    }
-}
-
-fn extract_meta(nm: NestedMeta) -> Option<Meta> {
-    match nm {
-        syn::NestedMeta::Meta(m) => Some(m),
-        _ => None
-    }
-}
-
-fn parse_parametrize_data(metas: Vec<NestedMeta>) -> PResult<ParametrizeInfo> {
-    let mut args = vec![];
-    let mut cases = vec![];
-    use ParametrizeElement::*;
-
-    metas.into_iter()
-        .filter_map(extract_meta)
-        .filter_map(parse_meta_item)
-        .for_each(
-            |item| {
-                match item {
-                    Arg(arg) => args.push(arg),
-                    Case(case) => cases.push(case),
-                }
+impl Parse for ParametrizeElement {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        use self::ParametrizeElement::*;
+        let meta: syn::Meta = input.parse()?;
+        match meta {
+            syn::Meta::Word(ident) => Ok(Arg(ident)),
+            syn::Meta::List(ref l) if l.ident == "case" => {
+                TestCase::try_from(l).map(Case)
             }
-        );
-    Ok(ParametrizeInfo {
-        args,
-        cases,
-        ..Default::default()
-    })
+            _ => Err(syn::parse::Error::new(meta.span(), "expected ident or case"))
+        }
+
+    }
 }
 
 fn default_fixture_name(a: &syn::ArgCaptured) -> syn::Expr {
@@ -281,10 +257,6 @@ impl Parse for RsTestAttribute {
     }
 }
 
-/// Parses a list of modifier separated by ::. Modifiers can me
-/// just _attribute_ or _tagged_attribute_
-///
-///     attribute_1::tagged_1(..)::..
 #[derive(Default, Debug)]
 struct Modifiers {
     modifiers: Vec<RsTestAttribute>
@@ -370,6 +342,7 @@ pub fn rstest(args: proc_macro::TokenStream,
 
 fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
+    let ParametrizeInfo{data: params, modifier} = params;
 
     let mut res = quote! {
             #[cfg(test)]
@@ -381,6 +354,7 @@ fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStr
     for (n, case) in params.cases.iter().enumerate() {
         let resolver = Resolver::new(&params.args, &case);
         let fixtures = fixtures(fn_args(&test), &resolver);
+        let trace_args = trace_arguments(fn_args(&test), &resolver, &modifier);
         let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
         let attrs = &test.attrs;
         let args = fn_args_name(&test);
@@ -389,6 +363,8 @@ fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStr
                 #(#attrs)*
                 fn #name() {
                     #(#fixtures)*
+                    #trace_args
+                    println!("{:-^40}", " TEST START ");
                     #fname(#(#args),*)
                 }
             };
@@ -397,10 +373,42 @@ fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStr
     res
 }
 
+impl Parse for ParametrizeData {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let all = Punctuated::<ParametrizeElement, Token![,]>::parse_separated_nonempty(input)?;
+        let mut args = vec![];
+        let mut cases = vec![];
+        use self::ParametrizeElement::*;
+
+        all.into_iter()
+            .for_each(
+                |item| {
+                    match item {
+                        Arg(arg) => args.push(arg),
+                        Case(case) => cases.push(case),
+                    }
+                }
+            );
+        Ok(ParametrizeData {
+            args,
+            cases,
+        })
+    }
+}
+
 impl Parse for ParametrizeInfo {
-    fn parse(input: ParseStream) -> PResult<Self> {
-        let all = Punctuated::<NestedMeta, Token![,]>::parse_separated_nonempty(input)?;
-        parse_parametrize_data(all.into_iter().collect())
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let data = input.parse()?;
+        let modifiers = if input.parse::<Token![::]>().is_ok() {
+            Some(input.parse()?)
+        } else {
+            None
+        };
+        Ok(ParametrizeInfo{
+            data: data,
+
+            modifier: modifiers.unwrap_or_default()
+        })
     }
 }
 

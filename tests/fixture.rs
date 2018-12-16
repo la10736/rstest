@@ -7,8 +7,8 @@ pub mod prj;
 pub mod utils;
 pub mod root;
 
-use utils::{*, deindent::Deindent};
-use prj::Project;
+use self::utils::{*, deindent::Deindent};
+use crate::prj::Project;
 
 fn prj(res: &str) -> Project {
     root::prj()

@@ -1,7 +1,7 @@
 
 use temp_testdir::TempDir;
-use prj::Project;
-use utils::testname;
+use crate::prj::Project;
+use crate::utils::testname;
 
 lazy_static! {
     static ref root_dir: TempDir = TempDir::default().permanent();
