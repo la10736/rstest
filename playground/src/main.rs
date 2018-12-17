@@ -56,13 +56,19 @@ struct Baz(i32);
 struct NoDeb(i32);
 
 #[rstest_parametrize(i, baz, no_deb,
-    case(1, Unwrap("Baz(2)"), Unwrap("NoDeb(1)") ),
+    case(1, Unwrap("Baz(2)"), Unwrap("NoDeb(1)")),
     case(3, Unwrap("Baz(4)"), Unwrap("NoDeb(2)"))
     :: autotrace :: notrace(no_deb)
 )]
 fn param_fail(i: i32, baz: Baz, no_deb: NoDeb) {
     assert_eq!(1, 2);
 }
+
+#[rstest_parametrize(first, case(1, 2), second, case(2, 4))]
+fn half(first: i32, second: i32) {
+    assert_eq!(first*2, second);
+}
+
 
 trait DisplayString {
     fn display_string(&self) -> String {

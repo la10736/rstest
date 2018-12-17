@@ -80,6 +80,18 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
     }
 }
 
+impl Parse for TestCase {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let meta: syn::Meta = input.parse()?;
+        match meta {
+            syn::Meta::List(ref l) if l.ident == "case" => {
+                TestCase::try_from(l)
+            }
+            _ => Err(syn::parse::Error::new(meta.span(), "expected a test case"))
+        }
+    }
+}
+
 impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
     fn from(strings: &[S]) -> Self {
         TestCase(strings
@@ -375,18 +387,33 @@ fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStr
 
 impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        let all = Punctuated::<ParametrizeElement, Token![,]>::parse_separated_nonempty(input)?;
         let mut args = vec![];
         let mut cases = vec![];
         use self::ParametrizeElement::*;
 
+        loop {
+            if input.peek2(syn::token::Paren) {
+                println!("Maybe a case");
+                break;
+            }
+            if let Ok(arg) = input.parse() {
+                println!("Ident = {}", arg);
+                args.push(arg);
+                if input.parse::<Token![,]>().is_err()  {
+                    break;
+                }
+            } else {
+                break
+            }
+        }
+        println!("Args = {:?}", args);
+        println!("Cases = {:?}", cases);
+
+        let all = Punctuated::<TestCase, Token![,]>::parse_separated_nonempty(input)?;
         all.into_iter()
             .for_each(
-                |item| {
-                    match item {
-                        Arg(arg) => args.push(arg),
-                        Case(case) => cases.push(case),
-                    }
+                |case| {
+                    cases.push(case)
                 }
             );
         Ok(ParametrizeData {
