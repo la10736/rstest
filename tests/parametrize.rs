@@ -7,8 +7,8 @@ pub mod prj;
 pub mod utils;
 pub mod root;
 
-use utils::{*, deindent::Deindent};
-use root::prj;
+use self::utils::{*, deindent::Deindent};
+use self::root::prj;
 
 #[test]
 fn one_success_test() {
