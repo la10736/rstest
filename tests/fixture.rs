@@ -7,8 +7,8 @@ pub mod prj;
 pub mod utils;
 pub mod root;
 
-use utils::{*, deindent::Deindent};
-use prj::Project;
+use self::utils::{*, deindent::Deindent};
+use crate::prj::Project;
 
 fn prj(res: &str) -> Project {
     root::prj()
@@ -93,7 +93,7 @@ fn should_show_correct_errors() {
 #[test]
 fn should_reject_no_item_function() {
     let prj = prj("fixture_reject_no_item_function.rs");
-    let output = prj.run_tests().unwrap();
+    let output = prj.compile().unwrap();
     let name = prj.get_name();
 
     assert_in!(output.stderr.str(), format!("
