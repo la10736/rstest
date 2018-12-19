@@ -179,7 +179,8 @@ fn should_show_correct_errors() {
 
 #[test]
 fn should_reject_no_item_function() {
-    let (output, name) = run_test("parametrize_reject_no_item_function.rs");
+    let prj = prj().set_code_file(resources("parametrize_reject_no_item_function.rs"));
+    let (output, name) = (prj.compile().unwrap(), prj.get_name());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`

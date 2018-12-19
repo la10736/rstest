@@ -64,7 +64,10 @@ fn param_fail(i: i32, baz: Baz, no_deb: NoDeb) {
     assert_eq!(1, 2);
 }
 
-#[rstest_parametrize(first, case(1, 2), second, case(2, 4))]
+/// Should reject something like this
+/// #[rstest_parametrize(first, case(1, 2), second, case(2, 4))]
+
+#[rstest_parametrize(first, second, case(1, 2), case(2, 4))]
 fn half(first: i32, second: i32) {
     assert_eq!(first*2, second);
 }

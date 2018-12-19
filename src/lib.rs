@@ -389,15 +389,12 @@ impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
         let mut args = vec![];
         let mut cases = vec![];
-        use self::ParametrizeElement::*;
 
         loop {
             if input.peek2(syn::token::Paren) {
-                println!("Maybe a case");
                 break;
             }
             if let Ok(arg) = input.parse() {
-                println!("Ident = {}", arg);
                 args.push(arg);
                 if input.parse::<Token![,]>().is_err()  {
                     break;
@@ -406,8 +403,6 @@ impl Parse for ParametrizeData {
                 break
             }
         }
-        println!("Args = {:?}", args);
-        println!("Cases = {:?}", cases);
 
         let all = Punctuated::<TestCase, Token![,]>::parse_separated_nonempty(input)?;
         all.into_iter()
