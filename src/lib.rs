@@ -1,19 +1,15 @@
-#![cfg_attr(all(feature = "nightly", feature = "dump_args"), feature(specialization))]
 extern crate proc_macro;
-extern crate proc_macro2;
-#[macro_use]
-extern crate quote;
-extern crate syn;
 
 use proc_macro2::TokenStream;
-use quote::TokenStreamExt;
-use quote::ToTokens;
-use syn::*;
-use syn::parse::Error;
-use syn::parse::Parse;
-use syn::parse::ParseStream;
-use syn::punctuated::Punctuated;
-use std::result::Result as SResult;
+use quote::{quote, TokenStreamExt, ToTokens};
+
+use syn::{
+    Token, parse_macro_input, NestedMeta, Ident, Expr, parse_str, MetaList, Meta, ItemFn,
+    Lit, Pat, FnArg, token, ArgCaptured, Stmt,
+    parse::{self, Error, Parse, ParseStream},
+    punctuated::Punctuated,
+    spanned::Spanned
+};
 
 #[derive(Default, Debug)]
 struct ParametrizeData {
@@ -30,24 +26,24 @@ struct ParametrizeInfo {
 #[derive(PartialEq, Eq, Debug)]
 struct TestCase(Vec<Expr>);
 
-fn parse_expression<S: AsRef<str>>(s: S) -> SResult<Expr, String> {
+fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, String> {
     parse_str::<Expr>(s.as_ref())
         .or(Err(format!("Cannot parse expression '{}'", s.as_ref())))
 }
 
-fn parse_case_arg(a: &syn::NestedMeta) -> SResult<Expr, Error> {
+fn parse_case_arg(a: &NestedMeta) -> Result<Expr, Error> {
     match a {
-        syn::NestedMeta::Literal(l) =>
+        NestedMeta::Literal(l) =>
             parse_expression(format!("{}", l.into_token_stream())),
-        syn::NestedMeta::Meta(opt) => {
+        NestedMeta::Meta(opt) => {
             match opt {
-                syn::Meta::List(arg) if &arg.ident == "Unwrap" =>
+                Meta::List(arg) if &arg.ident == "Unwrap" =>
                     match arg.nested.first().unwrap().value() {
-                        syn::NestedMeta::Literal(syn::Lit::Str(inner_unwrap)) =>
+                        NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
                             parse_expression(inner_unwrap.value()),
                         _ => panic!("Unexpected case argument: {:?}", opt),
                     },
-                syn::Meta::Word(term) => {
+                Meta::Word(term) => {
                     parse_expression(term.to_string())
                 }
                 nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
@@ -61,15 +57,15 @@ trait TryFrom<T>: Sized
 {
     type Error;
 
-    fn try_from(t: T) -> SResult<Self, Self::Error>;
+    fn try_from(t: T) -> Result<Self, Self::Error>;
 }
 
 impl<'a> TryFrom<&'a MetaList> for TestCase {
     type Error = Error;
 
-    fn try_from(l: &'a MetaList) -> syn::parse::Result<Self> {
+    fn try_from(l: &'a MetaList) -> parse::Result<Self> {
         if l.ident == "case" {
-            let res: SResult<Vec<_>, _> = l.nested.iter().map(
+            let res: Result<Vec<_>, _> = l.nested.iter().map(
                 |e|
                     parse_case_arg(e)
             ).collect();
@@ -81,13 +77,13 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
 }
 
 impl Parse for TestCase {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        let meta: syn::Meta = input.parse()?;
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        let meta: Meta = input.parse()?;
         match meta {
-            syn::Meta::List(ref l) if l.ident == "case" => {
+            Meta::List(ref l) if l.ident == "case" => {
                 TestCase::try_from(l)
             }
-            _ => Err(syn::parse::Error::new(meta.span(), "expected a test case"))
+            _ => Err(parse::Error::new(meta.span(), "expected a test case"))
         }
     }
 }
@@ -108,46 +104,45 @@ enum ParametrizeElement {
 }
 
 impl Parse for ParametrizeElement {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
         use self::ParametrizeElement::*;
-        let meta: syn::Meta = input.parse()?;
+        let meta: Meta = input.parse()?;
         match meta {
-            syn::Meta::Word(ident) => Ok(Arg(ident)),
-            syn::Meta::List(ref l) if l.ident == "case" => {
+            Meta::Word(ident) => Ok(Arg(ident)),
+            Meta::List(ref l) if l.ident == "case" => {
                 TestCase::try_from(l).map(Case)
             }
-            _ => Err(syn::parse::Error::new(meta.span(), "expected ident or case"))
+            _ => Err(parse::Error::new(meta.span(), "expected ident or case"))
         }
-
     }
 }
 
-fn default_fixture_name(a: &syn::ArgCaptured) -> syn::Expr {
-    if let syn::Pat::Ident(ref p) = a.pat {
-        syn::parse_str(&format!("{}()", p.ident)).unwrap()
+fn default_fixture_name(a: &ArgCaptured) -> Expr {
+    if let Pat::Ident(ref p) = a.pat {
+        parse_str(&format!("{}()", p.ident)).unwrap()
     } else {
         panic!("Argument should be a identity")
     }
 }
 
-fn captured_arg(arg: &syn::FnArg) -> &syn::ArgCaptured {
-    if let syn::FnArg::Captured(ref a) = arg {
+fn captured_arg(arg: &FnArg) -> &ArgCaptured {
+    if let FnArg::Captured(ref a) = arg {
         a
     } else {
         panic!("Not a valid arg '{:?}'", arg)
     }
 }
 
-fn arg_name(arg: &syn::FnArg) -> &syn::Ident {
-    if let syn::Pat::Ident(ref a) = captured_arg(arg).pat {
+fn arg_name(arg: &FnArg) -> &Ident {
+    if let Pat::Ident(ref a) = captured_arg(arg).pat {
         &a.ident
     } else {
         panic!("Not a valid arg '{:?}'", arg)
     }
 }
 
-fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
-    if let &syn::FnArg::Captured(ref a) = arg {
+fn arg_2_fixture_str(arg: &FnArg, resolver: &Resolver) -> Option<String> {
+    if let &FnArg::Captured(ref a) = arg {
         let fixture = resolver
             .resolve(arg).map(|e| e.clone())
             .unwrap_or_else(|| default_fixture_name(a));
@@ -157,31 +152,31 @@ fn arg_2_fixture_str(arg: &syn::FnArg, resolver: &Resolver) -> Option<String> {
     }
 }
 
-fn arg_2_fixture(arg: &syn::FnArg, resolver: &Resolver) -> Option<syn::Stmt> {
-    arg_2_fixture_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
+fn arg_2_fixture(arg: &FnArg, resolver: &Resolver) -> Option<Stmt> {
+    arg_2_fixture_str(arg, resolver).and_then(|line| parse_str(&line).ok())
 }
 
-fn arg_2_fixture_dump_str(arg: &syn::FnArg, _resolver: &Resolver) -> Option<String> {
-    if let &syn::FnArg::Captured(ref _a) = arg {
+fn arg_2_fixture_dump_str(arg: &FnArg, _resolver: &Resolver) -> Option<String> {
+    if let &FnArg::Captured(ref _a) = arg {
         Some(format!(r#"println!("{name} = {{}}", &{name}.display_string());"#, name = arg_name(arg)))
     } else {
         None
     }
 }
 
-fn arg_2_fixture_dump(arg: &syn::FnArg, resolver: &Resolver, modifiers: &Modifiers) -> Option<syn::Stmt> {
+fn arg_2_fixture_dump(arg: &FnArg, resolver: &Resolver, modifiers: &Modifiers) -> Option<Stmt> {
     if modifiers.trace_me(arg_name(arg)) {
-        arg_2_fixture_dump_str(arg, resolver).and_then(|line| syn::parse_str(&line).ok())
+        arg_2_fixture_dump_str(arg, resolver).and_then(|line| parse_str(&line).ok())
     } else {
         None
     }
 }
 
 #[derive(Default)]
-struct Resolver<'a>(std::collections::HashMap<String, &'a syn::Expr>);
+struct Resolver<'a>(std::collections::HashMap<String, &'a Expr>);
 
 impl<'a> Resolver<'a> {
-    fn new(args: &Vec<syn::Ident>, case: &'a TestCase) -> Self {
+    fn new(args: &Vec<Ident>, case: &'a TestCase) -> Self {
         Resolver(
             args.iter()
                 .zip(case.0.iter())
@@ -190,8 +185,8 @@ impl<'a> Resolver<'a> {
         )
     }
 
-    fn resolve(&self, arg: &syn::FnArg) -> Option<&syn::Expr> {
-        if let syn::FnArg::Captured(_) = arg {
+    fn resolve(&self, arg: &FnArg) -> Option<&Expr> {
+        if let FnArg::Captured(_) = arg {
             self.0.get(&arg_name(arg).to_string())
                 .map(|&a| a)
         } else {
@@ -200,30 +195,30 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures_apply<'a, A>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, f: A)
-                         -> impl Iterator<Item=syn::Stmt> + 'a
-    where A: Fn(&'a syn::FnArg, &'a Resolver) -> Option<syn::Stmt> + 'a
+fn fixtures_apply<'a, A>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver, f: A)
+                         -> impl Iterator<Item=Stmt> + 'a
+    where A: Fn(&'a FnArg, &'a Resolver) -> Option<Stmt> + 'a
 {
     args.filter_map(move |arg| f(arg, resolver))
 }
 
 
-fn fixtures<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=syn::Stmt> + 'a {
+fn fixtures<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=Stmt> + 'a {
     fixtures_apply(args, resolver, arg_2_fixture)
 }
 
-fn fixtures_dump<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a,
+fn fixtures_dump<'a>(args: impl Iterator<Item=&'a FnArg> + 'a,
                      resolver: &'a Resolver, modifiers: &'a Modifiers)
-    -> impl Iterator<Item=syn::Stmt> + 'a
+                     -> impl Iterator<Item=Stmt> + 'a
 {
     fixtures_apply(args, resolver, move |a, r| arg_2_fixture_dump(a, r, modifiers))
 }
 
-fn fn_args(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::FnArg> {
+fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
 }
 
-fn fn_args_name(item_fn: &syn::ItemFn) -> impl Iterator<Item=&syn::Ident> {
+fn fn_args_name(item_fn: &ItemFn) -> impl Iterator<Item=&Ident> {
     fn_args(item_fn).map(arg_name)
 }
 
@@ -234,37 +229,35 @@ enum RsTestAttribute {
 }
 
 
-use syn::spanned::Spanned;
-
-fn no_literal_nested(nested: NestedMeta) -> syn::parse::Result<Meta> {
+fn no_literal_nested(nested: NestedMeta) -> parse::Result<Meta> {
     match nested {
-        syn::NestedMeta::Meta(m) => Ok(m),
-        syn::NestedMeta::Literal(l) => Err(syn::parse::Error::new(l.span(), "Unexpected literal"))
+        NestedMeta::Meta(m) => Ok(m),
+        NestedMeta::Literal(l) => Err(parse::Error::new(l.span(), "Unexpected literal"))
     }
 }
 
-fn just_word_meta(meta: Meta) -> syn::parse::Result<Ident> {
+fn just_word_meta(meta: Meta) -> parse::Result<Ident> {
     match meta {
-        syn::Meta::Word(ident) => Ok(ident),
-        other => Err(syn::parse::Error::new(other.span(), "Should be an ident"))
+        Meta::Word(ident) => Ok(ident),
+        other => Err(parse::Error::new(other.span(), "Should be an ident"))
     }
 }
 
 impl Parse for RsTestAttribute {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
         let meta = no_literal_nested(NestedMeta::parse(input)?)?;
-        use syn::Meta::*;
+        use Meta::*;
         match meta {
             Word(ident) => Ok(RsTestAttribute::Attr(ident)),
             List(l) =>
                 Ok(RsTestAttribute::Tagged(l.ident,
                                            l.nested.into_iter()
                                                .map(no_literal_nested)
-                                               .collect::<syn::parse::Result<Vec<Meta>>>()?
+                                               .collect::<parse::Result<Vec<Meta>>>()?
                                                .into_iter().map(just_word_meta)
-                                               .collect::<syn::parse::Result<Vec<Ident>>>()?,
+                                               .collect::<parse::Result<Vec<Ident>>>()?,
                 )),
-            NameValue(nv) => Err(syn::parse::Error::new(nv.span(), "Invalid attribute"))
+            NameValue(nv) => Err(parse::Error::new(nv.span(), "Invalid attribute"))
         }
     }
 }
@@ -275,7 +268,7 @@ struct Modifiers {
 }
 
 impl Parse for Modifiers {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
         let vars = Punctuated::<RsTestAttribute, Token![::]>::parse_terminated(input)?;
         Ok(Modifiers {
             modifiers: vars.into_iter().collect(),
@@ -314,14 +307,14 @@ impl Modifiers {
     }
 }
 
-fn trace_arguments<'a>(args: impl Iterator<Item=&'a syn::FnArg> + 'a, resolver: &'a Resolver, modifiers: &'a Modifiers) -> proc_macro2::TokenStream {
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver, modifiers: &'a Modifiers) -> proc_macro2::TokenStream {
     let mut fixtures_dump = fixtures_dump(args, resolver, modifiers).peekable();
     if fixtures_dump.peek().is_some() {
         quote! {
         println!("{:-^40}", " TEST ARGUMENTS ");
         #(#fixtures_dump)*
     }
-    }else {
+    } else {
         Default::default()
     }
 }
@@ -352,9 +345,9 @@ pub fn rstest(args: proc_macro::TokenStream,
     res.into()
 }
 
-fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStream {
+fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
-    let ParametrizeInfo{data: params, modifier} = params;
+    let ParametrizeInfo { data: params, modifier } = params;
 
     let mut res = quote! {
             #[cfg(test)]
@@ -386,21 +379,21 @@ fn add_parametrize_cases(test: syn::ItemFn, params: ParametrizeInfo) -> TokenStr
 }
 
 impl Parse for ParametrizeData {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
         let mut args = vec![];
         let mut cases = vec![];
 
         loop {
-            if input.peek2(syn::token::Paren) {
+            if input.peek2(token::Paren) {
                 break;
             }
             if let Ok(arg) = input.parse() {
                 args.push(arg);
-                if input.parse::<Token![,]>().is_err()  {
+                if input.parse::<Token![,]>().is_err() {
                     break;
                 }
             } else {
-                break
+                break;
             }
         }
 
@@ -419,17 +412,17 @@ impl Parse for ParametrizeData {
 }
 
 impl Parse for ParametrizeInfo {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
         let data = input.parse()?;
         let modifiers = if input.parse::<Token![::]>().is_ok() {
             Some(input.parse()?)
         } else {
             None
         };
-        Ok(ParametrizeInfo{
+        Ok(ParametrizeInfo {
             data: data,
 
-            modifier: modifiers.unwrap_or_default()
+            modifier: modifiers.unwrap_or_default(),
         })
     }
 }
@@ -448,9 +441,10 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 #[cfg(test)]
 mod test {
     use super::*;
+    use syn::{Item, punctuated};
 
-    fn fn_args(item: &syn::Item) -> syn::punctuated::Iter<'_, syn::FnArg> {
-        if let &syn::Item::Fn(ref item_fn) = item {
+    fn fn_args(item: &Item) -> punctuated::Iter<'_, FnArg> {
+        if let &Item::Fn(ref item_fn) = item {
             item_fn.decl.inputs.iter()
         } else {
             panic!("Wrong ast!")
@@ -459,7 +453,7 @@ mod test {
 
     #[test]
     fn extract_fixture_call_arg() {
-        let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
+        let ast = parse_str("fn foo(fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
         let resolver = Resolver::default();
 
@@ -470,7 +464,7 @@ mod test {
 
     #[test]
     fn extract_fixture_should_not_add_mut() {
-        let ast = syn::parse_str("fn foo(mut fix: String) {}").unwrap();
+        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
         let args = fn_args(&ast).next().unwrap();
         let resolver = Resolver::default();
 
@@ -481,8 +475,8 @@ mod test {
 
     #[test]
     fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
-        let ast = syn::parse_str("fn foo(fix: String) {}").unwrap();
-        let call = syn::parse_str("bar()").unwrap();
+        let ast = parse_str("fn foo(fix: String) {}").unwrap();
+        let call = parse_str("bar()").unwrap();
         let args = fn_args(&ast).next().unwrap();
         let mut resolver = Resolver::default();
         resolver.add("fix", &call);
@@ -493,7 +487,7 @@ mod test {
     }
 
     impl<'a> Resolver<'a> {
-        fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a syn::Expr) {
+        fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a Expr) {
             self.0.insert(ident.as_ref().to_string(), expr);
         }
     }
@@ -501,9 +495,9 @@ mod test {
 
     #[test]
     fn resolver_should_return_the_given_expression() {
-        let ast = syn::parse_str("fn function(foo: String) {}").unwrap();
+        let ast = parse_str("fn function(foo: String) {}").unwrap();
         let arg = fn_args(&ast).next().unwrap();
-        let expected = syn::parse_str("bar()").unwrap();
+        let expected = parse_str("bar()").unwrap();
         let mut resolver = Resolver::default();
 
         resolver.add("foo", &expected);
@@ -513,7 +507,7 @@ mod test {
 
     #[test]
     fn resolver_should_return_none_for_unknown_argument() {
-        let ast = syn::parse_str("fn function(foo: String) {}").unwrap();
+        let ast = parse_str("fn function(foo: String) {}").unwrap();
         let arg = fn_args(&ast).next().unwrap();
         let resolver = Resolver::default();
 
