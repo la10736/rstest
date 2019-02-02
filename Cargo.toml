@@ -12,7 +12,6 @@ license = "MIT/Apache-2.0"
 keywords = ["test", "fixture"]
 categories = ["development-tools::testing"]
 readme = "README.md"
-edition = "2018"
 
 [lib]
 proc-macro = true
