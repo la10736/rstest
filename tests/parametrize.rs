@@ -146,9 +146,7 @@ fn should_show_correct_errors() {
         error[E0425]: cannot find function `no_fixture` in this scope
           --> {}/src/lib.rs:12:1
            |
-        12 | #[rstest_parametrize(f, case(42))]
-           | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ did you mean `fixture`?
-        ", name).deindent());
+        12 | #[rstest_parametrize(f, case(42))]", name).deindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
@@ -179,12 +177,7 @@ fn should_show_correct_errors() {
         error[E0308]: mismatched types
           --> {}/src/lib.rs:19:27
            |
-        19 | fn error_param_wrong_type(f: &str) {{}}
-           |                           ^ expected &str, found integral variable
-           |
-           = note: expected type `&str`
-                      found type `{{integer}}`
-        ", name).deindent());
+        19 | fn error_param_wrong_type(f: &str) {{}}", name).deindent());
 }
 
 #[test]

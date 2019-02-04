@@ -60,9 +60,7 @@ fn should_show_correct_errors() {
         error[E0425]: cannot find function `no_fixture` in this scope
           --> {}/src/lib.rs:12:1
            |
-        12 | #[rstest]
-           | ^^^^^^^^^ did you mean `fixture`?
-        ", name).deindent());
+        12 | #[rstest]", name).deindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
