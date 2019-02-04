@@ -8,7 +8,7 @@ edition = "2018"
 [features]
 default = []
 # Depends on nightly
-trace_all = ["rstest/trace_all"]
+trace_all = []
 
 
 [dependencies.rstest]
