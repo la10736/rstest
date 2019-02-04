@@ -51,6 +51,20 @@ fn should_panic() {
 }
 
 #[test]
+fn should_dump_fixture_value_if_implements_debug() {
+    let output = run_test("fixture_dump_debug.rs");
+    let stdout = output.stderr.str().to_string();
+
+    TestResults::new()
+        .fail("should_fail")
+        .assert(output);
+
+    assert_in!(stdout, "fixture = 42");
+    assert_in!(stdout, "TEST ARGUMENTS");
+    assert_in!(stdout, "TEST STARTS");
+}
+
+#[test]
 fn should_show_correct_errors() {
     let prj = prj("fixture_errors.rs");
     let output = prj.run_tests().unwrap();
