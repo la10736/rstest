@@ -276,6 +276,8 @@ impl Parse for Modifiers {
     }
 }
 
+const TRACE_VARIABLE_ATTR: &'static str = "trace";
+
 impl Modifiers {
     fn trace_me(&self, ident: &Ident) -> bool {
         if self.autotrace() {
@@ -297,7 +299,7 @@ impl Modifiers {
                 .iter()
                 .filter(|&m|
                     match m {
-                        RsTestAttribute::Attr(i) if i == "autotrace" => true,
+                        RsTestAttribute::Attr(i) if i == TRACE_VARIABLE_ATTR => true,
                         _ => false
                     }
                 ).next().is_some()
@@ -311,9 +313,19 @@ fn trace_arguments<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a R
     let mut fixtures_dump = fixtures_dump(args, resolver, modifiers).peekable();
     if fixtures_dump.peek().is_some() {
         quote! {
-        println!("{:-^40}", " TEST ARGUMENTS ");
-        #(#fixtures_dump)*
-    }
+            trait DisplayString {
+                fn display_string(&self) -> String;
+            };
+
+            impl<T: std::fmt::Debug> DisplayString for T {
+                fn display_string(&self) -> String {
+                    format!("{:?}", self)
+                }
+            }
+
+            println!("{:-^40}", " TEST ARGUMENTS ");
+            #(#fixtures_dump)*
+        }
     } else {
         Default::default()
     }
