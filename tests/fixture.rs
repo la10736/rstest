@@ -1,8 +1,3 @@
-extern crate temp_testdir;
-extern crate toml_edit;
-#[macro_use]
-extern crate lazy_static;
-
 pub mod prj;
 pub mod utils;
 pub mod root;
@@ -50,22 +45,65 @@ fn should_panic() {
         .assert(output);
 }
 
-#[test]
-fn should_dump_fixture_value_if_implements_debug() {
-    let output = run_test("fixture_dump_debug.rs");
-    let out = output.stdout.str().to_string();
+mod dump_fixture_value {
+    use super::{run_test, TestResults, utils::Stringable, assert_in};
 
-    println!("#########################");
-    println!("{}", out);
-    println!("#########################");
+    #[test]
+    fn dump_it_if_implements_debug() {
+        let output = run_test("fixture_dump_debug.rs");
+        let out = output.stdout.str().to_string();
 
-    TestResults::new()
-        .fail("should_fail")
-        .assert(output);
+        TestResults::new()
+            .fail("should_fail")
+            .assert(output);
 
-    assert_in!(out, "fixture = 42");
-    assert_in!(out, "TEST ARGUMENTS");
-    assert_in!(out, "TEST START");
+        assert_in!(out, "fu32 = 42");
+        assert_in!(out, r#"fstring = "A String""#);
+        assert_in!(out, r#"ftuple = (A, "A String", -12"#);
+    }
+
+    #[test]
+    fn not_compile_if_not_implement_debug() {
+        let output = run_test("fixture_dump_not_debug.rs");
+
+        let out = output.stderr.str().to_string();
+
+        assert_in!(out, "method `display_string` not found for this");
+    }
+
+
+    #[test]
+    fn exclude_some_fixtures() {
+        let output = run_test("fixture_dump_exclude_some_fixtures.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("should_fail")
+            .assert(output);
+
+        assert_in!(out, "fu32 = 42");
+        assert_in!(out, "fd = D");
+    }
+
+    #[test]
+    fn fixture_values_should_be_after_test_arguments_and_before_test_start() {
+        let output = run_test("fixture_dump_exclude_some_fixtures.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("should_fail")
+            .assert(output);
+
+        let fixture_dumps_lines = out.lines()
+            .skip_while(|l|
+                !l.contains("TEST ARGUMENTS"))
+            .take_while(|l|
+                !l.contains("TEST START"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(3, fixture_dumps_lines.len());
+    }
+
 }
 
 #[test]
@@ -76,15 +114,15 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0425]: cannot find function `no_fixture` in this scope
-          --> {}/src/lib.rs:12:1
+          --> {}/src/lib.rs:10:1
            |
-        12 | #[rstest]", name).deindent());
+        10 | #[rstest]", name).deindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
-         --> {}/src/lib.rs:9:18
+         --> {}/src/lib.rs:7:18
           |
-        9 |     let a: u32 = "";
+        7 |     let a: u32 = "";
           |                  ^^ expected u32, found reference
           |
           = note: expected type `u32`
@@ -93,9 +131,9 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
-          --> {}/src/lib.rs:17:29
+          --> {}/src/lib.rs:15:29
            |
-        17 | fn error_fixture_wrong_type(fixture: String) {{
+        15 | fn error_fixture_wrong_type(fixture: String) {{
            |                             ^^^^^^^
            |                             |
            |                             expected struct `std::string::String`, found u32
@@ -114,25 +152,25 @@ fn should_reject_no_item_function() {
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
-         --> {}/src/lib.rs:6:1
+         --> {}/src/lib.rs:4:1
           |
-        6 | struct Foo;
+        4 | struct Foo;
           | ^^^^^^
         ", name).deindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
-         --> {}/src/lib.rs:9:1
+         --> {}/src/lib.rs:7:1
           |
-        9 | impl Foo {{}}
+        7 | impl Foo {{}}
           | ^^^^
         ", name).deindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
-          --> {}/src/lib.rs:12:1
+          --> {}/src/lib.rs:10:1
            |
-        12 | mod mod_baz {{}}
+        10 | mod mod_baz {{}}
            | ^^^
         ", name).deindent());
 }

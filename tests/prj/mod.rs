@@ -55,7 +55,7 @@ impl Project {
     }
 
     pub fn create(self) -> Self {
-        if 0 != Command::new("cargo")
+        match Command::new("cargo")
             .current_dir(&self.root)
             .arg("init")
             .arg(&self.name)
@@ -67,11 +67,15 @@ impl Project {
             .unwrap()
             .code()
             .unwrap() {
-            panic!("cargo init return an error code");
+            0 => {
+                self.add_dependency();
+                std::fs::File::create(self.code_path()).unwrap();
+                self
+
+            },
+
+            code => panic!("cargo init return an error code: {}", code)
         }
-        self.add_dependency();
-        std::fs::File::create(self.code_path()).unwrap();
-        self
     }
 
     pub fn set_code_file<P: AsRef<Path>>(self, src: P) -> Self {

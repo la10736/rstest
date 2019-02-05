@@ -1,5 +1,3 @@
-extern crate rstest;
-
 use rstest::rstest_parametrize;
 
 pub fn fixture() -> u32 { 42 }

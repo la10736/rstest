@@ -108,7 +108,13 @@ impl<S> TestResults<S>
                    "{}\n Console: \nOUT:\n{}\nERR:\n{}\n",
                    msg, output.stdout.str(), output.stderr.str());
 
+        let stderr = output.stderr.str();
         let output = output.stdout.str();
+        if output.is_empty() {
+            eprintln!("Stderr: {}", stderr);
+            panic!("Empty stdout!");
+        }
+
         assert_in!(output, format!("running {} test", tests.len()));
 
         self.for_each(

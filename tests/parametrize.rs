@@ -1,8 +1,3 @@
-extern crate temp_testdir;
-extern crate toml_edit;
-
-#[macro_use] extern crate lazy_static;
-
 pub mod prj;
 pub mod utils;
 pub mod root;
@@ -144,15 +139,15 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0425]: cannot find function `no_fixture` in this scope
-          --> {}/src/lib.rs:12:1
+          --> {}/src/lib.rs:10:1
            |
-        12 | #[rstest_parametrize(f, case(42))]", name).deindent());
+        10 | #[rstest_parametrize(f, case(42))]", name).deindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
-         --> {}/src/lib.rs:9:18
+         --> {}/src/lib.rs:7:18
           |
-        9 |     let a: u32 = "";
+        7 |     let a: u32 = "";
           |                  ^^ expected u32, found reference
           |
           = note: expected type `u32`
@@ -161,9 +156,9 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
-          --> {}/src/lib.rs:16:29
+          --> {}/src/lib.rs:14:29
            |
-        16 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
+        14 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
            |                             ^^^^^^^
            |                             |
            |                             expected struct `std::string::String`, found u32
@@ -175,9 +170,9 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
-          --> {}/src/lib.rs:19:27
+          --> {}/src/lib.rs:17:27
            |
-        19 | fn error_param_wrong_type(f: &str) {{}}", name).deindent());
+        17 | fn error_param_wrong_type(f: &str) {{}}", name).deindent());
 }
 
 #[test]
@@ -187,25 +182,25 @@ fn should_reject_no_item_function() {
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
-         --> {}/src/lib.rs:6:1
+         --> {}/src/lib.rs:4:1
           |
-        6 | struct Foo;
+        4 | struct Foo;
           | ^^^^^^
         ", name).deindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
-         --> {}/src/lib.rs:9:1
+         --> {}/src/lib.rs:7:1
           |
-        9 | impl Foo {{}}
+        7 | impl Foo {{}}
           | ^^^^
         ", name).deindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
-          --> {}/src/lib.rs:12:1
+          --> {}/src/lib.rs:10:1
            |
-        12 | mod mod_baz {{}}
+        10 | mod mod_baz {{}}
            | ^^^
         ", name).deindent());
 }

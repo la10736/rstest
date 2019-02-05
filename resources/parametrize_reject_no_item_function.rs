@@ -1,5 +1,3 @@
-extern crate rstest;
-
 use rstest::rstest_parametrize;
 
 #[rstest_parametrize(f, case(42))]

@@ -71,7 +71,7 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
             ).collect();
             res.map(TestCase)
         } else {
-            Err(Error::new(l.span(), format!("Unknow action '{}'", l.ident)))
+            Err(Error::new(l.span(), format!("Unknown action '{}'", l.ident)))
         }
     }
 }
@@ -277,15 +277,16 @@ impl Parse for Modifiers {
 }
 
 const TRACE_VARIABLE_ATTR: &'static str = "trace";
+const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
 
 impl Modifiers {
     fn trace_me(&self, ident: &Ident) -> bool {
-        if self.autotrace() {
+        if self.should_trace() {
             self.modifiers
                 .iter()
                 .filter(|&m|
                     match m {
-                        RsTestAttribute::Tagged(i, args) if i == "notrace" =>
+                        RsTestAttribute::Tagged(i, args) if i == NOTRACE_VARIABLE_ATTR =>
                             args.iter().find(|&a| a == ident).is_some(),
                         _ => false
                     }
@@ -293,19 +294,15 @@ impl Modifiers {
         } else { false }
     }
 
-    fn autotrace(&self) -> bool {
-        if !cfg!(feature = "trace_all") {
-            self.modifiers
-                .iter()
-                .filter(|&m|
-                    match m {
-                        RsTestAttribute::Attr(i) if i == TRACE_VARIABLE_ATTR => true,
-                        _ => false
-                    }
-                ).next().is_some()
-        } else {
-            true
-        }
+    fn should_trace(&self) -> bool {
+        self.modifiers
+            .iter()
+            .filter(|&m|
+                match m {
+                    RsTestAttribute::Attr(i) if i == TRACE_VARIABLE_ATTR => true,
+                    _ => false
+                }
+            ).next().is_some()
     }
 }
 

@@ -1,5 +1,3 @@
-extern crate rstest;
-
 use rstest::rstest;
 
 #[rstest]

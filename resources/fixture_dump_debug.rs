@@ -1,10 +1,13 @@
-extern crate rstest;
-
 use rstest::rstest;
 
-pub fn fixture() -> u32 { 42 }
+#[derive(Debug)]
+struct A {}
+
+fn fu32() -> u32 { 42 }
+fn fstring() -> String { "A String".to_string() }
+fn ftuple() -> (A, String, i32) { (A{}, "A String".to_string(), -12) }
 
 #[rstest(trace)]
-fn should_fail(fixture: u32) {
-    assert_ne!(fixture, 42);
+fn should_fail(fu32: u32, fstring: String, ftuple: (A, String, i32)) {
+    assert!(false);
 }
