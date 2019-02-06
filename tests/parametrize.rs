@@ -133,6 +133,35 @@ fn parametrize_bool() {
         .assert(output);
 }
 
+mod dump_fixture_value {
+    use super::{run_test, TestResults, utils::Stringable, assert_in};
+
+    #[test]
+    fn dump_it_if_implements_debug() {
+        let (output, _) = run_test("parametrize_dump_debug.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("should_fail_case_0")
+            .fail("should_fail_case_1")
+            .assert(output);
+
+        assert_in!(out, "u = 42");
+        assert_in!(out, r#"s = "str""#);
+        assert_in!(out, r#"t = ("ss", -12)"#);
+
+        assert_in!(out, "u = 24");
+        assert_in!(out, r#"s = "trs""#);
+        assert_in!(out, r#"t = ("tt", -24)"#);
+    }
+
+    //TODO:
+    // - [ ] Not Implement
+    // - [ ] Exclude
+    // - [ ] Single test dump wrap
+    // - [ ] Use json output to separate test output?
+}
+
 #[test]
 fn should_show_correct_errors() {
     let (output, name) = run_test("parametrize_errors.rs");
