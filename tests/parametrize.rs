@@ -155,9 +155,29 @@ mod dump_fixture_value {
         assert_in!(out, r#"t = ("tt", -24)"#);
     }
 
+    #[test]
+    fn not_compile_if_not_implement_debug() {
+        let (output, _) = run_test("parametrize_dump_not_debug.rs");
+
+        let out = output.stderr.str().to_string();
+
+        assert_in!(out, "method `display_string` not found for this");
+    }
+
+    #[test]
+    fn exclude_some_fixtures() {
+        let (output, _) = run_test("parametrize_dump_exclude_some_fixtures.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("should_fail_case_0")
+            .assert(output);
+
+        assert_in!(out, "u = 42");
+        assert_in!(out, "d = D");
+    }
+
     //TODO:
-    // - [ ] Not Implement
-    // - [ ] Exclude
     // - [ ] Single test dump wrap
     // - [ ] Use json output to separate test output?
 }

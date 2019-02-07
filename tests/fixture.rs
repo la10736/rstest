@@ -71,7 +71,6 @@ mod dump_fixture_value {
         assert_in!(out, "method `display_string` not found for this");
     }
 
-
     #[test]
     fn exclude_some_fixtures() {
         let output = run_test("fixture_dump_exclude_some_fixtures.rs");
