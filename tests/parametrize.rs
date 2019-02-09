@@ -133,7 +133,7 @@ fn parametrize_bool() {
         .assert(output);
 }
 
-mod dump_fixture_value {
+mod dump_input_value {
     use super::{
         run_test, TestResults, assert_in,
         utils::{
@@ -143,7 +143,7 @@ mod dump_fixture_value {
     };
 
     #[test]
-    fn dump_it_if_implements_debug() {
+    fn if_implement_debug() {
         let (output, _) = run_test("parametrize_dump_debug.rs");
         let out = output.stdout.str().to_string();
 
@@ -162,7 +162,7 @@ mod dump_fixture_value {
     }
 
     #[test]
-    fn not_compile_if_not_implement_debug() {
+    fn should_not_compile_if_not_implement_debug() {
         let (output, name) = run_test("parametrize_dump_not_debug.rs");
 
         assert_in!(output.stderr.str().to_string(), format!(r#"
@@ -182,7 +182,7 @@ mod dump_fixture_value {
     }
 
     #[test]
-    fn exclude_some_fixtures() {
+    fn can_exclude_some_inputs() {
         let (output, _) = run_test("parametrize_dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
@@ -194,9 +194,26 @@ mod dump_fixture_value {
         assert_in!(out, "d = D");
     }
 
-    //TODO:
-    // - [ ] Single test dump wrap
-    // - [ ] Use json output to separate test output?
+    #[test]
+    fn should_be_enclosed_in_an_explicit_session() {
+        let (output, _) = run_test("parametrize_dump_exclude_some_fixtures.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("should_fail_case_0")
+            .assert(output);
+
+        let lines = out.lines()
+            .skip_while(|l|
+                !l.contains("TEST ARGUMENTS"))
+            .take_while(|l|
+                !l.contains("TEST START"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(3, lines.len(),
+                   "Not contains 3 lines but {}: '{}'",
+                   lines.len(), lines.join("\n"));
+    }
 }
 
 #[test]

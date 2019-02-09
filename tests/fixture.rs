@@ -45,7 +45,7 @@ fn should_panic() {
         .assert(output);
 }
 
-mod dump_fixture_value {
+mod dump_input_value {
     use super::{
         prj, run_test, TestResults, assert_in,
         utils::{
@@ -54,7 +54,7 @@ mod dump_fixture_value {
     };
 
     #[test]
-    fn dump_it_if_implements_debug() {
+    fn if_implements_debug() {
         let output = run_test("fixture_dump_debug.rs");
         let out = output.stdout.str().to_string();
 
@@ -68,7 +68,7 @@ mod dump_fixture_value {
     }
 
     #[test]
-    fn not_compile_if_not_implement_debug() {
+    fn should_not_compile_if_not_implement_debug() {
         let prj = prj("fixture_dump_not_debug.rs");
         let name = prj.get_name();
 
@@ -87,7 +87,7 @@ mod dump_fixture_value {
     }
 
     #[test]
-    fn exclude_some_fixtures() {
+    fn can_exclude_some_inputs() {
         let output = run_test("fixture_dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
@@ -100,7 +100,7 @@ mod dump_fixture_value {
     }
 
     #[test]
-    fn fixture_values_should_be_after_test_arguments_and_before_test_start() {
+    fn should_be_enclosed_in_an_explicit_session() {
         let output = run_test("fixture_dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
@@ -108,14 +108,17 @@ mod dump_fixture_value {
             .fail("should_fail")
             .assert(output);
 
-        let fixture_dumps_lines = out.lines()
+        let lines = out.lines()
             .skip_while(|l|
                 !l.contains("TEST ARGUMENTS"))
             .take_while(|l|
                 !l.contains("TEST START"))
             .collect::<Vec<_>>();
 
-        assert_eq!(3, fixture_dumps_lines.len());
+        assert_eq!(3, lines.len(),
+                   "Not contains 3 lines but {}: '{}'",
+                   lines.len(), lines.join("\n")
+        );
     }
 }
 
