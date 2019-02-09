@@ -90,10 +90,30 @@ fn should_panic() {
 fn bool_input() {
     let (output, _) = run_test("bool.rs");
 
+    println!("*** stderr: {}", output.stderr.str());
+
     TestResults::new()
         .ok("bool_case_0")
         .fail("bool_case_1")
         .assert(output);
+}
+
+#[test]
+fn should_not_compile_if_missed_arguments() {
+    let (output, _) = run_test("missed_argument.rs");
+
+    println!("*** stdout ***\n{}", output.stdout.str());
+    println!("*** stderr ***\n{}", output.stderr.str());
+
+    assert_ne!(Some(0), output.status.code());
+    assert!(false, "Should set a meaningful error!!!");
+
+    // Take a look to https://internals.rust-lang.org/t/custom-error-diagnostics-with-procedural-macros-on-almost-stable-rust/8113
+    // Open details and look at error function
+
+    // TODO:
+    // [ ] meaningful error
+    // [ ] miss more than one arguments should show all errors
 }
 
 mod dump_input_values {

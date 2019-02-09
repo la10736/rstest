@@ -117,56 +117,36 @@ impl Parse for ParametrizeElement {
     }
 }
 
-fn default_fixture_name(a: &ArgCaptured) -> Expr {
-    if let Pat::Ident(ref p) = a.pat {
-        parse_str(&format!("{}()", p.ident)).unwrap()
-    } else {
-        panic!("Argument should be a identity")
+fn default_fixture_resolve(ident: &Ident) -> Expr {
+    parse_str(&format!("{}()", ident.to_string())).unwrap()
+}
+
+fn fn_arg_ident<'a>(arg: &'a FnArg) -> Option<&'a Ident> {
+    match arg {
+        FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
+        _ => None
     }
 }
 
-fn captured_arg(arg: &FnArg) -> &ArgCaptured {
-    if let FnArg::Captured(ref a) = arg {
-        a
-    } else {
-        panic!("Not a valid arg '{:?}'", arg)
-    }
+fn arg_2_fixture_str(ident: &Ident, resolver: &Resolver) -> String {
+    let fixture = resolver
+        .resolve(ident)
+        .map(|e| e.clone())
+        .unwrap_or_else(|| default_fixture_resolve(ident));
+    format!("let {name} = {fix};", name = ident, fix = fixture.into_token_stream())
 }
 
-fn arg_name(arg: &FnArg) -> &Ident {
-    if let Pat::Ident(ref a) = captured_arg(arg).pat {
-        &a.ident
-    } else {
-        panic!("Not a valid arg '{:?}'", arg)
-    }
+fn arg_2_fixture(ident: &Ident, resolver: &Resolver) -> Option<Stmt> {
+    parse_str(&arg_2_fixture_str(ident, resolver)).ok()
 }
 
-fn arg_2_fixture_str(arg: &FnArg, resolver: &Resolver) -> Option<String> {
-    if let &FnArg::Captured(ref a) = arg {
-        let fixture = resolver
-            .resolve(arg).map(|e| e.clone())
-            .unwrap_or_else(|| default_fixture_name(a));
-        Some(format!("let {name} = {fix};", name = arg_name(arg), fix = fixture.into_token_stream()))
-    } else {
-        None
-    }
+fn arg_2_fixture_dump_str(ident: &Ident, _resolver: &Resolver) -> String {
+    format!(r#"println!("{name} = {{:?}}", {name});"#, name = ident)
 }
 
-fn arg_2_fixture(arg: &FnArg, resolver: &Resolver) -> Option<Stmt> {
-    arg_2_fixture_str(arg, resolver).and_then(|line| parse_str(&line).ok())
-}
-
-fn arg_2_fixture_dump_str(arg: &FnArg, _resolver: &Resolver) -> Option<String> {
-    if let &FnArg::Captured(ref _a) = arg {
-        Some(format!(r#"println!("{name} = {{:?}}", {name});"#, name = arg_name(arg)))
-    } else {
-        None
-    }
-}
-
-fn arg_2_fixture_dump(arg: &FnArg, resolver: &Resolver, modifiers: &Modifiers) -> Option<Stmt> {
-    if modifiers.trace_me(arg_name(arg)) {
-        arg_2_fixture_dump_str(arg, resolver).and_then(|line| parse_str(&line).ok())
+fn arg_2_fixture_dump(ident: &Ident, resolver: &Resolver, modifiers: &Modifiers) -> Option<Stmt> {
+    if modifiers.trace_me(ident) {
+        parse_str(&arg_2_fixture_dump_str(ident, resolver)).ok()
     } else {
         None
     }
@@ -185,33 +165,26 @@ impl<'a> Resolver<'a> {
         )
     }
 
-    fn resolve(&self, arg: &FnArg) -> Option<&Expr> {
-        if let FnArg::Captured(_) = arg {
-            self.0.get(&arg_name(arg).to_string())
-                .map(|&a| a)
-        } else {
-            None
-        }
+    fn resolve(&self, ident: &Ident) -> Option<&Expr> {
+        self.0.get(&ident.to_string()).map(|&a| a)
     }
 }
 
-fn fixtures_apply<'a, A>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver, f: A)
-                         -> impl Iterator<Item=Stmt> + 'a
-    where A: Fn(&'a FnArg, &'a Resolver) -> Option<Stmt> + 'a
-{
-    args.filter_map(move |arg| f(arg, resolver))
-}
-
-
 fn fixtures<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=Stmt> + 'a {
-    fixtures_apply(args, resolver, arg_2_fixture)
+    args.filter_map(fn_arg_ident)
+        .filter_map(move |arg|
+            arg_2_fixture(arg, resolver)
+        )
 }
 
 fn fixtures_dump<'a>(args: impl Iterator<Item=&'a FnArg> + 'a,
                      resolver: &'a Resolver, modifiers: &'a Modifiers)
                      -> impl Iterator<Item=Stmt> + 'a
 {
-    fixtures_apply(args, resolver, move |a, r| arg_2_fixture_dump(a, r, modifiers))
+    args.filter_map(fn_arg_ident)
+        .filter_map(move |arg|
+            arg_2_fixture_dump(arg, resolver, modifiers)
+        )
 }
 
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
@@ -219,7 +192,7 @@ fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
 }
 
 fn fn_args_name(item_fn: &ItemFn) -> impl Iterator<Item=&Ident> {
-    fn_args(item_fn).map(arg_name)
+    fn_args(item_fn).filter_map(fn_arg_ident)
 }
 
 #[derive(Debug)]
@@ -227,7 +200,6 @@ enum RsTestAttribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),
 }
-
 
 fn no_literal_nested(nested: NestedMeta) -> parse::Result<Meta> {
     match nested {
@@ -344,9 +316,25 @@ pub fn rstest(args: proc_macro::TokenStream,
     res.into()
 }
 
+fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
+    fn_args(fn_decl)
+        .inspect(|id| {println!("**** {:#?} --- {:?}", id, ident)})
+        .filter_map(fn_arg_ident)
+        .inspect(|id| {println!("##### {:#?} --- {:?}", id, ident)})
+        .find(|&id| id == ident)
+        .is_some()
+}
+
 fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
     let ParametrizeInfo { data: params, modifier } = params;
+
+    let mut invalid_args = params.args.iter()
+        .filter(|p| ! fn_args_has_ident(&test, p));
+
+    if invalid_args.nth(0).is_some() {
+        panic!("Catched")
+    }
 
     let mut res = quote! {
             #[cfg(test)]
@@ -450,39 +438,44 @@ mod test {
         }
     }
 
+    fn first_arg_ident(ast: &Item) -> &Ident {
+        let arg = fn_args(&ast).next().unwrap();
+        fn_arg_ident(arg).unwrap()
+    }
+
     #[test]
     fn extract_fixture_call_arg() {
-        let ast = parse_str("fn foo(fix: String) {}").unwrap();
-        let args = fn_args(&ast).next().unwrap();
+        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
         let resolver = Resolver::default();
 
-        let line = arg_2_fixture_str(args, &resolver);
+        let line = arg_2_fixture_str(arg, &resolver);
 
-        assert_eq!("let fix = fix ( );", &line.unwrap());
+        assert_eq!("let fix = fix ( );", line);
     }
 
     #[test]
     fn extract_fixture_should_not_add_mut() {
         let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
-        let args = fn_args(&ast).next().unwrap();
+        let arg = first_arg_ident(&ast);
         let resolver = Resolver::default();
 
-        let line = arg_2_fixture_str(args, &resolver);
+        let line = arg_2_fixture_str(arg, &resolver);
 
-        assert_eq!("let fix = fix ( );", &line.unwrap());
+        assert_eq!("let fix = fix ( );", line);
     }
 
     #[test]
     fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
-        let ast = parse_str("fn foo(fix: String) {}").unwrap();
+        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
         let call = parse_str("bar()").unwrap();
-        let args = fn_args(&ast).next().unwrap();
         let mut resolver = Resolver::default();
         resolver.add("fix", &call);
 
-        let line = arg_2_fixture_str(args, &resolver);
+        let line = arg_2_fixture_str(arg, &resolver);
 
-        assert_eq!("let fix = bar ( );", &line.unwrap());
+        assert_eq!("let fix = bar ( );", line);
     }
 
     impl<'a> Resolver<'a> {
@@ -494,8 +487,8 @@ mod test {
 
     #[test]
     fn resolver_should_return_the_given_expression() {
-        let ast = parse_str("fn function(foo: String) {}").unwrap();
-        let arg = fn_args(&ast).next().unwrap();
+        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
         let expected = parse_str("bar()").unwrap();
         let mut resolver = Resolver::default();
 
@@ -506,8 +499,8 @@ mod test {
 
     #[test]
     fn resolver_should_return_none_for_unknown_argument() {
-        let ast = parse_str("fn function(foo: String) {}").unwrap();
-        let arg = fn_args(&ast).next().unwrap();
+        let ast = parse_str("fn function(mut fix: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
         let resolver = Resolver::default();
 
         assert!(resolver.resolve(&arg).is_none())
