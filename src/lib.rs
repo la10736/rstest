@@ -158,7 +158,7 @@ fn arg_2_fixture(arg: &FnArg, resolver: &Resolver) -> Option<Stmt> {
 
 fn arg_2_fixture_dump_str(arg: &FnArg, _resolver: &Resolver) -> Option<String> {
     if let &FnArg::Captured(ref _a) = arg {
-        Some(format!(r#"println!("{name} = {{}}", &{name}.display_string());"#, name = arg_name(arg)))
+        Some(format!(r#"println!("{name} = {{:?}}", {name});"#, name = arg_name(arg)))
     } else {
         None
     }
@@ -310,16 +310,6 @@ fn trace_arguments<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a R
     let mut fixtures_dump = fixtures_dump(args, resolver, modifiers).peekable();
     if fixtures_dump.peek().is_some() {
         quote! {
-            trait DisplayString {
-                fn display_string(&self) -> String;
-            };
-
-            impl<T: std::fmt::Debug> DisplayString for T {
-                fn display_string(&self) -> String {
-                    format!("{:?}", self)
-                }
-            }
-
             println!("{:-^40}", " TEST ARGUMENTS ");
             #(#fixtures_dump)*
         }

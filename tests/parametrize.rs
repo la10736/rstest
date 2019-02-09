@@ -134,7 +134,13 @@ fn parametrize_bool() {
 }
 
 mod dump_fixture_value {
-    use super::{run_test, TestResults, utils::Stringable, assert_in};
+    use super::{
+        run_test, TestResults, assert_in,
+        utils::{
+            Stringable,
+            deindent::Deindent
+        }
+    };
 
     #[test]
     fn dump_it_if_implements_debug() {
@@ -157,11 +163,22 @@ mod dump_fixture_value {
 
     #[test]
     fn not_compile_if_not_implement_debug() {
-        let (output, _) = run_test("parametrize_dump_not_debug.rs");
+        let (output, name) = run_test("parametrize_dump_not_debug.rs");
 
-        let out = output.stderr.str().to_string();
-
-        assert_in!(out, "method `display_string` not found for this");
+        assert_in!(output.stderr.str().to_string(), format!(r#"
+        error[E0277]: `S` doesn't implement `std::fmt::Debug`
+         --> {}/src/lib.rs:5:1
+          |
+        5 | / #[rstest_parametrize(s,
+        6 | |     case(Unwrap("S{{}}"))
+        7 | |     ::trace
+        8 | | )]
+          | |__^ `S` cannot be formatted using `{{:?}}`
+          |
+          = help: the trait `std::fmt::Debug` is not implemented for `S`
+          = note: add `#[derive(Debug)]` or manually implement `std::fmt::Debug`
+          = note: required by `std::fmt::Debug::fmt`
+        "#, name).deindent());
     }
 
     #[test]

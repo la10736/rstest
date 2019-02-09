@@ -46,7 +46,12 @@ fn should_panic() {
 }
 
 mod dump_fixture_value {
-    use super::{run_test, TestResults, utils::Stringable, assert_in};
+    use super::{
+        prj, run_test, TestResults, assert_in,
+        utils::{
+            Stringable, deindent::Deindent
+        },
+    };
 
     #[test]
     fn dump_it_if_implements_debug() {
@@ -64,11 +69,21 @@ mod dump_fixture_value {
 
     #[test]
     fn not_compile_if_not_implement_debug() {
-        let output = run_test("fixture_dump_not_debug.rs");
+        let prj = prj("fixture_dump_not_debug.rs");
+        let name = prj.get_name();
 
-        let out = output.stderr.str().to_string();
+        let output = prj.run_tests().unwrap();
 
-        assert_in!(out, "method `display_string` not found for this");
+        assert_in!(output.stderr.str(), format!(r#"
+         --> {}/src/lib.rs:7:1
+          |
+        7 | #[rstest(trace)]
+          | ^^^^^^^^^^^^^^^^ `S` cannot be formatted using `{{:?}}`
+          |
+          = help: the trait `std::fmt::Debug` is not implemented for `S`
+          = note: add `#[derive(Debug)]` or manually implement `std::fmt::Debug`
+          = note: required by `std::fmt::Debug::fmt`
+        "#, name).deindent());
     }
 
     #[test]
@@ -102,7 +117,6 @@ mod dump_fixture_value {
 
         assert_eq!(3, fixture_dumps_lines.len());
     }
-
 }
 
 #[test]
