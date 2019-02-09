@@ -4,10 +4,12 @@ pub mod root;
 
 use crate::utils::{*, deindent::Deindent};
 use crate::prj::Project;
+use std::path::Path;
 
 fn prj(res: &str) -> Project {
+    let path = Path::new("fixture").join(res);
     root::prj()
-        .set_code_file(resources(res))
+        .set_code_file(resources(path))
 }
 
 fn run_test(res: &str) -> std::process::Output {
@@ -17,7 +19,7 @@ fn run_test(res: &str) -> std::process::Output {
 
 #[test]
 fn one_success_and_one_fail() {
-    let output = run_test("fixture_simple.rs");
+    let output = run_test("simple.rs");
 
     TestResults::new()
         .ok("should_success")
@@ -27,7 +29,7 @@ fn one_success_and_one_fail() {
 
 #[test]
 fn mutable_input() {
-    let output = run_test("fixture_mut.rs");
+    let output = run_test("mut.rs");
 
     TestResults::new()
         .ok("should_success")
@@ -37,7 +39,7 @@ fn mutable_input() {
 
 #[test]
 fn should_panic() {
-    let output = run_test("fixture_panic.rs");
+    let output = run_test("panic.rs");
 
     TestResults::new()
         .ok("should_success")
@@ -55,7 +57,7 @@ mod dump_input_values {
 
     #[test]
     fn if_implements_debug() {
-        let output = run_test("fixture_dump_debug.rs");
+        let output = run_test("dump_debug.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -69,7 +71,7 @@ mod dump_input_values {
 
     #[test]
     fn should_not_compile_if_not_implement_debug() {
-        let prj = prj("fixture_dump_not_debug.rs");
+        let prj = prj("dump_not_debug.rs");
         let name = prj.get_name();
 
         let output = prj.run_tests().unwrap();
@@ -88,7 +90,7 @@ mod dump_input_values {
 
     #[test]
     fn can_exclude_some_inputs() {
-        let output = run_test("fixture_dump_exclude_some_fixtures.rs");
+        let output = run_test("dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -101,7 +103,7 @@ mod dump_input_values {
 
     #[test]
     fn should_be_enclosed_in_an_explicit_session() {
-        let output = run_test("fixture_dump_exclude_some_fixtures.rs");
+        let output = run_test("dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -124,7 +126,7 @@ mod dump_input_values {
 
 #[test]
 fn should_show_correct_errors() {
-    let prj = prj("fixture_errors.rs");
+    let prj = prj("errors.rs");
     let output = prj.run_tests().unwrap();
     let name = prj.get_name();
 
@@ -162,7 +164,7 @@ fn should_show_correct_errors() {
 
 #[test]
 fn should_reject_no_item_function() {
-    let prj = prj("fixture_reject_no_item_function.rs");
+    let prj = prj("reject_no_item_function.rs");
     let output = prj.compile().unwrap();
     let name = prj.get_name();
 

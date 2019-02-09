@@ -3,18 +3,21 @@ pub mod utils;
 pub mod root;
 
 use crate::utils::{*, deindent::Deindent};
-use crate::root::prj;
+use std::path::Path;
+
+fn prj(res: &str) -> prj::Project {
+    let path = Path::new("parametrize").join(res);
+    root::prj().set_code_file(resources(path))
+}
 
 fn run_test(res: &str) -> (std::process::Output, String) {
-    let prj = prj().set_code_file(resources(res));
-
+    let prj = prj(res);
     (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
 }
 
 #[test]
 fn should_compile() {
-    let output = prj()
-        .set_code_file(resources("parametrize_simple.rs"))
+    let output = prj("simple.rs")
         .compile()
         .unwrap();
 
@@ -23,7 +26,7 @@ fn should_compile() {
 
 #[test]
 fn happy_path() {
-    let (output, _) = run_test("parametrize_simple.rs");
+    let (output, _) = run_test("simple.rs");
 
     TestResults::new()
         .ok("strlen_test_case_0")
@@ -33,7 +36,7 @@ fn happy_path() {
 
 #[test]
 fn mut_input() {
-    let (output, _) = run_test("parametrize_mut.rs");
+    let (output, _) = run_test("mut.rs");
 
     TestResults::new()
         .ok("add_test_case_0")
@@ -44,7 +47,7 @@ fn mut_input() {
 
 #[test]
 fn generic_input() {
-    let (output, _) = run_test("parametrize_generic.rs");
+    let (output, _) = run_test("generic.rs");
 
     TestResults::new()
         .ok("strlen_test_case_0")
@@ -54,7 +57,7 @@ fn generic_input() {
 
 #[test]
 fn impl_input() {
-    let (output, _) = run_test("parametrize_impl_param.rs");
+    let (output, _) = run_test("impl_param.rs");
 
     TestResults::new()
         .ok("strlen_test_case_0")
@@ -64,7 +67,7 @@ fn impl_input() {
 
 #[test]
 fn fallback_to_fixture_lookup() {
-    let (output, _) = run_test("parametrize_fallback.rs");
+    let (output, _) = run_test("fallback.rs");
 
     TestResults::new()
         .ok("sum_case_0")
@@ -74,7 +77,7 @@ fn fallback_to_fixture_lookup() {
 
 #[test]
 fn should_panic() {
-    let (output, _) = run_test("parametrize_panic.rs");
+    let (output, _) = run_test("panic.rs");
 
     TestResults::new()
         .ok("fail_case_0")
@@ -85,7 +88,7 @@ fn should_panic() {
 
 #[test]
 fn bool_input() {
-    let (output, _) = run_test("parametrize_bool.rs");
+    let (output, _) = run_test("bool.rs");
 
     TestResults::new()
         .ok("bool_case_0")
@@ -104,7 +107,7 @@ mod dump_input_values {
 
     #[test]
     fn if_implement_debug() {
-        let (output, _) = run_test("parametrize_dump_debug.rs");
+        let (output, _) = run_test("dump_debug.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -123,7 +126,7 @@ mod dump_input_values {
 
     #[test]
     fn should_not_compile_if_not_implement_debug() {
-        let (output, name) = run_test("parametrize_dump_not_debug.rs");
+        let (output, name) = run_test("dump_not_debug.rs");
 
         assert_in!(output.stderr.str().to_string(), format!(r#"
         error[E0277]: `S` doesn't implement `std::fmt::Debug`
@@ -143,7 +146,7 @@ mod dump_input_values {
 
     #[test]
     fn can_exclude_some_inputs() {
-        let (output, _) = run_test("parametrize_dump_exclude_some_fixtures.rs");
+        let (output, _) = run_test("dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -156,7 +159,7 @@ mod dump_input_values {
 
     #[test]
     fn should_be_enclosed_in_an_explicit_session() {
-        let (output, _) = run_test("parametrize_dump_exclude_some_fixtures.rs");
+        let (output, _) = run_test("dump_exclude_some_fixtures.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -178,7 +181,7 @@ mod dump_input_values {
 
 #[test]
 fn should_show_correct_errors() {
-    let (output, name) = run_test("parametrize_errors.rs");
+    let (output, name) = run_test("errors.rs");
 
     assert_in!(output.stderr.str(), format!("
         error[E0425]: cannot find function `no_fixture` in this scope
@@ -220,7 +223,7 @@ fn should_show_correct_errors() {
 
 #[test]
 fn should_reject_no_item_function() {
-    let prj = prj().set_code_file(resources("parametrize_reject_no_item_function.rs"));
+    let prj = prj("reject_no_item_function.rs");
     let (output, name) = (prj.compile().unwrap(), prj.get_name());
 
     assert_in!(output.stderr.str(), format!("
