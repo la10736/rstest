@@ -16,7 +16,7 @@ fn run_test(res: &str) -> std::process::Output {
 }
 
 #[test]
-fn happy_path_one_success_and_one_fail() {
+fn one_success_and_one_fail() {
     let output = run_test("fixture_simple.rs");
 
     TestResults::new()
@@ -26,7 +26,7 @@ fn happy_path_one_success_and_one_fail() {
 }
 
 #[test]
-fn mutable_fixture() {
+fn mutable_input() {
     let output = run_test("fixture_mut.rs");
 
     TestResults::new()
@@ -45,7 +45,7 @@ fn should_panic() {
         .assert(output);
 }
 
-mod dump_input_value {
+mod dump_input_values {
     use super::{
         prj, run_test, TestResults, assert_in,
         utils::{

@@ -5,48 +5,14 @@ pub mod root;
 use crate::utils::{*, deindent::Deindent};
 use crate::root::prj;
 
-#[test]
-fn one_success_test() {
-    let project = prj();
+fn run_test(res: &str) -> (std::process::Output, String) {
+    let prj = prj().set_code_file(resources(res));
 
-    project.append_code(
-        r#"
-        #[test]
-        fn success() {
-            assert!(true);
-        }
-        "#
-    );
-
-    let output = project.run_tests().unwrap();
-
-    TestResults::new()
-        .ok("success")
-        .assert(output);
+    (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
 }
 
 #[test]
-fn one_fail_test() {
-    let project = prj();
-
-    project.append_code(
-        r#"
-        #[test]
-        fn fail() {
-            assert!(false);
-        }
-        "#
-    );
-
-    let output = project.run_tests().unwrap();
-
-    TestResults::new()
-        .fail("fail")
-        .assert(output);
-}
-
-#[test]
-fn parametrize_simple_should_compile() {
+fn should_compile() {
     let output = prj()
         .set_code_file(resources("parametrize_simple.rs"))
         .compile()
@@ -55,14 +21,8 @@ fn parametrize_simple_should_compile() {
     assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
 }
 
-fn run_test(res: &str) -> (std::process::Output, String) {
-    let prj = prj().set_code_file(resources(res));
-
-    (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
-}
-
 #[test]
-fn parametrize_simple_happy_path() {
+fn happy_path() {
     let (output, _) = run_test("parametrize_simple.rs");
 
     TestResults::new()
@@ -72,7 +32,7 @@ fn parametrize_simple_happy_path() {
 }
 
 #[test]
-fn parametrize_mut() {
+fn mut_input() {
     let (output, _) = run_test("parametrize_mut.rs");
 
     TestResults::new()
@@ -83,7 +43,7 @@ fn parametrize_mut() {
 
 
 #[test]
-fn parametrize_generic() {
+fn generic_input() {
     let (output, _) = run_test("parametrize_generic.rs");
 
     TestResults::new()
@@ -93,7 +53,7 @@ fn parametrize_generic() {
 }
 
 #[test]
-fn parametrize_impl_param() {
+fn impl_input() {
     let (output, _) = run_test("parametrize_impl_param.rs");
 
     TestResults::new()
@@ -103,7 +63,7 @@ fn parametrize_impl_param() {
 }
 
 #[test]
-fn parametrize_fallback() {
+fn fallback_to_fixture_lookup() {
     let (output, _) = run_test("parametrize_fallback.rs");
 
     TestResults::new()
@@ -113,7 +73,7 @@ fn parametrize_fallback() {
 }
 
 #[test]
-fn parametrize_should_panic() {
+fn should_panic() {
     let (output, _) = run_test("parametrize_panic.rs");
 
     TestResults::new()
@@ -124,7 +84,7 @@ fn parametrize_should_panic() {
 }
 
 #[test]
-fn parametrize_bool() {
+fn bool_input() {
     let (output, _) = run_test("parametrize_bool.rs");
 
     TestResults::new()
@@ -133,7 +93,7 @@ fn parametrize_bool() {
         .assert(output);
 }
 
-mod dump_input_value {
+mod dump_input_values {
     use super::{
         run_test, TestResults, assert_in,
         utils::{
