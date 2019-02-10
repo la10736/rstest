@@ -318,12 +318,24 @@ pub fn rstest(args: proc_macro::TokenStream,
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
     fn_args(fn_decl)
-        .inspect(|id| {println!("**** {:#?} --- {:?}", id, ident)})
         .filter_map(fn_arg_ident)
-        .inspect(|id| {println!("##### {:#?} --- {:?}", id, ident)})
         .find(|&id| id == ident)
         .is_some()
 }
+
+mod error {
+    use proc_macro2::*;
+    use quote::quote_spanned;
+
+    pub fn error(s: &str, span: Span) -> TokenStream {
+        let msg = quote_spanned! {
+            span => compile_error!(#s);
+        };
+        msg.into()
+    }
+}
+
+use error::error;
 
 fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
@@ -332,8 +344,10 @@ fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     let mut invalid_args = params.args.iter()
         .filter(|p| ! fn_args_has_ident(&test, p));
 
-    if invalid_args.nth(0).is_some() {
-        panic!("Catched")
+    if let Some(missed) = invalid_args.nth(0) {
+        let span = missed.span().into();
+        let message = format!("Missed argument: '{}' should be a test function argument.", missed);
+        return error(&message, span);
     }
 
     let mut res = quote! {

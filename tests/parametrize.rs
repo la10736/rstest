@@ -98,22 +98,43 @@ fn bool_input() {
         .assert(output);
 }
 
-#[test]
-fn should_not_compile_if_missed_arguments() {
-    let (output, _) = run_test("missed_argument.rs");
 
-    println!("*** stdout ***\n{}", output.stdout.str());
-    println!("*** stderr ***\n{}", output.stderr.str());
+mod not_compile_if_missed_arguments {
+    use super::*;
 
-    assert_ne!(Some(0), output.status.code());
-    assert!(false, "Should set a meaningful error!!!");
+    #[test]
+    fn happy_path() {
+        let (output, _) = run_test("missed_argument.rs");
+        let stderr = output.stderr.str();
 
-    // Take a look to https://internals.rust-lang.org/t/custom-error-diagnostics-with-procedural-macros-on-almost-stable-rust/8113
-    // Open details and look at error function
+        assert_ne!(Some(0), output.status.code());
+        assert_in!(stderr, "Missed argument");
+        assert_in!(stderr, r#"
+      |
+    4 | #[rstest_parametrize(f, case(42), case(24))]
+      |                      ^
+    "#.deindent());
 
-    // TODO:
-    // [ ] meaningful error
-    // [ ] miss more than one arguments should show all errors
+        // TODO:
+        // [ ] miss more than one arguments should show all errors
+        // [ ] check cases args also
+    }
+
+    #[test]
+    fn should_report_just_one_error_message_for_all_test_cases() {
+        let (output, _) = run_test("missed_argument.rs");
+        let stderr = output.stderr.str();
+
+        let message_occurrence = stderr.lines()
+            .filter(|line| line.contains("Missed argument"))
+            .count();
+
+        assert_eq!(1, message_occurrence,
+                   "More than one message occurrence in error message:\n{}", stderr)
+    }
+
+
+
 }
 
 mod dump_input_values {
