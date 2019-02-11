@@ -1,9 +1,10 @@
+use std::path::Path;
+
+use crate::utils::{*, deindent::Deindent};
+
 pub mod prj;
 pub mod utils;
 pub mod root;
-
-use crate::utils::{*, deindent::Deindent};
-use std::path::Path;
 
 fn prj(res: &str) -> prj::Project {
     let path = Path::new("parametrize").join(res);
@@ -102,6 +103,19 @@ fn bool_input() {
 mod not_compile_if_missed_arguments {
     use super::*;
 
+    trait CountMessageOccurrence {
+        fn count<S: AsRef<str>>(&self, message: S) -> usize;
+    }
+
+    impl<ST> CountMessageOccurrence for ST where ST: AsRef<str> {
+        fn count<S: AsRef<str>>(&self, message: S) -> usize {
+            self.as_ref().lines()
+                .filter(|line| line.contains(
+                    message.as_ref()))
+                .count()
+        }
+    }
+
     #[test]
     fn happy_path() {
         let (output, _) = run_test("missed_argument.rs");
@@ -114,10 +128,27 @@ mod not_compile_if_missed_arguments {
     4 | #[rstest_parametrize(f, case(42), case(24))]
       |                      ^
     "#.deindent());
+    }
 
-        // TODO:
-        // [ ] miss more than one arguments should show all errors
-        // [ ] check cases args also
+    #[test]
+    fn should_reports_all() {
+        let (output, _) = run_test("missed_some_arguments.rs");
+        let stderr = output.stderr.str();
+
+        assert_in!(stderr, r#"
+      |
+    4 | #[rstest_parametrize(a,b,c, case(1,2,3), case(3,2,1))]
+      |                      ^
+    "#.deindent());
+        assert_in!(stderr, r#"
+      |
+    4 | #[rstest_parametrize(a,b,c, case(1,2,3), case(3,2,1))]
+      |                          ^
+    "#.deindent());
+
+        assert_eq!(2, stderr.count("Missed argument"),
+                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr)
+
     }
 
     #[test]
@@ -125,25 +156,18 @@ mod not_compile_if_missed_arguments {
         let (output, _) = run_test("missed_argument.rs");
         let stderr = output.stderr.str();
 
-        let message_occurrence = stderr.lines()
-            .filter(|line| line.contains("Missed argument"))
-            .count();
-
-        assert_eq!(1, message_occurrence,
+        assert_eq!(1, stderr.count("Missed argument"),
                    "More than one message occurrence in error message:\n{}", stderr)
     }
-
-
-
 }
 
 mod dump_input_values {
     use super::{
-        run_test, TestResults, assert_in,
+        assert_in, run_test, TestResults,
         utils::{
+            deindent::Deindent,
             Stringable,
-            deindent::Deindent
-        }
+        },
     };
 
     #[test]

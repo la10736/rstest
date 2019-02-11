@@ -121,7 +121,7 @@ fn default_fixture_resolve(ident: &Ident) -> Expr {
     parse_str(&format!("{}()", ident.to_string())).unwrap()
 }
 
-fn fn_arg_ident<'a>(arg: &'a FnArg) -> Option<&'a Ident> {
+fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
     match arg {
         FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
         _ => None
@@ -335,19 +335,32 @@ mod error {
     }
 }
 
+fn error_report(test: &ItemFn, params: &ParametrizeData) -> Option<TokenStream> {
+    let invalid_args = params.args.iter()
+        .filter(|p| ! fn_args_has_ident(test, p));
+
+    let mut tokens = TokenStream::default();
+    for missed in invalid_args {
+        let span = missed.span().into();
+        let message = format!("Missed argument: '{}' should be a test function argument.", missed);
+        tokens.extend(error(&message, span));
+    }
+
+    if !tokens.is_empty() {
+        Some(tokens)
+    } else {
+        None
+    }
+}
+
 use error::error;
 
 fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
     let ParametrizeInfo { data: params, modifier } = params;
 
-    let mut invalid_args = params.args.iter()
-        .filter(|p| ! fn_args_has_ident(&test, p));
-
-    if let Some(missed) = invalid_args.nth(0) {
-        let span = missed.span().into();
-        let message = format!("Missed argument: '{}' should be a test function argument.", missed);
-        return error(&message, span);
+    if let Some(tokens) = error_report(&test, &params) {
+        return tokens;
     }
 
     let mut res = quote! {
@@ -421,7 +434,7 @@ impl Parse for ParametrizeInfo {
             None
         };
         Ok(ParametrizeInfo {
-            data: data,
+            data,
 
             modifier: modifiers.unwrap_or_default(),
         })
