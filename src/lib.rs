@@ -371,6 +371,10 @@ fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     // TODO: Move to fold trait impl
 
     for (n, case) in params.cases.iter().enumerate() {
+        if case.0.len() != params.args.len() {
+            panic!("Wrong case signature: should match the given parameters list.");
+        }
+
         let resolver = Resolver::new(&params.args, &case);
         let fixtures = fixtures(fn_args(&test), &resolver);
         let trace_args = trace_arguments(fn_args(&test), &resolver, &modifier);

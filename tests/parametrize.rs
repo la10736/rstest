@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::utils::{*, deindent::Deindent};
+pub use crate::utils::{*, deindent::Deindent, CountMessageOccurrence};
 
 pub mod prj;
 pub mod utils;
@@ -99,22 +99,8 @@ fn bool_input() {
         .assert(output);
 }
 
-
 mod not_compile_if_missed_arguments {
     use super::*;
-
-    trait CountMessageOccurrence {
-        fn count<S: AsRef<str>>(&self, message: S) -> usize;
-    }
-
-    impl<ST> CountMessageOccurrence for ST where ST: AsRef<str> {
-        fn count<S: AsRef<str>>(&self, message: S) -> usize {
-            self.as_ref().lines()
-                .filter(|line| line.contains(
-                    message.as_ref()))
-                .count()
-        }
-    }
 
     #[test]
     fn happy_path() {
@@ -158,6 +144,26 @@ mod not_compile_if_missed_arguments {
 
         assert_eq!(1, stderr.count("Missed argument"),
                    "More than one message occurrence in error message:\n{}", stderr)
+    }
+}
+
+mod not_compile_if_a_case_has_a_wrong_signature {
+    use super::*;
+
+    //  TODO:
+    // - [ ] Count error occurrence
+    // - [ ] Should point case span
+    // - [ ] Test case for less case args
+
+    #[test]
+    fn with_too_much_arguments() {
+        let (output, _) = run_test("case_with_too_much_args.rs");
+        let stderr = output.stderr.str();
+
+        assert_ne!(Some(0), output.status.code(), "Should not compile");
+        assert_in!(stderr, "Wrong case signature: should match the given parameters list.");
+
+        assert!(false, "WIP: see TODO");
     }
 }
 

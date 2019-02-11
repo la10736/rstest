@@ -187,3 +187,16 @@ pub mod deindent {
         l.chars().take_while(|&c| c == ch ).count()
     }
 }
+
+pub trait CountMessageOccurrence {
+    fn count<S: AsRef<str>>(&self, message: S) -> usize;
+}
+
+impl<ST> CountMessageOccurrence for ST where ST: AsRef<str> {
+    fn count<S: AsRef<str>>(&self, message: S) -> usize {
+        self.as_ref().lines()
+            .filter(|line| line.contains(
+                message.as_ref()))
+            .count()
+    }
+}

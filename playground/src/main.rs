@@ -8,3 +8,8 @@ use std::fmt::Debug;
 fn example(a: u32) {
     assert!(true)
 }
+
+#[rstest_parametrize(a, case())]
+fn example2(a: u32) {
+    assert!(true)
+}
