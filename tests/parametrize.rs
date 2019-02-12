@@ -151,8 +151,6 @@ mod not_compile_if_a_case_has_a_wrong_signature {
     use super::*;
 
     //  TODO:
-    // - [ ] Count error occurrence
-    // - [ ] Should point case span
     // - [ ] Test case for less case args
 
     #[test]
@@ -161,9 +159,42 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         let stderr = output.stderr.str();
 
         assert_ne!(Some(0), output.status.code(), "Should not compile");
-        assert_in!(stderr, "Wrong case signature: should match the given parameters list.");
+        assert_eq!(2, stderr.count("Wrong case signature: should match the given parameters list."),
+                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr);
 
-        assert!(false, "WIP: see TODO");
+        assert_in!(stderr, r#"
+          |
+        4 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
+          |                              ^^^^^^
+        "#.deindent());
+
+        assert_in!(stderr, r#"
+          |
+        4 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
+          |                                                      ^^^^^^
+        "#.deindent());
+    }
+
+    #[test]
+    fn with_less_arguments() {
+        let (output, _) = run_test("case_with_less_args.rs");
+        let stderr = output.stderr.str();
+
+        assert_ne!(Some(0), output.status.code(), "Should not compile");
+        assert_eq!(2, stderr.count("Wrong case signature: should match the given parameters list."),
+                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr);
+
+        assert_in!(stderr, r#"
+          |
+        4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
+          |                                 ^^
+        "#.deindent());
+
+        assert_in!(stderr, r#"
+          |
+        4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
+          |                                                       ^^
+        "#.deindent());
     }
 }
 

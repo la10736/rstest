@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use quote::{quote, TokenStreamExt, ToTokens};
 
 use syn::{
@@ -8,7 +8,7 @@ use syn::{
     Lit, Pat, FnArg, token, ArgCaptured, Stmt,
     parse::{self, Error, Parse, ParseStream},
     punctuated::Punctuated,
-    spanned::Spanned
+    spanned::Spanned,
 };
 
 #[derive(Default, Debug)]
@@ -23,15 +23,62 @@ struct ParametrizeInfo {
     modifier: Modifiers,
 }
 
-#[derive(PartialEq, Eq, Debug)]
-struct TestCase(Vec<Expr>);
+#[derive(Eq, PartialEq, Debug)]
+struct TestCase(Vec<CaseArg>);
+
+impl TestCase {
+    fn span_start(&self) -> Span {
+        self.0.first().map(|e| e.span).unwrap_or(Span::call_site())
+    }
+    fn span_end(&self) -> Span {
+        self.0.last().map(|e| e.span).unwrap_or(Span::call_site())
+    }
+}
 
 fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, String> {
     parse_str::<Expr>(s.as_ref())
         .or(Err(format!("Cannot parse expression '{}'", s.as_ref())))
 }
 
-fn parse_case_arg(a: &NestedMeta) -> Result<Expr, Error> {
+#[derive(Debug, Clone)]
+struct CaseArg {
+    expr: Expr,
+    span: Span
+}
+
+impl PartialEq for CaseArg {
+    fn eq(&self, other: &CaseArg) -> bool {
+        self.expr == other.expr
+    }
+}
+
+impl Eq for CaseArg {}
+
+impl ToTokens for CaseArg {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.expr.to_tokens(tokens)
+    }
+}
+
+impl CaseArg {
+    fn new(expr: Expr, span: Span) -> Self {
+        Self { expr, span }
+    }
+
+    fn respan(mut self, span: Span) -> Self {
+        self.span = span;
+        self
+    }
+}
+
+impl From<Expr> for CaseArg {
+    fn from(expr: Expr) -> Self {
+        CaseArg::new(expr, Span::call_site())
+    }
+}
+
+
+fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
     match a {
         NestedMeta::Literal(l) =>
             parse_expression(format!("{}", l.into_token_stream())),
@@ -49,7 +96,9 @@ fn parse_case_arg(a: &NestedMeta) -> Result<Expr, Error> {
                 nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
             }
         }
-    }.map_err(|m| Error::new(a.span(), m))
+    }.map(|t|
+        CaseArg::from(t).respan(a.span())
+    ).map_err(|m| Error::new(a.span(), m))
 }
 
 trait TryFrom<T>: Sized
@@ -92,7 +141,7 @@ impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
     fn from(strings: &[S]) -> Self {
         TestCase(strings
             .iter()
-            .map(|s| parse_str(s.as_ref()).unwrap())
+            .map(|s| parse_str::<Expr>(s.as_ref()).unwrap().into())
             .collect()
         )
     }
@@ -117,8 +166,8 @@ impl Parse for ParametrizeElement {
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> Expr {
-    parse_str(&format!("{}()", ident.to_string())).unwrap()
+fn default_fixture_resolve(ident: &Ident) -> CaseArg {
+    parse_str::<Expr>(&format!("{}()", ident.to_string())).unwrap().into()
 }
 
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
@@ -153,19 +202,19 @@ fn arg_2_fixture_dump(ident: &Ident, resolver: &Resolver, modifiers: &Modifiers)
 }
 
 #[derive(Default)]
-struct Resolver<'a>(std::collections::HashMap<String, &'a Expr>);
+struct Resolver<'a>(std::collections::HashMap<String, &'a CaseArg>);
 
 impl<'a> Resolver<'a> {
     fn new(args: &Vec<Ident>, case: &'a TestCase) -> Self {
         Resolver(
             args.iter()
                 .zip(case.0.iter())
-                .map(|(ref name, expr)| (name.to_string(), expr))
+                .map(|(ref name, case_arg)| (name.to_string(), case_arg))
                 .collect()
         )
     }
 
-    fn resolve(&self, ident: &Ident) -> Option<&Expr> {
+    fn resolve(&self, ident: &Ident) -> Option<&CaseArg> {
         self.0.get(&ident.to_string()).map(|&a| a)
     }
 }
@@ -327,23 +376,28 @@ mod error {
     use proc_macro2::*;
     use quote::quote_spanned;
 
-    pub fn error(s: &str, span: Span) -> TokenStream {
-        let msg = quote_spanned! {
-            span => compile_error!(#s);
+    pub fn error(s: &str, start: Span, end: Span) -> TokenStream {
+        let mut msg = quote_spanned! {
+            start => compile_error!
         };
-        msg.into()
+        msg.extend(
+            quote_spanned! {
+                end => (#s);
+            }
+        );
+        msg
     }
 }
 
 fn error_report(test: &ItemFn, params: &ParametrizeData) -> Option<TokenStream> {
     let invalid_args = params.args.iter()
-        .filter(|p| ! fn_args_has_ident(test, p));
+        .filter(|p| !fn_args_has_ident(test, p));
 
     let mut tokens = TokenStream::default();
     for missed in invalid_args {
         let span = missed.span().into();
         let message = format!("Missed argument: '{}' should be a test function argument.", missed);
-        tokens.extend(error(&message, span));
+        tokens.extend(error(&message, span, span));
     }
 
     if !tokens.is_empty() {
@@ -371,27 +425,29 @@ fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     // TODO: Move to fold trait impl
 
     for (n, case) in params.cases.iter().enumerate() {
-        if case.0.len() != params.args.len() {
-            panic!("Wrong case signature: should match the given parameters list.");
-        }
-
-        let resolver = Resolver::new(&params.args, &case);
-        let fixtures = fixtures(fn_args(&test), &resolver);
-        let trace_args = trace_arguments(fn_args(&test), &resolver, &modifier);
-        let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
-        let attrs = &test.attrs;
-        let args = fn_args_name(&test);
-        let tcase = quote! {
-                #[test]
-                #(#attrs)*
-                fn #name() {
-                    #(#fixtures)*
-                    #trace_args
-                    println!("{:-^40}", " TEST START ");
-                    #fname(#(#args),*)
+        res.append_all(
+            if case.0.len() != params.args.len() {
+                error("Wrong case signature: should match the given parameters list.",
+                      case.span_start(), case.span_end())
+            } else {
+                let resolver = Resolver::new(&params.args, &case);
+                let fixtures = fixtures(fn_args(&test), &resolver);
+                let trace_args = trace_arguments(fn_args(&test), &resolver, &modifier);
+                let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
+                let attrs = &test.attrs;
+                let args = fn_args_name(&test);
+                quote! {
+                    #[test]
+                    #(#attrs)*
+                    fn #name() {
+                        #(#fixtures)*
+                        #trace_args
+                        println!("{:-^40}", " TEST START ");
+                        #fname(#(#args),*)
+                    }
                 }
-            };
-        res.append_all(tcase);
+            }
+        )
     };
     res
 }
@@ -500,7 +556,7 @@ mod test {
     fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
         let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
         let arg = first_arg_ident(&ast);
-        let call = parse_str("bar()").unwrap();
+        let call = parse_str::<Expr>("bar()").unwrap().into();
         let mut resolver = Resolver::default();
         resolver.add("fix", &call);
 
@@ -510,17 +566,16 @@ mod test {
     }
 
     impl<'a> Resolver<'a> {
-        fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a Expr) {
+        fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a CaseArg) {
             self.0.insert(ident.as_ref().to_string(), expr);
         }
     }
-
 
     #[test]
     fn resolver_should_return_the_given_expression() {
         let ast = parse_str("fn function(mut foo: String) {}").unwrap();
         let arg = first_arg_ident(&ast);
-        let expected = parse_str("bar()").unwrap();
+        let expected = parse_str::<Expr>("bar()").unwrap().into();
         let mut resolver = Resolver::default();
 
         resolver.add("foo", &expected);
