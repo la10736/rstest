@@ -77,6 +77,9 @@ impl From<Expr> for CaseArg {
     }
 }
 
+fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
+    ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
+}
 
 fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
     match a {
@@ -84,7 +87,7 @@ fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
             parse_expression(format!("{}", l.into_token_stream())),
         NestedMeta::Meta(opt) => {
             match opt {
-                Meta::List(arg) if &arg.ident == "Unwrap" =>
+                Meta::List(arg) if is_arbitrary_rust_code(arg) =>
                     match arg.nested.first().unwrap().value() {
                         NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
                             parse_expression(inner_unwrap.value()),

@@ -57,6 +57,18 @@ fn generic_input() {
 }
 
 #[test]
+fn should_understand_arbitrary_rust_code() {
+    let (output, _) = run_test("arbitrary_rust_code.rs");
+
+    TestResults::new()
+        .ok("arbitrary_case_0")
+        .fail("arbitrary_case_1")
+        .ok("arbitrary_case_2")
+        .fail("arbitrary_case_3")
+        .assert(output);
+}
+
+#[test]
 fn impl_input() {
     let (output, _) = run_test("impl_param.rs");
 
