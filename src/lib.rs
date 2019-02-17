@@ -77,6 +77,19 @@ impl From<Expr> for CaseArg {
     }
 }
 
+fn respan<T: Into<proc_macro2::TokenTree>>(t: T, span: Span) -> proc_macro2::TokenTree {
+    let mut t = t.into();
+    if let proc_macro2::TokenTree::Group(g) = t {
+        t = proc_macro2::Group::new(g.delimiter(), respan_stream(g.stream(), span)).into();
+    }
+    t.set_span(span);
+    t
+}
+
+fn respan_stream(t: proc_macro2::TokenStream, span: Span) -> proc_macro2::TokenStream {
+    t.into_iter().map(|tt| respan(tt, span)).collect()
+}
+
 fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
     ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
 }
@@ -100,8 +113,10 @@ fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
             }
         }
     }.map(|t|
-        CaseArg::from(t).respan(a.span())
-    ).map_err(|m| Error::new(a.span(), m))
+    {
+        let e = respan_stream(t.into_token_stream(), a.span());
+        CaseArg::from(syn::parse2::<Expr>(e).unwrap() ).respan(a.span())
+    }).map_err(|m| Error::new(a.span(), m))
 }
 
 trait TryFrom<T>: Sized
@@ -180,16 +195,14 @@ fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
     }
 }
 
-fn arg_2_fixture_str(ident: &Ident, resolver: &Resolver) -> String {
+fn arg_2_fixture(ident: &Ident, resolver: &Resolver) -> TokenStream {
     let fixture = resolver
         .resolve(ident)
         .map(|e| e.clone())
         .unwrap_or_else(|| default_fixture_resolve(ident));
-    format!("let {name} = {fix};", name = ident, fix = fixture.into_token_stream())
-}
-
-fn arg_2_fixture(ident: &Ident, resolver: &Resolver) -> Option<Stmt> {
-    parse_str(&arg_2_fixture_str(ident, resolver)).ok()
+    quote! {
+        let #ident = #fixture;
+    }
 }
 
 fn arg_2_fixture_dump_str(ident: &Ident, _resolver: &Resolver) -> String {
@@ -222,9 +235,9 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=Stmt> + 'a {
+fn fixtures<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=TokenStream> + 'a {
     args.filter_map(fn_arg_ident)
-        .filter_map(move |arg|
+        .map(move |arg|
             arg_2_fixture(arg, resolver)
         )
 }
