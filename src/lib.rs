@@ -1,15 +1,16 @@
 extern crate proc_macro;
 
-use proc_macro2::{TokenStream, Span};
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, TokenStreamExt, ToTokens};
-
 use syn::{
-    Token, parse_macro_input, NestedMeta, Ident, Expr, parse_str, MetaList, Meta, ItemFn,
-    Lit, Pat, FnArg, token, ArgCaptured, Stmt,
-    parse::{self, Error, Parse, ParseStream},
-    punctuated::Punctuated,
-    spanned::Spanned,
+    ArgCaptured, Expr, FnArg, Ident, ItemFn, Lit, Meta, MetaList, NestedMeta,
+    parse::{self, Error, Parse, ParseStream}, parse_macro_input, parse_str, Pat, punctuated::Punctuated, spanned::Spanned,
+    Stmt,
+    Token,
+    token,
 };
+
+use error::error;
 
 #[derive(Default, Debug)]
 struct ParametrizeData {
@@ -43,7 +44,7 @@ fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, String> {
 #[derive(Debug, Clone)]
 struct CaseArg {
     expr: Expr,
-    span: Span
+    span: Span,
 }
 
 impl PartialEq for CaseArg {
@@ -113,10 +114,10 @@ fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
             }
         }
     }.map(|t|
-    {
-        let e = respan_stream(t.into_token_stream(), a.span());
-        CaseArg::from(syn::parse2::<Expr>(e).unwrap() ).respan(a.span())
-    }).map_err(|m| Error::new(a.span(), m))
+        {
+            let e = respan_stream(t.into_token_stream(), a.span());
+            CaseArg::from(syn::parse2::<Expr>(e).unwrap()).respan(a.span())
+        }).map_err(|m| Error::new(a.span(), m))
 }
 
 trait TryFrom<T>: Sized
@@ -423,8 +424,6 @@ fn error_report(test: &ItemFn, params: &ParametrizeData) -> Option<TokenStream> 
     }
 }
 
-use error::error;
-
 fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
     let ParametrizeInfo { data: params, modifier } = params;
@@ -532,6 +531,9 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 mod test {
     use super::*;
     use syn::{Item, punctuated};
+    use pretty_assertions::{assert_eq};
+    use syn::parse2;
+    use syn::export::Debug;
 
     fn fn_args(item: &Item) -> punctuated::Iter<'_, FnArg> {
         if let &Item::Fn(ref item_fn) = item {
@@ -546,15 +548,32 @@ mod test {
         fn_arg_ident(arg).unwrap()
     }
 
+    fn assert_syn_eq<P, S>(expected: S, ast: P) where
+    S: AsRef<str>,
+    P: syn::parse::Parse + Debug + Eq
+    {
+        assert_eq!(
+            parse_str::<P>(expected.as_ref()).unwrap(),
+            ast
+        )
+    }
+
+    fn assert_statement_eq<T, S>(expected: S, tokens: T) where
+    T: Into<TokenStream>,
+    S: AsRef<str>
+    {
+        assert_syn_eq::<Stmt, _>(expected, parse2::<Stmt>(tokens.into()).unwrap())
+    }
+
     #[test]
     fn extract_fixture_call_arg() {
         let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
         let arg = first_arg_ident(&ast);
         let resolver = Resolver::default();
 
-        let line = arg_2_fixture_str(arg, &resolver);
+        let line = arg_2_fixture(arg, &resolver);
 
-        assert_eq!("let fix = fix ( );", line);
+        assert_statement_eq("let fix = fix();", line);
     }
 
     #[test]
@@ -563,9 +582,9 @@ mod test {
         let arg = first_arg_ident(&ast);
         let resolver = Resolver::default();
 
-        let line = arg_2_fixture_str(arg, &resolver);
+        let line = arg_2_fixture(arg, &resolver);
 
-        assert_eq!("let fix = fix ( );", line);
+        assert_statement_eq("let fix = fix();", line);
     }
 
     #[test]
@@ -576,9 +595,9 @@ mod test {
         let mut resolver = Resolver::default();
         resolver.add("fix", &call);
 
-        let line = arg_2_fixture_str(arg, &resolver);
+        let line = arg_2_fixture(arg, &resolver);
 
-        assert_eq!("let fix = bar ( );", line);
+        assert_statement_eq("let fix = bar();", line);
     }
 
     impl<'a> Resolver<'a> {
