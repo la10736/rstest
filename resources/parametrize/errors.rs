@@ -15,3 +15,10 @@ fn error_fixture_wrong_type(fixture: String, f: u32) {}
 
 #[rstest_parametrize(f, case(42))]
 fn error_param_wrong_type(f: &str) {}
+
+#[rstest_parametrize(condition,
+    case(r(r#"vec![1,2,3].contains(2)"#)))
+]
+fn example(condition: bool) {
+    assert!(condition)
+}

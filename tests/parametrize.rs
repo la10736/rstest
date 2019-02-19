@@ -162,9 +162,6 @@ mod not_compile_if_missed_arguments {
 mod not_compile_if_a_case_has_a_wrong_signature {
     use super::*;
 
-    //  TODO:
-    // - [ ] Test case for less case args
-
     #[test]
     fn with_too_much_arguments() {
         let (output, _) = run_test("case_with_too_much_args.rs");
@@ -293,17 +290,35 @@ mod dump_input_values {
     }
 }
 
-#[test]
-fn should_show_correct_errors() {
-    let (output, name) = run_test("errors.rs");
+mod should_show_correct_errors {
+    use super::*;
+    use lazy_static::lazy_static;
+    use std::process::Output;
 
-    assert_in!(output.stderr.str(), format!("
+    fn execute() -> &'static (Output, String) {
+        lazy_static! {
+            static ref OUTPUT: (Output, String) =
+                run_test("errors.rs");
+        }
+        &OUTPUT
+    }
+
+    #[test]
+    fn if_no_fixture() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
         error[E0425]: cannot find function `no_fixture` in this scope
           --> {}/src/lib.rs:10:1
            |
         10 | #[rstest_parametrize(f, case(42))]", name).deindent());
+    }
 
-    assert_in!(output.stderr.str(), format!(r#"
+    #[test]
+    fn if_wrong_type() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
          --> {}/src/lib.rs:7:18
           |
@@ -313,8 +328,13 @@ fn should_show_correct_errors() {
           = note: expected type `u32`
                      found type `&'static str`
         "#, name).deindent());
+    }
 
-    assert_in!(output.stderr.str(), format!("
+    #[test]
+    fn if_wrong_type_fixture() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
           --> {}/src/lib.rs:14:29
            |
@@ -327,12 +347,37 @@ fn should_show_correct_errors() {
            = note: expected type `std::string::String`
                       found type `u32`
         ", name).deindent());
+    }
 
-    assert_in!(output.stderr.str(), format!("
+    #[test]
+    fn if_wrong_type_param() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
           --> {}/src/lib.rs:17:27
            |
         17 | fn error_param_wrong_type(f: &str) {{}}", name).deindent());
+    }
+
+    #[test]
+    fn if_arbitrary_rust_code_has_some_errors() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!(r##"
+        error[E0308]: mismatched types
+          --> {}/src/lib.rs:20:12
+           |
+        20 |     case(r(r#"vec![1,2,3].contains(2)"#)))
+           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           |            |
+           |            expected &{{integer}}, found integer
+           |            help: consider borrowing here: `&r#"vec![1,2,3].contains(2)"#`
+           |
+           = note: expected type `&{{integer}}`
+                      found type `{{integer}}`"##,
+                      name).deindent());
+    }
 }
 
 #[test]

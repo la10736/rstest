@@ -87,14 +87,6 @@ fn respan<T: Into<proc_macro2::TokenTree>>(t: T, span: Span) -> proc_macro2::Tok
     t
 }
 
-fn respan_stream(t: proc_macro2::TokenStream, span: Span) -> proc_macro2::TokenStream {
-    t.into_iter().map(|tt| respan(tt, span)).collect()
-}
-
-fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
-    ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
-}
-
 fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
     match a {
         NestedMeta::Literal(l) =>
@@ -104,7 +96,7 @@ fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
                 Meta::List(arg) if is_arbitrary_rust_code(arg) =>
                     match arg.nested.first().unwrap().value() {
                         NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
-                            parse_expression(inner_unwrap.value()),
+                            inner_unwrap.parse().or(Err(format!("Cannot parse '{}'", inner_unwrap.value()))),
                         _ => panic!("Unexpected case argument: {:?}", opt),
                     },
                 Meta::Word(term) => {
@@ -113,11 +105,8 @@ fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
                 nested_case => panic!("Unexpected case attribute: {:?}", nested_case)
             }
         }
-    }.map(|t|
-        {
-            let e = respan_stream(t.into_token_stream(), a.span());
-            CaseArg::from(syn::parse2::<Expr>(e).unwrap()).respan(a.span())
-        }).map_err(|m| Error::new(a.span(), m))
+    }.map(|t| CaseArg::from(t).respan(a.span()))
+        .map_err(|m| Error::new(a.span(), m))
 }
 
 trait TryFrom<T>: Sized
