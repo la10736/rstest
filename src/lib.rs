@@ -78,13 +78,8 @@ impl From<Expr> for CaseArg {
     }
 }
 
-fn respan<T: Into<proc_macro2::TokenTree>>(t: T, span: Span) -> proc_macro2::TokenTree {
-    let mut t = t.into();
-    if let proc_macro2::TokenTree::Group(g) = t {
-        t = proc_macro2::Group::new(g.delimiter(), respan_stream(g.stream(), span)).into();
-    }
-    t.set_span(span);
-    t
+fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
+    ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
 }
 
 fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
