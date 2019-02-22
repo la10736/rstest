@@ -378,6 +378,21 @@ mod should_show_correct_errors {
                       found type `{{integer}}`"##,
                       name).deindent());
     }
+
+    #[test]
+    fn if_wrong_case_syntax_used() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!(r##"
+        error: Invalid case argument: `incorrect`
+          --> {}/src/lib.rs:27:10
+
+           |
+        27 |     case(incorrect(some)))
+           |          ^^^^^^^^^
+        "##,
+                      name).deindent());
+    }
 }
 
 #[test]

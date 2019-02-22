@@ -19,6 +19,13 @@ fn error_param_wrong_type(f: &str) {}
 #[rstest_parametrize(condition,
     case(r(r#"vec![1,2,3].contains(2)"#)))
 ]
-fn example(condition: bool) {
+fn error_in_arbitrary_rust_code(condition: bool) {
     assert!(condition)
+}
+
+#[rstest_parametrize(a,
+case(incorrect(some)))
+]
+fn error_in_case_syntax(a: u32) {
+    assert!(true)
 }
