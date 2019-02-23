@@ -24,7 +24,7 @@ fn error_in_arbitrary_rust_code(condition: bool) {
 }
 
 #[rstest_parametrize(a,
-case(incorrect(some)))
+    case(incorrect(some)))
 ]
 fn error_in_case_syntax(a: u32) {
     assert!(true)

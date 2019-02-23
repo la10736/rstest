@@ -386,7 +386,6 @@ mod should_show_correct_errors {
         assert_in!(output.stderr.str(), format!(r##"
         error: Invalid case argument: `incorrect`
           --> {}/src/lib.rs:27:10
-
            |
         27 |     case(incorrect(some)))
            |          ^^^^^^^^^
