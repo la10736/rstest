@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use proc_macro2::{TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
 use syn::{
     ArgCaptured, Expr, FnArg, Ident, ItemFn, Lit, Meta, MetaList, NestedMeta,
@@ -26,14 +26,17 @@ struct ParametrizeInfo {
 }
 
 #[derive(Debug)]
-struct TestCase(Vec<CaseArg>);
+struct TestCase {
+    args: Vec<CaseArg>,
+    span: Span,
+}
 
 impl TestCase {
     fn span_start(&self) -> Span {
-        self.0.first().map(|e| e.tokens.span()).unwrap_or(Span::call_site())
+        self.args.first().map(|arg| arg.span).unwrap_or(Span::call_site())
     }
     fn span_end(&self) -> Span {
-        self.0.last().map(|e| e.tokens.span()).unwrap_or(Span::call_site())
+        self.args.last().map(|arg| arg.span).unwrap_or(Span::call_site())
     }
 }
 
@@ -45,6 +48,7 @@ fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, String> {
 #[derive(Debug, Clone)]
 struct CaseArg {
     tokens: TokenStream,
+    span: Span
 }
 
 impl ToTokens for CaseArg {
@@ -54,14 +58,14 @@ impl ToTokens for CaseArg {
 }
 
 impl CaseArg {
-    fn new(tokens: TokenStream) -> Self {
-        Self { tokens }
+    fn new(tokens: TokenStream, span: Span) -> Self {
+        Self { tokens , span }
     }
 }
 
 impl From<TokenStream> for CaseArg {
     fn from(tokens: TokenStream) -> Self {
-        CaseArg::new(tokens)
+        CaseArg::new(tokens, Span::call_site())
     }
 }
 
@@ -72,24 +76,24 @@ fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
 fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
     match a {
         NestedMeta::Literal(l) =>
-            parse_expression(format!("{}", l.into_token_stream())).map(|e| quote! {#e}),
+            parse_expression(format!("{}", l.into_token_stream())).map(|e| quote! {# e}),
         NestedMeta::Meta(opt) => {
             match opt {
                 Meta::List(arg) if is_arbitrary_rust_code(arg) =>
                     match arg.nested.first().unwrap().value() {
                         NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
-                            inner_unwrap.parse().map(|e: Expr| quote!{ #e }).or(Err(format!("Cannot parse '{}'", inner_unwrap.value()))),
+                            inner_unwrap.parse().map(|e: Expr| quote! { # e }).or(Err(format!("Cannot parse '{}'", inner_unwrap.value()))),
                         inner => Ok(error(&format!("Invalid {} argument", arg.ident), inner.span(), inner.span())),
                     },
                 Meta::List(arg) =>
-                        Ok(error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span())),
+                    Ok(error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span())),
                 Meta::Word(term) => {
-                    parse_expression(term.to_string()).map(|e| quote! {#e})
+                    parse_expression(term.to_string()).map(|e| quote! { #e })
                 }
                 nested_case => Ok(error(&format!("Unexpected case argument: {:?}", opt), nested_case.span(), nested_case.span()))
             }
         }
-    }.map(|t| CaseArg::from(t))
+    }.map(|t| CaseArg::new(t, a.span()))
         .map_err(|m| Error::new(a.span(), m))
 }
 
@@ -110,7 +114,7 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
                 |e|
                     parse_case_arg(e)
             ).collect();
-            res.map(TestCase)
+            res.map(|args| TestCase { args, span: l.span() })
         } else {
             Err(Error::new(l.span(), format!("Unknown action '{}'", l.ident)))
         }
@@ -131,14 +135,14 @@ impl Parse for TestCase {
 
 impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
     fn from(strings: &[S]) -> Self {
-        TestCase(strings
+        let args = strings
             .iter()
             .map(|s| {
                 let e = parse_str::<Expr>(s.as_ref()).unwrap();
-                CaseArg::from(quote! { #e })
+                CaseArg::from(quote! { # e })
             })
-            .collect()
-        )
+            .collect();
+        TestCase { args, span: Span::call_site() }
     }
 }
 
@@ -196,13 +200,13 @@ fn arg_2_fixture_dump(ident: &Ident, resolver: &Resolver, modifiers: &Modifiers)
 }
 
 #[derive(Default)]
-struct Resolver<'a>(std::collections::HashMap<String, &'a CaseArg>);
+struct Resolver<'a> (std::collections::HashMap<String, &'a CaseArg>);
 
 impl<'a> Resolver<'a> {
     fn new(args: &Vec<Ident>, case: &'a TestCase) -> Self {
         Resolver(
             args.iter()
-                .zip(case.0.iter())
+                .zip(case.args.iter())
                 .map(|(ref name, case_arg)| (name.to_string(), case_arg))
                 .collect()
         )
@@ -418,7 +422,7 @@ fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
 
     for (n, case) in params.cases.iter().enumerate() {
         res.append_all(
-            if case.0.len() != params.args.len() {
+            if case.args.len() != params.args.len() {
                 error("Wrong case signature: should match the given parameters list.",
                       case.span_start(), case.span_end())
             } else {
@@ -487,7 +491,6 @@ impl Parse for ParametrizeInfo {
         };
         Ok(ParametrizeInfo {
             data,
-
             modifier: modifiers.unwrap_or_default(),
         })
     }
@@ -508,7 +511,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 mod test {
     use super::*;
     use syn::{Item, punctuated};
-    use pretty_assertions::{assert_eq};
+    use pretty_assertions::assert_eq;
     use syn::parse2;
     use syn::export::Debug;
 
@@ -526,8 +529,8 @@ mod test {
     }
 
     fn assert_syn_eq<P, S>(expected: S, ast: P) where
-    S: AsRef<str>,
-    P: syn::parse::Parse + Debug + Eq
+        S: AsRef<str>,
+        P: syn::parse::Parse + Debug + Eq
     {
         assert_eq!(
             parse_str::<P>(expected.as_ref()).unwrap(),
@@ -536,8 +539,8 @@ mod test {
     }
 
     fn assert_statement_eq<T, S>(expected: S, tokens: T) where
-    T: Into<TokenStream>,
-    S: AsRef<str>
+        T: Into<TokenStream>,
+        S: AsRef<str>
     {
         assert_syn_eq::<Stmt, _>(expected, parse2::<Stmt>(tokens.into()).unwrap())
     }
@@ -564,18 +567,25 @@ mod test {
         assert_statement_eq("let fix = fix();", line);
     }
 
-//    #[test]
-//    fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
-//        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
-//        let arg = first_arg_ident(&ast);
-//        let call = parse_str::<Expr>("bar()").unwrap().into();
-//        let mut resolver = Resolver::default();
-//        resolver.add("fix", &call);
-//
-//        let line = arg_2_fixture(arg, &resolver);
-//
-//        assert_statement_eq("let fix = bar();", line);
-//    }
+    fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
+        {
+            let e = parse_str::<Expr>(s.as_ref()).unwrap();
+            quote!{ #e }
+        }.into()
+    }
+
+    #[test]
+    fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
+        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
+        let call = case_arg("bar()");
+        let mut resolver = Resolver::default();
+        resolver.add("fix", &call);
+
+        let line = arg_2_fixture(arg, &resolver);
+
+        assert_statement_eq("let fix = bar();", line);
+    }
 
     impl<'a> Resolver<'a> {
         fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a CaseArg) {
@@ -583,17 +593,23 @@ mod test {
         }
     }
 
-//    #[test]
-//    fn resolver_should_return_the_given_expression() {
-//        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
-//        let arg = first_arg_ident(&ast);
-//        let expected = parse_str::<Expr>("bar()").unwrap().into();
-//        let mut resolver = Resolver::default();
-//
-//        resolver.add("foo", &expected);
-//
-//        assert_eq!(&expected, resolver.resolve(&arg).unwrap())
-//    }
+    impl PartialEq for CaseArg {
+        fn eq(&self, other: &Self) -> bool {
+            format!("{:?}", self.tokens) == format!("{:?}", other.tokens)
+        }
+    }
+
+    #[test]
+    fn resolver_should_return_the_given_expression() {
+        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
+        let expected = case_arg("bar()");
+        let mut resolver = Resolver::default();
+
+        resolver.add("foo", &expected);
+
+        assert_eq!(&expected, resolver.resolve(&arg).unwrap())
+    }
 
     #[test]
     fn resolver_should_return_none_for_unknown_argument() {
