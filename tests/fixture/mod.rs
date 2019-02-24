@@ -1,14 +1,11 @@
-pub mod prj;
-pub mod utils;
-pub mod root;
 
-use crate::utils::{*, deindent::Deindent};
+pub use crate::utils::{self, *, deindent::Deindent};
 use crate::prj::Project;
 use std::path::Path;
 
 fn prj(res: &str) -> Project {
     let path = Path::new("fixture").join(res);
-    root::prj()
+    crate::prj()
         .set_code_file(resources(path))
 }
 
@@ -49,7 +46,7 @@ fn should_panic() {
 
 mod dump_input_values {
     use super::{
-        prj, run_test, TestResults, assert_in,
+        prj, run_test, TestResults,
         utils::{
             Stringable, deindent::Deindent
         },

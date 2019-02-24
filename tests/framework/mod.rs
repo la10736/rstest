@@ -1,9 +1,5 @@
-pub mod prj;
-pub mod utils;
-pub mod root;
-
+use crate::prj;
 use crate::utils::TestResults;
-use crate::root::prj;
 
 #[test]
 fn one_success() {

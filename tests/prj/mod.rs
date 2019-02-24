@@ -35,7 +35,7 @@ impl Project {
             name: "project".into(),
             channel: Channel::Stable,
             ws: Arc::new(std::sync::RwLock::new(())),
-        }
+        }.create()
     }
 
     pub fn get_name(&self) -> Cow<str> {
@@ -43,6 +43,7 @@ impl Project {
     }
 
     pub fn subproject<O: AsRef<OsStr>>(&self, name: O) -> Self {
+        let _guard = self.ws.write().expect("Cannot lock workspace resource");
         self.workspace_add(name.as_ref().to_str().unwrap());
         Self {
             root: self.path(),
@@ -78,7 +79,7 @@ impl Project {
             .output()
     }
 
-    pub fn create(self) -> Self {
+    fn create(self) -> Self {
         match Command::new("cargo")
             .current_dir(&self.root)
             .arg("init")
@@ -126,7 +127,6 @@ impl Project {
     }
 
     fn add_dependency(&self) {
-        let _guard = self.ws.write().expect("Cannot lock workspace resource");
         if 0 != Command::new("cargo")
             .current_dir(&self.path())
             .arg("add")
@@ -149,8 +149,7 @@ impl Project {
         path
     }
 
-    pub fn workspace_add(&self, prj: &str) {
-        let _guard = self.ws.write().expect("Cannot lock workspace resource");
+    fn workspace_add(&self, prj: &str) {
         let mut orig = String::new();
         let path = &self.cargo_toml();
         File::open(path)

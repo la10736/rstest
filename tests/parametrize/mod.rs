@@ -2,13 +2,9 @@ use std::path::Path;
 
 pub use crate::utils::{*, deindent::Deindent, CountMessageOccurrence};
 
-pub mod prj;
-pub mod utils;
-pub mod root;
-
-fn prj(res: &str) -> prj::Project {
+fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("parametrize").join(res);
-    root::prj().set_code_file(resources(path))
+    crate::prj().set_code_file(resources(path))
 }
 
 fn run_test(res: &str) -> (std::process::Output, String) {
@@ -222,12 +218,10 @@ mod not_compile_if_a_case_has_a_wrong_signature {
 }
 
 mod dump_input_values {
-    use super::{
-        assert_in, run_test, TestResults,
-        utils::{
+    use super::run_test;
+    use crate::utils::{
+            *,
             deindent::Deindent,
-            Stringable,
-        },
     };
 
     #[test]
