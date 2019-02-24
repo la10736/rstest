@@ -12,9 +12,17 @@ use std::io::Read;
 use toml_edit::Table;
 use std::borrow::Cow;
 
+pub enum Channel {
+    Stable,
+    Beta,
+    Nigtly,
+    Custom(String)
+}
+
 pub struct Project {
     pub name: OsString,
     root: PathBuf,
+    channel: Channel,
     ws: std::sync::Mutex<()>,
 }
 
@@ -23,6 +31,7 @@ impl Project {
         Self {
             root: root.as_ref().to_owned(),
             name: "project".into(),
+            channel: Channel::Stable,
             ws: std::sync::Mutex::new(()),
         }
     }
@@ -43,6 +52,7 @@ impl Project {
     pub fn run_tests(&self) -> Result<std::process::Output, std::io::Error> {
         Command::new("cargo")
             .current_dir(&self.path())
+            .arg(&self.cargo_channel_arg())
             .arg("test")
             .output()
     }
@@ -146,5 +156,14 @@ impl Project {
             .write(doc.to_string().as_bytes())
             .expect("cannot write Cargo.toml");
 
+    }
+
+    fn cargo_channel_arg(&self) -> String {
+        match &self.channel {
+            Channel::Stable => "+stable".into(),
+            Channel::Beta => "+beta".into(),
+            Channel::Nigtly => "+nigtly".into(),
+            Channel::Custom(name) => format!("+{}", name),
+        }
     }
 }
