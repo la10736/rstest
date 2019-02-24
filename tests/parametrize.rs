@@ -162,36 +162,40 @@ mod not_compile_if_missed_arguments {
 mod not_compile_if_a_case_has_a_wrong_signature {
     use super::*;
 
+    use lazy_static::lazy_static;
+    use std::process::Output;
+
+    fn execute() -> &'static (Output, String) {
+        lazy_static! {
+            static ref OUTPUT: (Output, String) =
+                run_test("case_with_wrong_args.rs");
+        }
+        assert_ne!(Some(0), OUTPUT.0.status.code(), "Should not compile");
+        &OUTPUT
+    }
+
     #[test]
     fn with_too_much_arguments() {
-        let (output, _) = run_test("case_with_too_much_args.rs");
+        let (output, _) = execute();
         let stderr = output.stderr.str();
-
-        assert_ne!(Some(0), output.status.code(), "Should not compile");
-        assert_eq!(2, stderr.count("Wrong case signature: should match the given parameters list."),
-                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr);
 
         assert_in!(stderr, r#"
           |
-        4 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
+        8 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
           |                              ^^^^^^
         "#.deindent());
 
         assert_in!(stderr, r#"
           |
-        4 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
+        8 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
           |                                                      ^^^^^^
         "#.deindent());
     }
 
     #[test]
     fn with_less_arguments() {
-        let (output, _) = run_test("case_with_less_args.rs");
+        let (output, _) = execute();
         let stderr = output.stderr.str();
-
-        assert_ne!(Some(0), output.status.code(), "Should not compile");
-        assert_eq!(2, stderr.count("Wrong case signature: should match the given parameters list."),
-                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr);
 
         assert_in!(stderr, r#"
           |
@@ -204,6 +208,16 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
           |                                                       ^^
         "#.deindent());
+    }
+
+    #[test]
+    fn and_reports_all_errors() {
+        let (output, _) = execute();
+        let stderr = output.stderr.str();
+
+        // Exactly 4 cases are wrong
+        assert_eq!(4, stderr.count("Wrong case signature: should match the given parameters list."),
+                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr);
     }
 }
 
@@ -370,28 +384,24 @@ mod should_show_correct_errors {
            |
         20 |     case(r(r#"vec![1,2,3].contains(2)"#)))
            |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-           |            |
-           |            expected &{{integer}}, found integer
-           |            help: consider borrowing here: `&r#"vec![1,2,3].contains(2)"#`
-           |
-           = note: expected type `&{{integer}}`
-                      found type `{{integer}}`"##,
+           |            |"##,
                       name).deindent());
     }
+}
 
-    #[test]
-    fn if_wrong_case_syntax_used() {
-        let (output, name) = execute();
+// TODO: In stable 1.32.0 this case cannot be in error.rs because hide others errors
+#[test]
+fn should_show_correct_errors_if_wrong_case_syntax_used() {
+    let (output, name) = run_test("wrong_case_syntax.rs");
 
-        assert_in!(output.stderr.str(), format!(r##"
-        error: Invalid case argument: `incorrect`
-          --> {}/src/lib.rs:27:10
+    assert_in!(output.stderr.str(), format!(r##"
+         error: Invalid case argument: `incorrect`
+          --> {}/src/lib.rs:4:10
            |
-        27 |     case(incorrect(some)))
+         4 |     case(incorrect(some)))
            |          ^^^^^^^^^
-        "##,
+         "##,
                       name).deindent());
-    }
 }
 
 #[test]

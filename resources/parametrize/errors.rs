@@ -22,10 +22,3 @@ fn error_param_wrong_type(f: &str) {}
 fn error_in_arbitrary_rust_code(condition: bool) {
     assert!(condition)
 }
-
-#[rstest_parametrize(a,
-    case(incorrect(some)))
-]
-fn error_in_case_syntax(a: u32) {
-    assert!(true)
-}
