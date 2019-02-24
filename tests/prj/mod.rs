@@ -11,7 +11,9 @@ use std::fs::File;
 use std::io::Read;
 use toml_edit::Table;
 use std::borrow::Cow;
+use std::sync::Arc;
 
+#[derive(Clone)]
 pub enum Channel {
     Stable,
     Beta,
@@ -23,7 +25,7 @@ pub struct Project {
     pub name: OsString,
     root: PathBuf,
     channel: Channel,
-    ws: std::sync::Mutex<()>,
+    ws: Arc<std::sync::RwLock<()>>,
 }
 
 impl Project {
@@ -32,12 +34,22 @@ impl Project {
             root: root.as_ref().to_owned(),
             name: "project".into(),
             channel: Channel::Stable,
-            ws: std::sync::Mutex::new(()),
+            ws: Arc::new(std::sync::RwLock::new(())),
         }
     }
 
     pub fn get_name(&self) -> Cow<str> {
         self.name.to_string_lossy()
+    }
+
+    pub fn subproject<O: AsRef<OsStr>>(&self, name: O) -> Self {
+        self.workspace_add(name.as_ref().to_str().unwrap());
+        Self {
+            root: self.path(),
+            name: name.as_ref().to_owned(),
+            channel: self.channel.clone(),
+            ws: self.ws.clone()
+        }.create()
     }
 
     pub fn name<O: AsRef<OsStr>>(mut self, name: O) -> Self {
@@ -50,6 +62,7 @@ impl Project {
     }
 
     pub fn run_tests(&self) -> Result<std::process::Output, std::io::Error> {
+        let _guard = self.ws.read().expect("Cannot lock workspace resource");
         Command::new("cargo")
             .current_dir(&self.path())
             .arg(&self.cargo_channel_arg())
@@ -58,6 +71,7 @@ impl Project {
     }
 
     pub fn compile(&self) -> Result<std::process::Output, std::io::Error> {
+        let _guard = self.ws.read().expect("Cannot lock workspace resource");
         Command::new("cargo")
             .current_dir(&self.path())
             .arg("build")
@@ -112,6 +126,7 @@ impl Project {
     }
 
     fn add_dependency(&self) {
+        let _guard = self.ws.write().expect("Cannot lock workspace resource");
         if 0 != Command::new("cargo")
             .current_dir(&self.path())
             .arg("add")
@@ -135,7 +150,7 @@ impl Project {
     }
 
     pub fn workspace_add(&self, prj: &str) {
-        let _guard = self.ws.lock().expect("Cannot lock workspace resource");
+        let _guard = self.ws.write().expect("Cannot lock workspace resource");
         let mut orig = String::new();
         let path = &self.cargo_toml();
         File::open(path)

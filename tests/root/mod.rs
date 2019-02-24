@@ -16,9 +16,5 @@ fn sanitize_project_name<S: AsRef<str>>(s: S) -> String {
 pub fn prj() -> Project {
     let prj_name = sanitize_project_name(testname());
 
-    ROOT_PROJECT.workspace_add(&prj_name);
-
-    Project::new(ROOT_PROJECT.path())
-        .name(prj_name)
-        .create()
+    ROOT_PROJECT.subproject(&prj_name)
 }
