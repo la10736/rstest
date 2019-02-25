@@ -109,15 +109,11 @@ impl<'a> TryFrom<&'a MetaList> for TestCase {
     type Error = Error;
 
     fn try_from(l: &'a MetaList) -> parse::Result<Self> {
-        if l.ident == "case" {
-            let res: Result<Vec<_>, _> = l.nested.iter().map(
-                |e|
-                    parse_case_arg(e)
-            ).collect();
-            res.map(|args| TestCase { args, span: l.span() })
-        } else {
-            Err(Error::new(l.span(), format!("Unknown action '{}'", l.ident)))
-        }
+        let res: Result<Vec<_>, _> = l.nested.iter().map(
+            |e|
+                parse_case_arg(e)
+        ).collect();
+        res.map(|args| TestCase { args, span: l.span() })
     }
 }
 
@@ -143,25 +139,6 @@ impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
             })
             .collect();
         TestCase { args, span: Span::call_site() }
-    }
-}
-
-enum ParametrizeElement {
-    Arg(Ident),
-    Case(TestCase),
-}
-
-impl Parse for ParametrizeElement {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        use self::ParametrizeElement::*;
-        let meta: Meta = input.parse()?;
-        match meta {
-            Meta::Word(ident) => Ok(Arg(ident)),
-            Meta::List(ref l) if l.ident == "case" => {
-                TestCase::try_from(l).map(Case)
-            }
-            _ => Err(parse::Error::new(meta.span(), "expected ident or case"))
-        }
     }
 }
 
