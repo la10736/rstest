@@ -27,22 +27,16 @@ struct ParametrizeInfo {
 
 #[derive(Debug)]
 struct TestCase {
-    args: Vec<CaseArg>,
-    span: Span,
+    args: Punctuated<CaseArg, Token![,]>,
 }
 
 impl TestCase {
     fn span_start(&self) -> Span {
-        self.args.first().map(|arg| arg.span).unwrap_or(Span::call_site())
+        self.args.first().map(|arg| arg.span()).unwrap_or(Span::call_site())
     }
     fn span_end(&self) -> Span {
-        self.args.last().map(|arg| arg.span).unwrap_or(Span::call_site())
+        self.args.last().map(|arg| arg.span()).unwrap_or(Span::call_site())
     }
-}
-
-fn parse_expression<S: AsRef<str>>(s: S) -> Result<Expr, String> {
-    parse_str::<Expr>(s.as_ref())
-        .or(Err(format!("Cannot parse expression '{}'", s.as_ref())))
 }
 
 #[derive(Debug, Clone)]
@@ -73,58 +67,49 @@ fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
     ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
 }
 
-fn parse_case_arg(a: &NestedMeta) -> Result<CaseArg, Error> {
-    match a {
-        NestedMeta::Literal(l) =>
-            parse_expression(format!("{}", l.into_token_stream())).map(|e| quote! {# e}),
-        NestedMeta::Meta(opt) => {
-            match opt {
-                Meta::List(arg) if is_arbitrary_rust_code(arg) =>
-                    match arg.nested.first().unwrap().value() {
-                        NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
-                            inner_unwrap.parse().map(|e: Expr| quote! { # e }).or(Err(format!("Cannot parse '{}'", inner_unwrap.value()))),
-                        inner => Ok(error(&format!("Invalid {} argument", arg.ident), inner.span(), inner.span())),
-                    },
-                Meta::List(arg) =>
-                    Ok(error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span())),
-                Meta::Word(term) => {
-                    parse_expression(term.to_string()).map(|e| quote! { #e })
+impl Parse for CaseArg {
+    fn parse(input: ParseStream) -> parse::Result<Self> {
+        let nested: NestedMeta = input.parse()?;
+        let tokens = match &nested {
+            NestedMeta::Literal(l) =>
+                quote! {#l},
+            NestedMeta::Meta(opt) => {
+                match opt {
+                    Meta::List(arg) if is_arbitrary_rust_code(arg) =>
+                        match arg.nested.first().unwrap().value() {
+                            NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
+                                inner_unwrap.parse::<Expr>()
+                                    .map(|e| quote! { #e })
+                                    .or(Err(Error::new(inner_unwrap.span(),
+                                                       &format!("Cannot parse '{}'", inner_unwrap.value()))))?,
+                            &inner =>
+                                error(&format!("Invalid {} argument", arg.ident),inner.span(),inner.span())
+                            ,
+                        },
+                    Meta::List(arg) =>
+                        error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span()),
+                    Meta::Word(term) => {
+                        quote! { #term }
+                    }
+                    nested_case =>
+                        error(&format!("Unexpected case argument: {:?}", opt), nested_case.span(), nested_case.span())
                 }
-                nested_case => Ok(error(&format!("Unexpected case argument: {:?}", opt), nested_case.span(), nested_case.span()))
             }
-        }
-    }.map(|t| CaseArg::new(t, a.span()))
-        .map_err(|m| Error::new(a.span(), m))
-}
-
-trait TryFrom<T>: Sized
-    where T: Sized
-{
-    type Error;
-
-    fn try_from(t: T) -> Result<Self, Self::Error>;
-}
-
-impl<'a> TryFrom<&'a MetaList> for TestCase {
-    type Error = Error;
-
-    fn try_from(l: &'a MetaList) -> parse::Result<Self> {
-        let res: Result<Vec<_>, _> = l.nested.iter().map(
-            |e|
-                parse_case_arg(e)
-        ).collect();
-        res.map(|args| TestCase { args, span: l.span() })
+        };
+        Ok(CaseArg::new(tokens, nested.span()))
     }
 }
 
 impl Parse for TestCase {
     fn parse(input: ParseStream) -> parse::Result<Self> {
-        let meta: Meta = input.parse()?;
-        match meta {
-            Meta::List(ref l) if l.ident == "case" => {
-                TestCase::try_from(l)
-            }
-            _ => Err(parse::Error::new(meta.span(), "expected a test case"))
+        let case: Ident = input.parse()?;
+        if case == "case" {
+            let content;
+            let _ = syn::parenthesized!(content in input);
+            let args = content.parse_terminated(CaseArg::parse)?;
+            Ok(TestCase { args})
+        } else {
+            Err(parse::Error::new(case.span(), "expected a test case"))
         }
     }
 }
@@ -138,7 +123,7 @@ impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
                 CaseArg::from(quote! { # e })
             })
             .collect();
-        TestCase { args, span: Span::call_site() }
+        TestCase { args }
     }
 }
 
@@ -428,8 +413,6 @@ fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
 impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> parse::Result<Self> {
         let mut args = vec![];
-        let mut cases = vec![];
-
         loop {
             if input.peek2(token::Paren) {
                 break;
@@ -444,13 +427,9 @@ impl Parse for ParametrizeData {
             }
         }
 
-        let all = Punctuated::<TestCase, Token![,]>::parse_separated_nonempty(input)?;
-        all.into_iter()
-            .for_each(
-                |case| {
-                    cases.push(case)
-                }
-            );
+        let cases: Vec<_> =
+            Punctuated::<TestCase, Token![,]>::parse_separated_nonempty(input)?
+                .into_iter().collect();
         Ok(ParametrizeData {
             args,
             cases,
