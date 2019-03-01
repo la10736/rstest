@@ -3,7 +3,7 @@ extern crate proc_macro;
 use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
 use syn::{
-    ArgCaptured, Expr, FnArg, Ident, ItemFn, Lit, Meta, MetaList, NestedMeta,
+    ArgCaptured, Expr, FnArg, Ident, ItemFn, Lit, LitStr, Meta, MetaList, NestedMeta,
     parse::{self, Error, Parse, ParseStream}, parse_macro_input, parse_str, Pat, punctuated::Punctuated, spanned::Spanned,
     Stmt,
     Token,
@@ -67,34 +67,45 @@ fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
     ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
 }
 
+fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
+    match nested {
+        NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
+        _ => None
+    }
+}
+
+fn compile_lit_str(lit: &LitStr) -> parse::Result<TokenStream> {
+    lit.parse::<Expr>()
+        .map(|e| quote! { #e })
+        .or_else(|e| Err(Error::new(
+            lit.span(),
+            &format!("Cannot parse '{}' due {}", lit.value(), e)
+        ))
+        )
+}
+
 impl Parse for CaseArg {
     fn parse(input: ParseStream) -> parse::Result<Self> {
         let nested: NestedMeta = input.parse()?;
         let tokens = match &nested {
             NestedMeta::Literal(l) =>
                 quote! {#l},
-            NestedMeta::Meta(opt) => {
-                match opt {
-                    Meta::List(arg) if is_arbitrary_rust_code(arg) =>
-                        match arg.nested.first().unwrap().value() {
-                            NestedMeta::Literal(Lit::Str(inner_unwrap)) =>
-                                inner_unwrap.parse::<Expr>()
-                                    .map(|e| quote! { #e })
-                                    .or(Err(Error::new(inner_unwrap.span(),
-                                                       &format!("Cannot parse '{}'", inner_unwrap.value()))))?,
-                            &inner =>
-                                error(&format!("Invalid {} argument", arg.ident),inner.span(),inner.span())
-                            ,
-                        },
-                    Meta::List(arg) =>
-                        error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span()),
-                    Meta::Word(term) => {
-                        quote! { #term }
-                    }
-                    nested_case =>
-                        error(&format!("Unexpected case argument: {:?}", opt), nested_case.span(), nested_case.span())
-                }
+            NestedMeta::Meta(Meta::Word(term)) => {
+                quote! { #term }
+            },
+            NestedMeta::Meta(Meta::List(arg)) if is_arbitrary_rust_code(arg) => {
+                arg.nested.first()
+                    .map(|m| *m.value())
+                    .and_then(nested_meta_literal_str)
+                    .map(compile_lit_str)
+                    .unwrap_or_else(
+                        || Ok(error(&format!("Invalid {} argument", arg.ident), nested.span(), nested.span()))
+                    )?
             }
+            NestedMeta::Meta(Meta::List(arg)) =>
+                error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span()),
+            NestedMeta::Meta(nested) =>
+                error(&format!("Unexpected case argument: {:?}", nested), nested.span(), nested.span())
         };
         Ok(CaseArg::new(tokens, nested.span()))
     }
