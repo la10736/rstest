@@ -2,8 +2,13 @@ pub mod prj;
 #[macro_use]
 pub mod utils;
 
+/// Test Framework
 mod framework;
+
+/// Fixture's integration tests
 mod fixture;
+
+/// Parametrize's integration tests
 mod parametrize;
 
 use prj::Project;
