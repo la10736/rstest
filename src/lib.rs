@@ -42,7 +42,7 @@ impl TestCase {
 #[derive(Debug, Clone)]
 struct CaseArg {
     tokens: TokenStream,
-    span: Span
+    span: Span,
 }
 
 impl ToTokens for CaseArg {
@@ -53,7 +53,7 @@ impl ToTokens for CaseArg {
 
 impl CaseArg {
     fn new(tokens: TokenStream, span: Span) -> Self {
-        Self { tokens , span }
+        Self { tokens, span }
     }
 }
 
@@ -79,7 +79,7 @@ fn compile_lit_str(lit: &LitStr) -> parse::Result<TokenStream> {
         .map(|e| quote! { #e })
         .or_else(|e| Err(Error::new(
             lit.span(),
-            &format!("Cannot parse '{}' due {}", lit.value(), e)
+            &format!("Cannot parse '{}' due {}", lit.value(), e),
         ))
         )
 }
@@ -92,7 +92,7 @@ impl Parse for CaseArg {
                 quote! {#l},
             NestedMeta::Meta(Meta::Word(term)) => {
                 quote! { #term }
-            },
+            }
             NestedMeta::Meta(Meta::List(arg)) if is_arbitrary_rust_code(arg) => {
                 arg.nested.first()
                     .map(|m| *m.value())
@@ -118,7 +118,7 @@ impl Parse for TestCase {
             let content;
             let _ = syn::parenthesized!(content in input);
             let args = content.parse_terminated(CaseArg::parse)?;
-            Ok(TestCase { args})
+            Ok(TestCase { args })
         } else {
             Err(parse::Error::new(case.span(), "expected a test case"))
         }
@@ -537,7 +537,7 @@ mod test {
     fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
         {
             let e = parse_str::<Expr>(s.as_ref()).unwrap();
-            quote!{ #e }
+            quote! { #e }
         }.into()
     }
 
