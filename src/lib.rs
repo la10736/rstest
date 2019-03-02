@@ -20,12 +20,14 @@ struct ParametrizeData {
 }
 
 #[derive(Default, Debug)]
+/// Parametrize
 struct ParametrizeInfo {
     data: ParametrizeData,
     modifier: Modifiers,
 }
 
 #[derive(Debug)]
+/// A test case instance data. Conatins a list of arguments.
 struct TestCase {
     args: Punctuated<CaseArg, Token![,]>,
 }
@@ -458,16 +460,21 @@ impl Parse for ParametrizeData {
 
 impl Parse for ParametrizeInfo {
     fn parse(input: ParseStream) -> parse::Result<Self> {
-        let data = input.parse()?;
-        let modifiers = if input.parse::<Token![::]>().is_ok() {
-            Some(input.parse()?)
-        } else {
-            None
-        };
-        Ok(ParametrizeInfo {
-            data,
-            modifier: modifiers.unwrap_or_default(),
-        })
+        // Parse a `ParametrizeData` and then look for `Modifiers` after `::` token if any.
+        // Example
+        //  |-    u,a,d
+        //  |-    case(42, r("A{}"), Unwrap("D{}"))
+        //  |  ::trace::notrace(a))
+        //  |    ^^^^^^^^^^^^^^^^^^ Modifiers
+        //  |______________________ ParametrizeData
+        Ok(
+            ParametrizeInfo {
+                data: input.parse()?,
+                modifier: input.parse::<Token![::]>()
+                    .or_else(|_| Ok(Default::default()))
+                    .and_then(|_| input.parse())?
+            }
+        )
     }
 }
 
