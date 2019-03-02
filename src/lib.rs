@@ -3,87 +3,20 @@ extern crate proc_macro;
 use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
 use syn::{
-    ArgCaptured, Expr, FnArg, Ident, ItemFn, Lit, LitStr, Meta, MetaList, NestedMeta,
-    parse::{self, Error, Parse, ParseStream}, parse_macro_input, parse_str, Pat, punctuated::Punctuated, spanned::Spanned,
+    ArgCaptured, Expr, FnArg, Ident, ItemFn,
+    parse_macro_input, parse_str, Pat,
     Stmt,
-    Token,
-    token,
 };
 
 use error::error;
 use proc_macro2::Span;
 
-#[derive(Default, Debug)]
-struct ParametrizeData {
-    args: Vec<Ident>,
-    cases: Vec<TestCase>,
-}
+mod parse;
 
-#[derive(Default, Debug)]
-/// Parametrize
-struct ParametrizeInfo {
-    data: ParametrizeData,
-    modifier: Modifiers,
-}
-
-#[derive(Debug)]
-/// A test case instance data. Conatins a list of arguments.
-struct TestCase {
-    args: Punctuated<CaseArg, Token![,]>,
-}
-
-impl TestCase {
-    fn span_start(&self) -> Span {
-        self.args.first().map(|arg| arg.span()).unwrap_or(Span::call_site())
-    }
-    fn span_end(&self) -> Span {
-        self.args.last().map(|arg| arg.span()).unwrap_or(Span::call_site())
-    }
-}
-
-#[derive(Debug, Clone)]
-struct CaseArg {
-    tokens: TokenStream,
-    span: Span,
-}
-
-impl ToTokens for CaseArg {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.tokens.to_tokens(tokens)
-    }
-}
-
-impl CaseArg {
-    fn new(tokens: TokenStream, span: Span) -> Self {
-        Self { tokens, span }
-    }
-}
-
-impl From<TokenStream> for CaseArg {
+impl From<TokenStream> for parse::CaseArg {
     fn from(tokens: TokenStream) -> Self {
-        CaseArg::new(tokens, Span::call_site())
+        parse::CaseArg::new(tokens, Span::call_site())
     }
-}
-
-fn is_arbitrary_rust_code(meta: &MetaList) -> bool {
-    ["Unwrap", "r"].iter().any(|&n| meta.ident == n)
-}
-
-fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
-    match nested {
-        NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
-        _ => None
-    }
-}
-
-fn compile_lit_str(lit: &LitStr) -> parse::Result<TokenStream> {
-    lit.parse::<Expr>()
-        .map(|e| quote! { #e })
-        .or_else(|e| Err(Error::new(
-            lit.span(),
-            &format!("Cannot parse '{}' due {}", lit.value(), e),
-        ))
-        )
 }
 
 trait Tokenize {
@@ -96,61 +29,22 @@ impl<T: ToTokens> Tokenize for T {
     }
 }
 
-impl Parse for CaseArg {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        let nested: NestedMeta = input.parse()?;
-        let span = nested.span();
-        let tokens = match nested {
-            NestedMeta::Literal(_) | NestedMeta::Meta(Meta::Word(_)) =>
-                nested.clone().into_tokens(),
-            NestedMeta::Meta(Meta::List(ref arg)) if is_arbitrary_rust_code(arg) => {
-                arg.nested.first()
-                    .map(|m| *m.value())
-                    .and_then(nested_meta_literal_str)
-                    .map(compile_lit_str)
-                    .unwrap_or_else(
-                        || Ok(error(&format!("Invalid {} argument", arg.ident), nested.span(), nested.span()))
-                    )?
-            }
-            NestedMeta::Meta(Meta::List(arg)) =>
-                error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span()),
-            NestedMeta::Meta(nested) =>
-                error(&format!("Unexpected case argument: {:?}", nested), nested.span(), nested.span())
-        };
-        Ok(CaseArg::new(tokens, span))
-    }
-}
-
-impl Parse for TestCase {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        let case: Ident = input.parse()?;
-        if case == "case" {
-            let content;
-            let _ = syn::parenthesized!(content in input);
-            let args = content.parse_terminated(CaseArg::parse)?;
-            Ok(TestCase { args })
-        } else {
-            Err(parse::Error::new(case.span(), "expected a test case"))
-        }
-    }
-}
-
-impl<'a, S: AsRef<str>> From<&'a [S]> for TestCase {
+impl<'a, S: AsRef<str>> From<&'a [S]> for parse::TestCase {
     fn from(strings: &[S]) -> Self {
         let args = strings
             .iter()
             .map(|s| {
                 let e = parse_str::<Expr>(s.as_ref()).unwrap();
-                CaseArg::from(quote! { # e })
+                parse::CaseArg::from(quote! { # e })
             })
             .collect();
-        TestCase { args }
+        parse::TestCase { args }
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> CaseArg {
+fn default_fixture_resolve(ident: &Ident) -> parse::CaseArg {
     let e = parse_str::<Expr>(&format!("{}()", ident.to_string())).unwrap();
-    CaseArg::from(quote! { #e })
+    parse::CaseArg::from(quote! { #e })
 }
 
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
@@ -183,10 +77,10 @@ fn arg_2_fixture_dump(ident: &Ident, resolver: &Resolver, modifiers: &Modifiers)
 }
 
 #[derive(Default)]
-struct Resolver<'a> (std::collections::HashMap<String, &'a CaseArg>);
+struct Resolver<'a> (std::collections::HashMap<String, &'a parse::CaseArg>);
 
 impl<'a> Resolver<'a> {
-    fn new(args: &Vec<Ident>, case: &'a TestCase) -> Self {
+    fn new(args: &Vec<Ident>, case: &'a parse::TestCase) -> Self {
         Resolver(
             args.iter()
                 .zip(case.args.iter())
@@ -195,7 +89,7 @@ impl<'a> Resolver<'a> {
         )
     }
 
-    fn resolve(&self, ident: &Ident) -> Option<&CaseArg> {
+    fn resolve(&self, ident: &Ident) -> Option<&parse::CaseArg> {
         self.0.get(&ident.to_string()).map(|&a| a)
     }
 }
@@ -225,61 +119,10 @@ fn fn_args_name(item_fn: &ItemFn) -> impl Iterator<Item=&Ident> {
     fn_args(item_fn).filter_map(fn_arg_ident)
 }
 
-#[derive(Debug)]
-enum RsTestAttribute {
-    Attr(Ident),
-    Tagged(Ident, Vec<Ident>),
-}
-
-fn no_literal_nested(nested: NestedMeta) -> parse::Result<Meta> {
-    match nested {
-        NestedMeta::Meta(m) => Ok(m),
-        NestedMeta::Literal(l) => Err(parse::Error::new(l.span(), "Unexpected literal"))
-    }
-}
-
-fn just_word_meta(meta: Meta) -> parse::Result<Ident> {
-    match meta {
-        Meta::Word(ident) => Ok(ident),
-        other => Err(parse::Error::new(other.span(), "Should be an ident"))
-    }
-}
-
-impl Parse for RsTestAttribute {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        let meta = no_literal_nested(NestedMeta::parse(input)?)?;
-        use Meta::*;
-        match meta {
-            Word(ident) => Ok(RsTestAttribute::Attr(ident)),
-            List(l) =>
-                Ok(RsTestAttribute::Tagged(l.ident,
-                                           l.nested.into_iter()
-                                               .map(no_literal_nested)
-                                               .collect::<parse::Result<Vec<Meta>>>()?
-                                               .into_iter().map(just_word_meta)
-                                               .collect::<parse::Result<Vec<Ident>>>()?,
-                )),
-            NameValue(nv) => Err(parse::Error::new(nv.span(), "Invalid attribute"))
-        }
-    }
-}
-
-#[derive(Default, Debug)]
-struct Modifiers {
-    modifiers: Vec<RsTestAttribute>
-}
-
-impl Parse for Modifiers {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        let vars = Punctuated::<RsTestAttribute, Token![::]>::parse_terminated(input)?;
-        Ok(Modifiers {
-            modifiers: vars.into_iter().collect(),
-        })
-    }
-}
-
 const TRACE_VARIABLE_ATTR: &'static str = "trace";
 const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
+
+use parse::{Modifiers, RsTestAttribute};
 
 impl Modifiers {
     fn trace_me(&self, ident: &Ident) -> bool {
@@ -287,24 +130,32 @@ impl Modifiers {
             self.modifiers
                 .iter()
                 .filter(|&m|
-                    match m {
-                        RsTestAttribute::Tagged(i, args) if i == NOTRACE_VARIABLE_ATTR =>
-                            args.iter().find(|&a| a == ident).is_some(),
-                        _ => false
-                    }
+                    Modifiers::is_notrace(ident, m)
                 ).next().is_none()
         } else { false }
+    }
+
+    fn is_notrace(ident: &Ident, m: &RsTestAttribute) -> bool {
+        match m {
+            RsTestAttribute::Tagged(i, args) if i == NOTRACE_VARIABLE_ATTR =>
+                args.iter().find(|&a| a == ident).is_some(),
+            _ => false
+        }
     }
 
     fn should_trace(&self) -> bool {
         self.modifiers
             .iter()
             .filter(|&m|
-                match m {
-                    RsTestAttribute::Attr(i) if i == TRACE_VARIABLE_ATTR => true,
-                    _ => false
-                }
+                Modifiers::is_trace(m)
             ).next().is_some()
+    }
+
+    fn is_trace(m: &RsTestAttribute) -> bool {
+        match m {
+            RsTestAttribute::Attr(i) if i == TRACE_VARIABLE_ATTR => true,
+            _ => false
+        }
     }
 }
 
@@ -370,7 +221,7 @@ mod error {
     }
 }
 
-fn error_report(test: &ItemFn, params: &ParametrizeData) -> Option<TokenStream> {
+fn error_report(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
     let invalid_args = params.args.iter()
         .filter(|&p| !fn_args_has_ident(test, p));
 
@@ -388,9 +239,9 @@ fn error_report(test: &ItemFn, params: &ParametrizeData) -> Option<TokenStream> 
     }
 }
 
-fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
+fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
-    let ParametrizeInfo { data: params, modifier } = params;
+    let parse::ParametrizeInfo { data: params, modifier } = params;
 
     if let Some(tokens) = error_report(&test, &params) {
         return tokens;
@@ -431,58 +282,11 @@ fn add_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
     res
 }
 
-impl Parse for ParametrizeData {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        let mut args = vec![];
-        loop {
-            if input.peek2(token::Paren) {
-                break;
-            }
-            if let Ok(arg) = input.parse() {
-                args.push(arg);
-                if input.parse::<Token![,]>().is_err() {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-
-        let cases: Vec<_> =
-            Punctuated::<TestCase, Token![,]>::parse_separated_nonempty(input)?
-                .into_iter().collect();
-        Ok(ParametrizeData {
-            args,
-            cases,
-        })
-    }
-}
-
-impl Parse for ParametrizeInfo {
-    fn parse(input: ParseStream) -> parse::Result<Self> {
-        // Parse a `ParametrizeData` and then look for `Modifiers` after `::` token if any.
-        // Example
-        //  |-    u,a,d
-        //  |-    case(42, r("A{}"), Unwrap("D{}"))
-        //  |  ::trace::notrace(a))
-        //  |    ^^^^^^^^^^^^^^^^^^ Modifiers
-        //  |______________________ ParametrizeData
-        Ok(
-            ParametrizeInfo {
-                data: input.parse()?,
-                modifier: input.parse::<Token![::]>()
-                    .or_else(|_| Ok(Default::default()))
-                    .and_then(|_| input.parse())?
-            }
-        )
-    }
-}
-
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
-    let params = parse_macro_input!(args as ParametrizeInfo);
+    let params = parse_macro_input!(args as parse::ParametrizeInfo);
 
     let test = parse_macro_input!(input as ItemFn);
 
@@ -496,6 +300,7 @@ mod test {
     use pretty_assertions::assert_eq;
     use syn::parse2;
     use syn::export::Debug;
+    use crate::parse::*;
 
     fn fn_args(item: &Item) -> punctuated::Iter<'_, FnArg> {
         if let &Item::Fn(ref item_fn) = item {
@@ -572,12 +377,6 @@ mod test {
     impl<'a> Resolver<'a> {
         fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a CaseArg) {
             self.0.insert(ident.as_ref().to_string(), expr);
-        }
-    }
-
-    impl PartialEq for CaseArg {
-        fn eq(&self, other: &Self) -> bool {
-            format!("{:?}", self.tokens) == format!("{:?}", other.tokens)
         }
     }
 
