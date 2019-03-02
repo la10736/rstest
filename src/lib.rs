@@ -84,16 +84,24 @@ fn compile_lit_str(lit: &LitStr) -> parse::Result<TokenStream> {
         )
 }
 
+trait Tokenize {
+    fn into_tokens(self) -> TokenStream;
+}
+
+impl<T: ToTokens> Tokenize for T {
+    fn into_tokens(self) -> TokenStream {
+        quote! { #self }
+    }
+}
+
 impl Parse for CaseArg {
     fn parse(input: ParseStream) -> parse::Result<Self> {
         let nested: NestedMeta = input.parse()?;
-        let tokens = match &nested {
-            NestedMeta::Literal(l) =>
-                quote! {#l},
-            NestedMeta::Meta(Meta::Word(term)) => {
-                quote! { #term }
-            }
-            NestedMeta::Meta(Meta::List(arg)) if is_arbitrary_rust_code(arg) => {
+        let span = nested.span();
+        let tokens = match nested {
+            NestedMeta::Literal(_) | NestedMeta::Meta(Meta::Word(_)) =>
+                nested.clone().into_tokens(),
+            NestedMeta::Meta(Meta::List(ref arg)) if is_arbitrary_rust_code(arg) => {
                 arg.nested.first()
                     .map(|m| *m.value())
                     .and_then(nested_meta_literal_str)
@@ -107,7 +115,7 @@ impl Parse for CaseArg {
             NestedMeta::Meta(nested) =>
                 error(&format!("Unexpected case argument: {:?}", nested), nested.span(), nested.span())
         };
-        Ok(CaseArg::new(tokens, nested.span()))
+        Ok(CaseArg::new(tokens, span))
     }
 }
 
@@ -362,7 +370,7 @@ mod error {
 
 fn error_report(test: &ItemFn, params: &ParametrizeData) -> Option<TokenStream> {
     let invalid_args = params.args.iter()
-        .filter(|p| !fn_args_has_ident(test, p));
+        .filter(|&p| !fn_args_has_ident(test, p));
 
     let mut tokens = TokenStream::default();
     for missed in invalid_args {
