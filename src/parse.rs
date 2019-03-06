@@ -26,7 +26,8 @@ pub struct ParametrizeInfo {
 }
 
 #[derive(Debug)]
-/// A test case instance data. Conatins a list of arguments.
+/// A test case instance data. Contains a list of arguments. It is parsed by parametrize
+/// attributes.
 pub struct TestCase {
     pub args: Punctuated<CaseArg, Token![,]>,
 }
@@ -41,27 +42,33 @@ impl TestCase {
 }
 
 #[derive(Debug, Clone)]
+/// A test case's argument as an expression that can be assigned.
 pub struct CaseArg {
-    tokens: TokenStream,
-    span: Span,
+    expr: Expr,
 }
 
 impl CaseArg {
-    pub fn new(tokens: TokenStream, span: Span) -> Self {
-        Self { tokens, span }
+    pub fn new(expr: Expr) -> Self {
+        Self { expr }
     }
 }
 
 #[cfg(test)]
 impl PartialEq for CaseArg {
     fn eq(&self, other: &Self) -> bool {
-        format!("{:?}", self.tokens) == format!("{:?}", other.tokens)
+        self.expr == other.expr
     }
 }
 
 impl ToTokens for CaseArg {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.tokens.to_tokens(tokens);
+        self.expr.to_tokens(tokens);
+    }
+}
+
+impl From<Expr> for CaseArg {
+    fn from(expr: Expr) -> Self {
+        CaseArg::new(expr)
     }
 }
 
@@ -103,7 +110,6 @@ fn compile_lit_str(lit: &LitStr) -> Result<TokenStream> {
 impl Parse for CaseArg {
     fn parse(input: ParseStream) -> Result<Self> {
         let nested: NestedMeta = input.parse()?;
-        let span = nested.span();
         let tokens = match nested {
             NestedMeta::Literal(_) | NestedMeta::Meta(Meta::Word(_)) =>
                 nested.clone().into_tokens(),
@@ -121,7 +127,7 @@ impl Parse for CaseArg {
             NestedMeta::Meta(nested) =>
                 error(&format!("Unexpected case argument: {:?}", nested), nested.span(), nested.span())
         };
-        Ok(CaseArg::new(tokens, span))
+        Ok(CaseArg::new(syn::parse2(tokens)?))
     }
 }
 

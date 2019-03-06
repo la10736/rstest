@@ -1,6 +1,5 @@
 extern crate proc_macro;
 
-use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
 use syn::{
     ArgCaptured, Expr, FnArg, Ident, ItemFn,
@@ -9,15 +8,9 @@ use syn::{
 };
 
 use error::error;
-use proc_macro2::Span;
+use proc_macro2::TokenStream;
 
 mod parse;
-
-impl From<TokenStream> for parse::CaseArg {
-    fn from(tokens: TokenStream) -> Self {
-        parse::CaseArg::new(tokens, Span::call_site())
-    }
-}
 
 trait Tokenize {
     fn into_tokens(self) -> TokenStream;
@@ -29,22 +22,9 @@ impl<T: ToTokens> Tokenize for T {
     }
 }
 
-impl<'a, S: AsRef<str>> From<&'a [S]> for parse::TestCase {
-    fn from(strings: &[S]) -> Self {
-        let args = strings
-            .iter()
-            .map(|s| {
-                let e = parse_str::<Expr>(s.as_ref()).unwrap();
-                parse::CaseArg::from(quote! { # e })
-            })
-            .collect();
-        parse::TestCase { args }
-    }
-}
-
 fn default_fixture_resolve(ident: &Ident) -> parse::CaseArg {
     let e = parse_str::<Expr>(&format!("{}()", ident.to_string())).unwrap();
-    parse::CaseArg::from(quote! { #e })
+    parse::CaseArg::from(e)
 }
 
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
@@ -214,7 +194,7 @@ mod error {
         };
         msg.extend(
             quote_spanned! {
-                end => (#s);
+                end => (#s)
             }
         );
         msg
@@ -355,10 +335,7 @@ mod test {
     }
 
     fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
-        {
-            let e = parse_str::<Expr>(s.as_ref()).unwrap();
-            quote! { #e }
-        }.into()
+        parse_str::<Expr>(s.as_ref()).unwrap().into()
     }
 
     #[test]

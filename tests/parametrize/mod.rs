@@ -213,7 +213,7 @@ mod not_compile_if_a_case_has_a_wrong_signature {
 
         // Exactly 4 cases are wrong
         assert_eq!(4, stderr.count("Wrong case signature: should match the given parameters list."),
-                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr);
+                   "Should contain message exactly 4 occurrences in error message:\n{}", stderr);
     }
 }
 
