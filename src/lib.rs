@@ -74,29 +74,14 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=TokenStream> + 'a {
-    args.filter_map(fn_arg_ident)
-        .map(move |arg|
+fn fixtures<'a>(args: impl Iterator<Item=&'a Ident> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=TokenStream> + 'a {
+    args.map(move |arg|
             arg_2_fixture(arg, resolver)
-        )
-}
-
-fn fixtures_dump<'a>(args: impl Iterator<Item=&'a FnArg> + 'a,
-                     resolver: &'a Resolver, modifiers: &'a Modifiers)
-                     -> impl Iterator<Item=Stmt> + 'a
-{
-    args.filter_map(fn_arg_ident)
-        .filter_map(move |arg|
-            arg_2_fixture_dump(arg, resolver, modifiers)
         )
 }
 
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
-}
-
-fn fn_args_name(item_fn: &ItemFn) -> impl Iterator<Item=&Ident> {
-    fn_args(item_fn).filter_map(fn_arg_ident)
 }
 
 const TRACE_VARIABLE_ATTR: &'static str = "trace";
@@ -139,8 +124,10 @@ impl Modifiers {
     }
 }
 
-fn trace_arguments<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a Resolver, modifiers: &'a Modifiers) -> proc_macro2::TokenStream {
-    let mut fixtures_dump = fixtures_dump(args, resolver, modifiers).peekable();
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident> + 'a, resolver: &'a Resolver, modifiers: &'a Modifiers) -> proc_macro2::TokenStream {
+    let mut fixtures_dump =     args.filter_map(move |arg|
+        arg_2_fixture_dump(arg, resolver, modifiers)
+    ).peekable();
     if fixtures_dump.peek().is_some() {
         quote! {
             println!("{:-^40}", " TEST ARGUMENTS ");
@@ -151,6 +138,24 @@ fn trace_arguments<'a>(args: impl Iterator<Item=&'a FnArg> + 'a, resolver: &'a R
     }
 }
 
+fn render_fn_test<'a>(name: Ident, testfn_name: Ident, args: &Vec<Ident>, resolver: &'a Resolver,
+                      modifiers: &'a Modifiers, attrs: &Vec<syn::Attribute>,
+                      test_impl: Option<&ItemFn>) -> TokenStream {
+    let fixtures = fixtures(args.iter(), resolver);
+    let trace_args = trace_arguments(args.iter(), resolver, modifiers);
+    quote! {
+        #[test]
+        #(#attrs)*
+        fn #name() {
+            #test_impl
+            #(#fixtures)*
+            #trace_args
+            println!("{:-^40}", " TEST START ");
+            #testfn_name(#(#args),*)
+        }
+    }
+}
+
 #[proc_macro_attribute]
 pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
@@ -158,23 +163,10 @@ pub fn rstest(args: proc_macro::TokenStream,
     let test = parse_macro_input!(input as ItemFn);
     let modifiers = parse_macro_input!(args as Modifiers);
     let name = &test.ident;
-    let attrs = &test.attrs;
     let resolver = Resolver::default();
-    let fixtures = fixtures(fn_args(&test), &resolver);
-    let trace_args = trace_arguments(fn_args(&test), &resolver, &modifiers);
-    let args = fn_args_name(&test);
-    let res = quote! {
-        #[test]
-        #(#attrs)*
-        fn #name() {
-            #test
-            #(#fixtures)*
-            #trace_args
-            println!("{:-^40}", " TEST START ");
-            #name(#(#args),*)
-        }
-    };
-    res.into()
+    let args = fn_args(&test).filter_map(fn_arg_ident).cloned().collect::<Vec<_>>();
+    render_fn_test(name.clone(), name.clone(), &args, &resolver, &modifiers, &test.attrs, Some(&test))
+        .into()
 }
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
@@ -241,21 +233,9 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
                       case.span_start(), case.span_end())
             } else {
                 let resolver = Resolver::new(&params.args, &case);
-                let fixtures = fixtures(fn_args(&test), &resolver);
-                let trace_args = trace_arguments(fn_args(&test), &resolver, &modifier);
                 let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
-                let attrs = &test.attrs;
-                let args = fn_args_name(&test);
-                quote! {
-                    #[test]
-                    #(#attrs)*
-                    fn #name() {
-                        #(#fixtures)*
-                        #trace_args
-                        println!("{:-^40}", " TEST START ");
-                        #fname(#(#args),*)
-                    }
-                }
+                let args = fn_args(&test).filter_map(fn_arg_ident).cloned().collect::<Vec<_>>();
+                render_fn_test(name, fname.clone(), &args, &resolver, &modifier, &test.attrs, None)
             }
         )
     };
