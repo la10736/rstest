@@ -44,13 +44,13 @@ fn arg_2_fixture(ident: &Ident, resolver: &Resolver) -> TokenStream {
     }
 }
 
-fn arg_2_fixture_dump_str(ident: &Ident, _resolver: &Resolver) -> String {
+fn arg_2_fixture_dump_str(ident: &Ident) -> String {
     format!(r#"println!("{name} = {{:?}}", {name});"#, name = ident)
 }
 
-fn arg_2_fixture_dump(ident: &Ident, resolver: &Resolver, modifiers: &Modifiers) -> Option<Stmt> {
+fn arg_2_fixture_dump(ident: &Ident, modifiers: &Modifiers) -> Option<Stmt> {
     if modifiers.trace_me(ident) {
-        parse_str(&arg_2_fixture_dump_str(ident, resolver)).ok()
+        parse_str(&arg_2_fixture_dump_str(ident)).ok()
     } else {
         None
     }
@@ -74,8 +74,8 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures<'a>(args: impl Iterator<Item=&'a Ident> + 'a, resolver: &'a Resolver) -> impl Iterator<Item=TokenStream> + 'a {
-    args.map(move |arg|
+fn fixtures<'a>(args: &'a Vec<Ident>, resolver: &'a Resolver) -> impl Iterator<Item=TokenStream> + 'a{
+    args.iter().map(move |arg|
             arg_2_fixture(arg, resolver)
         )
 }
@@ -124,9 +124,9 @@ impl Modifiers {
     }
 }
 
-fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident> + 'a, resolver: &'a Resolver, modifiers: &'a Modifiers) -> proc_macro2::TokenStream {
-    let mut fixtures_dump =     args.filter_map(move |arg|
-        arg_2_fixture_dump(arg, resolver, modifiers)
+fn trace_arguments(args: &Vec<Ident>, modifiers: &Modifiers) -> proc_macro2::TokenStream {
+    let mut fixtures_dump = args.iter().filter_map(move |arg|
+        arg_2_fixture_dump(arg, modifiers)
     ).peekable();
     if fixtures_dump.peek().is_some() {
         quote! {
@@ -141,8 +141,8 @@ fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident> + 'a, resolver: &'a R
 fn render_fn_test<'a>(name: Ident, testfn_name: Ident, args: &Vec<Ident>, resolver: &'a Resolver,
                       modifiers: &'a Modifiers, attrs: &Vec<syn::Attribute>,
                       test_impl: Option<&ItemFn>) -> TokenStream {
-    let fixtures = fixtures(args.iter(), resolver);
-    let trace_args = trace_arguments(args.iter(), resolver, modifiers);
+    let fixtures = fixtures(args, resolver);
+    let trace_args = trace_arguments(args, modifiers);
     quote! {
         #[test]
         #(#attrs)*
