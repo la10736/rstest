@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
 use syn::{
     ArgCaptured, Expr, FnArg, Ident, ItemFn,
@@ -8,7 +9,7 @@ use syn::{
 };
 
 use error::error;
-use proc_macro2::TokenStream;
+use parse::{Modifiers, RsTestAttribute};
 
 mod parse;
 
@@ -74,20 +75,12 @@ impl<'a> Resolver<'a> {
     }
 }
 
-fn fixtures<'a>(args: &'a Vec<Ident>, resolver: &'a Resolver) -> impl Iterator<Item=TokenStream> + 'a{
-    args.iter().map(move |arg|
-            arg_2_fixture(arg, resolver)
-        )
-}
-
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
 }
 
 const TRACE_VARIABLE_ATTR: &'static str = "trace";
 const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
-
-use parse::{Modifiers, RsTestAttribute};
 
 impl Modifiers {
     fn trace_me(&self, ident: &Ident) -> bool {
@@ -124,24 +117,39 @@ impl Modifiers {
     }
 }
 
-fn trace_arguments(args: &Vec<Ident>, modifiers: &Modifiers) -> proc_macro2::TokenStream {
-    let mut fixtures_dump = args.iter().filter_map(move |arg|
-        arg_2_fixture_dump(arg, modifiers)
-    ).peekable();
-    if fixtures_dump.peek().is_some() {
-        quote! {
-            println!("{:-^40}", " TEST ARGUMENTS ");
-            #(#fixtures_dump)*
+trait Iterable<I, IT: Iterator<Item=I>, OUT: Iterator<Item=I>> {
+    fn iterable(self) -> Option<OUT>;
+}
+
+impl<I, IT: Iterator<Item=I>> Iterable<I, IT, std::iter::Peekable<IT>> for IT {
+    fn iterable(self) -> Option<std::iter::Peekable<IT>> {
+        let mut peekable = self.peekable();
+        if peekable.peek().is_some() {
+            Some(peekable)
+        } else {
+            None
         }
-    } else {
-        Default::default()
     }
 }
 
-fn render_fn_test<'a>(name: Ident, testfn_name: Ident, args: &Vec<Ident>, resolver: &'a Resolver,
-                      modifiers: &'a Modifiers, attrs: &Vec<syn::Attribute>,
-                      test_impl: Option<&ItemFn>) -> TokenStream {
-    let fixtures = fixtures(args, resolver);
+fn trace_arguments(args: &Vec<Ident>, modifiers: &Modifiers) -> Option<proc_macro2::TokenStream> {
+    args.iter()
+        .filter_map(move |arg| arg_2_fixture_dump(arg, modifiers))
+        .iterable()
+        .map(
+            |it|
+                quote! {
+                    println!("{:-^40}", " TEST ARGUMENTS ");
+                    #(#it)*
+                }
+        )
+}
+
+fn render_fn_test<'a>(name: Ident, testfn_name: Ident, args: &Vec<Ident>, attrs: &Vec<syn::Attribute>,
+                      resolver: &'a Resolver, modifiers: &'a Modifiers, test_impl: Option<&ItemFn>)
+                      -> TokenStream {
+    let fixtures = args.iter()
+        .map(move |arg| arg_2_fixture(arg, resolver));
     let trace_args = trace_arguments(args, modifiers);
     quote! {
         #[test]
@@ -165,7 +173,8 @@ pub fn rstest(args: proc_macro::TokenStream,
     let name = &test.ident;
     let resolver = Resolver::default();
     let args = fn_args(&test).filter_map(fn_arg_ident).cloned().collect::<Vec<_>>();
-    render_fn_test(name.clone(), name.clone(), &args, &resolver, &modifiers, &test.attrs, Some(&test))
+    render_fn_test(name.clone(), name.clone(), &args, &test.attrs,
+                   &resolver, &modifiers, Some(&test))
         .into()
 }
 
@@ -235,7 +244,8 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
                 let resolver = Resolver::new(&params.args, &case);
                 let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
                 let args = fn_args(&test).filter_map(fn_arg_ident).cloned().collect::<Vec<_>>();
-                render_fn_test(name, fname.clone(), &args, &resolver, &modifier, &test.attrs, None)
+                render_fn_test(name, fname.clone(), &args, &test.attrs, &resolver,
+                               &modifier, None)
             }
         )
     };
@@ -255,12 +265,14 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use syn::{Item, punctuated};
     use pretty_assertions::assert_eq;
-    use syn::parse2;
+    use syn::{Item, punctuated};
     use syn::export::Debug;
+    use syn::parse2;
+
     use crate::parse::*;
+
+    use super::*;
 
     fn fn_args(item: &Item) -> punctuated::Iter<'_, FnArg> {
         if let &Item::Fn(ref item_fn) = item {
