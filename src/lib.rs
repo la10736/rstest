@@ -12,6 +12,7 @@ use error::error;
 use parse::{Modifiers, RsTestAttribute};
 
 mod parse;
+mod error;
 
 trait Tokenize {
     fn into_tokens(self) -> TokenStream;
@@ -58,6 +59,8 @@ fn arg_2_fixture_dump(ident: &Ident, modifiers: &Modifiers) -> Option<Stmt> {
 }
 
 #[derive(Default)]
+/// `Resolver` can `resolve` an ident to a `CaseArg`. Pass it to `render_fn_test`
+/// function to inject the case arguments resolution.
 struct Resolver<'a> (std::collections::HashMap<String, &'a parse::CaseArg>);
 
 impl<'a> Resolver<'a> {
@@ -185,24 +188,7 @@ fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
         .is_some()
 }
 
-mod error {
-    use proc_macro2::*;
-    use quote::quote_spanned;
-
-    pub fn error(s: &str, start: Span, end: Span) -> TokenStream {
-        let mut msg = quote_spanned! {
-            start => compile_error!
-        };
-        msg.extend(
-            quote_spanned! {
-                end => (#s)
-            }
-        );
-        msg
-    }
-}
-
-fn error_report(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
+fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
     let invalid_args = params.args.iter()
         .filter(|&p| !fn_args_has_ident(test, p));
 
@@ -224,10 +210,6 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     let fname = &test.ident;
     let parse::ParametrizeInfo { data: params, modifier } = params;
 
-    if let Some(tokens) = error_report(&test, &params) {
-        return tokens;
-    }
-
     let mut res = quote! {
             #[cfg(test)]
             #test
@@ -243,7 +225,10 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
             } else {
                 let resolver = Resolver::new(&params.args, &case);
                 let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
-                let args = fn_args(&test).filter_map(fn_arg_ident).cloned().collect::<Vec<_>>();
+                let args = fn_args(&test)
+                    .filter_map(fn_arg_ident)
+                    .cloned()
+                    .collect::<Vec<_>>();
                 render_fn_test(name, fname.clone(), &args, &test.attrs, &resolver,
                                &modifier, None)
             }
@@ -257,10 +242,13 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
                           -> proc_macro::TokenStream
 {
     let params = parse_macro_input!(args as parse::ParametrizeInfo);
-
     let test = parse_macro_input!(input as ItemFn);
 
-    add_parametrize_cases(test, params).into()
+    if let Some(tokens) = errors_in_parametrize(&test, &params.data) {
+        tokens
+    } else {
+        add_parametrize_cases(test, params)
+    }.into()
 }
 
 #[cfg(test)]
