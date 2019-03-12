@@ -210,31 +210,39 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     let fname = &test.ident;
     let parse::ParametrizeInfo { data: params, modifier } = params;
 
-    let mut res = quote! {
-            #[cfg(test)]
-            #test
-        };
-
-    // TODO: Move to fold trait impl
-
+    let mut cases = TokenStream::new();
     for (n, case) in params.cases.iter().enumerate() {
-        res.append_all(
+        cases.append_all(
             if case.args.len() != params.args.len() {
                 error("Wrong case signature: should match the given parameters list.",
                       case.span_start(), case.span_end())
             } else {
                 let resolver = Resolver::new(&params.args, &case);
-                let name = Ident::new(&format!("{}_case_{}", fname, n), fname.span());
-                let args = fn_args(&test)
-                    .filter_map(fn_arg_ident)
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let name = Ident::new(&format!("case_{}", n), fname.span());
+                let args = fn_args_idents(&test);
                 render_fn_test(name, fname.clone(), &args, &test.attrs, &resolver,
                                &modifier, None)
             }
         )
     };
-    res
+    quote! {
+        #[cfg(test)]
+        #test
+
+        #[cfg(test)]
+        mod #fname {
+            use super::*;
+
+            #cases
+        }
+    }
+}
+
+fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
+    fn_args(&test)
+        .filter_map(fn_arg_ident)
+        .cloned()
+        .collect::<Vec<_>>()
 }
 
 #[proc_macro_attribute]
@@ -357,5 +365,106 @@ mod test {
 
         assert!(resolver.resolve(&arg).is_none())
     }
+
+    mod add_parametrize_cases {
+        use syn::{ItemFn, ItemMod, parse::{Parse, ParseStream, Result}};
+
+        use super::{assert_eq, *};
+
+        struct ParOut {
+            orig: ItemFn,
+            module: ItemMod,
+        }
+
+        impl Parse for ParOut {
+            fn parse(input: ParseStream) -> Result<Self> {
+                Ok(Self {
+                    orig: input.parse()?,
+                    module: input.parse()?,
+                })
+            }
+        }
+
+        impl<'a> From<&'a ItemFn> for parse::ParametrizeData {
+            fn from(item_fn: &'a ItemFn) -> Self {
+                parse::ParametrizeData {
+                    args: fn_args_idents(item_fn),
+                    cases: vec![],
+                }
+            }
+        }
+
+        impl<'a> From<&'a ItemFn> for parse::ParametrizeInfo {
+            fn from(item_fn: &'a ItemFn) -> Self {
+                parse::ParametrizeInfo {
+                    data: item_fn.into(),
+                    modifier: Default::default(),
+                }
+            }
+        }
+
+        #[test]
+        fn should_create_a_module_named_as_test_function() {
+            let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let output = syn::parse2::<ParOut>(tokens).unwrap();
+
+            assert_eq!(output.module.ident, "should_be_the_module_name");
+        }
+
+        #[test]
+        fn should_copy_user_function() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let mut output = syn::parse2::<ParOut>(tokens).unwrap();
+
+
+            output.orig.attrs = vec![];
+            assert_eq!(output.orig, item_fn);
+        }
+
+        #[test]
+        fn should_mark_user_function_as_test() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let output = syn::parse2::<ParOut>(tokens).unwrap();
+
+            let expected = parse2::<ItemFn>(quote! {
+                #[cfg(test)]
+                fn some() {}
+            }).unwrap().attrs;
+
+            assert_eq!(expected, output.orig.attrs);
+        }
+
+        #[test]
+        fn should_mark_module_as_test() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let output = syn::parse2::<ParOut>(tokens).unwrap();
+
+            let expected = parse2::<ItemMod>(quote! {
+                #[cfg(test)]
+                mod some {}
+            }).unwrap().attrs;
+
+            assert_eq!(expected, output.module.attrs);
+        }
+    }
+
 }
 

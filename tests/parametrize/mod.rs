@@ -26,8 +26,8 @@ fn happy_path() {
     let (output, _) = run_test("simple.rs");
 
     TestResults::new()
-        .ok("strlen_test_case_0")
-        .ok("strlen_test_case_1")
+        .ok("strlen_test::case_0")
+        .ok("strlen_test::case_1")
         .assert(output);
 }
 
@@ -36,8 +36,8 @@ fn mut_input() {
     let (output, _) = run_test("mut.rs");
 
     TestResults::new()
-        .ok("add_test_case_0")
-        .ok("add_test_case_1")
+        .ok("add_test::case_0")
+        .ok("add_test::case_1")
         .assert(output);
 }
 
@@ -47,8 +47,8 @@ fn generic_input() {
     let (output, _) = run_test("generic.rs");
 
     TestResults::new()
-        .ok("strlen_test_case_0")
-        .ok("strlen_test_case_1")
+        .ok("strlen_test::case_0")
+        .ok("strlen_test::case_1")
         .assert(output);
 }
 
@@ -57,10 +57,10 @@ fn should_understand_arbitrary_rust_code() {
     let (output, _) = run_test("arbitrary_rust_code.rs");
 
     TestResults::new()
-        .ok("arbitrary_case_0")
-        .fail("arbitrary_case_1")
-        .ok("arbitrary_case_2")
-        .fail("arbitrary_case_3")
+        .ok("arbitrary::case_0")
+        .fail("arbitrary::case_1")
+        .ok("arbitrary::case_2")
+        .fail("arbitrary::case_3")
         .assert(output);
 }
 
@@ -69,8 +69,8 @@ fn impl_input() {
     let (output, _) = run_test("impl_param.rs");
 
     TestResults::new()
-        .ok("strlen_test_case_0")
-        .ok("strlen_test_case_1")
+        .ok("strlen_test::case_0")
+        .ok("strlen_test::case_1")
         .assert(output);
 }
 
@@ -79,8 +79,8 @@ fn fallback_to_fixture_lookup() {
     let (output, _) = run_test("fallback.rs");
 
     TestResults::new()
-        .ok("sum_case_0")
-        .ok("sum_case_1")
+        .ok("sum::case_0")
+        .ok("sum::case_1")
         .assert(output);
 }
 
@@ -89,9 +89,9 @@ fn should_panic() {
     let (output, _) = run_test("panic.rs");
 
     TestResults::new()
-        .ok("fail_case_0")
-        .ok("fail_case_1")
-        .fail("fail_case_2")
+        .ok("fail::case_0")
+        .ok("fail::case_1")
+        .fail("fail::case_2")
         .assert(output);
 }
 
@@ -102,8 +102,8 @@ fn bool_input() {
     println!("*** stderr: {}", output.stderr.str());
 
     TestResults::new()
-        .ok("bool_case_0")
-        .fail("bool_case_1")
+        .ok("bool::case_0")
+        .fail("bool::case_1")
         .assert(output);
 }
 
@@ -230,8 +230,8 @@ mod dump_input_values {
         let out = output.stdout.str().to_string();
 
         TestResults::new()
-            .fail("should_fail_case_0")
-            .fail("should_fail_case_1")
+            .fail("should_fail::case_0")
+            .fail("should_fail::case_1")
             .assert(output);
 
         assert_in!(out, "u = 42");
@@ -269,7 +269,7 @@ mod dump_input_values {
         let out = output.stdout.str().to_string();
 
         TestResults::new()
-            .fail("should_fail_case_0")
+            .fail("should_fail::case_0")
             .assert(output);
 
         assert_in!(out, "u = 42");
@@ -282,7 +282,7 @@ mod dump_input_values {
         let out = output.stdout.str().to_string();
 
         TestResults::new()
-            .fail("should_fail_case_0")
+            .fail("should_fail::case_0")
             .assert(output);
 
         let lines = out.lines()
