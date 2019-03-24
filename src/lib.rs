@@ -1,3 +1,4 @@
+#![deny(warnings)]
 extern crate proc_macro;
 
 use proc_macro2::TokenStream;
@@ -464,7 +465,30 @@ mod test {
 
             assert_eq!(expected, output.module.attrs);
         }
-    }
 
+        impl ParametrizeInfo {
+            fn push_case(&mut self, case: TestCase) {
+                self.data.cases.push(case);
+            }
+        }
+
+        #[test]
+        fn should_add_a_test_case() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let mut info: ParametrizeInfo = (&item_fn).into();
+            let mut args = syn::punctuated::Punctuated::new();
+            args.push_value(CaseArg::new(parse_str(r#"String::from("3")"#).unwrap()));
+            info.push_case(TestCase {args});
+
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let _output = syn::parse2::<ParOut>(tokens).unwrap();
+
+            assert!(false, "Not implememted yet! (take a look on fold impl)")
+
+        }
+    }
 }
 
