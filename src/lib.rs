@@ -372,17 +372,32 @@ mod test {
 
         use super::{assert_eq, *};
 
-        struct ParOut {
+        struct ParametrizeOutput {
             orig: ItemFn,
             module: ItemMod,
         }
 
-        impl Parse for ParOut {
+        impl Parse for ParametrizeOutput {
             fn parse(input: ParseStream) -> Result<Self> {
                 Ok(Self {
                     orig: input.parse()?,
                     module: input.parse()?,
                 })
+            }
+        }
+
+        impl ParametrizeOutput {
+            pub fn get_test_functions(&self) -> Vec<ItemFn> {
+                let mut f = TestFunctions(vec![]);
+
+                f.visit_item_mod(&self.module);
+                f.0
+            }
+        }
+
+        impl From<TokenStream> for ParametrizeOutput {
+            fn from(tokens: TokenStream) -> Self {
+                syn::parse2::<ParametrizeOutput>(tokens).unwrap()
             }
         }
 
@@ -404,13 +419,34 @@ mod test {
             }
         }
 
+        /// To extract all test functions
+        struct TestFunctions(Vec<ItemFn>);
+        use syn::visit::Visit;
+
+        impl TestFunctions {
+            fn is_test_fn(item_fn: &ItemFn) -> bool {
+                item_fn.attrs.iter().filter(|&a|
+                    a.path==parse_str::<syn::Path>("test").unwrap())
+                    .next().is_some()
+            }
+        }
+
+        impl<'ast> Visit<'ast> for TestFunctions {
+            fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
+                if Self::is_test_fn(item_fn) {
+                    self.0.push(item_fn.clone())
+                }
+            }
+        }
+
+
         #[test]
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let output = syn::parse2::<ParOut>(tokens).unwrap();
+            let output = ParametrizeOutput::from(tokens);
 
             assert_eq!(output.module.ident, "should_be_the_module_name");
         }
@@ -423,8 +459,7 @@ mod test {
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let mut output = syn::parse2::<ParOut>(tokens).unwrap();
-
+            let mut output = ParametrizeOutput::from(tokens);
 
             output.orig.attrs = vec![];
             assert_eq!(output.orig, item_fn);
@@ -438,7 +473,7 @@ mod test {
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let output = syn::parse2::<ParOut>(tokens).unwrap();
+            let output = ParametrizeOutput::from(tokens);
 
             let expected = parse2::<ItemFn>(quote! {
                 #[cfg(test)]
@@ -456,7 +491,7 @@ mod test {
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let output = syn::parse2::<ParOut>(tokens).unwrap();
+            let output = ParametrizeOutput::from(tokens);
 
             let expected = parse2::<ItemMod>(quote! {
                 #[cfg(test)]
@@ -484,10 +519,10 @@ mod test {
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let _output = syn::parse2::<ParOut>(tokens).unwrap();
+            let tests = ParametrizeOutput::from(tokens).get_test_functions();
 
-            assert!(false, "Not implememted yet! (take a look on fold impl)")
-
+            assert_eq!(1, tests.len());
+            assert_eq!("case_0", &tests[0].ident.to_string())
         }
     }
 }
