@@ -9,7 +9,7 @@ use syn::{
     Stmt,
 };
 
-use error::error;
+use error::{error, error_statement};
 use parse::{Modifiers, RsTestAttribute};
 
 mod parse;
@@ -215,8 +215,8 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     for (n, case) in params.cases.iter().enumerate() {
         cases.append_all(
             if case.args.len() != params.args.len() {
-                error("Wrong case signature: should match the given parameters list.",
-                      case.span_start(), case.span_end())
+                error_statement("Wrong case signature: should match the given parameters list.",
+                                case.span_start(), case.span_end())
             } else {
                 let resolver = Resolver::new(&params.args, &case);
                 let name = Ident::new(&format!("case_{}", n), fname.span());
@@ -368,9 +368,12 @@ mod test {
     }
 
     mod add_parametrize_cases {
-        use syn::{ItemFn, ItemMod, parse::{Parse, ParseStream, Result}};
+        use std::borrow::Cow;
 
-        use super::{assert_eq, *};
+        use syn::{ItemFn, ItemMod, parse::{Parse, ParseStream, Result}};
+        use syn::visit::Visit;
+
+        use super::{*, assert_eq};
 
         struct ParametrizeOutput {
             orig: ItemFn,
@@ -421,12 +424,11 @@ mod test {
 
         /// To extract all test functions
         struct TestFunctions(Vec<ItemFn>);
-        use syn::visit::Visit;
 
         impl TestFunctions {
             fn is_test_fn(item_fn: &ItemFn) -> bool {
                 item_fn.attrs.iter().filter(|&a|
-                    a.path==parse_str::<syn::Path>("test").unwrap())
+                    a.path == parse_str::<syn::Path>("test").unwrap())
                     .next().is_some()
             }
         }
@@ -505,6 +507,34 @@ mod test {
             fn push_case(&mut self, case: TestCase) {
                 self.data.cases.push(case);
             }
+
+            fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
+                self.data.cases.extend(cases);
+            }
+        }
+
+        impl<'a> From<Vec<Cow<'a, str>>> for TestCase {
+            fn from(arguments: Vec<Cow<'a, str>>) -> Self {
+                let mut args = syn::punctuated::Punctuated::new();
+                for arg in arguments {
+                    args.push(CaseArg::new(parse_str(arg.as_ref().into()).unwrap()))
+                };
+                TestCase { args }
+            }
+        }
+
+        impl<'a> From<Cow<'a, str>> for TestCase {
+            fn from(argument: Cow<'a, str>) -> Self {
+                vec![argument].into()
+            }
+        }
+
+        impl<'a> From<&'a str> for TestCase {
+            fn from(argument: &'a str) -> Self {
+                argument.split(",\n")
+                    .map(|s| Cow::from(s))
+                    .collect::<Vec<_>>().into()
+            }
         }
 
         #[test]
@@ -512,10 +542,9 @@ mod test {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
+
             let mut info: ParametrizeInfo = (&item_fn).into();
-            let mut args = syn::punctuated::Punctuated::new();
-            args.push_value(CaseArg::new(parse_str(r#"String::from("3")"#).unwrap()));
-            info.push_case(TestCase {args});
+            info.push_case(TestCase::from(r#"String::from("3")"#));
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
@@ -523,6 +552,24 @@ mod test {
 
             assert_eq!(1, tests.len());
             assert_eq!("case_0", &tests[0].ident.to_string())
+        }
+
+        #[test]
+        fn should_add_all_test_cases() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+
+            let mut info: ParametrizeInfo = (&item_fn).into();
+            info.extend((0..5).map(|_| TestCase::from(r#"String::from("3")"#)));
+
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            println!("{:#}", tokens);
+            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+
+            assert_eq!(5, tests.len());
+            assert_eq!("case_4", &tests[4].ident.to_string())
         }
     }
 }

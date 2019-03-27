@@ -12,3 +12,10 @@ pub fn error(s: &str, start: Span, end: Span) -> TokenStream {
     );
     msg
 }
+
+pub fn error_statement(s: &str, start: Span, end: Span) -> TokenStream {
+    let e = error(s, start, end);
+    quote_spanned! {
+        end => #e;
+    }
+}
