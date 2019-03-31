@@ -241,7 +241,11 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
 
 fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
     let len_max = format!("{}", params.cases.len()).len();
-    format!("case_{:0len$}", index + 1, len = len_max as usize)
+    let description = params.cases[index]
+        .description.as_ref()
+        .map(|d| format!("_{}", d))
+        .unwrap_or_default();
+    format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
 }
 
 fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
@@ -524,7 +528,7 @@ mod test {
                 for arg in arguments {
                     args.push(CaseArg::new(parse_str(arg.as_ref().into()).unwrap()))
                 };
-                TestCase { args }
+                TestCase { args, description: None }
             }
         }
 
@@ -613,6 +617,19 @@ mod test {
             let valid_names = tests.iter()
                 .filter(|it| it.ident.to_string().len() == first_name.len());
             assert_eq!(1000, valid_names.count())
+        }
+
+        #[test]
+        fn should_use_description_if_any() {
+            let (item_fn, mut info) = one_simple_case();
+            let description = "show_this_description";
+            info.data.cases[0].description = Some(parse_str::<Ident>(description).unwrap());
+
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+
+            assert!(tests[0].ident.to_string().ends_with(&format!("_{}", description)));
         }
     }
 }

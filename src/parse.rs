@@ -30,6 +30,7 @@ pub struct ParametrizeInfo {
 /// attributes.
 pub struct TestCase {
     pub args: Punctuated<CaseArg, Token![,]>,
+    pub description: Option<Ident>
 }
 
 impl TestCase {
@@ -79,7 +80,7 @@ impl Parse for TestCase {
             let content;
             let _ = syn::parenthesized!(content in input);
             let args = content.parse_terminated(CaseArg::parse)?;
-            Ok(TestCase { args })
+            Ok(TestCase { args, description: None })
         } else {
             Err(Error::new(case.span(), "expected a test case"))
         }
