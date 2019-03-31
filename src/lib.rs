@@ -219,7 +219,7 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
                                 case.span_start(), case.span_end())
             } else {
                 let resolver = Resolver::new(&params.args, &case);
-                let name = Ident::new(&format!("case_{}", n), fname.span());
+                let name = Ident::new(&format_case_name(&params, n), fname.span());
                 let args = fn_args_idents(&test);
                 render_fn_test(name, fname.clone(), &args, &test.attrs, &resolver,
                                &modifier, None)
@@ -237,6 +237,11 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
             #cases
         }
     }
+}
+
+fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
+    let len_max = format!("{}", params.cases.len()).len();
+    format!("case_{:0len$}", index + 1, len = len_max as usize)
 }
 
 fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
@@ -537,39 +542,77 @@ mod test {
             }
         }
 
-        #[test]
-        fn should_add_a_test_case() {
+        fn one_simple_case() -> (ItemFn, ParametrizeInfo) {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-
             let mut info: ParametrizeInfo = (&item_fn).into();
             info.push_case(TestCase::from(r#"String::from("3")"#));
+            (item_fn, info)
+        }
+
+        fn some_simple_cases(cases: i32) -> (ItemFn, ParametrizeInfo) {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let mut info: ParametrizeInfo = (&item_fn).into();
+            info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
+            (item_fn, info)
+        }
+
+        #[test]
+        fn should_add_a_test_case() {
+            let (item_fn, info) = one_simple_case();
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
             let tests = ParametrizeOutput::from(tokens).get_test_functions();
 
             assert_eq!(1, tests.len());
-            assert_eq!("case_0", &tests[0].ident.to_string())
+            assert!(&tests[0].ident.to_string().starts_with("case_"))
+        }
+
+        #[test]
+        fn case_number_should_starts_from_1() {
+            let (item_fn, info) = one_simple_case();
+
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+
+            assert!(&tests[0].ident.to_string().starts_with("case_1"))
         }
 
         #[test]
         fn should_add_all_test_cases() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-
-            let mut info: ParametrizeInfo = (&item_fn).into();
-            info.extend((0..5).map(|_| TestCase::from(r#"String::from("3")"#)));
+            let (item_fn, info) = some_simple_cases(5);
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            println!("{:#}", tokens);
             let tests = ParametrizeOutput::from(tokens).get_test_functions();
 
-            assert_eq!(5, tests.len());
-            assert_eq!("case_4", &tests[4].ident.to_string())
+            let valid_names = tests.iter()
+                .filter(|it| it.ident.to_string().starts_with("case_"));
+            assert_eq!(5, valid_names.count())
+        }
+
+        #[test]
+        fn should_left_pad_case_number_by_zeros() {
+            let (item_fn, info) = some_simple_cases(1000);
+
+            let tokens = add_parametrize_cases(item_fn.clone(), info);
+
+            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+
+            let first_name = tests[0].ident.to_string();
+            let last_name = tests[999].ident.to_string();
+
+            assert!(first_name.ends_with("_0001"));
+            assert!(last_name.ends_with("_1000"));
+
+            let valid_names = tests.iter()
+                .filter(|it| it.ident.to_string().len() == first_name.len());
+            assert_eq!(1000, valid_names.count())
         }
     }
 }
