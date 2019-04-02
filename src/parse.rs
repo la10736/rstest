@@ -232,3 +232,82 @@ impl Parse for ParametrizeInfo {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use syn::{parse_str, ItemFn, parse2};
+    use quote::quote;
+    use crate::parse::{TestCase, CaseArg};
+    use proc_macro2::{TokenTree};
+
+    fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
+        let to_parse = format!(r#"
+        #[{}]
+        fn to_parse() {{}}
+        "#, test_case.as_ref());
+
+        println!("{}", to_parse);
+
+        let item_fn = parse_str::<ItemFn>(&to_parse).unwrap();
+
+        let tokens = quote!(
+            #item_fn
+        );
+
+        let tt = tokens.into_iter().skip(1).next().unwrap();
+
+        if let TokenTree::Group(g) = tt {
+            let ts = g.stream();
+            parse2::<TestCase>(ts).unwrap()
+        } else {
+            panic!("Cannot find group in {:#?}", tt)
+        }
+    }
+
+    impl From<String> for CaseArg {
+        fn from(data: String) -> Self {
+            CaseArg::new(parse_str::<syn::Expr>(data.as_ref()).unwrap())
+        }
+    }
+
+    impl<'a> From<&'a str> for CaseArg {
+        fn from(data: &str) -> Self {
+            CaseArg::new(parse_str::<syn::Expr>(data).unwrap())
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Args(Vec<CaseArg>);
+
+    impl TestCase {
+        fn args(&self) -> Args {
+            Args(self.args.iter().cloned().collect())
+        }
+    }
+
+    impl<'a, IT: Iterator<Item=&'a ToString>> From<IT> for Args {
+        fn from(refs: IT) -> Self {
+            Args(refs.map(|s| CaseArg::from(s.to_string())).collect())
+        }
+    }
+
+    macro_rules! to_args {
+        ($e:expr) => {Args::from($e.iter().map(|s| s as &ToString))};
+    }
+
+    mod parse_test_case {
+        use super::*;
+
+        #[test]
+        fn parse_test_case_simple_two_literal_args() {
+            let test_case = parse_test_case(r#"case(42, "value")"#);
+            let args = test_case.args();
+
+            let expected = to_args!(["42", r#""value""#]);
+
+            assert_eq!(expected, args);
+        }
+
+    }
+
+}
+
