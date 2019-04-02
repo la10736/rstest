@@ -245,8 +245,6 @@ mod test {
         fn to_parse() {{}}
         "#, test_case.as_ref());
 
-        println!("{}", to_parse);
-
         let item_fn = parse_str::<ItemFn>(&to_parse).unwrap();
 
         let tokens = quote!(
@@ -298,13 +296,36 @@ mod test {
         use super::*;
 
         #[test]
-        fn parse_test_case_simple_two_literal_args() {
+        fn two_literal_args() {
             let test_case = parse_test_case(r#"case(42, "value")"#);
             let args = test_case.args();
 
             let expected = to_args!(["42", r#""value""#]);
 
             assert_eq!(expected, args);
+        }
+
+        #[test]
+        fn some_literals() {
+            let args_expressions = vec!["42", "42isize", "true", "1_000_000u64", "0b10100101u8", r#""42""#, "b'H'"];
+            let test_case = parse_test_case(&format!("case({})", args_expressions.join(", ")));
+            let args = test_case.args();
+
+            assert_eq!(to_args!(args_expressions), args);
+        }
+
+        #[test]
+        fn raw_code() {
+            let test_case = parse_test_case(r#"case(r("vec![1,2,3]"))"#);
+            let args = test_case.args();
+
+            assert_eq!(to_args!(["vec![1, 2, 3]"]), args);
+        }
+
+        #[test]
+        #[should_panic(expected = r#"Cannot parse \'vec![1,2,3\' due LexError"#)]
+        fn raw_code_with_parsing_error() {
+            parse_test_case(r#"case(r("vec![1,2,3"))"#);
         }
 
     }
