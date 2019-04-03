@@ -1,11 +1,5 @@
-use syn::{
-    Expr, Ident, Lit, LitStr, Meta, NestedMeta,
-    parse::{Parse, ParseStream, Result, Error},
-    spanned::Spanned,
-    punctuated::{Punctuated},
-    Token,
-    token
-};
+use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error},
+          spanned::Spanned, punctuated::{Punctuated}, Token, token};
 use proc_macro2::{TokenStream, Span};
 use crate::{error::error, Tokenize};
 // TODO: Remove this dependency
@@ -208,8 +202,12 @@ impl Parse for ParametrizeData {
         }
 
         let cases: Vec<_> =
-            Punctuated::<TestCase, Token![,]>::parse_separated_nonempty(input)?
-                .into_iter().collect();
+            Punctuated::<Option<TestCase>, Token![,]>::parse_separated_nonempty_with(
+                input, |input_tokens|
+                    if input_tokens.is_empty() { Ok(None) } else {
+                        TestCase::parse(input_tokens).map(|inner| Some(inner))
+                    }
+            )?.into_iter().filter_map(|it| it).collect();
         Ok(ParametrizeData {
             args,
             cases,
@@ -239,14 +237,15 @@ impl Parse for ParametrizeInfo {
 
 #[cfg(test)]
 mod test {
+    #[allow(unused_imports)]
     use pretty_assertions::assert_eq;
 
     use syn::{parse_str, ItemFn, parse2};
     use quote::quote;
-    use crate::parse::{TestCase, CaseArg};
+    use crate::parse::{TestCase, CaseArg, ParametrizeData};
     use proc_macro2::{TokenTree};
 
-    fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
+    fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
         let to_parse = format!(r#"
         #[{}]
         fn to_parse() {{}}
@@ -262,7 +261,7 @@ mod test {
 
         if let TokenTree::Group(g) = tt {
             let ts = g.stream();
-            parse2::<TestCase>(ts).unwrap()
+            parse2::<T>(ts).unwrap()
         } else {
             panic!("Cannot find group in {:#?}", tt)
         }
@@ -299,9 +298,17 @@ mod test {
         ($e:expr) => {Args::from($e.iter().map(|s| s as &ToString))};
     }
 
+    macro_rules! to_strs {
+        ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
+    }
+
     mod parse_test_case {
         use pretty_assertions::assert_eq;
         use super::*;
+
+        fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
+            parse_meta(test_case)
+        }
 
         #[test]
         fn two_literal_args() {
@@ -352,6 +359,54 @@ mod test {
 
             assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
             assert_eq!(to_args!(["42", "24"]), args);
+        }
+    }
+
+    mod parse_args_and_cases {
+        use pretty_assertions::assert_eq;
+        use super::*;
+
+        fn parse_data<S: AsRef<str>>(test_case: S) -> ParametrizeData {
+            parse_meta(test_case)
+        }
+
+        #[test]
+        fn one_simple_case_one_arg() {
+            let data = parse_data(r#"arg, case(42)"#);
+
+            assert_eq!(1, data.args.len());
+            assert_eq!(1, data.cases.len());
+            assert_eq!("arg", &data.args[0].to_string());
+            assert_eq!(to_args!(["42"]), data.cases[0].args())
+        }
+
+        #[test]
+        fn happy_path() {
+            let data = parse_data(r#"
+                arg1, arg2, arg3,
+                case(1,2,3),
+                case(11,12,13),
+                case(21,22,23)
+                "#);
+
+            assert_eq!(to_strs!(vec!["arg1", "arg2", "arg3"]), to_strs!(data.args));
+            assert_eq!(3, data.cases.len());
+            assert_eq!(to_args!(["1", "2", "3"]), data.cases[0].args());
+            assert_eq!(to_args!(["11", "12", "13"]), data.cases[1].args());
+            assert_eq!(to_args!(["21", "22", "23"]), data.cases[2].args());
+        }
+
+        #[test]
+        fn should_accept_comma_at_the_end_of_cases() {
+            let data = parse_data(r#"
+                arg,
+                case(42),
+                "#);
+
+            assert_eq!(1, data.args.len());
+            assert_eq!(1, data.cases.len());
+            assert_eq!("arg", &data.args[0].to_string());
+            assert_eq!(to_args!(["42"]), data.cases[0].args())
         }
     }
 
