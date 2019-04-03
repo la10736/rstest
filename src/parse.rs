@@ -33,6 +33,25 @@ pub struct TestCase {
     pub description: Option<Ident>
 }
 
+impl Parse for TestCase {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let case: Ident = input.parse()?;
+        if case == "case" {
+            let content;
+            let _ = syn::parenthesized!(content in input);
+            let mut description = None;
+            if content.peek2(Token![::]) {
+                description = Some(content.parse()?);
+                let _ = content.parse::<Token![::]>();
+            }
+            let args = content.parse_terminated(CaseArg::parse)?;
+            Ok(TestCase { args, description })
+        } else {
+            Err(Error::new(case.span(), "expected a test case"))
+        }
+    }
+}
+
 impl TestCase {
     pub fn span_start(&self) -> Span {
         self.args.first().map(|arg| arg.span()).unwrap_or(Span::call_site())
@@ -70,20 +89,6 @@ impl ToTokens for CaseArg {
 impl From<Expr> for CaseArg {
     fn from(expr: Expr) -> Self {
         CaseArg::new(expr)
-    }
-}
-
-impl Parse for TestCase {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let case: Ident = input.parse()?;
-        if case == "case" {
-            let content;
-            let _ = syn::parenthesized!(content in input);
-            let args = content.parse_terminated(CaseArg::parse)?;
-            Ok(TestCase { args, description: None })
-        } else {
-            Err(Error::new(case.span(), "expected a test case"))
-        }
     }
 }
 
@@ -234,6 +239,8 @@ impl Parse for ParametrizeInfo {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
+
     use syn::{parse_str, ItemFn, parse2};
     use quote::quote;
     use crate::parse::{TestCase, CaseArg};
@@ -293,6 +300,7 @@ mod test {
     }
 
     mod parse_test_case {
+        use pretty_assertions::assert_eq;
         use super::*;
 
         #[test]
@@ -328,6 +336,23 @@ mod test {
             parse_test_case(r#"case(r("vec![1,2,3"))"#);
         }
 
+        #[test]
+        fn should_read_test_description_if_any() {
+            let test_case = parse_test_case(r#"case(this_test_description :: 42)"#);
+            let args = test_case.args();
+
+            assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
+            assert_eq!(to_args!(["42"]), args);
+        }
+
+        #[test]
+        fn should_read_test_description_also_with_more_args() {
+            let test_case = parse_test_case(r#"case(this_test_description :: 42, 24)"#);
+            let args = test_case.args();
+
+            assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
+            assert_eq!(to_args!(["42", "24"]), args);
+        }
     }
 
 }

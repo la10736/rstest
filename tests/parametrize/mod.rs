@@ -99,11 +99,20 @@ fn should_panic() {
 fn bool_input() {
     let (output, _) = run_test("bool.rs");
 
-    println!("*** stderr: {}", output.stderr.str());
-
     TestResults::new()
         .ok("bool::case_1")
         .fail("bool::case_2")
+        .assert(output);
+}
+
+#[test]
+fn case_description() {
+    let (output, _) = run_test("description.rs");
+
+    TestResults::new()
+        .ok("description::case_1_user_test_description")
+        .ok("description::case_2")
+        .fail("description::case_3_user_test_description_fail")
         .assert(output);
 }
 
