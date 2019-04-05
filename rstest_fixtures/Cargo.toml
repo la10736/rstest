@@ -1,0 +1,7 @@
+[package]
+name = "rstest_fixtures"
+version = "0.1.0"
+authors = ["Michele d'Amico <michele.damico@rcslab.it>"]
+edition = "2018"
+
+[dependencies]
