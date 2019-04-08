@@ -392,21 +392,6 @@ mod should_show_correct_errors {
     }
 }
 
-// TODO: In stable 1.32.0 this case cannot be in error.rs because hide others errors
-#[test]
-fn should_show_correct_errors_if_wrong_case_syntax_used() {
-    let (output, name) = run_test("wrong_case_syntax.rs");
-
-    assert_in!(output.stderr.str(), format!(r##"
-         error: Invalid case argument: `incorrect`
-          --> {}/src/lib.rs:4:10
-           |
-         4 |     case(incorrect(some)))
-           |          ^^^^^^^^^
-         "##,
-                      name).deindent());
-}
-
 #[test]
 fn should_reject_no_item_function() {
     let prj = prj("reject_no_item_function.rs");

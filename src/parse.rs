@@ -109,10 +109,14 @@ fn compile_lit_str(lit: &LitStr) -> Result<TokenStream> {
 
 impl Parse for CaseArg {
     fn parse(input: ParseStream) -> Result<Self> {
+        let minus = if input.peek(Token![-]) {
+            input.parse::<Token![-]>().unwrap();
+            true
+        } else {
+            false
+        };
         let nested: NestedMeta = input.parse()?;
-        let tokens = match nested {
-            NestedMeta::Literal(_) | NestedMeta::Meta(Meta::Word(_)) =>
-                nested.clone().into_tokens(),
+        let mut tokens = match nested {
             NestedMeta::Meta(Meta::List(ref arg)) if is_arbitrary_rust_code(&arg.ident) => {
                 arg.nested.first()
                     .map(|m| *m.value())
@@ -122,11 +126,14 @@ impl Parse for CaseArg {
                         || Ok(error(&format!("Invalid {} argument", arg.ident), nested.span(), nested.span()))
                     )?
             }
-            NestedMeta::Meta(Meta::List(arg)) =>
-                error(&format!("Invalid case argument: `{}`", arg.ident), arg.span(), arg.span()),
-            NestedMeta::Meta(nested) =>
-                error(&format!("Unexpected case argument: {:?}", nested), nested.span(), nested.span())
+            NestedMeta::Literal(_) | NestedMeta::Meta(_) =>
+                nested.clone().into_tokens(),
         };
+        if minus {
+            tokens = quote! {
+                -#tokens
+            }
+        }
         Ok(CaseArg::new(syn::parse2(tokens)?))
     }
 }
@@ -322,7 +329,8 @@ mod test {
 
         #[test]
         fn some_literals() {
-            let args_expressions = vec!["42", "42isize", "true", "1_000_000u64", "0b10100101u8", r#""42""#, "b'H'"];
+            let args_expressions = vec!["42", "42isize", "1.0", "-1", "-1.0", "true",
+                                        "1_000_000u64", "0b10100101u8", r#""42""#, "b'H'"];
             let test_case = parse_test_case(&format!("case({})", args_expressions.join(", ")));
             let args = test_case.args();
 
