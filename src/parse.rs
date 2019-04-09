@@ -1,7 +1,7 @@
 use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error},
           spanned::Spanned, punctuated::{Punctuated}, Token, token};
 use proc_macro2::{TokenStream, Span};
-use crate::{error::error, Tokenize};
+use crate::error::error;
 // TODO: Remove this dependency
 use quote::quote;
 use quote::ToTokens;
@@ -23,7 +23,7 @@ pub struct ParametrizeInfo {
 /// A test case instance data. Contains a list of arguments. It is parsed by parametrize
 /// attributes.
 pub struct TestCase {
-    pub args: Punctuated<CaseArg, Token![,]>,
+    pub args: Vec<CaseArg>,
     pub description: Option<Ident>
 }
 
@@ -38,7 +38,9 @@ impl Parse for TestCase {
                 description = Some(content.parse()?);
                 let _ = content.parse::<Token![::]>();
             }
-            let args = content.parse_terminated(CaseArg::parse)?;
+            let args = Punctuated::<CaseArg, Token![,]>::parse_terminated(&content)?
+                .into_iter()
+                .collect();
             Ok(TestCase { args, description })
         } else {
             Err(Error::new(case.span(), "expected a test case"))
@@ -86,55 +88,66 @@ impl From<Expr> for CaseArg {
     }
 }
 
-fn is_arbitrary_rust_code(ident: &Ident) -> bool {
-    ["Unwrap", "r"].iter().any(|&n| ident == n)
-}
+struct UnwrapRustCode(Expr);
 
-fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
-    match nested {
-        NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
-        _ => None
-    }
-}
-
-fn compile_lit_str(lit: &LitStr) -> Result<TokenStream> {
-    lit.parse::<Expr>()
-        .map(|e| quote! { #e })
-        .or_else(|e| Err(Error::new(
-            lit.span(),
-            &format!("Cannot parse '{}' due {}", lit.value(), e),
-        ))
-        )
-}
-
-impl Parse for CaseArg {
+impl Parse for UnwrapRustCode {
     fn parse(input: ParseStream) -> Result<Self> {
-        let minus = if input.peek(Token![-]) {
-            input.parse::<Token![-]>().unwrap();
-            true
-        } else {
-            false
-        };
         let nested: NestedMeta = input.parse()?;
-        let mut tokens = match nested {
-            NestedMeta::Meta(Meta::List(ref arg)) if is_arbitrary_rust_code(&arg.ident) => {
+        let tokens = match nested {
+            NestedMeta::Meta(Meta::List(ref arg)) if Self::is_arbitrary_rust_code(&arg.ident) => {
                 arg.nested.first()
                     .map(|m| *m.value())
-                    .and_then(nested_meta_literal_str)
-                    .map(compile_lit_str)
+                    .and_then(Self::nested_meta_literal_str)
+                    .map(Self::compile_lit_str)
                     .unwrap_or_else(
                         || Ok(error(&format!("Invalid {} argument", arg.ident), nested.span(), nested.span()))
                     )?
             }
-            NestedMeta::Literal(_) | NestedMeta::Meta(_) =>
-                nested.clone().into_tokens(),
+            _ => return Err(Error::new(nested.span(), "Not a valid string rust code"))
         };
-        if minus {
-            tokens = quote! {
-                -#tokens
+        syn::parse2(tokens).map(UnwrapRustCode)
+    }
+}
+
+impl UnwrapRustCode {
+    fn peek(input: ParseStream) -> bool {
+        input.fork().parse::<NestedMeta>().ok().map( |nested|
+            match nested {
+                NestedMeta::Meta(Meta::List(ref arg)) if Self::is_arbitrary_rust_code(&arg.ident) => true,
+                _ => false
             }
+        ).unwrap_or(false)
+    }
+
+    fn is_arbitrary_rust_code(ident: &Ident) -> bool {
+        ["Unwrap", "r"].iter().any(|&n| ident == n)
+    }
+
+    fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
+        match nested {
+            NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
+            _ => None
         }
-        Ok(CaseArg::new(syn::parse2(tokens)?))
+    }
+
+    fn compile_lit_str(lit: &LitStr) -> Result<TokenStream> {
+        lit.parse::<Expr>()
+            .map(|e| quote! { #e })
+            .or_else(|e| Err(Error::new(
+                lit.span(),
+                &format!("Cannot parse '{}' due {}", lit.value(), e),
+            ))
+            )
+    }
+}
+
+impl Parse for CaseArg {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if UnwrapRustCode::peek(input) {
+            Ok(CaseArg::new(input.parse::<UnwrapRustCode>()?.0))
+        } else {
+            Ok(CaseArg::new(input.parse()?))
+        }
     }
 }
 
@@ -367,6 +380,29 @@ mod test {
 
             assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
             assert_eq!(to_args!(["42", "24"]), args);
+        }
+
+        #[test]
+        fn should_parse_arbitrary_rust_code_as_expression() {
+            let test_case = parse_test_case(r##"
+            case(42, -42,
+            pippo("pluto"),
+            Vec::new(),
+            String::from(r#"prrr"#),
+            {
+                let mut sum=0;
+                for i in 1..3 {
+                    sum += i;
+                }
+                sum
+            },
+            vec![1,2,3]
+            )"##);
+            let args = test_case.args();
+
+            assert_eq!(to_args!(["42", "-42", r#"pippo("pluto")"#, "Vec::new()",
+            r##"String::from(r#"prrr"#)"##, r#"{let mut sum=0;for i in 1..3 {sum += i;}sum}"#,
+            "vec![1,2,3]"]), args);
         }
     }
 

@@ -523,11 +523,14 @@ mod test {
 
         impl<'a> From<Vec<Cow<'a, str>>> for TestCase {
             fn from(arguments: Vec<Cow<'a, str>>) -> Self {
-                let mut args = syn::punctuated::Punctuated::new();
-                for arg in arguments {
-                    args.push(CaseArg::new(parse_str(arg.as_ref().into()).unwrap()))
-                };
-                TestCase { args, description: None }
+
+//                let mut args = syn::punctuated::Punctuated::new();
+//                for arg in arguments {
+//                    args.push(CaseArg::new(parse_str(arg.as_ref().into()).unwrap()))
+//                };
+                TestCase { args: arguments
+                    .iter().map(|a| CaseArg::new(parse_str(a.as_ref().into()).unwrap())).collect(),
+                                                      description: None }
             }
         }
 
