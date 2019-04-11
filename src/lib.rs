@@ -1,3 +1,4 @@
+#![feature(proc_macro_diagnostic)]
 extern crate proc_macro;
 
 use proc_macro2::TokenStream;
@@ -13,6 +14,7 @@ use parse::{Modifiers, RsTestAttribute};
 
 mod parse;
 mod error;
+
 
 trait Tokenize {
     fn into_tokens(self) -> TokenStream;

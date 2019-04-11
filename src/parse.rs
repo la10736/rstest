@@ -93,6 +93,7 @@ struct UnwrapRustCode(Expr);
 impl Parse for UnwrapRustCode {
     fn parse(input: ParseStream) -> Result<Self> {
         let nested: NestedMeta = input.parse()?;
+        Self::report_deprecated(&nested);
         let tokens = match nested {
             NestedMeta::Meta(Meta::List(ref arg)) if Self::is_arbitrary_rust_code(&arg.ident) => {
                 arg.nested.first()
@@ -121,6 +122,20 @@ impl UnwrapRustCode {
 
     fn is_arbitrary_rust_code(ident: &Ident) -> bool {
         ["Unwrap", "r"].iter().any(|&n| ident == n)
+    }
+
+    fn report_deprecated(nested: &NestedMeta) {
+            match nested {
+            NestedMeta::Meta(Meta::List(arg)) if Self::is_arbitrary_rust_code(&arg.ident) => {
+                arg.nested.first()
+                    .map(|m| *m.value())
+                    .and_then(Self::nested_meta_literal_str)
+                    .map(|content| {
+                        eprintln!(r#"{}("<code>") is deprecated now you can simple use '{}' instead"#, arg.ident, content.value()); content})
+                    .unwrap();
+            }
+            _ => { unreachable!() }
+        }
     }
 
     fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
