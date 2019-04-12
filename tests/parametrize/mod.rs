@@ -55,13 +55,14 @@ fn generic_input() {
 #[test]
 fn should_understand_arbitrary_rust_code() {
     let (output, _) = run_test("arbitrary_rust_code.rs");
+    let stderr = output.stderr.str().to_string();
 
     TestResults::new()
         .ok("arbitrary::case_1")
         .fail("arbitrary::case_2")
-        .ok("arbitrary::case_3")
-        .fail("arbitrary::case_4")
         .assert(output);
+
+    assert_in!(stderr, "Case argument accepts arbitrary rust code now")
 }
 
 #[test]
@@ -383,11 +384,11 @@ mod should_show_correct_errors {
 
         assert_in!(output.stderr.str(), format!(r##"
         error[E0308]: mismatched types
-          --> {}/src/lib.rs:20:12
+          --> {}/src/lib.rs:20:17
            |
-        20 |     case(r(r#"vec![1,2,3].contains(2)"#)))
-           |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-           |            |"##,
+        20 |     case(Unwrap(r#"vec![1,2,3].contains(2)"#)))
+           |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           |                 |"##,
                       name).deindent());
     }
 }

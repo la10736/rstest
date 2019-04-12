@@ -1,7 +1,7 @@
-use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error},
-          spanned::Spanned, punctuated::{Punctuated}, Token, token};
+use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error}, spanned::Spanned, punctuated::{Punctuated}, Token, token, MetaList};
 use proc_macro2::{TokenStream, Span};
 use crate::error::error;
+use cfg_if::cfg_if;
 // TODO: Remove this dependency
 use quote::quote;
 use quote::ToTokens;
@@ -88,54 +88,72 @@ impl From<Expr> for CaseArg {
     }
 }
 
+
 struct UnwrapRustCode(Expr);
 
 impl Parse for UnwrapRustCode {
     fn parse(input: ParseStream) -> Result<Self> {
         let nested: NestedMeta = input.parse()?;
         Self::report_deprecated(&nested);
-        let tokens = match nested {
-            NestedMeta::Meta(Meta::List(ref arg)) if Self::is_arbitrary_rust_code(&arg.ident) => {
-                arg.nested.first()
-                    .map(|m| *m.value())
-                    .and_then(Self::nested_meta_literal_str)
-                    .map(Self::compile_lit_str)
-                    .unwrap_or_else(
-                        || Ok(error(&format!("Invalid {} argument", arg.ident), nested.span(), nested.span()))
-                    )?
-            }
-            _ => return Err(Error::new(nested.span(), "Not a valid string rust code"))
-        };
+        let arg = Self::get_unwrap(&nested)?;
+        let tokens = arg.nested.first()
+                .map(|m| *m.value())
+                .and_then(Self::nested_meta_literal_str)
+                .map(Self::compile_lit_str)
+                .unwrap_or_else(
+                        || Ok(error(&format!("Invalid {} argument",
+                                             arg.ident),
+                                        nested.span(), nested.span()))
+                )?;
         syn::parse2(tokens).map(UnwrapRustCode)
     }
 }
 
 impl UnwrapRustCode {
+    const UNWRAP_NAME: &'static str = "Unwrap";
+
     fn peek(input: ParseStream) -> bool {
-        input.fork().parse::<NestedMeta>().ok().map( |nested|
-            match nested {
-                NestedMeta::Meta(Meta::List(ref arg)) if Self::is_arbitrary_rust_code(&arg.ident) => true,
-                _ => false
-            }
+        input.fork().parse::<NestedMeta>().map( |nested|
+            Self::get_unwrap(&nested).is_ok()
         ).unwrap_or(false)
     }
 
-    fn is_arbitrary_rust_code(ident: &Ident) -> bool {
-        ["Unwrap", "r"].iter().any(|&n| ident == n)
+    fn get_unwrap(nested: &NestedMeta) -> Result<&MetaList> {
+        match nested {
+            NestedMeta::Meta(Meta::List(ref arg)) if arg.ident == Self::UNWRAP_NAME => Ok(arg),
+            _ => return Err(Error::new(nested.span(), "Not a valid string rust code"))
+        }
     }
 
     fn report_deprecated(nested: &NestedMeta) {
-            match nested {
-            NestedMeta::Meta(Meta::List(arg)) if Self::is_arbitrary_rust_code(&arg.ident) => {
-                arg.nested.first()
-                    .map(|m| *m.value())
-                    .and_then(Self::nested_meta_literal_str)
-                    .map(|content| {
-                        eprintln!(r#"{}("<code>") is deprecated now you can simple use '{}' instead"#, arg.ident, content.value()); content})
-                    .unwrap();
+        cfg_if! {
+        if #[cfg(use_proc_macro_diagnostic)] {
+            fn inner(nested: &NestedMeta) {
+                nested.span()
+                    .unwrap()
+                    .warning("Deprecated: Case argument accepts arbitrary rust code now.")
+                    .emit();
             }
-            _ => { unreachable!() }
+        } else {
+            fn inner(nested: &NestedMeta) {
+                match nested {
+                    NestedMeta::Meta(Meta::List(arg)) => {
+                        arg.nested.first()
+                            .map(|m| *m.value())
+                            .and_then(UnwrapRustCode::nested_meta_literal_str)
+                            .map(|content| {
+                                eprintln!(r#"{}("<code>") is deprecated. Case argument accepts arbitrary rust code now."#,
+                                          arg.ident);
+                                content
+                            })
+                            .unwrap();
+                    }
+                    _ => { unreachable!() }
+                }
+            }
         }
+        }
+        inner(nested);
     }
 
     fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
@@ -367,7 +385,7 @@ mod test {
 
         #[test]
         fn raw_code() {
-            let test_case = parse_test_case(r#"case(r("vec![1,2,3]"))"#);
+            let test_case = parse_test_case(r#"case(Unwrap("vec![1,2,3]"))"#);
             let args = test_case.args();
 
             assert_eq!(to_args!(["vec![1, 2, 3]"]), args);
@@ -376,7 +394,7 @@ mod test {
         #[test]
         #[should_panic(expected = r#"Cannot parse \'vec![1,2,3\' due LexError"#)]
         fn raw_code_with_parsing_error() {
-            parse_test_case(r#"case(r("vec![1,2,3"))"#);
+            parse_test_case(r#"case(Unwrap("vec![1,2,3"))"#);
         }
 
         #[test]

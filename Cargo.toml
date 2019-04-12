@@ -21,9 +21,13 @@ proc-macro = true
 syn = { version = "0.15", features = ["full", "parsing", "extra-traits", "visit"] }
 proc-macro2 = { version = "0.4" }
 quote = "0.6"
+cfg-if = "0.1"
 
 [dev-dependencies]
 temp_testdir = "0.2"
 lazy_static = "1.1"
 toml_edit = "0.1"
 pretty_assertions = "*"
+
+[build-dependencies]
+rustc_version = "0.2"
