@@ -179,7 +179,13 @@ impl Parse for CaseArg {
         if UnwrapRustCode::peek(input) {
             Ok(CaseArg::new(input.parse::<UnwrapRustCode>()?.0))
         } else {
-            Ok(CaseArg::new(input.parse()?))
+            input.parse()
+                .map(CaseArg::new)
+                .map_err(|e| Error::new(
+                    e.span(),
+                    format!("Cannot parse due {}", e)
+                )
+            )
         }
     }
 }
@@ -385,16 +391,16 @@ mod test {
 
         #[test]
         fn raw_code() {
-            let test_case = parse_test_case(r#"case(Unwrap("vec![1,2,3]"))"#);
+            let test_case = parse_test_case(r#"case(vec![1,2,3])"#);
             let args = test_case.args();
 
             assert_eq!(to_args!(["vec![1, 2, 3]"]), args);
         }
 
         #[test]
-        #[should_panic(expected = r#"Cannot parse \'vec![1,2,3\' due LexError"#)]
+        #[should_panic(expected = r#"Cannot parse due"#)]
         fn raw_code_with_parsing_error() {
-            parse_test_case(r#"case(Unwrap("vec![1,2,3"))"#);
+            parse_test_case(r#"case(some::<>(1,2,3))"#);
         }
 
         #[test]
