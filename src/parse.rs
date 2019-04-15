@@ -31,13 +31,13 @@ impl Parse for TestCase {
     fn parse(input: ParseStream) -> Result<Self> {
         let case: Ident = input.parse()?;
         if case == "case" {
+            let mut description = None;
+            if input.peek(Token![::]) {
+                let _ = input.parse::<Token![::]>();
+                description = Some(input.parse()?);
+            }
             let content;
             let _ = syn::parenthesized!(content in input);
-            let mut description = None;
-            if content.peek2(Token![::]) {
-                description = Some(content.parse()?);
-                let _ = content.parse::<Token![::]>();
-            }
             let args = Punctuated::<CaseArg, Token![,]>::parse_terminated(&content)?
                 .into_iter()
                 .collect();
@@ -247,7 +247,7 @@ impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut args = vec![];
         loop {
-            if input.peek2(token::Paren) {
+            if input.peek2(token::Paren) || input.peek2(Token![::]) {
                 break;
             }
             if let Ok(arg) = input.parse() {
@@ -400,12 +400,12 @@ mod test {
         #[test]
         #[should_panic(expected = r#"Cannot parse due"#)]
         fn raw_code_with_parsing_error() {
-            parse_test_case(r#"case(some::<>(1,2,3))"#);
+            parse_test_case(r#"case(some:<>(1,2,3))"#);
         }
 
         #[test]
         fn should_read_test_description_if_any() {
-            let test_case = parse_test_case(r#"case(this_test_description :: 42)"#);
+            let test_case = parse_test_case(r#"case::this_test_description(42)"#);
             let args = test_case.args();
 
             assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
@@ -414,7 +414,7 @@ mod test {
 
         #[test]
         fn should_read_test_description_also_with_more_args() {
-            let test_case = parse_test_case(r#"case(this_test_description :: 42, 24)"#);
+            let test_case = parse_test_case(r#"case :: this_test_description (42, 24)"#);
             let args = test_case.args();
 
             assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
