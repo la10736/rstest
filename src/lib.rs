@@ -150,16 +150,21 @@ fn trace_arguments(args: &Vec<Ident>, modifiers: &Modifiers) -> Option<proc_macr
         )
 }
 
-fn render_fn_test<'a>(name: Ident, testfn_name: Ident, args: &Vec<Ident>, attrs: &Vec<syn::Attribute>,
-                      resolver: &'a Resolver, modifiers: &'a Modifiers, test_impl: Option<&ItemFn>)
+fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
+                      resolver: &'a Resolver, modifiers: &'a Modifiers, inline_impl: bool)
                       -> TokenStream {
+    let testfn_name = &testfn.ident;
+    let args = fn_args_idents(&testfn);
+    let attrs = &testfn.attrs;
+    let output = &testfn.decl.output;
+    let test_impl = if inline_impl { Some(testfn) } else { None };
     let fixtures = args.iter()
         .map(move |arg| arg_2_fixture(arg, resolver));
-    let trace_args = trace_arguments(args, modifiers);
+    let trace_args = trace_arguments(&args, modifiers);
     quote! {
         #[test]
         #(#attrs)*
-        fn #name() {
+        fn #name() #output {
             #test_impl
             #(#fixtures)*
             #trace_args
@@ -167,6 +172,13 @@ fn render_fn_test<'a>(name: Ident, testfn_name: Ident, args: &Vec<Ident>, attrs:
             #testfn_name(#(#args),*)
         }
     }
+}
+
+fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
+    fn_args(&test)
+        .filter_map(fn_arg_ident)
+        .cloned()
+        .collect::<Vec<_>>()
 }
 
 #[proc_macro_attribute]
@@ -177,9 +189,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let modifiers = parse_macro_input!(args as Modifiers);
     let name = &test.ident;
     let resolver = Resolver::default();
-    let args = fn_args(&test).filter_map(fn_arg_ident).cloned().collect::<Vec<_>>();
-    render_fn_test(name.clone(), name.clone(), &args, &test.attrs,
-                   &resolver, &modifiers, Some(&test))
+    render_fn_test(name.clone(), &test, &resolver, &modifiers, true)
         .into()
 }
 
@@ -221,9 +231,7 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
             } else {
                 let resolver = Resolver::new(&params.args, &case);
                 let name = Ident::new(&format_case_name(&params, n), fname.span());
-                let args = fn_args_idents(&test);
-                render_fn_test(name, fname.clone(), &args, &test.attrs, &resolver,
-                               &modifier, None)
+                render_fn_test(name, &test, &resolver, &modifier, false)
             }
         )
     };
@@ -249,13 +257,6 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
     format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
 }
 
-fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
-    fn_args(&test)
-        .filter_map(fn_arg_ident)
-        .cloned()
-        .collect::<Vec<_>>()
-}
-
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
@@ -273,7 +274,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
-    use syn::{Item, punctuated};
+    use syn::{ItemFn, punctuated};
     use syn::export::Debug;
     use syn::parse2;
 
@@ -281,15 +282,12 @@ mod test {
 
     use super::*;
 
-    fn fn_args(item: &Item) -> punctuated::Iter<'_, FnArg> {
-        if let &Item::Fn(ref item_fn) = item {
-            item_fn.decl.inputs.iter()
-        } else {
-            panic!("Wrong ast!")
-        }
+    fn fn_args(item: &ItemFn) -> punctuated::Iter<'_, FnArg> {
+        item.decl.inputs.iter()
+
     }
 
-    fn first_arg_ident(ast: &Item) -> &Ident {
+    fn first_arg_ident(ast: &ItemFn) -> &Ident {
         let arg = fn_args(&ast).next().unwrap();
         fn_arg_ident(arg).unwrap()
     }
@@ -376,6 +374,26 @@ mod test {
 
         assert!(resolver.resolve(&arg).is_none())
     }
+
+    mod render_fn_test_should {
+        use super::*;
+        use proc_macro2::Span;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn add_return_type_if_any() {
+            let ast: ItemFn = parse_str("fn function(mut fix: String) -> Result<i32, String> { Ok(42) }").unwrap();
+
+            let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
+                                        &ast, &Resolver::default(), &Modifiers::default(), false);
+
+            let result: ItemFn = parse2(tokens).unwrap();
+
+            assert_eq!(result.ident.to_string(), "new_name");
+            assert_eq!(result.decl.output, ast.decl.output);
+        }
+    }
+
 
     mod add_parametrize_cases {
         use std::borrow::Cow;
@@ -525,11 +543,6 @@ mod test {
 
         impl<'a> From<Vec<Cow<'a, str>>> for TestCase {
             fn from(arguments: Vec<Cow<'a, str>>) -> Self {
-
-//                let mut args = syn::punctuated::Punctuated::new();
-//                for arg in arguments {
-//                    args.push(CaseArg::new(parse_str(arg.as_ref().into()).unwrap()))
-//                };
                 TestCase { args: arguments
                     .iter().map(|a| CaseArg::new(parse_str(a.as_ref().into()).unwrap())).collect(),
                                                       description: None }
