@@ -9,7 +9,7 @@ use syn::{
     Stmt,
 };
 
-use error::{error, error_statement};
+use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
 
 mod parse;
@@ -208,7 +208,7 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
     for missed in invalid_args {
         let span = missed.span().into();
         let message = format!("Missed argument: '{}' should be a test function argument.", missed);
-        tokens.extend(error(&message, span, span));
+        tokens.extend(error_statement(&message, span, span));
     }
 
     if !tokens.is_empty() {
@@ -265,6 +265,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     let test = parse_macro_input!(input as ItemFn);
 
     if let Some(tokens) = errors_in_parametrize(&test, &params.data) {
+        println!("{}", tokens);
         tokens
     } else {
         add_parametrize_cases(test, params)

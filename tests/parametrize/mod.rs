@@ -173,6 +173,14 @@ mod not_compile_if_missed_arguments {
         assert_eq!(1, stderr.count("Missed argument"),
                    "More than one message occurrence in error message:\n{}", stderr)
     }
+
+    #[test]
+    fn should_not_report_error_in_macro_syntax() {
+        let (output, _) = run_test("missed_argument.rs");
+        let stderr = output.stderr.str();
+
+        assert!(!stderr.contains("macros that expand to items"));
+    }
 }
 
 mod not_compile_if_a_case_has_a_wrong_signature {
