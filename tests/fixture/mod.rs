@@ -35,6 +35,16 @@ fn mutable_input() {
 }
 
 #[test]
+fn test_with_return_type() {
+    let output = run_test("return_result.rs");
+
+    TestResults::new()
+        .ok("should_success")
+        .fail("should_fail")
+        .assert(output);
+}
+
+#[test]
 fn should_panic() {
     let output = run_test("panic.rs");
 

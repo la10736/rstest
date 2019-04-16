@@ -107,6 +107,16 @@ fn bool_input() {
 }
 
 #[test]
+fn test_with_return_type() {
+    let (output, _) = run_test("return_result.rs");
+
+    TestResults::new()
+        .ok("return_type::case_1_should_success")
+        .fail("return_type::case_2_should_fail")
+        .assert(output);
+}
+
+#[test]
 fn case_description() {
     let (output, _) = run_test("description.rs");
 
