@@ -11,6 +11,45 @@ mod single;
 /// Parametrize's integration tests
 mod parametrize;
 
+/// Fixture's integration tests
+mod fixture {
+    use super::*;
+    use crate::utils::TestResults;
+    
+    #[test]
+    fn should_use_other_fixtures() {
+        let project = prj();
+
+        project.append_code(
+            r#"use rstest::{rstest, fixture};
+            
+               #[fixture]
+               fn root() -> u32 { 21 }
+
+               #[fixture]
+               fn incepted(root: u32) -> u32 { 2 * root }
+                
+               #[rstest]
+               fn success(incepted: u32) {
+                   assert_eq!(42, incepted);
+               }
+
+               #[rstest]
+               fn fail(incepted: u32) {
+                   assert_eq!(41, incepted);
+               }
+               "#
+        );
+
+        let output = project.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("success")
+            .fail("fail")
+            .assert(output);
+    }
+}
+
 use prj::Project;
 use temp_testdir::TempDir;
 use lazy_static::lazy_static;
