@@ -4,7 +4,7 @@ use crate::prj::Project;
 use std::path::Path;
 
 fn prj(res: &str) -> Project {
-    let path = Path::new("fixture").join(res);
+    let path = Path::new("single").join(res);
     crate::prj()
         .set_code_file(resources(path))
 }

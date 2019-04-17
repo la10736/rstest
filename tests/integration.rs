@@ -5,8 +5,8 @@ pub mod utils;
 /// Test Framework
 mod framework;
 
-/// Fixture's integration tests
-mod fixture;
+/// Single's integration tests
+mod single;
 
 /// Parametrize's integration tests
 mod parametrize;
@@ -25,7 +25,7 @@ fn sanitize_project_name<S: AsRef<str>>(s: S) -> String {
 }
 
 pub fn prj() -> Project {
-    let prj_name = dbg!(sanitize_project_name(utils::testname()));
+    let prj_name = sanitize_project_name(utils::testname());
 
     ROOT_PROJECT.subproject(&prj_name)
 }
