@@ -174,11 +174,39 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
     }
 }
 
+fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
+                      modifiers: Modifiers)
+                      -> TokenStream {
+    let name = &fixture.ident;
+    let args = fn_args_idents(&fixture);
+    let attrs = &fixture.attrs;
+    let output = &fixture.decl.output;
+    let resolve_args = args.iter()
+        .map(move |arg| arg_2_fixture(arg, &resolver));
+    quote! {
+        #(#attrs)*
+        fn #name() #output {
+            #fixture
+            #(#resolve_args)*
+            #name(#(#args),*)
+        }
+    }
+}
+
 fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
     fn_args(&test)
         .filter_map(fn_arg_ident)
         .cloned()
         .collect::<Vec<_>>()
+}
+
+#[proc_macro_attribute]
+pub fn fixture(args: proc_macro::TokenStream,
+              input: proc_macro::TokenStream)
+              -> proc_macro::TokenStream {
+    let fixture = parse_macro_input!(input as ItemFn);
+    let modifiers = parse_macro_input!(args as Modifiers);
+    render_fixture(fixture, Resolver::default(), modifiers).into()
 }
 
 #[proc_macro_attribute]
@@ -265,7 +293,6 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     let test = parse_macro_input!(input as ItemFn);
 
     if let Some(tokens) = errors_in_parametrize(&test, &params.data) {
-        println!("{}", tokens);
         tokens
     } else {
         add_parametrize_cases(test, params)
