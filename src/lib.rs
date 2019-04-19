@@ -178,12 +178,42 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
                       _modifiers: Modifiers)
                       -> TokenStream {
     let name = &fixture.ident;
-    let args = fn_args_idents(&fixture);
+    let orig_args = &fixture.decl.inputs;
+    let vargs = fn_args_idents(&fixture);
+    let args = &vargs;
     let attrs = &fixture.attrs;
     let output = &fixture.decl.output;
-    let resolve_args = args.iter()
-        .map(move |arg| arg_2_fixture(arg, &resolver));
+    let output_type = match output {
+        syn::ReturnType::Default => output.into_tokens(),
+        syn::ReturnType::Type(_, inner) => inner.into_tokens()
+    };
+    let vresolve_args = args.iter()
+        .map(move |arg| arg_2_fixture(arg, &resolver))
+        .collect::<Vec<_>>();
+    let resolve_args = &vresolve_args;
     quote! {
+        struct #name {
+            data: Option<std::boxed::Box<#output_type>>
+        }
+
+        impl #name {
+            pub fn new(#orig_args) -> Self {
+                #fixture
+                Self { data: Some(std::boxed::Box::new(#name(#(#args),*))) }
+            }
+
+            pub fn take(&mut self) #output {
+                *self.data.take().unwrap()
+            }
+        }
+
+        impl std::default::Default for #name {
+            fn default() -> Self {
+                #(#resolve_args)*
+                Self::new(#(#args),*)
+            }
+        }
+
         #(#attrs)*
         fn #name() #output {
             #fixture

@@ -21,3 +21,13 @@ fn should_use_other_fixtures() {
         .fail("fail")
         .assert(output);
 }
+
+#[test]
+fn should_create_a_struct_that_generate_the_fixture() {
+    let (output, _) = run_test("fixture_struct.rs");
+
+    TestResults::new()
+        .ok("resolve_new")
+        .ok("resolve_default")
+        .assert(output);
+}
