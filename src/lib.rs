@@ -175,7 +175,7 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
 }
 
 fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
-                      modifiers: Modifiers)
+                      _modifiers: Modifiers)
                       -> TokenStream {
     let name = &fixture.ident;
     let args = fn_args_idents(&fixture);
