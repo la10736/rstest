@@ -183,6 +183,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let args = &vargs;
     let attrs = &fixture.attrs;
     let output = &fixture.decl.output;
+    let visibility = &fixture.vis;
     let output_type = match output {
         syn::ReturnType::Default => output.into_tokens(),
         syn::ReturnType::Type(_, inner) => inner.into_tokens()
@@ -192,7 +193,8 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
         .collect::<Vec<_>>();
     let resolve_args = &vresolve_args;
     quote! {
-        struct #name {
+        #[allow(non_camel_case_types)]
+        #visibility struct #name {
             data: Option<std::boxed::Box<#output_type>>
         }
 
@@ -215,7 +217,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
         }
 
         #(#attrs)*
-        fn #name() #output {
+        #visibility fn #name() #output {
             #fixture
             #(#resolve_args)*
             #name(#(#args),*)
@@ -451,7 +453,6 @@ mod test {
             assert_eq!(result.decl.output, ast.decl.output);
         }
     }
-
 
     mod add_parametrize_cases {
         use std::borrow::Cow;
@@ -705,6 +706,59 @@ mod test {
             let tests = ParametrizeOutput::from(tokens).get_test_functions();
 
             assert!(tests[0].ident.to_string().ends_with(&format!("_{}", description)));
+        }
+    }
+
+    mod fixture {
+        use syn::{ItemFn, ItemStruct, ItemImpl, parse_str, parse2, Visibility, VisPublic};
+        use syn::parse::{Parse, Result, ParseBuffer};
+        use crate::render_fixture;
+
+        struct FixtureOutput {
+            orig: ItemFn,
+            fixture: ItemStruct,
+            core_impl: ItemImpl,
+            default_impl: ItemImpl,
+        }
+
+        impl Parse for FixtureOutput {
+            fn parse(input: &ParseBuffer) -> Result<Self> {
+                Ok(FixtureOutput {
+                    fixture: input.parse()?,
+                    core_impl: input.parse()?,
+                    default_impl: input.parse()?,
+                    orig: input.parse()?,
+                })
+            }
+        }
+
+        fn test_maintains_function_visibility(code: &str) {
+            let item_fn = parse_str::<ItemFn>(
+                code
+            ).unwrap();
+            let expected_visibility = item_fn.vis.clone();
+
+            let tokens = render_fixture(item_fn,
+                                        Default::default(), Default::default());
+
+            let out: FixtureOutput = parse2(tokens).unwrap();
+
+            assert_eq!(expected_visibility, out.fixture.vis);
+            assert_eq!(expected_visibility, out.orig.vis);
+        }
+
+        #[test]
+        fn should_maintains_pub_visibility() {
+            test_maintains_function_visibility(
+                r#"pub fn test() { }"#
+            );
+        }
+
+        #[test]
+        fn should_maintains_no_pub_visibility() {
+            test_maintains_function_visibility(
+                r#"fn test() { }"#
+            );
         }
     }
 }

@@ -33,3 +33,12 @@ fn should_create_a_struct_that_generate_the_fixture() {
         .ok("injected_default")
         .assert(output);
 }
+
+#[test]
+fn should_be_accesible_from_other_module() {
+    let (output, _) = run_test("from_other_module.rs");
+
+    TestResults::new()
+        .ok("struct_access")
+        .assert(output);
+}

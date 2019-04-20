@@ -1,4 +1,4 @@
-use rstest::{rstest, fixture};
+use rstest::fixture;
 
 trait Mult {
     fn mult(&self, n: u32) -> u32;
