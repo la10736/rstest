@@ -29,5 +29,7 @@ fn should_create_a_struct_that_generate_the_fixture() {
     TestResults::new()
         .ok("resolve_new")
         .ok("resolve_default")
+        .ok("injected_new")
+        .ok("injected_default")
         .assert(output);
 }
