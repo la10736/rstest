@@ -184,10 +184,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let attrs = &fixture.attrs;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let output_type = match output {
-        syn::ReturnType::Default => output.into_tokens(),
-        syn::ReturnType::Type(_, inner) => inner.into_tokens()
-    };
+    let (store_type, generics) = convert_output_type(output);
     let vresolve_args = args.iter()
         .map(move |arg| arg_2_fixture(arg, &resolver))
         .collect::<Vec<_>>();
@@ -195,7 +192,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {
-            data: Option<#output_type>
+            data: Option<#store_type>
         }
 
         impl #name {
@@ -223,6 +220,16 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
             #name(#(#args),*)
         }
     }
+}
+
+fn convert_output_type(output: &syn::ReturnType) -> (&dyn quote::ToTokens, impl quote::ToTokens) {
+    (match output {
+        syn::ReturnType::Default => output,
+        syn::ReturnType::Type(_, inner) =>
+            match inner {
+                _ => inner
+            }
+    }, quote! {})
 }
 
 fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
