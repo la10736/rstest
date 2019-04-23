@@ -195,17 +195,17 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {
-            data: Option<std::boxed::Box<#output_type>>
+            data: Option<#output_type>
         }
 
         impl #name {
             pub fn new(#orig_args) -> Self {
                 #fixture
-                Self { data: Some(std::boxed::Box::new(#name(#(#args),*))) }
+                Self { data: Some(#name(#(#args),*)) }
             }
 
             pub fn take(&mut self) #output {
-                *self.data.take().unwrap()
+                self.data.take().unwrap()
             }
         }
 
@@ -710,7 +710,7 @@ mod test {
     }
 
     mod fixture {
-        use syn::{ItemFn, ItemStruct, ItemImpl, parse_str, parse2, Visibility, VisPublic};
+        use syn::{ItemFn, ItemStruct, ItemImpl, parse_str, parse2};
         use syn::parse::{Parse, Result, ParseBuffer};
         use crate::render_fixture;
 
