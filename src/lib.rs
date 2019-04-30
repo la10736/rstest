@@ -339,7 +339,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 }
 
 #[cfg(test)]
-mod test {
+mod render {
     use pretty_assertions::assert_eq;
     use syn::{ItemFn, punctuated};
     use syn::export::Debug;

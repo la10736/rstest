@@ -295,7 +295,7 @@ impl Parse for ParametrizeInfo {
 }
 
 #[cfg(test)]
-mod test {
+mod should {
     #[allow(unused_imports)]
     use pretty_assertions::assert_eq;
 
