@@ -35,7 +35,7 @@ fn should_create_a_struct_that_generate_the_fixture() {
 }
 
 #[test]
-fn should_be_accesible_from_other_module() {
+fn should_be_accessible_from_other_module() {
     let (output, _) = run_test("from_other_module.rs");
 
     TestResults::new()

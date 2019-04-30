@@ -1,10 +1,5 @@
-use rstest::rstest_parametrize;
+use rstest::*;
 
 
-#[rstest_parametrize(a, b
-    case(45))
-]
-fn one_more_arg(a: u32) {
-    assert!(true)
-}
-
+#[fixture]
+pub fn test() { }

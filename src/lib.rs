@@ -191,25 +191,17 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let resolve_args = &vresolve_args;
     quote! {
         #[allow(non_camel_case_types)]
-        #visibility struct #name {
-            data: Option<#store_type>
-        }
+        #visibility struct #name {}
 
         impl #name {
-            pub fn new(#orig_args) -> Self {
+            pub fn get(#orig_args) #output {
                 #fixture
-                Self { data: Some(#name(#(#args),*)) }
+                #name(#(#args),*)
             }
 
-            pub fn take(&mut self) #output {
-                self.data.take().unwrap()
-            }
-        }
-
-        impl std::default::Default for #name {
-            fn default() -> Self {
+            pub fn default() #output {
                 #(#resolve_args)*
-                Self::new(#(#args),*)
+                Self::get(#(#args),*)
             }
         }
 
@@ -725,7 +717,6 @@ mod render {
             orig: ItemFn,
             fixture: ItemStruct,
             core_impl: ItemImpl,
-            default_impl: ItemImpl,
         }
 
         impl Parse for FixtureOutput {
@@ -733,7 +724,6 @@ mod render {
                 Ok(FixtureOutput {
                     fixture: input.parse()?,
                     core_impl: input.parse()?,
-                    default_impl: input.parse()?,
                     orig: input.parse()?,
                 })
             }
@@ -747,6 +737,8 @@ mod render {
 
             let tokens = render_fixture(item_fn,
                                         Default::default(), Default::default());
+
+            println!("{:#?}", tokens);
 
             let out: FixtureOutput = parse2(tokens).unwrap();
 
