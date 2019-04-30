@@ -27,7 +27,7 @@ impl<T: ToTokens> Tokenize for T {
 }
 
 fn default_fixture_resolve(ident: &Ident) -> parse::CaseArg {
-    let e = parse_str::<Expr>(&format!("{}()", ident.to_string())).unwrap();
+    let e = parse_str::<Expr>(&format!("{}::default()", ident.to_string())).unwrap();
     parse::CaseArg::from(e)
 }
 
@@ -195,7 +195,6 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
 
         impl #name {
             pub fn get(#orig_args) #output {
-                #fixture
                 #name(#(#args),*)
             }
 
@@ -205,12 +204,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
             }
         }
 
-        #(#attrs)*
-        #visibility fn #name() #output {
-            #fixture
-            #(#resolve_args)*
-            #name(#(#args),*)
-        }
+        #fixture
     }
 }
 
@@ -376,7 +370,7 @@ mod render {
 
         let line = arg_2_fixture(arg, &resolver);
 
-        assert_statement_eq("let fix = fix();", line);
+        assert_statement_eq("let fix = fix::default();", line);
     }
 
     #[test]
@@ -387,7 +381,7 @@ mod render {
 
         let line = arg_2_fixture(arg, &resolver);
 
-        assert_statement_eq("let fix = fix();", line);
+        assert_statement_eq("let fix = fix::default();", line);
     }
 
     fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {

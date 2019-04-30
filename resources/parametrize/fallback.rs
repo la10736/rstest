@@ -1,5 +1,6 @@
-use rstest::rstest_parametrize;
+use rstest::*;
 
+#[fixture]
 fn fixture() -> u32 {
     42
 }

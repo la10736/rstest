@@ -1,5 +1,5 @@
-use rstest::rstest_parametrize;
-
+use rstest::*;
+#[fixture]
 pub fn fixture() -> u32 { 42 }
 
 #[rstest_parametrize(f, case(42))]
@@ -17,7 +17,7 @@ fn error_fixture_wrong_type(fixture: String, f: u32) {}
 fn error_param_wrong_type(f: &str) {}
 
 #[rstest_parametrize(condition,
-    case(Unwrap(r#"vec![1,2,3].contains(2)"#)))
+    case(vec![1,2,3].contains(2)))
 ]
 fn error_in_arbitrary_rust_code(condition: bool) {
     assert!(condition)

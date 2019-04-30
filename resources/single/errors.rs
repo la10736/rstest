@@ -1,5 +1,6 @@
-use rstest::rstest;
+use rstest::*;
 
+#[fixture]
 pub fn fixture() -> u32 { 42 }
 
 #[rstest]

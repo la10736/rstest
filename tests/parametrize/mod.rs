@@ -344,7 +344,7 @@ mod should_show_correct_errors {
         let (output, name) = execute();
 
         assert_in!(output.stderr.str(), format!("
-        error[E0425]: cannot find function `no_fixture` in this scope
+        error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:10:1
            |
         10 | #[rstest_parametrize(f, case(42))]", name).deindent());
@@ -402,12 +402,12 @@ mod should_show_correct_errors {
 
         assert_in!(output.stderr.str(), format!(r##"
         error[E0308]: mismatched types
-          --> {}/src/lib.rs:20:17
+          --> {}/src/lib.rs:20:31
            |
-        20 |     case(Unwrap(r#"vec![1,2,3].contains(2)"#)))
-           |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-           |                 |"##,
-                      name).deindent());
+        20 |     case(vec![1,2,3].contains(2)))
+           |                               ^
+           |                               |"##,
+           name).deindent());
     }
 }
 

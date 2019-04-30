@@ -1,7 +1,8 @@
-use rstest::rstest;
+use rstest::*;
 
 struct S;
 
+#[fixture]
 fn fixture() -> S { S {} }
 
 #[rstest(trace)]

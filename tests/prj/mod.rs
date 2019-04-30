@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub enum Channel {
     Stable,
     Beta,
-    Nigtly,
+    Nightly,
     Custom(String)
 }
 
@@ -33,7 +33,7 @@ impl Project {
         Self {
             root: root.as_ref().to_owned(),
             name: "project".into(),
-            channel: Channel::Stable,
+            channel: Channel::Nightly,
             ws: Arc::new(std::sync::RwLock::new(())),
         }.create()
     }
@@ -176,7 +176,7 @@ impl Project {
         match &self.channel {
             Channel::Stable => "+stable".into(),
             Channel::Beta => "+beta".into(),
-            Channel::Nigtly => "+nigtly".into(),
+            Channel::Nightly => "+nightly".into(),
             Channel::Custom(name) => format!("+{}", name),
         }
     }

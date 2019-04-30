@@ -84,9 +84,9 @@ mod dump_input_values {
         let output = prj.run_tests().unwrap();
 
         assert_in!(output.stderr.str(), format!(r#"
-         --> {}/src/lib.rs:7:1
+         --> {}/src/lib.rs:8:1
           |
-        7 | #[rstest(trace)]
+        8 | #[rstest(trace)]
           | ^^^^^^^^^^^^^^^^ `S` cannot be formatted using `{{:?}}`
           |
           = help: the trait `std::fmt::Debug` is not implemented for `S`
@@ -138,16 +138,16 @@ fn should_show_correct_errors() {
     let name = prj.get_name();
 
     assert_in!(output.stderr.str(), format!("
-        error[E0425]: cannot find function `no_fixture` in this scope
-          --> {}/src/lib.rs:10:1
+        error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
+          --> {}/src/lib.rs:11:1
            |
-        10 | #[rstest]", name).deindent());
+        11 | #[rstest]", name).deindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
-         --> {}/src/lib.rs:7:18
+         --> {}/src/lib.rs:8:18
           |
-        7 |     let a: u32 = "";
+        8 |     let a: u32 = "";
           |                  ^^ expected u32, found reference
           |
           = note: expected type `u32`
@@ -156,9 +156,9 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
-          --> {}/src/lib.rs:15:29
+          --> {}/src/lib.rs:16:29
            |
-        15 | fn error_fixture_wrong_type(fixture: String) {{
+        16 | fn error_fixture_wrong_type(fixture: String) {{
            |                             ^^^^^^^
            |                             |
            |                             expected struct `std::string::String`, found u32
