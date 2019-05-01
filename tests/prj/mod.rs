@@ -21,6 +21,30 @@ pub enum Channel {
     Custom(String)
 }
 
+pub static CHANNEL_DEFAULT: Channel = Channel::Stable;
+pub static ENV_CHANNEL: &'static str = "RSTEST_TEST_CHANNEL";
+
+impl From<String> for Channel{
+    fn from(value: String) -> Self {
+        let s = value.to_string();
+        match s.to_lowercase().as_str() {
+            "stable" => Channel::Stable,
+            "beta" => Channel::Beta,
+            "nightly" => Channel::Nightly,
+            _ => Channel::Custom(s),
+        }
+    }
+}
+
+impl Default for Channel {
+    fn default() -> Self {
+        std::env::var(ENV_CHANNEL)
+            .ok()
+            .map(Channel::from )
+            .unwrap_or(CHANNEL_DEFAULT.clone())
+    }
+}
+
 pub struct Project {
     pub name: OsString,
     root: PathBuf,
@@ -33,7 +57,7 @@ impl Project {
         Self {
             root: root.as_ref().to_owned(),
             name: "project".into(),
-            channel: Channel::Nightly,
+            channel: Default::default(),
             ws: Arc::new(std::sync::RwLock::new(())),
         }.create()
     }
