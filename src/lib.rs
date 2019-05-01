@@ -181,10 +181,8 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let orig_args = &fixture.decl.inputs;
     let vargs = fn_args_idents(&fixture);
     let args = &vargs;
-    let attrs = &fixture.attrs;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let (store_type, generics) = convert_output_type(output);
     let vresolve_args = args.iter()
         .map(move |arg| arg_2_fixture(arg, &resolver))
         .collect::<Vec<_>>();
@@ -206,16 +204,6 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
 
         #fixture
     }
-}
-
-fn convert_output_type(output: &syn::ReturnType) -> (&dyn quote::ToTokens, impl quote::ToTokens) {
-    (match output {
-        syn::ReturnType::Default => output,
-        syn::ReturnType::Type(_, inner) =>
-            match inner {
-                _ => inner
-            }
-    }, quote! {})
 }
 
 fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {

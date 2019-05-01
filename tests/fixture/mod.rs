@@ -23,7 +23,7 @@ fn should_use_other_fixtures() {
 }
 
 #[test]
-fn should_create_a_struct_that_generate_the_fixture() {
+fn should_create_a_struct_that_retur_the_fixture() {
     let (output, _) = run_test("fixture_struct.rs");
 
     TestResults::new()
@@ -40,5 +40,19 @@ fn should_be_accessible_from_other_module() {
 
     TestResults::new()
         .ok("struct_access")
+        .assert(output);
+}
+
+#[test]
+fn should_accept_and_return_impl_traits() {
+    let (output, _) = run_test("impl.rs");
+
+    TestResults::new()
+        .ok("base_impl_return")
+        .ok("nested_impl_return")
+        .ok("nested_multiple_impl_return")
+        .ok("base_impl_input")
+        .ok("nested_impl_input")
+        .ok("nested_multiple_impl_input")
         .assert(output);
 }
