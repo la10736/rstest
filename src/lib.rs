@@ -741,6 +741,11 @@ mod render {
                 r#"fn test() { }"#
             );
         }
+
+        #[test]
+        fn fixture_impl_should_implement_a_get_method_with_input_fixture_signature() {
+            unimplemented!()
+        }
     }
 }
 
