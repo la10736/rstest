@@ -178,9 +178,11 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
                       _modifiers: Modifiers)
                       -> TokenStream {
     let name = &fixture.ident;
-    let orig_args = &fixture.decl.inputs;
     let vargs = fn_args_idents(&fixture);
     let args = &vargs;
+    let orig_args = &fixture.decl.inputs;
+    let generics = &fixture.decl.generics;
+    let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
     let vresolve_args = args.iter()
@@ -192,11 +194,11 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
         #visibility struct #name {}
 
         impl #name {
-            pub fn get(#orig_args) #output {
+            pub fn get #generics (#orig_args) #output #where_clause {
                 #name(#(#args),*)
             }
 
-            pub fn default() #output {
+            pub fn default #generics () #output #where_clause {
                 #(#resolve_args)*
                 Self::get(#(#args),*)
             }
@@ -215,8 +217,8 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 
 #[proc_macro_attribute]
 pub fn fixture(args: proc_macro::TokenStream,
-              input: proc_macro::TokenStream)
-              -> proc_macro::TokenStream {
+               input: proc_macro::TokenStream)
+               -> proc_macro::TokenStream {
     let fixture = parse_macro_input!(input as ItemFn);
     let modifiers = parse_macro_input!(args as Modifiers);
     render_fixture(fixture, Resolver::default(), modifiers).into()
@@ -325,7 +327,6 @@ mod render {
 
     fn fn_args(item: &ItemFn) -> punctuated::Iter<'_, FnArg> {
         item.decl.inputs.iter()
-
     }
 
     fn first_arg_ident(ast: &ItemFn) -> &Ident {
@@ -417,9 +418,10 @@ mod render {
     }
 
     mod render_fn_test_should {
-        use super::*;
-        use proc_macro2::Span;
         use pretty_assertions::assert_eq;
+        use proc_macro2::Span;
+
+        use super::*;
 
         #[test]
         fn add_return_type_if_any() {
@@ -583,9 +585,11 @@ mod render {
 
         impl<'a> From<Vec<Cow<'a, str>>> for TestCase {
             fn from(arguments: Vec<Cow<'a, str>>) -> Self {
-                TestCase { args: arguments
-                    .iter().map(|a| CaseArg::new(parse_str(a.as_ref().into()).unwrap())).collect(),
-                                                      description: None }
+                TestCase {
+                    args: arguments
+                        .iter().map(|a| CaseArg::new(parse_str(a.as_ref().into()).unwrap())).collect(),
+                    description: None,
+                }
             }
         }
 
@@ -691,9 +695,12 @@ mod render {
     }
 
     mod fixture {
-        use syn::{ItemFn, ItemStruct, ItemImpl, parse_str, parse2};
-        use syn::parse::{Parse, Result, ParseBuffer};
+        use syn::{ItemFn, ItemImpl, ItemStruct, parse2, parse_str};
+        use syn::parse::{Parse, ParseBuffer, Result};
+
         use crate::render_fixture;
+
+        use super::assert_eq;
 
         struct FixtureOutput {
             orig: ItemFn,
@@ -711,21 +718,21 @@ mod render {
             }
         }
 
-        fn test_maintains_function_visibility(code: &str) {
+        fn parse_fixture<S: AsRef<str>>(code: S) -> (ItemFn, FixtureOutput) {
             let item_fn = parse_str::<ItemFn>(
-                code
+                code.as_ref()
             ).unwrap();
-            let expected_visibility = item_fn.vis.clone();
 
-            let tokens = render_fixture(item_fn,
+            let tokens = render_fixture(item_fn.clone(),
                                         Default::default(), Default::default());
+            (item_fn, parse2(tokens).unwrap())
+        }
 
-            println!("{:#?}", tokens);
+        fn test_maintains_function_visibility(code: &str) {
+            let (item_fn, out) = parse_fixture(code);
 
-            let out: FixtureOutput = parse2(tokens).unwrap();
-
-            assert_eq!(expected_visibility, out.fixture.vis);
-            assert_eq!(expected_visibility, out.orig.vis);
+            assert_eq!(item_fn.vis, out.fixture.vis);
+            assert_eq!(item_fn.vis, out.orig.vis);
         }
 
         #[test]
@@ -742,9 +749,50 @@ mod render {
             );
         }
 
+        fn select_method<S: AsRef<str>>(impl_code: ItemImpl, name: S) -> Option<syn::ImplItemMethod> {
+            impl_code.items.into_iter()
+                .filter_map(|ii| match ii {
+                    syn::ImplItem::Method(f) => Some(f),
+                    _ => None
+                })
+                .find(|f| f.sig.ident == name.as_ref())
+        }
+
         #[test]
         fn fixture_impl_should_implement_a_get_method_with_input_fixture_signature() {
-            unimplemented!()
+            let (item_fn, out) = parse_fixture(
+                r#"
+                pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
+                        where B: Borrow<u32>
+                { }
+                "#);
+
+
+            let get_decl = select_method(out.core_impl, "get")
+                .unwrap()
+                .sig
+                .decl;
+
+            assert_eq!(*item_fn.decl, get_decl);
+        }
+
+        #[test]
+        fn fixture_impl_should_implement_a_default_method_with_input_fixture_signature_but_no_args() {
+            let (item_fn, out) = parse_fixture(
+                r#"
+                pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
+                        where B: Borrow<u32>
+                { }
+                "#);
+
+            let default_decl = select_method(out.core_impl, "default")
+                .unwrap()
+                .sig
+                .decl;
+
+            assert_eq!(item_fn.decl.generics, default_decl.generics);
+            assert_eq!(item_fn.decl.output, default_decl.output);
+            assert!(default_decl.inputs.is_empty());
         }
     }
 }
