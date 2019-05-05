@@ -56,3 +56,14 @@ fn should_accept_and_return_impl_traits() {
         .ok("nested_multiple_impl_input")
         .assert(output);
 }
+
+#[test]
+fn should_resolve_fixture_generics_by_fixture_input() {
+    let (output, _) = run_test("resolve.rs");
+
+    TestResults::new()
+        .ok("test_u32")
+        .ok("test_i32")
+        .assert(output);
+
+}

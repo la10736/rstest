@@ -1,4 +1,4 @@
-use rstest::*;
+use rstest::{rstest, fixture};
 
 pub trait Tr {
     fn get() -> Self;
