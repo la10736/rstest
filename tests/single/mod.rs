@@ -54,6 +54,16 @@ fn should_panic() {
         .assert(output);
 }
 
+#[test]
+fn should_resolve_generics_fixture_outputs() {
+    let output = run_test("resolve.rs");
+
+    TestResults::new()
+        .ok("generics_u32")
+        .ok("generics_i32")
+        .assert(output);
+}
+
 mod dump_input_values {
     use super::{
         prj, run_test, TestResults,

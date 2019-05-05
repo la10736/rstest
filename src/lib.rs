@@ -435,6 +435,29 @@ mod render {
             assert_eq!(result.ident.to_string(), "new_name");
             assert_eq!(result.decl.output, ast.decl.output);
         }
+
+        #[test]
+        fn should_include_given_function() {
+            let input_fn: ItemFn = parse_str(
+                r#"
+                pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
+                        where B: Borrow<u32>
+                {
+                    let some = 42;
+                    assert_eq!(42, some);
+                }
+                "#
+            ).unwrap();
+
+            let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
+                                        &input_fn, &Resolver::default(), &Modifiers::default(), true);
+
+            let result: ItemFn = parse2(tokens).unwrap();
+
+            let inner_fn: ItemFn = parse2(result.block.stmts.get(0).into_tokens()).unwrap();
+
+            assert_eq!(inner_fn, inner_fn);
+        }
     }
 
     mod add_parametrize_cases {
