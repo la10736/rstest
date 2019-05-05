@@ -182,6 +182,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let args = &vargs;
     let orig_args = &fixture.decl.inputs;
     let generics = &fixture.decl.generics;
+    let body = &fixture.block;
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
@@ -195,7 +196,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
 
         impl #name {
             pub fn get #generics (#orig_args) #output #where_clause {
-                #name(#(#args),*)
+                #body
             }
 
             pub fn default #generics () #output #where_clause {
@@ -204,6 +205,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
             }
         }
 
+        #[allow(dead_code)]
         #fixture
     }
 }
