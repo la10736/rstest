@@ -58,6 +58,18 @@ fn should_accept_and_return_impl_traits() {
 }
 
 #[test]
+fn should_accept_and_return_dyn_traits() {
+    let (output, _) = run_test("dyn.rs");
+
+    TestResults::new()
+        .ok("test_dyn_box")
+        .ok("test_dyn_ref")
+        .ok("test_dyn_box_resolve")
+        .ok("test_dyn_ref_resolve")
+        .assert(output);
+}
+
+#[test]
 fn should_resolve_fixture_generics_by_fixture_input() {
     let (output, _) = run_test("resolve.rs");
 
