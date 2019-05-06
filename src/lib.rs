@@ -726,6 +726,7 @@ mod render {
         use crate::render_fixture;
 
         use super::assert_eq;
+        use syn::visit::Visit;
 
         struct FixtureOutput {
             orig: ItemFn,
@@ -818,6 +819,66 @@ mod render {
             assert_eq!(item_fn.decl.generics, default_decl.generics);
             assert_eq!(item_fn.decl.output, default_decl.output);
             assert!(default_decl.inputs.is_empty());
+        }
+
+        fn generics_clean_up(original: &ItemFn) -> syn::Generics {
+//            for g in original.decl.generics.params.iter() {
+//                let rr: &syn::ReturnType =original.decl.output;
+//                if
+//            }
+            #[derive(Default, Debug)]
+            struct Used(std::collections::HashSet<proc_macro2::Ident>);
+            impl<'ast> syn::visit::Visit<'ast> for Used {
+                fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
+                    if i.qself.is_none() && i.path.leading_colon.is_none() && i.path.segments.len() == 1 {
+                        self.0.insert(i.path.segments.first().unwrap().value().ident.clone());
+                    }
+                }
+            }
+            let mut outs = Used::default();
+            outs.visit_fn_decl(&original.decl);
+            println!("{:#?}", outs);
+            let mut result = original.decl.generics.clone();
+            result.params = result.params.into_iter().filter(|p|
+                match p {
+                    syn::GenericParam::Type(tp) if outs.0.contains(&tp.ident) => false,
+                    _ => true,
+                }
+            ).collect();
+//            result.where_clause = result.where_clause.map(
+//                |w| w.into_iter().filter(|p|
+//                        match p {
+//                            syn::WherePredicate::Type(tp) if outs.0.contains(&tp.ident) => false,
+//                            _ => true,
+//                        }
+//            ).collect());
+            println!("{:#?}", result);
+            result
+        }
+
+        #[test]
+        fn clean_up_default_generics_no_output() {
+            // Should remove all generics parameters that are not present in output
+            let item_fn = parse_str::<ItemFn>(
+                r#"
+                pub fn test<R: AsRef<str>, B>() -> (u32, B, String, &str)
+                        where B: Borrow<u32>
+                { }
+                "#
+            ).unwrap();
+
+            let expected = parse_str::<ItemFn>(
+                r#"
+                pub fn test<B>() -> (u32, B, String, &str)
+                        where B: Borrow<u32>
+                { }
+                "#
+            ).unwrap();
+
+            let cleaned = generics_clean_up(&item_fn);
+            println!("{:#?}", item_fn.decl.output);
+
+            assert_eq!(expected.decl.generics, cleaned);
         }
     }
 }

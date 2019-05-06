@@ -14,8 +14,3 @@ pub fn fx<S: ToString>(s: S) -> usize {
 fn resolve() {
     assert_eq!(2, fx::default())
 }
-
-//#[rstest]
-//fn test_u32(fx: usize) {
-//    assert_eq!(2, fx)
-//}
