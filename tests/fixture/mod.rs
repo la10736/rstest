@@ -81,6 +81,15 @@ fn should_resolve_fixture_generics_by_fixture_input() {
 }
 
 #[test]
+fn should_use_default_return_type_if_any() {
+    let (output, _) = run_test("default_return_type.rs");
+
+    TestResults::new()
+        .ok("resolve")
+        .assert(output);
+}
+
+#[test]
 fn should_clean_up_default_from_unused_generics() {
     let (output, _) = run_test("clean_up_default_generics.rs");
 

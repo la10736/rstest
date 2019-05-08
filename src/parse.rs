@@ -228,7 +228,11 @@ fn just_word_meta(meta: Meta) -> Result<Ident> {
 impl Parse for RsTestAttribute {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek2(Token![<]) {
-            panic!("Not implemented yet")
+            let tag = input.parse()?;
+            let _open = input.parse::<Token![<]>()?;
+            let inner = input.parse()?;
+            let _close = input.parse::<Token![>]>()?;
+            Ok(RsTestAttribute::Type(tag, inner))
         } else {
             let meta = no_literal_nested(NestedMeta::parse(input)?)?;
             use Meta::*;
@@ -388,6 +392,7 @@ mod should {
             fn attr<I: IntoIdent>(i: I) -> Self {
                 RsTestAttribute::Attr(i.into_ident())
             }
+
             fn tagged<I: IntoIdent, A: IntoIdent>(tag: I, attrs: Vec<A>) -> Self {
                 RsTestAttribute::Tagged(
                     tag.into_ident(),
@@ -396,6 +401,7 @@ mod should {
                         .collect()
                 )
             }
+
             fn typed<I: IntoIdent, T: AsRef<str>>(tag: I, inner: T) -> Self {
                 RsTestAttribute::Type(
                     tag.into_ident(),
@@ -433,6 +439,21 @@ mod should {
 
             let expected = Modifiers{ modifiers: vec![
                 RsTestAttribute::typed("type_tag", "(u32, T, (String, i32))")
+            ] };
+
+            assert_eq!(expected, modifiers);
+        }
+
+        #[test]
+        fn integrated() {
+            let modifiers = parse_modifiers(r#"
+            simple :: tagged(first, second) :: type_tag<(u32, T, (std::string::String, i32))> :: more_tagged(a,b)"#);
+
+            let expected = Modifiers{ modifiers: vec![
+                RsTestAttribute::attr("simple"),
+                RsTestAttribute::tagged("tagged", vec!["first", "second"]),
+                RsTestAttribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
+                RsTestAttribute::tagged("more_tagged", vec!["a", "b"]),
             ] };
 
             assert_eq!(expected, modifiers);

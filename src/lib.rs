@@ -3,11 +3,7 @@ extern crate proc_macro;
 
 use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
-use syn::{
-    ArgCaptured, Expr, FnArg, Ident, ItemFn,
-    parse_macro_input, parse_str, Pat,
-    Stmt,
-};
+use syn::{ArgCaptured, Expr, FnArg, Ident, ItemFn, parse_macro_input, parse_str, Pat, Stmt, ReturnType, Generics};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
@@ -194,7 +190,7 @@ fn where_predicate_bounded_type(wp: &syn::WherePredicate) -> Option<&syn::Type> 
     }
 }
 
-fn generics_clean_up(original: &ItemFn) -> syn::Generics {
+fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
     use syn::visit::Visit;
     #[derive(Default, Debug)]
     struct Used(std::collections::HashSet<proc_macro2::Ident>);
@@ -206,8 +202,8 @@ fn generics_clean_up(original: &ItemFn) -> syn::Generics {
         }
     }
     let mut outs = Used::default();
-    outs.visit_return_type(&original.decl.output);
-    let mut result = original.decl.generics.clone();
+    outs.visit_return_type(&output);
+    let mut result = original;
     result.params = result.params.into_iter().filter(|p|
         match p {
             syn::GenericParam::Type(tp) if !outs.0.contains(&tp.ident) => false,
@@ -226,6 +222,18 @@ fn generics_clean_up(original: &ItemFn) -> syn::Generics {
     result
 }
 
+fn modifier_extract_default_type(modifiers: Modifiers) -> Option<syn::ReturnType> {
+    modifiers.modifiers
+        .iter()
+        .filter_map(|m|
+            match m {
+                RsTestAttribute::Type(name, t) if name=="default" =>
+                    Some(syn::parse2(quote!( -> #t)).unwrap()),
+                _ => None
+            })
+        .next()
+}
+
 fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
                       _modifiers: Modifiers)
                       -> TokenStream {
@@ -234,7 +242,8 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let args = &vargs;
     let orig_args = &fixture.decl.inputs;
     let generics = &fixture.decl.generics;
-    let default_generics = generics_clean_up(&fixture);
+    let default_output = modifier_extract_default_type(_modifiers).unwrap_or(fixture.decl.output.clone());
+    let default_generics = generics_clean_up(fixture.decl.generics.clone(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
     let where_clause = &fixture.decl.generics.where_clause;
@@ -253,7 +262,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
                 #body
             }
 
-            pub fn default #default_generics () #output #default_where_clause {
+            pub fn default #default_generics () #default_output #default_where_clause {
                 #(#resolve_args)*
                 Self::get(#(#args),*)
             }
@@ -780,6 +789,7 @@ mod render {
         use crate::{render_fixture, generics_clean_up};
 
         use super::assert_eq;
+        use crate::parse::{Modifiers, RsTestAttribute};
 
         struct FixtureOutput {
             orig: ItemFn,
@@ -906,9 +916,46 @@ mod render {
                 "#
             ).unwrap();
 
-            let cleaned = generics_clean_up(&item_fn);
+            let cleaned = generics_clean_up(item_fn.decl.generics, &item_fn.decl.output);
 
             assert_eq!(expected.decl.generics, cleaned);
+        }
+
+        #[test]
+        fn should_use_default_return_type_if_any() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"
+                pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B)
+                        where F: ToString,
+                        B: Borrow<u32>
+                { }
+                "#
+            ).unwrap();
+
+            let tokens = render_fixture(item_fn.clone(),
+                                        Default::default(),
+                                        Modifiers{ modifiers: vec![
+                                            RsTestAttribute::Type(
+                                                parse_str("default").unwrap(),
+                                                parse_str("(impl Iterator<Item=u32>, B)").unwrap()
+                                            )
+                                            ] });
+            let out: FixtureOutput = parse2(tokens).unwrap();
+
+            let expected = parse_str::<syn::ItemFn>(
+                r#"
+                pub fn default<B>() -> (impl Iterator<Item=u32>, B)
+                        where B: Borrow<u32>
+                { }
+                "#
+            ).unwrap();
+
+            let default_decl = select_method(out.core_impl, "default")
+                .unwrap()
+                .sig
+                .decl;
+
+            assert_eq!(*expected.decl, default_decl);
         }
     }
 }
