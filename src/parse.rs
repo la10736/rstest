@@ -190,7 +190,7 @@ impl Parse for CaseArg {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq)]
 pub struct Modifiers {
     pub modifiers: Vec<RsTestAttribute>
 }
@@ -204,10 +204,11 @@ impl Parse for Modifiers {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RsTestAttribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),
+    Type(Ident, syn::Type)
 }
 
 fn no_literal_nested(nested: NestedMeta) -> Result<Meta> {
@@ -226,19 +227,23 @@ fn just_word_meta(meta: Meta) -> Result<Ident> {
 
 impl Parse for RsTestAttribute {
     fn parse(input: ParseStream) -> Result<Self> {
-        let meta = no_literal_nested(NestedMeta::parse(input)?)?;
-        use Meta::*;
-        match meta {
-            Word(ident) => Ok(RsTestAttribute::Attr(ident)),
-            List(l) =>
-                Ok(RsTestAttribute::Tagged(l.ident,
-                                           l.nested.into_iter()
-                                               .map(no_literal_nested)
-                                               .collect::<Result<Vec<Meta>>>()?
-                                               .into_iter().map(just_word_meta)
-                                               .collect::<Result<Vec<Ident>>>()?,
-                )),
-            NameValue(nv) => Err(Error::new(nv.span(), "Invalid attribute"))
+        if input.peek2(Token![<]) {
+            panic!("Not implemented yet")
+        } else {
+            let meta = no_literal_nested(NestedMeta::parse(input)?)?;
+            use Meta::*;
+            match meta {
+                Word(ident) => Ok(RsTestAttribute::Attr(ident)),
+                List(l) =>
+                    Ok(RsTestAttribute::Tagged(l.ident,
+                                               l.nested.into_iter()
+                                                   .map(no_literal_nested)
+                                                   .collect::<Result<Vec<Meta>>>()?
+                                                   .into_iter().map(just_word_meta)
+                                                   .collect::<Result<Vec<Ident>>>()?,
+                    )),
+                NameValue(nv) => Err(Error::new(nv.span(), "Invalid attribute"))
+            }
         }
     }
 }
@@ -301,7 +306,7 @@ mod should {
 
     use syn::{parse_str, ItemFn, parse2};
     use quote::quote;
-    use crate::parse::{TestCase, CaseArg, ParametrizeData};
+    use super::*;
     use proc_macro2::{TokenTree};
 
     fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
@@ -361,8 +366,81 @@ mod should {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
     }
 
+    mod parse_modifiers {
+        use super::assert_eq;
+        use super::*;
+
+        fn parse_modifiers<S: AsRef<str>>(modifiers: S) -> Modifiers {
+            parse_meta(modifiers)
+        }
+
+        trait IntoIdent {
+            fn into_ident(self) -> Ident;
+        }
+
+        impl<S: AsRef<str>> IntoIdent for S {
+            fn into_ident(self) -> Ident {
+                parse_str(self.as_ref()).unwrap()
+            }
+        }
+
+        impl RsTestAttribute {
+            fn attr<I: IntoIdent>(i: I) -> Self {
+                RsTestAttribute::Attr(i.into_ident())
+            }
+            fn tagged<I: IntoIdent, A: IntoIdent>(tag: I, attrs: Vec<A>) -> Self {
+                RsTestAttribute::Tagged(
+                    tag.into_ident(),
+                    attrs.into_iter()
+                        .map(|a| a.into_ident())
+                        .collect()
+                )
+            }
+            fn typed<I: IntoIdent, T: AsRef<str>>(tag: I, inner: T) -> Self {
+                RsTestAttribute::Type(
+                    tag.into_ident(),
+                    parse_str(inner.as_ref()).unwrap()
+                )
+            }
+        }
+
+        #[test]
+        fn one_simple_ident() {
+            let modifiers = parse_modifiers("my_ident");
+
+            let expected = Modifiers{ modifiers: vec![
+                RsTestAttribute::attr("my_ident")
+            ]
+            };
+
+            assert_eq!(expected, modifiers);
+        }
+
+        #[test]
+        fn one_simple_group() {
+            let modifiers = parse_modifiers("group_tag(first, second)");
+
+            let expected = Modifiers{ modifiers: vec![
+                RsTestAttribute::tagged("group_tag", vec!["first", "second"])
+            ] };
+
+            assert_eq!(expected, modifiers);
+        }
+
+        #[test]
+        fn one_simple_type() {
+            let modifiers = parse_modifiers("type_tag<(u32, T, (String, i32))>");
+
+            let expected = Modifiers{ modifiers: vec![
+                RsTestAttribute::typed("type_tag", "(u32, T, (String, i32))")
+            ] };
+
+            assert_eq!(expected, modifiers);
+        }
+    }
+
     mod parse_test_case {
-        use pretty_assertions::assert_eq;
+        use super::assert_eq;
         use super::*;
 
         fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
