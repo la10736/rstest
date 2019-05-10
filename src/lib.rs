@@ -48,7 +48,7 @@ fn arg_2_fixture_dump_str(ident: &Ident) -> String {
     format!(r#"println!("{name} = {{:?}}", {name});"#, name = ident)
 }
 
-fn arg_2_fixture_dump(ident: &Ident, modifiers: &Modifiers) -> Option<Stmt> {
+fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt> {
     if modifiers.trace_me(ident) {
         parse_str(&arg_2_fixture_dump_str(ident)).ok()
     } else {
@@ -80,41 +80,79 @@ fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
 }
 
-const TRACE_VARIABLE_ATTR: &'static str = "trace";
-const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
+macro_rules! wrap_modifiers {
+    ($ident:ident) => {
+        #[derive(Default)]
+        struct $ident {
+            inner: Modifiers,
+        }
 
-impl Modifiers {
+        impl From<Modifiers> for $ident {
+            fn from(inner: Modifiers) -> Self {
+                $ident { inner }
+            }
+        }
+
+        impl $ident {
+            fn iter(&self) -> impl Iterator<Item=&RsTestAttribute> {
+                self.inner.modifiers.iter()
+            }
+        }
+    };
+}
+
+wrap_modifiers!(RsTestModifiers);
+
+impl RsTestModifiers {
+    const TRACE_VARIABLE_ATTR: &'static str = "trace";
+    const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
+
     fn trace_me(&self, ident: &Ident) -> bool {
         if self.should_trace() {
-            self.modifiers
-                .iter()
+            self.iter()
                 .filter(|&m|
-                    Modifiers::is_notrace(ident, m)
+                    Self::is_notrace(ident, m)
                 ).next().is_none()
         } else { false }
     }
 
     fn is_notrace(ident: &Ident, m: &RsTestAttribute) -> bool {
         match m {
-            RsTestAttribute::Tagged(i, args) if i == NOTRACE_VARIABLE_ATTR =>
+            RsTestAttribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR =>
                 args.iter().find(|&a| a == ident).is_some(),
             _ => false
         }
     }
 
     fn should_trace(&self) -> bool {
-        self.modifiers
-            .iter()
+        self.iter()
             .filter(|&m|
-                Modifiers::is_trace(m)
+                Self::is_trace(m)
             ).next().is_some()
     }
 
     fn is_trace(m: &RsTestAttribute) -> bool {
         match m {
-            RsTestAttribute::Attr(i) if i == TRACE_VARIABLE_ATTR => true,
+            RsTestAttribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
             _ => false
         }
+    }
+}
+
+wrap_modifiers!(FixtureModifiers);
+
+impl FixtureModifiers {
+    const DEFAULT_RET_ATTR: &'static str = "default";
+
+    fn extract_default_type(self) -> Option<syn::ReturnType> {
+        self.iter()
+            .filter_map(|m|
+                match m {
+                    RsTestAttribute::Type(name, t) if name==Self::DEFAULT_RET_ATTR =>
+                        Some(syn::parse2(quote!( -> #t)).unwrap()),
+                    _ => None
+                })
+            .next()
     }
 }
 
@@ -133,7 +171,7 @@ impl<I, IT: Iterator<Item=I>> Iterable<I, IT, std::iter::Peekable<IT>> for IT {
     }
 }
 
-fn trace_arguments(args: &Vec<Ident>, modifiers: &Modifiers) -> Option<proc_macro2::TokenStream> {
+fn trace_arguments(args: &Vec<Ident>, modifiers: &RsTestModifiers) -> Option<proc_macro2::TokenStream> {
     args.iter()
         .filter_map(move |arg| arg_2_fixture_dump(arg, modifiers))
         .iterable()
@@ -147,7 +185,7 @@ fn trace_arguments(args: &Vec<Ident>, modifiers: &Modifiers) -> Option<proc_macr
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
-                      resolver: &'a Resolver, modifiers: &'a Modifiers, inline_impl: bool)
+                      resolver: &'a Resolver, modifiers: &'a RsTestModifiers, inline_impl: bool)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn);
@@ -222,27 +260,15 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
     result
 }
 
-fn modifier_extract_default_type(modifiers: Modifiers) -> Option<syn::ReturnType> {
-    modifiers.modifiers
-        .iter()
-        .filter_map(|m|
-            match m {
-                RsTestAttribute::Type(name, t) if name=="default" =>
-                    Some(syn::parse2(quote!( -> #t)).unwrap()),
-                _ => None
-            })
-        .next()
-}
-
 fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
-                      _modifiers: Modifiers)
+                      modifiers: FixtureModifiers)
                       -> TokenStream {
     let name = &fixture.ident;
     let vargs = fn_args_idents(&fixture);
     let args = &vargs;
     let orig_args = &fixture.decl.inputs;
     let generics = &fixture.decl.generics;
-    let default_output = modifier_extract_default_type(_modifiers).unwrap_or(fixture.decl.output.clone());
+    let default_output = modifiers.extract_default_type().unwrap_or(fixture.decl.output.clone());
     let default_generics = generics_clean_up(fixture.decl.generics.clone(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
@@ -285,7 +311,7 @@ pub fn fixture(args: proc_macro::TokenStream,
                input: proc_macro::TokenStream)
                -> proc_macro::TokenStream {
     let fixture = parse_macro_input!(input as ItemFn);
-    let modifiers = parse_macro_input!(args as Modifiers);
+    let modifiers = parse_macro_input!(args as Modifiers).into();
     render_fixture(fixture, Resolver::default(), modifiers).into()
 }
 
@@ -294,7 +320,7 @@ pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
-    let modifiers = parse_macro_input!(args as Modifiers);
+    let modifiers = parse_macro_input!(args as Modifiers).into();
     let name = &test.ident;
     let resolver = Resolver::default();
     render_fn_test(name.clone(), &test, &resolver, &modifiers, true)
@@ -328,7 +354,8 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
 
 fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
-    let parse::ParametrizeInfo { data: params, modifier } = params;
+    let parse::ParametrizeInfo { data: params, modifiers } = params;
+    let modifiers = modifiers.into();
 
     let mut cases = TokenStream::new();
     for (n, case) in params.cases.iter().enumerate() {
@@ -339,7 +366,7 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
             } else {
                 let resolver = Resolver::new(&params.args, &case);
                 let name = Ident::new(&format_case_name(&params, n), fname.span());
-                render_fn_test(name, &test, &resolver, &modifier, false)
+                render_fn_test(name, &test, &resolver, &modifiers, false)
             }
         )
     };
@@ -493,7 +520,7 @@ mod render {
             let ast: ItemFn = parse_str("fn function(mut fix: String) -> Result<i32, String> { Ok(42) }").unwrap();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
-                                        &ast, &Resolver::default(), &Modifiers::default(), false);
+                                        &ast, &Default::default(), &Default::default(), false);
 
             let result: ItemFn = parse2(tokens).unwrap();
 
@@ -515,7 +542,7 @@ mod render {
             ).unwrap();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
-                                        &input_fn, &Resolver::default(), &Modifiers::default(), true);
+                                        &input_fn, &Default::default(), &Default::default(), true);
 
             let result: ItemFn = parse2(tokens).unwrap();
 
@@ -575,7 +602,7 @@ mod render {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::ParametrizeInfo {
                     data: item_fn.into(),
-                    modifier: Default::default(),
+                    modifiers: Default::default(),
                 }
             }
         }
@@ -934,12 +961,12 @@ mod render {
 
             let tokens = render_fixture(item_fn.clone(),
                                         Default::default(),
-                                        Modifiers{ modifiers: vec![
+                                        Modifiers { modifiers: vec![
                                             RsTestAttribute::Type(
                                                 parse_str("default").unwrap(),
                                                 parse_str("(impl Iterator<Item=u32>, B)").unwrap()
                                             )
-                                            ] });
+                                            ] }.into());
             let out: FixtureOutput = parse2(tokens).unwrap();
 
             let expected = parse_str::<syn::ItemFn>(

@@ -16,7 +16,7 @@ pub struct ParametrizeData {
 /// Parametrize
 pub struct ParametrizeInfo {
     pub data: ParametrizeData,
-    pub modifier: Modifiers,
+    pub modifiers: Modifiers,
 }
 
 #[derive(Debug)]
@@ -295,7 +295,7 @@ impl Parse for ParametrizeInfo {
         Ok(
             ParametrizeInfo {
                 data: input.parse()?,
-                modifier: input.parse::<Token![::]>()
+                modifiers: input.parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
             }
