@@ -3,7 +3,8 @@ extern crate proc_macro;
 
 use proc_macro2::TokenStream;
 use quote::{quote, TokenStreamExt, ToTokens};
-use syn::{ArgCaptured, Expr, FnArg, Ident, ItemFn, parse_macro_input, parse_str, Pat, Stmt, ReturnType, Generics};
+use syn::{ArgCaptured, FnArg, Ident, ItemFn, parse_macro_input,
+          Pat, Stmt, ReturnType, Generics};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
@@ -23,8 +24,9 @@ impl<T: ToTokens> Tokenize for T {
 }
 
 fn default_fixture_resolve(ident: &Ident) -> parse::CaseArg {
-    let e = parse_str::<Expr>(&format!("{}::default()", ident.to_string())).unwrap();
-    parse::CaseArg::from(e)
+    syn::parse2(
+        quote!{#ident::default()}
+    ).unwrap()
 }
 
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
@@ -44,13 +46,11 @@ fn arg_2_fixture(ident: &Ident, resolver: &Resolver) -> TokenStream {
     }
 }
 
-fn arg_2_fixture_dump_str(ident: &Ident) -> String {
-    format!(r#"println!("{name} = {{:?}}", {name});"#, name = ident)
-}
-
 fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt> {
     if modifiers.trace_me(ident) {
-        parse_str(&arg_2_fixture_dump_str(ident)).ok()
+        syn::parse2(quote! {
+            println!("{} = {:?}", stringify!(#ident), #ident);
+        }).ok()
     } else {
         None
     }
@@ -148,7 +148,7 @@ impl FixtureModifiers {
         self.iter()
             .filter_map(|m|
                 match m {
-                    RsTestAttribute::Type(name, t) if name==Self::DEFAULT_RET_ATTR =>
+                    RsTestAttribute::Type(name, t) if name == Self::DEFAULT_RET_ATTR =>
                         Some(syn::parse2(quote!( -> #t)).unwrap()),
                     _ => None
                 })
@@ -184,6 +184,23 @@ fn trace_arguments(args: &Vec<Ident>, modifiers: &RsTestModifiers) -> Option<pro
         )
 }
 
+trait ArgsResolver {
+    fn resolve_args(&self, resolver: &Resolver) -> TokenStream;
+}
+
+impl ArgsResolver for ItemFn {
+    fn resolve_args(&self, resolver: &Resolver) -> TokenStream  {
+        let define_vars = fn_args(self)
+                .filter_map(fn_arg_ident)
+                .map(|arg|
+                    arg_2_fixture(arg, resolver)
+                );
+        quote! {
+            #(#define_vars)*
+        }
+    }
+}
+
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
                       resolver: &'a Resolver, modifiers: &'a RsTestModifiers, inline_impl: bool)
                       -> TokenStream {
@@ -192,15 +209,14 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
     let attrs = &testfn.attrs;
     let output = &testfn.decl.output;
     let test_impl = if inline_impl { Some(testfn) } else { None };
-    let fixtures = args.iter()
-        .map(move |arg| arg_2_fixture(arg, resolver));
+    let inject = testfn.resolve_args(resolver);
     let trace_args = trace_arguments(&args, modifiers);
     quote! {
         #[test]
         #(#attrs)*
         fn #name() #output {
             #test_impl
-            #(#fixtures)*
+            #(#inject)*
             #trace_args
             println!("{:-^40}", " TEST START ");
             #testfn_name(#(#args),*)
@@ -275,10 +291,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let vresolve_args = args.iter()
-        .map(move |arg| arg_2_fixture(arg, &resolver))
-        .collect::<Vec<_>>();
-    let resolve_args = &vresolve_args;
+    let inject = fixture.resolve_args(&resolver);
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {}
@@ -289,7 +302,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
             }
 
             pub fn default #default_generics () #default_output #default_where_clause {
-                #(#resolve_args)*
+                #(#inject)*
                 Self::get(#(#args),*)
             }
         }
@@ -409,7 +422,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 #[cfg(test)]
 mod render {
     use pretty_assertions::assert_eq;
-    use syn::{ItemFn, punctuated};
+    use syn::{ItemFn, punctuated, Expr, parse_str};
     use syn::export::Debug;
     use syn::parse2;
 
@@ -961,12 +974,14 @@ mod render {
 
             let tokens = render_fixture(item_fn.clone(),
                                         Default::default(),
-                                        Modifiers { modifiers: vec![
-                                            RsTestAttribute::Type(
-                                                parse_str("default").unwrap(),
-                                                parse_str("(impl Iterator<Item=u32>, B)").unwrap()
-                                            )
-                                            ] }.into());
+                                        Modifiers {
+                                            modifiers: vec![
+                                                RsTestAttribute::Type(
+                                                    parse_str("default").unwrap(),
+                                                    parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
+                                                )
+                                            ]
+                                        }.into());
             let out: FixtureOutput = parse2(tokens).unwrap();
 
             let expected = parse_str::<syn::ItemFn>(

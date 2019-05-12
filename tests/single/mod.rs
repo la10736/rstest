@@ -94,15 +94,10 @@ mod dump_input_values {
         let output = prj.run_tests().unwrap();
 
         assert_in!(output.stderr.str(), format!(r#"
-         --> {}/src/lib.rs:8:1
+         --> {}/src/lib.rs:9:18
           |
-        8 | #[rstest(trace)]
-          | ^^^^^^^^^^^^^^^^ `S` cannot be formatted using `{{:?}}`
-          |
-          = help: the trait `std::fmt::Debug` is not implemented for `S`
-          = note: add `#[derive(Debug)]` or manually implement `std::fmt::Debug`
-          = note: required by `std::fmt::Debug::fmt`
-        "#, name).deindent());
+        9 | fn test_function(fixture: S) {{}}
+          |                  ^^^^^^^ `S` cannot be formatted using `{{:?}}`"#, name).deindent());
     }
 
     #[test]
@@ -149,9 +144,9 @@ fn should_show_correct_errors() {
 
     assert_in!(output.stderr.str(), format!("
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
-          --> {}/src/lib.rs:11:1
+          --> {}/src/lib.rs:12:33
            |
-        11 | #[rstest]", name).deindent());
+        12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{", name).deindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types

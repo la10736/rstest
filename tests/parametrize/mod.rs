@@ -277,18 +277,10 @@ mod dump_input_values {
 
         assert_in!(output.stderr.str().to_string(), format!(r#"
         error[E0277]: `S` doesn't implement `std::fmt::Debug`
-         --> {}/src/lib.rs:5:1
+         --> {}/src/lib.rs:9:18
           |
-        5 | / #[rstest_parametrize(s,
-        6 | |     case(Unwrap("S{{}}"))
-        7 | |     ::trace
-        8 | | )]
-          | |__^ `S` cannot be formatted using `{{:?}}`
-          |
-          = help: the trait `std::fmt::Debug` is not implemented for `S`
-          = note: add `#[derive(Debug)]` or manually implement `std::fmt::Debug`
-          = note: required by `std::fmt::Debug::fmt`
-        "#, name).deindent());
+        9 | fn test_function(s: S) {{}}
+          |                  ^ `S` cannot be formatted using `{{:?}}`"#, name).deindent());
     }
 
     #[test]
@@ -345,9 +337,9 @@ mod should_show_correct_errors {
 
         assert_in!(output.stderr.str(), format!("
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
-          --> {}/src/lib.rs:10:1
+          --> {}/src/lib.rs:11:33
            |
-        10 | #[rstest_parametrize(f, case(42))]", name).deindent());
+        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).deindent());
     }
 
     #[test]
