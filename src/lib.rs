@@ -1,3 +1,79 @@
+//! This crate will help you to write simpler tests by leverage on
+//! [test fixtures concept](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture
+//! is something that you can use in your tests to incapsulate test's dependencies.
+//!
+//! A Fixture is modelled by function that return any kind of valid Rust type. Fixture data should be
+//! any valid rust data type that you need in your tests. In a test you can use one or more
+//! fixtures to proviede all test's dependencies.
+//!
+//! Very often in Rust we write test like follow
+//!
+//! ```
+//! #[test]
+//! fn should_process_two_users() {
+//!     let mut repository = create_repository();
+//!     repository.add("Bob", 21);
+//!     repository.add("Alice", 22);
+//!
+//!     let processor = string_processor();
+//!     processor.send_all(&repository, "Good Morning");
+//!
+//!     assert_eq!(2, processor.output.find("Good Morning").count());
+//!     assert!(processor.output.contains("Bob"));
+//!     assert!(processor.output.contains("Alice"));
+//! }
+//! ```
+//!
+//! By use `rstest` you can write
+//!
+//! ```
+//! # use rstest::*;
+//!
+//! #[rstest]
+//! fn should_process_two_users(mut empty_repository: impl Repository, string_processor: FakeProcessor) {
+//!     empty_repository.add("Bob", 21);
+//!     empty_repository.add("Alice", 22);
+//!
+//!     processor.send_all("Good Morning");
+//!
+//!     assert_eq!(2, processor.output.find("Good Morning").count());
+//!     assert!(processor.output.contains("Bob"));
+//!     assert!(processor.output.contains("Alice"));
+//! }
+//! ```
+//!
+//! ... or if you use `"Alice"` and `"Bob"` in more tests you can have an `alice_and_bob` fixture
+//! and use it directly:
+//!
+//! ```
+//! # use rstest::*;
+//! # trait Repository { fn add(&mut self, name: &str, age: u8); }
+//! # struct Rep;
+//! # impl Repository for Rep { fn add(&mut self, name: &str, age: u8) {} }
+//! # #[fixture]
+//! # fn empty_repository() -> Rep {
+//! #     Rep
+//! # }
+//!
+//! #[fixture]
+//! fn alice_and_bob(mut empty_repository: impl Repository) -> impl Repository {
+//!     empty_repository.add("Bob", 21);
+//!     empty_repository.add("Alice", 22);
+//!     empty_repository
+//! }
+//!
+//! #[rstest]
+//! fn should_process_two_users(alice_and_bob: impl Repository, string_processor: FakeProcessor) {
+//!     processor.send_all("Good Morning");
+//!
+//!     assert_eq!(2, processor.output.find("Good Morning").count());
+//!     assert!(processor.output.contains("Bob"));
+//!     assert!(processor.output.contains("Alice"));
+//! }
+//! ```
+//!
+
+
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
 
@@ -328,6 +404,31 @@ pub fn fixture(args: proc_macro::TokenStream,
     render_fixture(fixture, Resolver::default(), modifiers).into()
 }
 
+/// Write a test with injected fixutres. You can declare all used fixtures by give them in
+/// function's arguments.
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn injected() -> i32 { 42 }
+///
+/// #[rstest]
+/// fn the_test(injected: u32) {
+///     assert_eq!(42, injected)
+/// }
+/// ```
+///
+/// [[`rstest`]](attr.rstest.html) macro will desugar it to something that is not so far from
+///
+/// ```
+/// #[test]
+/// fn the_test() {
+///     let injected=injected();
+///     assert_eq!(42, injected)
+/// }
+/// ```
+///
+///
 #[proc_macro_attribute]
 pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
