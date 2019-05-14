@@ -2,11 +2,11 @@
 //! [test fixtures concept](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture
 //! is something that you can use in your tests to incapsulate test's dependencies.
 //!
-//! A Fixture is modelled by function that return any kind of valid Rust type. Fixture data should be
-//! any valid rust data type that you need in your tests. In a test you can use one or more
-//! fixtures to proviede all test's dependencies.
+//! In rstest a Fixture is modelled by function that return any kind of valid Rust type. Fixture
+//! data should be any valid rust data type that you need in your tests. In a test you can use one
+//! or more fixtures to proviede all test's dependencies.
 //!
-//! Very often in Rust we write test like follow
+//! Very often in Rust we write test like this
 //!
 //! ```
 //! #[test]
@@ -71,6 +71,15 @@
 //!     assert!(processor.output.contains("Alice"));
 //! }
 //! ```
+//!
+//! ## Inject Fixtures as Funtion arguments
+//!
+//! Rstest functions can receive fixture by use them as an input argument. An `[rstest]` marked
+//! function will resolve each argument name by call the fixture function. Fixture functions should
+//! be marked by `[fixture]`
+//!
+//! Lets ses a concrete example:
+//!
 //!
 
 
