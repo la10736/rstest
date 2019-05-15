@@ -10,6 +10,8 @@ default = []
 # Depends on nightly
 trace_all = []
 
+[dependencies]
+lazy_static = "*"
 
 [dependencies.rstest]
 path = "../"
