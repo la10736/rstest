@@ -368,6 +368,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let vargs = fn_args_idents(&fixture);
     let args = &vargs;
     let orig_args = &fixture.decl.inputs;
+    let orig_attrs = &fixture.attrs;
     let generics = &fixture.decl.generics;
     let default_output = modifiers.extract_default_type().unwrap_or(fixture.decl.output.clone());
     let default_generics = generics_clean_up(fixture.decl.generics.clone(), &default_output);
@@ -382,6 +383,7 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
         #visibility struct #name {}
 
         impl #name {
+            #(#orig_attrs)*
             pub fn get #generics (#orig_args) #output #where_clause {
                 #body
             }
