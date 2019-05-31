@@ -10,7 +10,12 @@ trait Repository {
     fn add(&mut self, name: &str, age: u8) -> &Entry;
     fn entries<'a, 'b: 'a>(&'b self) -> Box<dyn Iterator<Item=&'b Entry> + 'a>;
 }
-trait Processor { fn send(&mut self, message: &str, entry: &Entry); }
+trait Processor {
+    fn send(&mut self, entry: &Entry, message: &str);
+    fn send_all<'a, 'b: 'a>(&'b mut self, entries: impl Iterator<Item=&'a Entry>, message: &str){
+        entries.map(|e| self.send(e, message)).count();
+    }
+}
 
 #[derive(Default)]
 struct Rep(Vec<Entry>);
@@ -25,24 +30,24 @@ impl Repository for Rep {
     }
 }
 
-struct RepositoryProcessor<R, P>
+struct RepositoryProcessor<'processor, R, P>
     where R: Repository,
         P: Processor
 {
     repository: R,
-    processor: P
+    processor: &'processor mut P
 }
 
-impl<R, P> RepositoryProcessor<R, P>
+impl<'processor, R, P> RepositoryProcessor<'processor, R, P>
     where R: Repository,
           P: Processor
 {
-    pub fn new(repository: R, processor: P) -> Self {
+    pub fn new(repository: R, processor: &'processor mut P) -> Self {
          RepositoryProcessor { repository, processor }
     }
 
     pub fn send_all(&mut self, message: &str){
-        unimplemented!()
+        self.processor.send_all(self.repository.entries(), message)
     }
 }
 
@@ -64,8 +69,8 @@ struct FakeProcessor{
 }
 
 impl Processor for FakeProcessor {
-    fn send(&mut self, message: &str, entry: &Entry) {
-        unimplemented!()
+    fn send(&mut self, entry: &Entry, message: &str) {
+        self.output.push_str(&format!("[{} {}]: {}\n", entry.name, entry.age, message))
     }
 }
 
@@ -76,12 +81,12 @@ fn string_processor() -> FakeProcessor {
 
 
 #[rstest]
-fn should_process_two_users(alice_and_bob: impl Repository, string_processor: FakeProcessor) {
-    let mut processor = RepositoryProcessor::new(alice_and_bob, string_processor);
+fn should_process_two_users(alice_and_bob: impl Repository, mut string_processor: FakeProcessor) {
+    let mut processor = RepositoryProcessor::new(alice_and_bob, &mut string_processor);
 
     processor.send_all("Good Morning");
 
-    assert_eq!(2, processor.processor.output.matches("Good Morning").count());
-    assert!(processor.processor.output.contains("Bob"));
-    assert!(processor.processor.output.contains("Alice"));
+    assert_eq!(2, string_processor.output.matches("Good Morning").count());
+    assert!(string_processor.output.contains("Bob"));
+    assert!(string_processor.output.contains("Alice"));
 }
