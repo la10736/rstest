@@ -10,7 +10,7 @@ use std::rc::Rc;
 struct Entry { name: String, age: u8 }
 trait Repository {
     fn add(&mut self, name: &str, age: u8) -> &Entry;
-    fn entries<'a, 'b: 'a>(&'b self) -> Box<dyn Iterator<Item=&'b Entry> + 'a>;
+    fn entries<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Entry> + 'a>;
 }
 
 trait Processor {
@@ -28,7 +28,7 @@ impl Repository for Rep {
         self.0.last().unwrap()
     }
 
-    fn entries<'a, 'b: 'a>(&'b self) -> Box<dyn Iterator<Item=&'b Entry> + 'a> {
+    fn entries<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Entry> + 'a> {
         Box::new(self.0.iter())
     }
 }
