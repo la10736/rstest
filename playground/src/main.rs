@@ -4,15 +4,18 @@ use std::path::{PathBuf, Path};
 use std::str::FromStr;
 
 use rstest::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 struct Entry { name: String, age: u8 }
 trait Repository {
     fn add(&mut self, name: &str, age: u8) -> &Entry;
     fn entries<'a, 'b: 'a>(&'b self) -> Box<dyn Iterator<Item=&'b Entry> + 'a>;
 }
+
 trait Processor {
-    fn send(&mut self, entry: &Entry, message: &str);
-    fn send_all<'a, 'b: 'a>(&'b mut self, entries: impl Iterator<Item=&'a Entry>, message: &str){
+    fn send(&self, entry: &Entry, message: &str);
+    fn send_all<'a, 'b: 'a>(&'b self, entries: impl Iterator<Item=&'a Entry>, message: &str){
         entries.map(|e| self.send(e, message)).count();
     }
 }
@@ -30,23 +33,23 @@ impl Repository for Rep {
     }
 }
 
-struct RepositoryProcessor<'processor, R, P>
+struct RepositoryProcessor<R, P>
     where R: Repository,
         P: Processor
 {
     repository: R,
-    processor: &'processor mut P
+    processor: P
 }
 
-impl<'processor, R, P> RepositoryProcessor<'processor, R, P>
+impl<R, P> RepositoryProcessor<R, P>
     where R: Repository,
           P: Processor
 {
-    pub fn new(repository: R, processor: &'processor mut P) -> Self {
+    pub fn new(repository: R, processor: P) -> Self {
          RepositoryProcessor { repository, processor }
     }
 
-    pub fn send_all(&mut self, message: &str){
+    pub fn send_all(&self, message: &str){
         self.processor.send_all(self.repository.entries(), message)
     }
 }
@@ -65,28 +68,38 @@ fn alice_and_bob(mut empty_repository: impl Repository) -> impl Repository {
 
 #[derive(Default)]
 struct FakeProcessor{
-    output: String
+    output: RefCell<String>
 }
 
 impl Processor for FakeProcessor {
-    fn send(&mut self, entry: &Entry, message: &str) {
-        self.output.push_str(&format!("[{} {}]: {}\n", entry.name, entry.age, message))
+    fn send(&self, entry: &Entry, message: &str) {
+        self.output
+            .borrow_mut()
+            .push_str(&format!("[{} {}]: {}\n", entry.name, entry.age, message))
     }
 }
 
 #[fixture]
-fn string_processor() -> FakeProcessor {
-    Default::default()
+fn string_processor() -> Rc<FakeProcessor> {
+    Rc::new(Default::default())
 }
 
+impl Processor for Rc<FakeProcessor> {
+    fn send(&self, entry: &Entry, message: &str) {
+        self.as_ref().send(entry, message)
+    }
+}
 
 #[rstest]
-fn should_process_two_users(alice_and_bob: impl Repository, mut string_processor: FakeProcessor) {
-    let mut processor = RepositoryProcessor::new(alice_and_bob, &mut string_processor);
+fn should_process_two_users(alice_and_bob: impl Repository, string_processor: Rc<FakeProcessor>) {
+    let processor =
+        RepositoryProcessor::new(alice_and_bob, string_processor.clone());
 
     processor.send_all("Good Morning");
 
-    assert_eq!(2, string_processor.output.matches("Good Morning").count());
-    assert!(string_processor.output.contains("Bob"));
-    assert!(string_processor.output.contains("Alice"));
+    let out = string_processor.output.borrow();
+
+    assert_eq!(2, out.matches("Good Morning").count());
+    assert!(out.contains("Bob"));
+    assert!(out.contains("Alice"));
 }
