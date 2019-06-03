@@ -15,7 +15,7 @@ trait Repository {
 
 trait Processor {
     fn send(&self, entry: &Entry, message: &str);
-    fn send_all<'a, 'b: 'a>(&'b self, entries: impl Iterator<Item=&'a Entry>, message: &str){
+    fn send_all<'a>(&self, entries: impl Iterator<Item=&'a Entry>, message: &str){
         entries.map(|e| self.send(e, message)).count();
     }
 }
