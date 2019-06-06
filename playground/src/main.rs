@@ -1,30 +1,48 @@
-use rstest::*;
-use lazy_static::lazy_static;
-use std::path::{PathBuf, Path};
-use std::str::FromStr;
-
-use rstest::*;
 use std::cell::RefCell;
 use std::rc::Rc;
+use rstest::*;
 
 struct Entry { name: String, age: u8 }
+
 trait Repository {
-    fn add(&mut self, name: &str, age: u8) -> &Entry;
+    fn create(&mut self, name: &str, age: u8) -> &Entry;
     fn entries<'a>(&'a self) -> Box<dyn Iterator<Item=&'a Entry> + 'a>;
 }
 
 trait Processor {
     fn send(&self, entry: &Entry, message: &str);
-    fn send_all<'a>(&self, entries: impl Iterator<Item=&'a Entry>, message: &str){
+    fn send_all<'a>(&self, entries: impl Iterator<Item=&'a Entry>, message: &str) {
         entries.map(|e| self.send(e, message)).count();
     }
 }
 
+struct RepositoryProcessor<R, P>
+    where R: Repository,
+          P: Processor
+{
+    repository: R,
+    processor: P,
+}
+
+impl<R, P> RepositoryProcessor<R, P>
+    where R: Repository,
+          P: Processor
+{
+    pub fn new(repository: R, processor: P) -> Self {
+        RepositoryProcessor { repository, processor }
+    }
+
+    pub fn send_all(&self, message: &str) {
+        self.processor.send_all(self.repository.entries(), message)
+    }
+}
+
 #[derive(Default)]
-struct Rep(Vec<Entry>);
-impl Repository for Rep {
-    fn add(&mut self, name: &str, age: u8) -> &Entry {
-        self.0.push(Entry { name: name.to_owned() , age });
+struct InMemoryRepository(Vec<Entry>);
+
+impl Repository for InMemoryRepository {
+    fn create(&mut self, name: &str, age: u8) -> &Entry {
+        self.0.push(Entry { name: name.to_owned(), age });
         self.0.last().unwrap()
     }
 
@@ -33,41 +51,8 @@ impl Repository for Rep {
     }
 }
 
-struct RepositoryProcessor<R, P>
-    where R: Repository,
-        P: Processor
-{
-    repository: R,
-    processor: P
-}
-
-impl<R, P> RepositoryProcessor<R, P>
-    where R: Repository,
-          P: Processor
-{
-    pub fn new(repository: R, processor: P) -> Self {
-         RepositoryProcessor { repository, processor }
-    }
-
-    pub fn send_all(&self, message: &str){
-        self.processor.send_all(self.repository.entries(), message)
-    }
-}
-
-#[fixture]
-fn empty_repository() -> Rep {
-    Default::default()
-}
-
-#[fixture]
-fn alice_and_bob(mut empty_repository: impl Repository) -> impl Repository {
-     empty_repository.add("Bob", 21);
-     empty_repository.add("Alice", 22);
-     empty_repository
-}
-
 #[derive(Default)]
-struct FakeProcessor{
+struct FakeProcessor {
     output: RefCell<String>
 }
 
@@ -79,15 +64,27 @@ impl Processor for FakeProcessor {
     }
 }
 
-#[fixture]
-fn string_processor() -> Rc<FakeProcessor> {
-    Rc::new(Default::default())
-}
-
 impl Processor for Rc<FakeProcessor> {
     fn send(&self, entry: &Entry, message: &str) {
         self.as_ref().send(entry, message)
     }
+}
+
+#[fixture]
+fn empty_repository() -> InMemoryRepository {
+    Default::default()
+}
+
+#[fixture]
+fn alice_and_bob(mut empty_repository: impl Repository) -> impl Repository {
+    empty_repository.create("Bob", 21);
+    empty_repository.create("Alice", 22);
+    empty_repository
+}
+
+#[fixture]
+fn string_processor() -> Rc<FakeProcessor> {
+    Rc::new(Default::default())
 }
 
 #[rstest]
