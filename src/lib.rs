@@ -78,9 +78,88 @@
 //! function will resolve each argument name by call the fixture function. Fixture functions should
 //! be marked by `[fixture]` attribute.
 //!
-//! We can recall previous example and write all details and add one other test case.
+//! Fixtures will be resolved like function call by following the standard resolution rules. So the
+//! same fixture name can be use in different context.
 //!
 //! ```
+//! # use rstest::*;
+//! # trait Repository { }
+//! # #[derive(Default)]
+//! # struct DataSet {}
+//! # impl Repository for DataSet { }
+//!
+//! mod empty_cases {
+//! # use rstest::*;
+//! # trait Repository { }
+//! # #[derive(Default)]
+//! # struct DataSet {}
+//! # impl Repository for DataSet { }
+//!     use super::*;
+//!
+//!     #[fixture]
+//!     fn repository() -> impl Repository {
+//!         DataSet::default()
+//!     }
+//!
+//!     #[rstest]
+//!     fn should_do_nothing(repository: impl Repository) {
+//!         //.. test impl ..
+//!     }
+//! }
+//!
+//! mod non_trivial_case {
+//! # use rstest::*;
+//! # trait Repository { }
+//! # #[derive(Default)]
+//! # struct DataSet {}
+//! # impl Repository for DataSet { }
+//!     use super::*;
+//!
+//!     #[fixture]
+//!     fn repository() -> impl Repository {
+//!         let mut ds = DataSet::default();
+//!         // Fill your dataset with interesting case
+//!         ds
+//!     }
+//!
+//!     #[rstest]
+//!     fn should_notify_all_entries(repository: impl Repository) {
+//!         //.. test impl ..
+//!     }
+//! }
+//!
+//! ```
+//!
+//! As last but not last fixtures can be injected like we saw in the first example.
+//!
+//! ## Create parametrized tests
+//!
+//! You can use use `rstest_parametrize` to create simple parametric test. Let's see
+//! the classic Fibonacci exmple:
+//!
+//! ```
+//!    use rstest::rstest_parametrize;
+//!
+//!    #[rstest_parametrize(input, expected,
+//!        case(0, 0),
+//!        case(1, 1),
+//!        case(2, 1),
+//!        case(3, 2),
+//!        case(4, 3),
+//!        case(5, 5),
+//!        case(6, 8)
+//!    )]
+//!    fn fibonacci_test(input: u32, expected: u32) {
+//!        assert_eq!(expected, fibonacci(input))
+//!    }
+//!
+//!    fn fibonacci(input: u32) -> u32 {
+//!        match input {
+//!            0 => 0,
+//!            1 => 1,
+//!            n => fibonacci(n - 2) + fibonacci(n - 1)
+//!        }
+//!    }
 //! ```
 //!
 
