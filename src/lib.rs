@@ -487,6 +487,54 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
         .collect::<Vec<_>>()
 }
 
+/// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
+/// function as `fixture` and then use it as test's argument. Fixture function can also
+/// use other fixture.
+///
+/// Let's see a trivial example:
+///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn twenty_one() -> i32 { 21 }
+///
+/// #[fixture]
+/// fn two() -> i32 { 2 }
+///
+/// #[fixture]
+/// fn injected(twenty_one: i32, two: i32) -> i32 { twenty_one * two }
+///
+/// #[rstest]
+/// fn the_test(injected: i32) {
+///     assert_eq!(42, injected)
+/// }
+/// ```
+///
+/// Sometimes the return type cannot be infered so you must define it: the sporadic times that you
+/// need to do it you can use `default<type>` syntax to define it:
+///
+/// ```
+/// use rstest::*;
+/// # use std::fmt::Debug;
+///
+/// #[fixture]
+/// pub fn i() -> u32 {
+///     42
+/// }
+///
+/// #[fixture(default<impl Iterator<Item=u32>>)]
+/// pub fn fx<I>(i: I) -> impl Iterator<Item=I> {
+///     std::iter::once(i)
+/// }
+///
+/// #[rstest]
+/// fn resolve<I: Debug + PartialEq>(mut fx: impl Iterator<Item=I>) {
+///     assert_eq!(42, fx.next().unwrap())
+/// }
+/// ```
+///
+
 #[proc_macro_attribute]
 pub fn fixture(args: proc_macro::TokenStream,
                input: proc_macro::TokenStream)
@@ -505,7 +553,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// fn injected() -> i32 { 42 }
 ///
 /// #[rstest]
-/// fn the_test(injected: u32) {
+/// fn the_test(injected: i32) {
 ///     assert_eq!(42, injected)
 /// }
 /// ```
@@ -520,7 +568,45 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 ///
+/// You can dump all input arguments of your test by use `trace` attribute.
 ///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn injected() -> i32 { 42 }
+///
+/// #[rstest(trace)]
+/// fn the_test(injected: i32) {
+///     assert_eq!(42, injected)
+/// }
+/// ```
+///
+/// Will print an output like
+///
+/// ```bash
+/// Testing started at 14.12 ...
+/// ------------ TEST ARGUMENTS ------------
+/// injected = 42
+/// -------------- TEST START --------------
+///
+///
+/// Expected :42
+/// Actual   :43
+/// ```
+/// If you want trace input arguments but skip some of them that not implement `Debug` you can use
+/// also `notrace(list_of_inputs)` modifier:
+///
+/// ```
+/// # use rstest::*;
+/// # struct Xyz;
+/// # struct NoSense;
+///
+/// #[rstest(trace::notrace(xzy, have_no_sense))]
+/// fn the_test(injected: i32, xyz: Xyz, have_no_sense: NoSense) {
+///     assert_eq!(42, injected)
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
