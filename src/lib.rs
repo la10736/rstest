@@ -30,7 +30,9 @@
 //! # use rstest::*;
 //!
 //! #[rstest]
-//! fn should_process_two_users(mut empty_repository: impl Repository, string_processor: FakeProcessor) {
+//! fn should_process_two_users(mut empty_repository: impl Repository,
+//!                             string_processor: FakeProcessor)
+//! {
 //!     empty_repository.add("Bob", 21);
 //!     empty_repository.add("Alice", 22);
 //!
@@ -63,7 +65,8 @@
 //! }
 //!
 //! #[rstest]
-//! fn should_process_two_users(alice_and_bob: impl Repository, string_processor: FakeProcessor) {
+//! fn should_process_two_users(alice_and_bob: impl Repository,
+//!                             string_processor: FakeProcessor) {
 //!     string_processor.send_all("Good Morning");
 //!
 //!     assert_eq!(2, string_processor.output.find("Good Morning").count());
@@ -138,28 +141,28 @@
 //! the classic Fibonacci exmple:
 //!
 //! ```
-//!    use rstest::rstest_parametrize;
+//! use rstest::rstest_parametrize;
 //!
-//!    #[rstest_parametrize(input, expected,
-//!        case(0, 0),
-//!        case(1, 1),
-//!        case(2, 1),
-//!        case(3, 2),
-//!        case(4, 3),
-//!        case(5, 5),
-//!        case(6, 8)
-//!    )]
-//!    fn fibonacci_test(input: u32, expected: u32) {
-//!        assert_eq!(expected, fibonacci(input))
-//!    }
+//! #[rstest_parametrize(input, expected,
+//!     case(0, 0),
+//!     case(1, 1),
+//!     case(2, 1),
+//!     case(3, 2),
+//!     case(4, 3),
+//!     case(5, 5),
+//!     case(6, 8)
+//! )]
+//! fn fibonacci_test(input: u32, expected: u32) {
+//!     assert_eq!(expected, fibonacci(input))
+//! }
 //!
-//!    fn fibonacci(input: u32) -> u32 {
-//!        match input {
-//!            0 => 0,
-//!            1 => 1,
-//!            n => fibonacci(n - 2) + fibonacci(n - 1)
-//!        }
-//!    }
+//! fn fibonacci(input: u32) -> u32 {
+//!     match input {
+//!         0 => 0,
+//!         1 => 1,
+//!         n => fibonacci(n - 2) + fibonacci(n - 1)
+//!     }
+//! }
 //! ```
 //!
 
@@ -168,12 +171,12 @@
 extern crate proc_macro;
 
 use proc_macro2::TokenStream;
-use quote::{quote, TokenStreamExt, ToTokens};
-use syn::{ArgCaptured, FnArg, Ident, ItemFn, parse_macro_input,
-          Pat, Stmt, ReturnType, Generics};
+use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
+          parse_macro_input, Pat, ReturnType, Stmt};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
+use quote::{quote, TokenStreamExt, ToTokens};
 
 mod parse;
 mod error;
@@ -191,7 +194,7 @@ impl<T: ToTokens> Tokenize for T {
 
 fn default_fixture_resolve(ident: &Ident) -> parse::CaseArg {
     syn::parse2(
-        quote!{#ident::default()}
+        quote! {#ident::default()}
     ).unwrap()
 }
 
@@ -355,12 +358,12 @@ trait ArgsResolver {
 }
 
 impl ArgsResolver for ItemFn {
-    fn resolve_args(&self, resolver: &Resolver) -> TokenStream  {
+    fn resolve_args(&self, resolver: &Resolver) -> TokenStream {
         let define_vars = fn_args(self)
-                .filter_map(fn_arg_ident)
-                .map(|arg|
-                    arg_2_fixture(arg, resolver)
-                );
+            .filter_map(fn_arg_ident)
+            .map(|arg|
+                arg_2_fixture(arg, resolver)
+            );
         quote! {
             #(#define_vars)*
         }
@@ -534,7 +537,6 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 /// }
 /// ```
 ///
-
 #[proc_macro_attribute]
 pub fn fixture(args: proc_macro::TokenStream,
                input: proc_macro::TokenStream)
@@ -684,6 +686,38 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
     format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
 }
 
+/// Write table based tests: you must indicate the arguments tha you want use in your cases
+/// and provide them for each case you want to test. `rstest_parametrize` generates an independent
+/// test for each case.
+///
+/// ```
+/// # use rstest::rstest_parametrize;
+///
+/// #[rstest_parametrize(input, expected,
+///     case(0, 0),
+///     case(1, 1),
+///     case(2, 1),
+///     case(3, 2),
+///     case(4, 3)
+/// )]
+/// fn fibonacci_test(input: u32, expected: u32) {
+///     assert_eq!(expected, fibonacci(input))
+/// }
+/// ```
+///
+/// Produce something like this:
+///
+/// ```bash
+/// running 5 tests
+/// test fibonacci_test::case_1 ... ok
+/// test fibonacci_test::case_2 ... ok
+/// test fibonacci_test::case_3 ... ok
+/// test fibonacci_test::case_4 ... ok
+/// test fibonacci_test::case_5 ... ok
+///
+/// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// ```
+///
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
@@ -701,7 +735,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 #[cfg(test)]
 mod render {
     use pretty_assertions::assert_eq;
-    use syn::{ItemFn, punctuated, Expr, parse_str};
+    use syn::{Expr, ItemFn, parse_str, punctuated};
     use syn::export::Debug;
     use syn::parse2;
 
@@ -1105,10 +1139,10 @@ mod render {
         use syn::{ItemFn, ItemImpl, ItemStruct, parse2, parse_str};
         use syn::parse::{Parse, ParseBuffer, Result};
 
-        use crate::{render_fixture, generics_clean_up};
+        use crate::{generics_clean_up, render_fixture};
+        use crate::parse::{Modifiers, RsTestAttribute};
 
         use super::assert_eq;
-        use crate::parse::{Modifiers, RsTestAttribute};
 
         struct FixtureOutput {
             orig: ItemFn,
