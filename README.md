@@ -6,7 +6,7 @@ lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.2"
+rstest = "0.3"
 ```
 
 The core idea is that every input arguments of your test function will
@@ -34,7 +34,7 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-Moreover you can use `rstest_parametrize` attribute to implement table
+Moreover you can use `rstest_parametrize` macro to implement table
 based tests.  An example is the best way to explain it
 
 ```rust
