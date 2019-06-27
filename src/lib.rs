@@ -31,8 +31,7 @@
 //!
 //! #[rstest]
 //! fn should_process_two_users(mut empty_repository: impl Repository,
-//!                             string_processor: FakeProcessor)
-//! {
+//!                             string_processor: FakeProcessor) {
 //!     empty_repository.add("Bob", 21);
 //!     empty_repository.add("Alice", 22);
 //!
@@ -718,6 +717,46 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
+/// Every parameter that isn't mapped in cases will be resolved as `fixture` like
+/// [[`rstest`]](attr.rstest.html)'s function arguments.
+///
+/// In general `rstest_parametrize`'s syntax is:
+///
+/// ```norun
+/// rstest_parametrize(ident_1,..., ident_n,
+///     case[::description_1](val_1_1, ..., val_n_1),
+///     ...,
+///     case[::description_m](val_1_m, ..., val_n_m)[,]
+///     [::modifier_1[:: ... ::modifir_k]]
+/// )
+/// ```
+/// * `ident_x` should be a valid function argument
+/// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
+/// * `description_l` when present should be a valid Rust identity
+/// * modifiers now can be just `trace` or `notrace(args..)` (see [[`rstest`]](attr.rstest.html) to more details)
+///
+/// Functions marked by `rstest_parametrize` can use generics, `impl` and `dyn` without any
+/// restriction.
+///
+/// ```
+/// # use rstest::rstest_parametrize;
+///
+/// #[rstest_parametrize(input, expected,
+///     case("foo", 3),
+///     case(String::from("bar"), 3),
+/// )]
+/// fn len<S: AsRef<str>>(input: S, expected: usize) {
+///     assert_eq!(expected, input.as_ref().len())
+/// }
+///
+/// #[rstest_parametrize(input, expected,
+///     case("foo", 3),
+///     case(String::from("bar"), 3),
+/// )]
+/// fn len_by_impl(input: impl AsRef<str>, expected: usize) {
+///     assert_eq!(expected, input.as_ref().len())
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream

@@ -1,5 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+//use std::cell::RefCell;
+//use std::rc::Rc;
 use rstest::*;
 
 struct Entry { name: String, age: u8 }
@@ -99,4 +99,20 @@ fn should_process_two_users(alice_and_bob: impl Repository, string_processor: Rc
     assert_eq!(2, out.matches("Good Morning").count());
     assert!(out.contains("Bob"));
     assert!(out.contains("Alice"));
+}
+
+#[rstest_parametrize(input, expected,
+    case("foo", 3),
+    case(String::from("bar"), 3),
+)]
+fn len<S: AsRef<str>>(input: S, expected: usize) {
+    assert_eq!(expected, input.as_ref().len())
+}
+
+#[rstest_parametrize(input, expected,
+case("foo", 3),
+case(String::from("bar"), 3),
+)]
+fn len_by_impl(input: impl AsRef<str>, expected: usize) {
+    assert_eq!(expected, input.as_ref().len())
 }
