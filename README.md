@@ -51,7 +51,7 @@ fn strlen_test(expected: usize, input: &str) {
 }
 ```
 
-You can learn more on [Docs](https://docs.rs/rstest/0.2.2/rstest/) and 
+You can learn more on [Docs](https://docs.rs/rstest/0.3.0/rstest/) and 
 find more examples in [`resources`](resources) directory and in 
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
 that use this module intensely.
@@ -60,9 +60,9 @@ that use this module intensely.
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or 
+http://www.apache.org/licenses/LICENSE-2.0)
 
 * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
 at your option.
 
