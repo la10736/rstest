@@ -10,9 +10,7 @@ rstest = "0.3"
 ```
 
 The core idea is that every input arguments of your test function will
-be resolved by call a function with the same name. You can also use
-`mut` argument or generic types.
-
+be resolved by call a function with the same name.
 Example:
 
 ```rust
@@ -53,7 +51,10 @@ fn strlen_test(expected: usize, input: &str) {
 }
 ```
 
-You can find more examples in [`resources`](resources) directory and in [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) that use this module intensely.
+You can learn more on [Docs](https://docs.rs/rstest/0.2.2/rstest/) and 
+find more examples in [`resources`](resources) directory and in 
+[`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
+that use this module intensely.
 
 ## License
 

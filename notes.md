@@ -20,10 +20,11 @@ fn should_parse_empty_file() {
 }
 ```
 
-Ok, `create_empty_file()` should do a lot of job and can be reused in other tests and fixtures:
-it's a good candidate to be a fixture. Let's rewrite previous example by use `rstest`: we'll use
-`empty` for fixture instead of `create_empty_file()` because when we use as fixture will be an
-object instead an action.
+Ok, `create_empty_file()` should do a lot of job and can be reused in 
+other tests and fixtures: it's a good candidate to be a fixture. 
+Let's rewrite previous example by use `rstest`: we'll use `empty` for 
+fixture instead of `create_empty_file()` because when we use as fixture 
+will be an object instead an action.
 
 ```rust
 use std::path::{PathBuf, Path};
@@ -49,8 +50,9 @@ fn should_parse_empty_file(empty: PathBuf) {
 }
 ```
 
-Now our `Matrix`'s `From` trait is a little bit more generic and can take every struct that
-implement `AsRef<Path>` like `PathBuf` do. So we can generalize our test too:
+Now our `Matrix`'s `From` trait is a little bit more generic and can 
+take every struct that implement `AsRef<Path>` like `PathBuf` do. So we 
+can generalize our test too:
 
 ```rust
 use std::path::{PathBuf, Path};
@@ -72,11 +74,12 @@ fn should_parse_empty_file<P>(empty: P)
 }
 ```
 
-Now our test is neat and clear but we have a big issue to fix: we cannot leave `"empty_file"`
-on our disk, we must remove it we are done! That is a job for Rust ownership!!
+Our test is neat and clear but we have a big issue to fix: we cannot 
+leave `"empty_file"` on our disk, we must remove it we are done! 
+That is a job for Rust ownership!!
 
-We should just wrap `PathBuf` in out `TempFile` struct and implement both `Drop` and
-`AsRef<Path>` traits. We'll use `Drop` to delete it.
+We should just wrap `PathBuf` in out `TempFile` struct and implement 
+both `Drop` and `AsRef<Path>` traits. We'll use `Drop` to delete it.
 
 ```rust
 use std::path::{PathBuf, Path};
@@ -102,6 +105,3 @@ fn empty() -> TempFile {
      std::fs::File::create(&path).expect("Cannot open");
      TempFile(path)
 }
-```
-
-
