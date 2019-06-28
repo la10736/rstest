@@ -2,11 +2,21 @@
 //! [test fixtures concept](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture
 //! is something that you can use in your tests to incapsulate test's dependencies.
 //!
-//! In rstest a Fixture is modelled by function that return any kind of valid Rust type. Fixture
+//! In `rstest` a Fixture is modelled by function that return any kind of valid Rust type. Fixture
 //! data should be any valid rust data type that you need in your tests. In a test you can use one
-//! or more fixtures to proviede all test's dependencies.
+//! or more fixtures to provide all test's dependencies.
 //!
-//! Very often in Rust we write test like this
+//! ## What
+//!
+//! `rstest` crate define follow procedural macros:
+//!
+//! - [`[rstest]`](attr.rstest.html): fixture injected test
+//! - [`[rstest_parametrize]`](attr.rstest_parametrize.html): table base tests
+//! - [`[fixture]`](attr.fixture.html): define a fixture
+//!
+//! ## Why
+//!
+//! Very often in Rust we write tests like this
 //!
 //! ```
 //! #[test]
@@ -24,26 +34,26 @@
 //! }
 //! ```
 //!
-//! By use `rstest` you can write
+//! By use [`[rstest]`](attr.rstest.html) you can isolate the dependencies by `empty_repository` and
+//! `string_processor` by give them as fixtures:
 //!
 //! ```
 //! # use rstest::*;
-//!
 //! #[rstest]
 //! fn should_process_two_users(mut empty_repository: impl Repository,
 //!                             string_processor: FakeProcessor) {
 //!     empty_repository.add("Bob", 21);
 //!     empty_repository.add("Alice", 22);
 //!
-//!     processor.send_all("Good Morning");
+//!     string_processor.send_all("Good Morning");
 //!
-//!     assert_eq!(2, processor.output.find("Good Morning").count());
-//!     assert!(processor.output.contains("Bob"));
-//!     assert!(processor.output.contains("Alice"));
+//!     assert_eq!(2, string_processor.output.find("Good Morning").count());
+//!     assert!(string_processor.output.contains("Bob"));
+//!     assert!(string_processor.output.contains("Alice"));
 //! }
 //! ```
 //!
-//! ... or if you use `"Alice"` and `"Bob"` in more tests you can have an `alice_and_bob` fixture
+//! ... or if you use `"Alice"` and `"Bob"` in other tests you can isolate `alice_and_bob` fixture
 //! and use it directly:
 //!
 //! ```
@@ -55,7 +65,6 @@
 //! # fn empty_repository() -> Rep {
 //! #     Rep
 //! # }
-//!
 //! #[fixture]
 //! fn alice_and_bob(mut empty_repository: impl Repository) -> impl Repository {
 //!     empty_repository.add("Bob", 21);
@@ -76,11 +85,12 @@
 //!
 //! ## Inject Fixtures as Funtion arguments
 //!
-//! Rstest functions can receive fixture by use them as an input argument. An `[rstest]` marked
-//! function will resolve each argument name by call the fixture function. Fixture functions should
-//! be marked by `[fixture]` attribute.
+//! Rstest functions can receive fixture by use them as an input argument. An
+//! [`[rstest]`](attr.rstest.html) marked function will resolve each argument name by call the
+//! fixture function. Fixture functions should be marked by [`[fixture]`](attr.fixture.html)
+//! attribute.
 //!
-//! Fixtures will be resolved like function call by following the standard resolution rules. So the
+//! Fixtures will be resolved like function call by following the standard resolution rules. So, the
 //! same fixture name can be use in different context.
 //!
 //! ```
@@ -89,7 +99,6 @@
 //! # #[derive(Default)]
 //! # struct DataSet {}
 //! # impl Repository for DataSet { }
-//!
 //! mod empty_cases {
 //! # use rstest::*;
 //! # trait Repository { }
@@ -132,12 +141,12 @@
 //!
 //! ```
 //!
-//! As last but not last fixtures can be injected like we saw in the first example.
+//! As last but not last fixtures can be injected like we saw in `alice_and_bob` example.
 //!
 //! ## Create parametrized tests
 //!
-//! You can use use `rstest_parametrize` to create simple parametric test. Let's see
-//! the classic Fibonacci exmple:
+//! You can use use [`[rstest_parametrize]`](attr.rstest_parametrize.html) to create simple table
+//! based test. Let's see the classic Fibonacci exmple:
 //!
 //! ```
 //! use rstest::rstest_parametrize;
@@ -490,7 +499,7 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 }
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
-/// function as `fixture` and then use it as test's argument. Fixture function can also
+/// function as `[fixture]` and then use it as test's argument. Fixture function can also
 /// use other fixture.
 ///
 /// Let's see a trivial example:
@@ -545,8 +554,8 @@ pub fn fixture(args: proc_macro::TokenStream,
     render_fixture(fixture, Resolver::default(), modifiers).into()
 }
 
-/// Write a test with injected fixutres. You can declare all used fixtures by give them in
-/// function's arguments.
+/// Write a test with injected [`[fixture]`](attr.fixture.html). You can declare all used fixtures
+/// by give them in function's arguments.
 /// ```
 /// use rstest::*;
 ///
@@ -559,7 +568,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 ///
-/// [[`rstest`]](attr.rstest.html) macro will desugar it to something that is not so far from
+/// [`[rstest]`](attr.rstest.html) macro will desugar it to something that is not so far from
 ///
 /// ```
 /// #[test]
@@ -595,14 +604,13 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// Expected :42
 /// Actual   :43
 /// ```
-/// If you want trace input arguments but skip some of them that not implement `Debug` you can use
-/// also `notrace(list_of_inputs)` modifier:
+/// If you want trace input arguments but skip some of them that not implement `Debug` trait you can
+/// use also `notrace(list_of_inputs)` modifier:
 ///
 /// ```
 /// # use rstest::*;
 /// # struct Xyz;
 /// # struct NoSense;
-///
 /// #[rstest(trace::notrace(xzy, have_no_sense))]
 /// fn the_test(injected: i32, xyz: Xyz, have_no_sense: NoSense) {
 ///     assert_eq!(42, injected)
@@ -686,12 +694,12 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 }
 
 /// Write table based tests: you must indicate the arguments tha you want use in your cases
-/// and provide them for each case you want to test. `rstest_parametrize` generates an independent
-/// test for each case.
+/// and provide them for each case you want to test.
+///
+/// `rstest_parametrize` generates an independent test for each case.
 ///
 /// ```
 /// # use rstest::rstest_parametrize;
-///
 /// #[rstest_parametrize(input, expected,
 ///     case(0, 0),
 ///     case(1, 1),
@@ -704,7 +712,7 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 /// }
 /// ```
 ///
-/// Produce something like this:
+/// Run `cargo test` in this case execute five tests:
 ///
 /// ```bash
 /// running 5 tests
@@ -718,7 +726,7 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 /// ```
 ///
 /// Every parameter that isn't mapped in cases will be resolved as `fixture` like
-/// [[`rstest`]](attr.rstest.html)'s function arguments.
+/// [`[rstest]`](attr.rstest.html)'s function arguments.
 ///
 /// In general `rstest_parametrize`'s syntax is:
 ///
@@ -727,20 +735,19 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 ///     case[::description_1](val_1_1, ..., val_n_1),
 ///     ...,
 ///     case[::description_m](val_1_m, ..., val_n_m)[,]
-///     [::modifier_1[:: ... ::modifir_k]]
+///     [::modifier_1[:: ... [::modifir_k]]]
 /// )
 /// ```
-/// * `ident_x` should be a valid function argument
+/// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
 /// * `description_l` when present should be a valid Rust identity
-/// * modifiers now can be just `trace` or `notrace(args..)` (see [[`rstest`]](attr.rstest.html) to more details)
+/// * modifiers now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
 ///
 /// Functions marked by `rstest_parametrize` can use generics, `impl` and `dyn` without any
 /// restriction.
 ///
 /// ```
 /// # use rstest::rstest_parametrize;
-///
 /// #[rstest_parametrize(input, expected,
 ///     case("foo", 3),
 ///     case(String::from("bar"), 3),
