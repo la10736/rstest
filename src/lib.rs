@@ -1,18 +1,27 @@
-//! This crate will help you to write simpler tests by leverage on
-//! [test fixtures concept](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture
-//! is something that you can use in your tests to incapsulate test's dependencies.
+//! This crate will help you to write simpler tests by leveraging a software testing concept called
+//! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something
+//! that you can use in your tests to encapsulate a test's dependencies.
 //!
-//! In `rstest` a Fixture is modelled by function that return any kind of valid Rust type. Fixture
-//! data should be any valid rust data type that you need in your tests. In a test you can use one
-//! or more fixtures to provide all test's dependencies.
+//! The general idea is to have smaller tests that only describe the thing you're testing while you
+//! hide the auxiliary utilities your tests make use of somewhere else.
+//! For instance, if you have an application that has many tests with users, shopping baskets, and
+//! products, you'd have to create a user, a shopping basket, and product every single time in
+//! every test which becomes unwieldy quickly. In order to cut down on that repetition, you can
+//! instead use fixtures to declare that you need those objects for your function and the fixtures
+//! will take care of creating those by themselves. Focus on the important stuff in your tests!
+//!
+//! In `rstest` a fixture is a function that can return any kind of valid Rust type. This
+//! effectively means that your fixtures are not limited by the kind of data they can return.
+//! A test can consume an arbitrary number of fixtures at the same time.
 //!
 //! ## What
 //!
-//! `rstest` crate define follow procedural macros:
+//! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](attr.rstest.html): fixture injected test
-//! - [`[rstest_parametrize]`](attr.rstest_parametrize.html): table base tests
-//! - [`[fixture]`](attr.fixture.html): define a fixture
+//! - [`[rstest]`](attr.rstest.html): A normal Rust test that may additionally take fixtures.
+//! - [`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases based on input tables.
+//! - [`[fixture]`](attr.fixture.html): To mark a function as a fixture.
 //!
 //! ## Why
 //!
@@ -34,8 +43,8 @@
 //! }
 //! ```
 //!
-//! By use [`[rstest]`](attr.rstest.html) you can isolate the dependencies by `empty_repository` and
-//! `string_processor` by give them as fixtures:
+//! By making use of [`[rstest]`](attr.rstest.html) we can isolate the dependencies `empty_repository` and
+//! `string_processor` by passing them as fixtures:
 //!
 //! ```
 //! # use rstest::*;
@@ -53,7 +62,7 @@
 //! }
 //! ```
 //!
-//! ... or if you use `"Alice"` and `"Bob"` in other tests you can isolate `alice_and_bob` fixture
+//! ... or if you use `"Alice"` and `"Bob"` in other tests, you can isolate `alice_and_bob` fixture
 //! and use it directly:
 //!
 //! ```
@@ -83,15 +92,14 @@
 //! }
 //! ```
 //!
-//! ## Inject Fixtures as Funtion arguments
+//! ## Injecting fixtures as funtion arguments
 //!
-//! Rstest functions can receive fixture by use them as an input argument. An
-//! [`[rstest]`](attr.rstest.html) marked function will resolve each argument name by call the
-//! fixture function. Fixture functions should be marked by [`[fixture]`](attr.fixture.html)
-//! attribute.
+//! `rstest` functions can receive fixtures by using them as an input argument. A function decorated
+//! with [`[rstest]`](attr.rstest.html) will resolve each argument name by call the fixture
+//! function. Fixtures should be annotated with the [`[fixture]`](attr.fixture.html) attribute.
 //!
-//! Fixtures will be resolved like function call by following the standard resolution rules. So, the
-//! same fixture name can be use in different context.
+//! Fixtures will be resolved like function calls by following the standard resolution rules.
+//! Therefore, an identically named fixture can be use in different context.
 //!
 //! ```
 //! # use rstest::*;
@@ -141,12 +149,12 @@
 //!
 //! ```
 //!
-//! As last but not last fixtures can be injected like we saw in `alice_and_bob` example.
+//! Last but not least, fixtures can be injected like we saw in `alice_and_bob` example.
 //!
-//! ## Create parametrized tests
+//! ## Creating parametrized tests
 //!
-//! You can use use [`[rstest_parametrize]`](attr.rstest_parametrize.html) to create simple table
-//! based test. Let's see the classic Fibonacci exmple:
+//! You can use use [`[rstest_parametrize]`](attr.rstest_parametrize.html) to create simple
+//! table-based tests. Let's see the classic Fibonacci exmple:
 //!
 //! ```
 //! use rstest::rstest_parametrize;
@@ -172,7 +180,7 @@
 //!     }
 //! }
 //! ```
-//!
+//! This will generate a bunch of tests, one for every `case()`.
 
 
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
@@ -499,8 +507,8 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 }
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
-/// function as `[fixture]` and then use it as test's argument. Fixture function can also
-/// use other fixture.
+/// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
+/// use other fixtures.
 ///
 /// Let's see a trivial example:
 ///
@@ -522,8 +530,8 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 /// }
 /// ```
 ///
-/// Sometimes the return type cannot be infered so you must define it: the sporadic times that you
-/// need to do it you can use `default<type>` syntax to define it:
+/// Sometimes the return type cannot be infered so you must define it: For the few times you may
+/// need to do it, you can use the `default<type>` syntax to define it:
 ///
 /// ```
 /// use rstest::*;
@@ -554,8 +562,8 @@ pub fn fixture(args: proc_macro::TokenStream,
     render_fixture(fixture, Resolver::default(), modifiers).into()
 }
 
-/// Write a test with injected [`[fixture]`](attr.fixture.html). You can declare all used fixtures
-/// by give them in function's arguments.
+/// Write a test that can be injected with [`[fixture]`](attr.fixture.html)s. You can declare all used fixtures
+/// by passing them as a function's arguments.
 /// ```
 /// use rstest::*;
 ///
@@ -578,7 +586,8 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 ///
-/// You can dump all input arguments of your test by use `trace` attribute.
+/// You can dump all input arguments of your test by using the `trace` parameter for the `[rstest]`
+/// attribute.
 ///
 /// ```
 /// use rstest::*;
@@ -604,8 +613,8 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// Expected :42
 /// Actual   :43
 /// ```
-/// If you want trace input arguments but skip some of them that not implement `Debug` trait you can
-/// use also `notrace(list_of_inputs)` modifier:
+/// If you want to trace input arguments but skip some of them that do not implement the `Debug`
+/// trait, you can also use the `notrace(list_of_inputs)` modifier:
 ///
 /// ```
 /// # use rstest::*;
@@ -693,7 +702,7 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
     format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
 }
 
-/// Write table based tests: you must indicate the arguments tha you want use in your cases
+/// Write table-based tests: you must indicate the arguments tha you want use in your cases
 /// and provide them for each case you want to test.
 ///
 /// `rstest_parametrize` generates an independent test for each case.
@@ -712,7 +721,7 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 /// }
 /// ```
 ///
-/// Run `cargo test` in this case execute five tests:
+/// Running `cargo test` in this case executes five tests:
 ///
 /// ```bash
 /// running 5 tests
@@ -725,7 +734,7 @@ fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
-/// Every parameter that isn't mapped in cases will be resolved as `fixture` like
+/// Every parameter that isn't mapped in `case()`s will be resolved as `fixture` like
 /// [`[rstest]`](attr.rstest.html)'s function arguments.
 ///
 /// In general `rstest_parametrize`'s syntax is:
