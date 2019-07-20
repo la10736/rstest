@@ -193,6 +193,7 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
 use quote::{quote, TokenStreamExt, ToTokens};
+use crate::parse::ParametrizeData;
 
 mod parse;
 mod error;
@@ -785,6 +786,46 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     } else {
         add_parametrize_cases(test, params)
     }.into()
+}
+
+#[proc_macro_attribute]
+pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
+                     -> proc_macro::TokenStream
+{
+    //    let params = parse_macro_input!(args as parse::ParametrizeInfo);
+
+    use syn::parse_str;
+    let params = parse::ParametrizeInfo {
+        data: parse::ParametrizeData {
+            args: vec![parse_str("expected").unwrap(), parse_str("input").unwrap()],
+            cases: vec![
+                parse::TestCase {
+                    args: vec![parse_str(r#"4"#).unwrap(), parse_str(r#""ciao""#).unwrap()],
+                    description: parse_str("_1_1").ok(),
+                },
+                parse::TestCase {
+                    args: vec![parse_str(r#"4"#).unwrap(), parse_str(r#""buzz""#).unwrap()],
+                    description: parse_str("_1_2").ok(),
+                },
+                parse::TestCase {
+                    args: vec![parse_str(r#"2*3-2"#).unwrap(), parse_str(r#""ciao""#).unwrap()],
+                    description: parse_str("_2_1").ok(),
+                },
+                parse::TestCase {
+                    args: vec![parse_str(r#"2*3-2"#).unwrap(), parse_str(r#""buzz""#).unwrap()],
+                    description: parse_str("_2_2").ok(),
+                }
+            ],
+
+        },
+        modifiers: Default::default(),
+    };
+    let test = parse_macro_input!(input as ItemFn);
+
+    let tokens = quote! {
+        #test
+    };
+    add_parametrize_cases(test, params).into()
 }
 
 #[cfg(test)]

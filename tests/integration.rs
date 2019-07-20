@@ -11,6 +11,9 @@ mod single;
 /// Parametrize's integration tests
 mod parametrize;
 
+/// Matrix's integration tests
+mod matrix;
+
 /// Fixture's integration tests
 mod fixture;
 
