@@ -193,7 +193,7 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
 use quote::{quote, TokenStreamExt, ToTokens};
-use crate::parse::ParametrizeData;
+use crate::parse::{ParametrizeData, TestCase, CaseArg};
 
 mod parse;
 mod error;
@@ -788,6 +788,70 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     }.into()
 }
 
+struct ValueList {
+    pub arg: Ident,
+    pub values: Vec<syn::Expr>,
+}
+
+struct MatrixInfo {
+    pub args: Vec<ValueList>,
+    pub modifiers: Modifiers,
+}
+
+impl From<Vec<syn::Expr>> for TestCase {
+    fn from(expressions: Vec<syn::Expr>) -> Self {
+        Self {
+            args: expressions.into_iter().map(parse::CaseArg::from).collect(),
+            description: None,
+        }
+    }
+}
+
+fn cases(values: &Vec<ValueList>) -> Vec<Vec<syn::Expr>> {
+    assert!(values.len() > 0);
+    let mut results: Vec<_> = values[0].values.iter()
+        .map(|expr| vec![expr.clone()]).collect();
+    for list in &values[1..] {
+        assert!(list.values.len() > 0);
+        results = list.values.iter()
+            .flat_map(|v|
+                results.clone().into_iter()
+                    .map(move |mut vec| {
+                        vec.push(v.clone());
+                        vec
+                    }
+                    )
+            ).collect()
+    }
+    results
+}
+
+fn descriptions(values: &Vec<ValueList>) -> Vec<String> {
+    assert!(values.len() > 0);
+    let mut results: Vec<_> = (0..values[0].values.len()).map(|pos| format!("_{}", (pos + 1))).collect();
+    for list in &values[1..] {
+        assert!(list.values.len() > 0);
+        results = (0..values.len())
+            .flat_map(|pos|
+                results.iter()
+                    .map(move |s| format!("{}_{}", s, (pos + 1)))
+            ).collect()
+    }
+    results
+}
+
+impl From<MatrixInfo> for parse::ParametrizeInfo {
+    fn from(info: MatrixInfo) -> Self {
+        Self {
+            modifiers: info.modifiers,
+            data: parse::ParametrizeData {
+                args: info.args.iter().map(|ValueList { arg: ident, .. }| ident).cloned().collect(),
+                cases: cases(&info.args).into_iter().map(TestCase::from).collect(),
+            },
+        }
+    }
+}
+
 #[proc_macro_attribute]
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
@@ -795,36 +859,28 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
     //    let params = parse_macro_input!(args as parse::ParametrizeInfo);
 
     use syn::parse_str;
-    let params = parse::ParametrizeInfo {
-        data: parse::ParametrizeData {
-            args: vec![parse_str("expected").unwrap(), parse_str("input").unwrap()],
-            cases: vec![
-                parse::TestCase {
-                    args: vec![parse_str(r#"4"#).unwrap(), parse_str(r#""ciao""#).unwrap()],
-                    description: parse_str("_1_1").ok(),
-                },
-                parse::TestCase {
-                    args: vec![parse_str(r#"4"#).unwrap(), parse_str(r#""buzz""#).unwrap()],
-                    description: parse_str("_1_2").ok(),
-                },
-                parse::TestCase {
-                    args: vec![parse_str(r#"2*3-2"#).unwrap(), parse_str(r#""ciao""#).unwrap()],
-                    description: parse_str("_2_1").ok(),
-                },
-                parse::TestCase {
-                    args: vec![parse_str(r#"2*3-2"#).unwrap(), parse_str(r#""buzz""#).unwrap()],
-                    description: parse_str("_2_2").ok(),
-                }
-            ],
 
+    let info = MatrixInfo {
+        args: vec![ValueList {
+            arg: parse_str("expected").unwrap(),
+            values: vec![parse_str("4").unwrap(),parse_str("2*3-2").unwrap()],
         },
+                   ValueList {
+                       arg: parse_str("input").unwrap(),
+                       values: vec![parse_str(r#""ciao""#).unwrap(),parse_str(r#""buzz""#).unwrap()],
+                   }],
         modifiers: Default::default(),
     };
+
+    let descriptions = descriptions(&info.args);
+    let mut params = parse::ParametrizeInfo::from(info);
+
+    params.data.cases.iter_mut()
+        .zip(descriptions.into_iter())
+        .for_each(|(case, desc)| case.description = parse_str(&desc).ok());
+
     let test = parse_macro_input!(input as ItemFn);
 
-    let tokens = quote! {
-        #test
-    };
     add_parametrize_cases(test, params).into()
 }
 

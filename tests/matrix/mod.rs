@@ -27,8 +27,8 @@ fn happy_path() {
 
     TestResults::new()
         .ok("strlen_test::case_1__1_1")
-        .ok("strlen_test::case_2__1_2")
-        .ok("strlen_test::case_3__2_1")
+        .ok("strlen_test::case_2__2_1")
+        .ok("strlen_test::case_3__1_2")
         .ok("strlen_test::case_4__2_2")
         .assert(output);
 }
