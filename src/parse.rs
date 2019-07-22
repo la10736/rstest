@@ -356,14 +356,14 @@ mod should {
         }
     }
 
-    impl<'a, IT: Iterator<Item=&'a ToString>> From<IT> for Args {
+    impl<'a, IT: Iterator<Item=&'a dyn ToString>> From<IT> for Args {
         fn from(refs: IT) -> Self {
             Args(refs.map(|s| CaseArg::from(s.to_string())).collect())
         }
     }
 
     macro_rules! to_args {
-        ($e:expr) => {Args::from($e.iter().map(|s| s as &ToString))};
+        ($e:expr) => {Args::from($e.iter().map(|s| s as & dyn ToString))};
     }
 
     macro_rules! to_strs {

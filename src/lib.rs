@@ -193,7 +193,7 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
 use quote::{quote, TokenStreamExt, ToTokens};
-use crate::parse::{ParametrizeData, TestCase, CaseArg};
+use crate::parse::TestCase;
 
 mod parse;
 mod error;
@@ -798,43 +798,36 @@ struct MatrixInfo {
     pub modifiers: Modifiers,
 }
 
-impl From<Vec<syn::Expr>> for TestCase {
-    fn from(expressions: Vec<syn::Expr>) -> Self {
+impl From<Vec<(syn::Expr, usize)>> for TestCase {
+    fn from(expressions: Vec<(syn::Expr, usize)>) -> Self {
+        let description= expressions.iter()
+            .map(|(_, pos)| format!("_{}", pos + 1))
+            .collect::<String>();
         Self {
-            args: expressions.into_iter().map(parse::CaseArg::from).collect(),
-            description: None,
+            args: expressions.into_iter().map(|(expr, _)| parse::CaseArg::from(expr)).collect(),
+            description: syn::parse_str(&description).ok(),
         }
     }
 }
 
-fn cases(values: &Vec<ValueList>) -> Vec<Vec<syn::Expr>> {
+fn cases(values: &Vec<ValueList>) -> Vec<Vec<(syn::Expr, usize)>> {
     assert!(values.len() > 0);
+
     let mut results: Vec<_> = values[0].values.iter()
-        .map(|expr| vec![expr.clone()]).collect();
+        .enumerate()
+        .map(|(pos, expr)| vec![(expr.clone(), pos)])
+        .collect();
     for list in &values[1..] {
         assert!(list.values.len() > 0);
         results = list.values.iter()
-            .flat_map(|v|
+            .enumerate()
+            .flat_map(|(pos, v)|
                 results.clone().into_iter()
                     .map(move |mut vec| {
-                        vec.push(v.clone());
+                        vec.push((v.clone(), pos));
                         vec
                     }
                     )
-            ).collect()
-    }
-    results
-}
-
-fn descriptions(values: &Vec<ValueList>) -> Vec<String> {
-    assert!(values.len() > 0);
-    let mut results: Vec<_> = (0..values[0].values.len()).map(|pos| format!("_{}", (pos + 1))).collect();
-    for list in &values[1..] {
-        assert!(list.values.len() > 0);
-        results = (0..values.len())
-            .flat_map(|pos|
-                results.iter()
-                    .map(move |s| format!("{}_{}", s, (pos + 1)))
             ).collect()
     }
     results
@@ -846,7 +839,10 @@ impl From<MatrixInfo> for parse::ParametrizeInfo {
             modifiers: info.modifiers,
             data: parse::ParametrizeData {
                 args: info.args.iter().map(|ValueList { arg: ident, .. }| ident).cloned().collect(),
-                cases: cases(&info.args).into_iter().map(TestCase::from).collect(),
+                cases: cases(&info.args)
+                    .into_iter()
+                    .map(TestCase::from)
+                .collect(),
             },
         }
     }
@@ -856,10 +852,10 @@ impl From<MatrixInfo> for parse::ParametrizeInfo {
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {
-    //    let params = parse_macro_input!(args as parse::ParametrizeInfo);
 
     use syn::parse_str;
 
+    //    let info = parse_macro_input!(args as parse::MatrixInfo);
     let info = MatrixInfo {
         args: vec![ValueList {
             arg: parse_str("expected").unwrap(),
@@ -872,16 +868,9 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
         modifiers: Default::default(),
     };
 
-    let descriptions = descriptions(&info.args);
-    let mut params = parse::ParametrizeInfo::from(info);
-
-    params.data.cases.iter_mut()
-        .zip(descriptions.into_iter())
-        .for_each(|(case, desc)| case.description = parse_str(&desc).ok());
-
     let test = parse_macro_input!(input as ItemFn);
 
-    add_parametrize_cases(test, params).into()
+    add_parametrize_cases(test, parse::ParametrizeInfo::from(info)).into()
 }
 
 #[cfg(test)]
