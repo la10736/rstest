@@ -303,6 +303,99 @@ impl Parse for ParametrizeInfo {
     }
 }
 
+pub struct ValueList {
+    pub arg: Ident,
+    pub values: Vec<syn::Expr>,
+}
+
+pub struct MatrixInfo {
+    pub args: Vec<ValueList>,
+    pub modifiers: Modifiers,
+}
+
+impl Default for MatrixInfo {
+    fn default() -> Self {
+        use syn::parse_str;
+        Self {
+            args: vec![ValueList {
+                arg: parse_str("expected").unwrap(),
+                values: vec![parse_str("4").unwrap(),parse_str("2*3-2").unwrap()],
+            },
+                       ValueList {
+                           arg: parse_str("input").unwrap(),
+                           values: vec![parse_str(r#""ciao""#).unwrap(),parse_str(r#""buzz""#).unwrap()],
+                       }],
+            modifiers: Default::default(),
+        }
+    }
+}
+
+impl Parse for MatrixInfo {
+    fn parse(input: ParseStream) -> Result<Self> {
+        // JUST TO SKIP ALL
+        while !input.is_empty() {
+            input.step(|cursor| {
+                let mut rest = *cursor;
+                if let Some((tt, next)) = cursor.token_tree() {
+                    rest = next
+                };
+                Ok(((), rest))
+            });
+        }
+        Ok(Default::default())
+    }
+}
+
+impl From<Vec<(syn::Expr, usize)>> for TestCase {
+    fn from(expressions: Vec<(syn::Expr, usize)>) -> Self {
+        let description= expressions.iter()
+            .map(|(_, pos)| format!("_{}", pos + 1))
+            .collect::<String>();
+        Self {
+            args: expressions.into_iter().map(|(expr, _)| CaseArg::from(expr)).collect(),
+            description: syn::parse_str(&description).ok(),
+        }
+    }
+}
+
+fn cases(values: &Vec<ValueList>) -> Vec<Vec<(syn::Expr, usize)>> {
+    assert!(values.len() > 0);
+
+    let mut results: Vec<_> = values[0].values.iter()
+        .enumerate()
+        .map(|(pos, expr)| vec![(expr.clone(), pos)])
+        .collect();
+    for list in &values[1..] {
+        assert!(list.values.len() > 0);
+        results = list.values.iter()
+            .enumerate()
+            .flat_map(|(pos, v)|
+                results.clone().into_iter()
+                    .map(move |mut vec| {
+                        vec.push((v.clone(), pos));
+                        vec
+                    }
+                    )
+            ).collect()
+    }
+    results
+}
+
+impl From<MatrixInfo> for ParametrizeInfo {
+    fn from(info: MatrixInfo) -> Self {
+        Self {
+            modifiers: info.modifiers,
+            data: ParametrizeData {
+                args: info.args.iter().map(|ValueList { arg: ident, .. }| ident).cloned().collect(),
+                cases: cases(&info.args)
+                    .into_iter()
+                    .map(TestCase::from)
+                    .collect(),
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod should {
     #[allow(unused_imports)]
