@@ -330,18 +330,20 @@ impl Default for MatrixInfo {
     }
 }
 
+fn drain_stream(input: ParseStream) {
+    // JUST TO SKIP ALL
+    let _ = input.step(|cursor| {
+        let mut rest = *cursor;
+        while let Some((_, next)) = rest.token_tree() {
+            rest = next
+        };
+        Ok(((), rest))
+    });
+}
+
 impl Parse for MatrixInfo {
     fn parse(input: ParseStream) -> Result<Self> {
-        // JUST TO SKIP ALL
-        while !input.is_empty() {
-            input.step(|cursor| {
-                let mut rest = *cursor;
-                if let Some((tt, next)) = cursor.token_tree() {
-                    rest = next
-                };
-                Ok(((), rest))
-            });
-        }
+        drain_stream(input);
         Ok(Default::default())
     }
 }

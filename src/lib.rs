@@ -193,7 +193,6 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
 use quote::{quote, TokenStreamExt, ToTokens};
-use crate::parse::TestCase;
 
 mod parse;
 mod error;
@@ -792,7 +791,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {
-    let info = parse_macro_input!(args as parse::MatrixInfo);
+    let _info = parse_macro_input!(args as parse::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
     add_parametrize_cases(test, parse::ParametrizeInfo::from(parse::MatrixInfo::default())).into()
