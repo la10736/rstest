@@ -315,7 +315,7 @@ impl Parse for ValueList {
         let content;
         let _paren = syn::bracketed!(content in input);
         let values = content
-                .parse_terminated::<syn::Expr, Token![,]>(syn::Expr::parse)?
+                .parse_terminated::<_, Token![,]>(Parse::parse)?
                 .into_iter()
                 .collect();
 
