@@ -308,6 +308,26 @@ pub struct ValueList {
     pub values: Vec<syn::Expr>,
 }
 
+impl Parse for ValueList {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let arg = input.parse()?;
+        let _to: Token![=>] = input.parse()?;
+        let content;
+        let _paren = syn::bracketed!(content in input);
+        let values = content
+                .parse_terminated::<syn::Expr, Token![,]>(syn::Expr::parse)?
+                .into_iter()
+                .collect();
+
+        let ret = Self {
+            arg,
+            values
+        };
+        drain_stream(input);
+        Ok(ret)
+    }
+}
+
 pub struct MatrixInfo {
     pub args: Vec<ValueList>,
     pub modifiers: Modifiers,
@@ -463,6 +483,13 @@ mod should {
 
     macro_rules! to_strs {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
+    }
+
+    macro_rules! to_values {
+        ($e:expr) => {$e.iter()
+                        .map(|s| syn::parse_str::<Expr>(&s.to_string()).unwrap())
+                        .collect::<Vec<_>>()
+                      };
     }
 
     mod parse_modifiers {
@@ -687,5 +714,21 @@ mod should {
         }
     }
 
-}
+    mod parse_values_list {
+        use super::assert_eq;
+        use super::*;
 
+        fn parse_values_list<S: AsRef<str>>(values_list: S) -> ValueList {
+            parse_meta(values_list)
+        }
+
+        #[test]
+        fn one_literal_value() {
+            let values_list = parse_values_list(r#"argument => [42]"#);
+
+
+            assert_eq!("argument", &values_list.arg.to_string());
+            assert_eq!(values_list.values, to_values!(["42"]));
+        }
+    }
+}
