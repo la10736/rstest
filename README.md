@@ -1,3 +1,11 @@
+[![Crate][crate-image]][crate-link]
+[![Docs][docs-image]][docs-link]
+[![Apache 2.0 Licensed][license-image]][license-link]
+[![MIT Licensed][license-image]][license-link]
+![Rust 1.30+][rustc-image]
+[![forbid(unsafe_code)][unsafe-image]][unsafe-link]
+[![Build Status][build-image]][build-link]
+
 # Rust fixture based test framework
 
 `rstest` use procedural macro to implement simple fixtures and table
