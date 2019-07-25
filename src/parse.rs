@@ -327,28 +327,13 @@ impl Parse for ValueList {
     }
 }
 
+#[derive(Default)]
 pub struct MatrixInfo {
     pub args: Vec<ValueList>,
     pub modifiers: Modifiers,
 }
 
-impl Default for MatrixInfo {
-    fn default() -> Self {
-        use syn::parse_str;
-        Self {
-            args: vec![ValueList {
-                arg: parse_str("expected").unwrap(),
-                values: vec![parse_str("4").unwrap(),parse_str("2*3-2").unwrap()],
-            },
-                       ValueList {
-                           arg: parse_str("input").unwrap(),
-                           values: vec![parse_str(r#""ciao""#).unwrap(),parse_str(r#""buzz""#).unwrap()],
-                       }],
-            modifiers: Default::default(),
-        }
-    }
-}
-
+#[allow(dead_code)]
 fn drain_stream(input: ParseStream) {
     // JUST TO SKIP ALL
     let _ = input.step(|cursor| {
@@ -362,10 +347,31 @@ fn drain_stream(input: ParseStream) {
 
 impl Parse for MatrixInfo {
     fn parse(input: ParseStream) -> Result<Self> {
-        drain_stream(input);
-        Ok(Default::default())
+        Ok(
+            MatrixInfo {
+                args: MatrixInfo::parse_value_list(input)?,
+                modifiers: Default::default()
+            }
+        )
     }
 }
+
+impl MatrixInfo {
+    fn parse_value_list(input: ParseStream) -> Result<Vec<ValueList>> {
+        Ok(
+            Punctuated::<Option<ValueList>, Token![,]>::parse_separated_nonempty_with(
+                input, |input_tokens|
+                    if input_tokens.is_empty() { Ok(None) } else {
+                        ValueList::parse(input_tokens).map(|inner| Some(inner))
+                    }
+            )?.into_iter()
+                .filter_map(|it| it)
+                .collect()
+        )
+    }
+}
+
+
 
 impl From<Vec<(CaseArg, usize)>> for TestCase {
     fn from(expressions: Vec<(CaseArg, usize)>) -> Self {
@@ -765,4 +771,28 @@ mod should {
             parse_values_list(r#"other => 42"#);
         }
     }
+
+    mod parse_matrix_info {
+        use super::assert_eq;
+        use super::*;
+
+        fn parse_matrix_info<S: AsRef<str>>(matrix_info: S) -> MatrixInfo {
+            parse_meta(matrix_info)
+        }
+
+        #[test]
+        fn happy_path() {
+            let info = parse_matrix_info(r#"
+                expected => [12, 34 * 2],
+                input => [format!("aa_{}", 2), "other"],
+            "#);
+
+            assert_eq!(2, info.args.len());
+            assert_eq!(to_args!(["12", "34 * 2"]), info.args[0].args());
+            assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), info.args[1].args());
+            assert_eq!(info.modifiers, Default::default());
+        }
+
+    }
 }
+

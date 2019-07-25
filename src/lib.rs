@@ -791,10 +791,10 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {
-    let _info = parse_macro_input!(args as parse::MatrixInfo);
+    let info = parse_macro_input!(args as parse::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    add_parametrize_cases(test, parse::ParametrizeInfo::from(parse::MatrixInfo::default())).into()
+    add_parametrize_cases(test, info.into()).into()
 }
 
 #[cfg(test)]
