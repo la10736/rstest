@@ -584,6 +584,11 @@ mod should {
         }
     }
 
+    fn literal_expressions_str() -> Vec<&'static str> {
+        vec!["42", "42isize", "1.0", "-1", "-1.0", "true", "1_000_000u64", "0b10100101u8",
+             r#""42""#, "b'H'"]
+    }
+
     mod parse_test_case {
         use super::assert_eq;
         use super::*;
@@ -604,8 +609,7 @@ mod should {
 
         #[test]
         fn some_literals() {
-            let args_expressions = vec!["42", "42isize", "1.0", "-1", "-1.0", "true",
-                                        "1_000_000u64", "0b10100101u8", r#""42""#, "b'H'"];
+            let args_expressions = literal_expressions_str();
             let test_case = parse_test_case(&format!("case({})", args_expressions.join(", ")));
             let args = test_case.args();
 
@@ -725,12 +729,40 @@ mod should {
         }
 
         #[test]
-        fn one_literal_value() {
-            let values_list = parse_values_list(r#"argument => [42]"#);
+        fn some_literals() {
+            let literals = literal_expressions_str();
+            let name = "argument";
 
+            let values_list = parse_values_list(
+                format!(r#"{} => [{}]"#, name,
+                        literals
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<String>>()
+                            .join(", "))
+                );
 
-            assert_eq!("argument", &values_list.arg.to_string());
-            assert_eq!(values_list.args(), to_args!(["42"]));
+            assert_eq!(name, &values_list.arg.to_string());
+            assert_eq!(values_list.args(), to_args!(literals));
+        }
+
+        #[test]
+        fn raw_code() {
+            let values_list = parse_values_list(r#"no_mater => [vec![1,2,3]]"#);
+
+            assert_eq!(values_list.args(), to_args!(["vec![1, 2, 3]"]));
+        }
+
+        #[test]
+        #[should_panic(expected = r#"Cannot parse due"#)]
+        fn raw_code_with_parsing_error() {
+            parse_values_list(r#"other => [some:<>(1,2,3)]"#);
+        }
+
+        #[test]
+        #[should_panic(expected = r#"expected square brackets"#)]
+        fn forget_brackets() {
+            parse_values_list(r#"other => 42"#);
         }
     }
 }
