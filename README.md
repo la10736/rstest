@@ -1,8 +1,7 @@
-# A simple `pytest` clone for Rust
+# Rust fixture based test framework
 
 `rstest` use procedural macro to implement simple fixtures and table
-based tests. To use it you need at least 1.30 toolchain and add follow
-lines to your `Cargo.toml` file:
+based tests. To use it add follow lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
@@ -14,9 +13,6 @@ be resolved by call a function with the same name.
 Example:
 
 ```rust
-#[cfg(test)]
-extern crate rstest;
-
 use rstest::rstest;
 
 pub fn fixture() -> u32 { 42 }
@@ -33,22 +29,36 @@ fn should_fail(fixture: u32) {
 ```
 
 Moreover you can use `rstest_parametrize` macro to implement table
-based tests.  An example is the best way to explain it
+based tests: you must indicate the arguments tha you want use in your cases
+and provide them for each case you want to test.
 
-```rust
-#[cfg(test)]
-extern crate rstest;
+`rstest_parametrize` generates an independent test for each case.
 
-use rstest::rstest_parametrize;
-
-#[rstest_parametrize(
-    expected, input,
-    case(4, "ciao"),
-    case(3, "Foo")
+```
+# use rstest::rstest_parametrize;
+#[rstest_parametrize(input, expected,
+    case(0, 0),
+    case(1, 1),
+    case(2, 1),
+    case(3, 2),
+    case(4, 3)
 )]
-fn strlen_test(expected: usize, input: &str) {
-    assert_eq!(expected, input.len());
+fn fibonacci_test(input: u32, expected: u32) {
+    assert_eq!(expected, fibonacci(input))
 }
+```
+
+Running `cargo test` in this case executes five tests:
+
+```bash
+running 5 tests
+test fibonacci_test::case_1 ... ok
+test fibonacci_test::case_2 ... ok
+test fibonacci_test::case_3 ... ok
+test fibonacci_test::case_4 ... ok
+test fibonacci_test::case_5 ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 You can learn more on [Docs](https://docs.rs/rstest/0.3.0/rstest/) and 
