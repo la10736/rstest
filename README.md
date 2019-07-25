@@ -1,10 +1,8 @@
 [![Crate][crate-image]][crate-link]
 [![Docs][docs-image]][docs-link]
-[![Apache 2.0 Licensed][license-image]][license-link]
-[![MIT Licensed][license-image]][license-link]
+[![Apache 2.0 Licensed][license-apache-image]][license-apache-link]
+[![MIT Licensed][license-mit-image]][license-mit-link]
 ![Rust 1.30+][rustc-image]
-[![forbid(unsafe_code)][unsafe-image]][unsafe-link]
-[![Build Status][build-image]][build-link]
 
 # Rust fixture based test framework
 
@@ -79,8 +77,19 @@ that use this module intensely.
 Licensed under either of
 
 * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or 
-http://www.apache.org/licenses/LICENSE-2.0)
+[license-apache-link])
 
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or [license-MIT-link])
 at your option.
 
+[//]: # (links)
+
+[crate-image]: https://img.shields.io/crates/v/rstest.svg
+[crate-link]: https://crates.io/crates/rstest
+[docs-image]: https://docs.rs/rstest/badge.svg
+[docs-link]: https://docs.rs/rstest/
+[license-apache-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
+[license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
+[license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0
+[license-MIT-link]: http://opensource.org/licenses/MIT
+[rustc-image]: https://img.shields.io/badge/rustc-1.30+-blue.svg
