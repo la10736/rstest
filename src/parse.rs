@@ -305,7 +305,7 @@ impl Parse for ParametrizeInfo {
 
 pub struct ValueList {
     pub arg: Ident,
-    pub values: Vec<syn::Expr>,
+    pub values: Vec<CaseArg>,
 }
 
 impl Parse for ValueList {
@@ -323,7 +323,6 @@ impl Parse for ValueList {
             arg,
             values
         };
-        drain_stream(input);
         Ok(ret)
     }
 }
@@ -368,19 +367,19 @@ impl Parse for MatrixInfo {
     }
 }
 
-impl From<Vec<(syn::Expr, usize)>> for TestCase {
-    fn from(expressions: Vec<(syn::Expr, usize)>) -> Self {
+impl From<Vec<(CaseArg, usize)>> for TestCase {
+    fn from(expressions: Vec<(CaseArg, usize)>) -> Self {
         let description= expressions.iter()
             .map(|(_, pos)| format!("_{}", pos + 1))
             .collect::<String>();
         Self {
-            args: expressions.into_iter().map(|(expr, _)| CaseArg::from(expr)).collect(),
+            args: expressions.into_iter().map(|(expr, _)| expr).collect(),
             description: syn::parse_str(&description).ok(),
         }
     }
 }
 
-fn cases(values: &Vec<ValueList>) -> Vec<Vec<(syn::Expr, usize)>> {
+fn cases(values: &Vec<ValueList>) -> Vec<Vec<(CaseArg, usize)>> {
     assert!(values.len() > 0);
 
     let mut results: Vec<_> = values[0].values.iter()
@@ -465,9 +464,19 @@ mod should {
     #[derive(Debug, PartialEq)]
     struct Args(Vec<CaseArg>);
 
-    impl TestCase {
+    trait ExtractArgs {
+        fn args(&self) -> Args;
+    }
+
+    impl ExtractArgs for TestCase {
         fn args(&self) -> Args {
             Args(self.args.iter().cloned().collect())
+        }
+    }
+
+    impl ExtractArgs for ValueList {
+        fn args(&self) -> Args {
+            Args(self.values.iter().cloned().collect())
         }
     }
 
@@ -483,13 +492,6 @@ mod should {
 
     macro_rules! to_strs {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
-    }
-
-    macro_rules! to_values {
-        ($e:expr) => {$e.iter()
-                        .map(|s| syn::parse_str::<Expr>(&s.to_string()).unwrap())
-                        .collect::<Vec<_>>()
-                      };
     }
 
     mod parse_modifiers {
@@ -728,7 +730,7 @@ mod should {
 
 
             assert_eq!("argument", &values_list.arg.to_string());
-            assert_eq!(values_list.values, to_values!(["42"]));
+            assert_eq!(values_list.args(), to_args!(["42"]));
         }
     }
 }
