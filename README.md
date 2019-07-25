@@ -34,7 +34,7 @@ and provide them for each case you want to test.
 
 `rstest_parametrize` generates an independent test for each case.
 
-```
+```rust
 # use rstest::rstest_parametrize;
 #[rstest_parametrize(input, expected,
     case(0, 0),
