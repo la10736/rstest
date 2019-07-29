@@ -328,10 +328,14 @@ impl Parse for ValueList {
 }
 
 #[derive(Default)]
+pub struct MatrixValues(pub Vec<ValueList>);
+
+#[derive(Default)]
 pub struct MatrixInfo {
-    pub args: Vec<ValueList>,
+    pub args: MatrixValues,
     pub modifiers: Modifiers,
 }
+
 
 #[allow(dead_code)]
 fn drain_stream(input: ParseStream) {
@@ -357,17 +361,16 @@ impl Parse for MatrixInfo {
 }
 
 impl MatrixInfo {
-    fn parse_value_list(input: ParseStream) -> Result<Vec<ValueList>> {
-        Ok(
-            Punctuated::<Option<ValueList>, Token![,]>::parse_separated_nonempty_with(
-                input, |input_tokens|
-                    if input_tokens.is_empty() { Ok(None) } else {
-                        ValueList::parse(input_tokens).map(|inner| Some(inner))
-                    }
-            )?.into_iter()
-                .filter_map(|it| it)
-                .collect()
-        )
+    fn parse_value_list(input: ParseStream) -> Result<MatrixValues> {
+        let values =             Punctuated::<Option<ValueList>, Token![,]>::parse_separated_nonempty_with(
+            input, |input_tokens|
+                if input_tokens.is_empty() { Ok(None) } else {
+                    ValueList::parse(input_tokens).map(|inner| Some(inner))
+                }
+        )?.into_iter()
+            .filter_map(|it| it)
+            .collect();
+        Ok(MatrixValues(values))
     }
 }
 
@@ -413,8 +416,8 @@ impl From<MatrixInfo> for ParametrizeInfo {
         Self {
             modifiers: info.modifiers,
             data: ParametrizeData {
-                args: info.args.iter().map(|ValueList { arg: ident, .. }| ident).cloned().collect(),
-                cases: cases(&info.args)
+                args: info.args.0.iter().map(|ValueList { arg: ident, .. }| ident).cloned().collect(),
+                cases: cases(&info.args.0)
                     .into_iter()
                     .map(TestCase::from)
                     .collect(),
@@ -787,9 +790,9 @@ mod should {
                 input => [format!("aa_{}", 2), "other"],
             "#);
 
-            assert_eq!(2, info.args.len());
-            assert_eq!(to_args!(["12", "34 * 2"]), info.args[0].args());
-            assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), info.args[1].args());
+            assert_eq!(2, info.args.0.len());
+            assert_eq!(to_args!(["12", "34 * 2"]), info.args.0[0].args());
+            assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), info.args.0[1].args());
             assert_eq!(info.modifiers, Default::default());
         }
 

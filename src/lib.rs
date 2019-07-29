@@ -693,6 +693,10 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     }
 }
 
+fn add_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
+    add_parametrize_cases(test, params.into())
+}
+
 fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
     let len_max = format!("{}", params.cases.len()).len();
     let description = params.cases[index]
@@ -794,15 +798,16 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
     let info = parse_macro_input!(args as parse::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    add_parametrize_cases(test, info.into()).into()
+    add_matrix_cases(test, info).into()
 }
 
 #[cfg(test)]
 mod render {
     use pretty_assertions::assert_eq;
-    use syn::{Expr, ItemFn, parse_str, punctuated};
-    use syn::export::Debug;
-    use syn::parse2;
+    use syn::{
+        export::Debug, Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
+        parse_str, punctuated, visit::Visit,
+    };
 
     use crate::parse::*;
 
@@ -943,42 +948,58 @@ mod render {
         }
     }
 
+    struct TestsGroup {
+        requested_test: ItemFn,
+        module: ItemMod,
+    }
+
+    impl Parse for TestsGroup {
+        fn parse(input: ParseStream) -> Result<Self> {
+            Ok(Self {
+                requested_test: input.parse()?,
+                module: input.parse()?,
+            })
+        }
+    }
+
+    /// To extract all test functions
+    struct TestFunctions(Vec<ItemFn>);
+
+    impl TestFunctions {
+        fn is_test_fn(item_fn: &ItemFn) -> bool {
+            item_fn.attrs.iter().filter(|&a|
+                a.path == parse_str::<syn::Path>("test").unwrap())
+                .next().is_some()
+        }
+    }
+
+    impl<'ast> Visit<'ast> for TestFunctions {
+        fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
+            if Self::is_test_fn(item_fn) {
+                self.0.push(item_fn.clone())
+            }
+        }
+    }
+
+    impl TestsGroup {
+        pub fn get_test_functions(&self) -> Vec<ItemFn> {
+            let mut f = TestFunctions(vec![]);
+
+            f.visit_item_mod(&self.module);
+            f.0
+        }
+    }
+
+    impl From<TokenStream> for TestsGroup {
+        fn from(tokens: TokenStream) -> Self {
+            syn::parse2::<TestsGroup>(tokens).unwrap()
+        }
+    }
+
     mod add_parametrize_cases {
         use std::borrow::Cow;
 
-        use syn::{ItemFn, ItemMod, parse::{Parse, ParseStream, Result}};
-        use syn::visit::Visit;
-
         use super::{*, assert_eq};
-
-        struct ParametrizeOutput {
-            orig: ItemFn,
-            module: ItemMod,
-        }
-
-        impl Parse for ParametrizeOutput {
-            fn parse(input: ParseStream) -> Result<Self> {
-                Ok(Self {
-                    orig: input.parse()?,
-                    module: input.parse()?,
-                })
-            }
-        }
-
-        impl ParametrizeOutput {
-            pub fn get_test_functions(&self) -> Vec<ItemFn> {
-                let mut f = TestFunctions(vec![]);
-
-                f.visit_item_mod(&self.module);
-                f.0
-            }
-        }
-
-        impl From<TokenStream> for ParametrizeOutput {
-            fn from(tokens: TokenStream) -> Self {
-                syn::parse2::<ParametrizeOutput>(tokens).unwrap()
-            }
-        }
 
         impl<'a> From<&'a ItemFn> for parse::ParametrizeData {
             fn from(item_fn: &'a ItemFn) -> Self {
@@ -998,33 +1019,13 @@ mod render {
             }
         }
 
-        /// To extract all test functions
-        struct TestFunctions(Vec<ItemFn>);
-
-        impl TestFunctions {
-            fn is_test_fn(item_fn: &ItemFn) -> bool {
-                item_fn.attrs.iter().filter(|&a|
-                    a.path == parse_str::<syn::Path>("test").unwrap())
-                    .next().is_some()
-            }
-        }
-
-        impl<'ast> Visit<'ast> for TestFunctions {
-            fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
-                if Self::is_test_fn(item_fn) {
-                    self.0.push(item_fn.clone())
-                }
-            }
-        }
-
-
         #[test]
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let output = ParametrizeOutput::from(tokens);
+            let output = TestsGroup::from(tokens);
 
             assert_eq!(output.module.ident, "should_be_the_module_name");
         }
@@ -1037,10 +1038,10 @@ mod render {
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let mut output = ParametrizeOutput::from(tokens);
+            let mut output = TestsGroup::from(tokens);
 
-            output.orig.attrs = vec![];
-            assert_eq!(output.orig, item_fn);
+            output.requested_test.attrs = vec![];
+            assert_eq!(output.requested_test, item_fn);
         }
 
         #[test]
@@ -1051,14 +1052,14 @@ mod render {
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let output = ParametrizeOutput::from(tokens);
+            let output = TestsGroup::from(tokens);
 
             let expected = parse2::<ItemFn>(quote! {
                 #[cfg(test)]
                 fn some() {}
             }).unwrap().attrs;
 
-            assert_eq!(expected, output.orig.attrs);
+            assert_eq!(expected, output.requested_test.attrs);
         }
 
         #[test]
@@ -1069,7 +1070,7 @@ mod render {
             let info = (&item_fn).into();
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let output = ParametrizeOutput::from(tokens);
+            let output = TestsGroup::from(tokens);
 
             let expected = parse2::<ItemMod>(quote! {
                 #[cfg(test)]
@@ -1137,7 +1138,7 @@ mod render {
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+            let tests = TestsGroup::from(tokens).get_test_functions();
 
             assert_eq!(1, tests.len());
             assert!(&tests[0].ident.to_string().starts_with("case_"))
@@ -1149,7 +1150,7 @@ mod render {
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+            let tests = TestsGroup::from(tokens).get_test_functions();
 
             assert!(&tests[0].ident.to_string().starts_with("case_1"))
         }
@@ -1160,7 +1161,7 @@ mod render {
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+            let tests = TestsGroup::from(tokens).get_test_functions();
 
             let valid_names = tests.iter()
                 .filter(|it| it.ident.to_string().starts_with("case_"));
@@ -1173,7 +1174,7 @@ mod render {
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+            let tests = TestsGroup::from(tokens).get_test_functions();
 
             let first_name = tests[0].ident.to_string();
             let last_name = tests[999].ident.to_string();
@@ -1194,20 +1195,56 @@ mod render {
 
             let tokens = add_parametrize_cases(item_fn.clone(), info);
 
-            let tests = ParametrizeOutput::from(tokens).get_test_functions();
+            let tests = TestsGroup::from(tokens).get_test_functions();
 
             assert!(tests[0].ident.to_string().ends_with(&format!("_{}", description)));
         }
     }
 
+    mod add_matrix_cases {
+        /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo
+        /// transformation
+
+        use super::{*, assert_eq};
+
+        impl<'a> From<&'a ItemFn> for parse::MatrixValues {
+            fn from(item_fn: &'a ItemFn) -> Self {
+                parse::MatrixValues(
+                    fn_args_idents(item_fn).iter()
+                        .map(|it| ValueList {arg: it.clone(), values: vec![]} )
+                        .collect()
+                )
+            }
+        }
+
+        impl<'a> From<&'a ItemFn> for parse::MatrixInfo {
+            fn from(item_fn: &'a ItemFn) -> Self {
+                parse::MatrixInfo {
+                    args: item_fn.into(),
+                    modifiers: Default::default(),
+                }
+            }
+        }
+
+        #[test]
+        fn should_create_a_module_named_as_test_function() {
+            let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_matrix_cases(item_fn.clone(), info);
+
+            let output = TestsGroup::from(tokens);
+
+            assert_eq!(output.module.ident, "should_be_the_module_name");
+        }
+    }
+
     mod fixture {
-        use syn::{ItemFn, ItemImpl, ItemStruct, parse2, parse_str};
-        use syn::parse::{Parse, ParseBuffer, Result};
+        use syn::{ItemImpl, ItemStruct};
 
         use crate::{generics_clean_up, render_fixture};
         use crate::parse::{Modifiers, RsTestAttribute};
 
-        use super::assert_eq;
+        use super::{*, assert_eq};
 
         struct FixtureOutput {
             orig: ItemFn,
@@ -1216,7 +1253,7 @@ mod render {
         }
 
         impl Parse for FixtureOutput {
-            fn parse(input: &ParseBuffer) -> Result<Self> {
+            fn parse(input: ParseStream) -> Result<Self> {
                 Ok(FixtureOutput {
                     fixture: input.parse()?,
                     core_impl: input.parse()?,
