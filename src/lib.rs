@@ -1236,6 +1236,77 @@ mod render {
 
             assert_eq!(output.module.ident, "should_be_the_module_name");
         }
+
+        #[test]
+        fn should_copy_user_function() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_matrix_cases(item_fn.clone(), info);
+
+            let mut output = TestsGroup::from(tokens);
+
+            output.requested_test.attrs = vec![];
+            assert_eq!(output.requested_test, item_fn);
+        }
+
+        #[test]
+        fn should_mark_user_function_as_test() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_matrix_cases(item_fn.clone(), info);
+
+            let output = TestsGroup::from(tokens);
+
+            let expected = parse2::<ItemFn>(quote! {
+                #[cfg(test)]
+                fn some() {}
+            }).unwrap().attrs;
+
+            assert_eq!(expected, output.requested_test.attrs);
+        }
+
+        #[test]
+        fn should_mark_module_as_test() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let info = (&item_fn).into();
+            let tokens = add_matrix_cases(item_fn.clone(), info);
+
+            let output = TestsGroup::from(tokens);
+
+            let expected = parse2::<ItemMod>(quote! {
+                #[cfg(test)]
+                mod some {}
+            }).unwrap().attrs;
+
+            assert_eq!(expected, output.module.attrs);
+        }
+
+        fn one_simple_case() -> (ItemFn, MatrixInfo) {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let mut info: MatrixInfo = (&item_fn).into();
+            info.args.0[0].values.push(CaseArg::from("value".to_string()));
+            (item_fn, info)
+        }
+
+        #[test]
+        fn should_add_a_test_case() {
+            let (item_fn, info) = one_simple_case();
+
+            let tokens = add_matrix_cases(item_fn.clone(), info);
+
+            let tests = TestsGroup::from(tokens).get_test_functions();
+
+            assert_eq!(1, tests.len());
+            assert!(&tests[0].ident.to_string().starts_with("case_"))
+        }
     }
 
     mod fixture {
