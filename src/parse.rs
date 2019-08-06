@@ -1,4 +1,4 @@
-use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error}, spanned::Spanned, punctuated::{Punctuated}, Token, token, MetaList};
+use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error}, spanned::Spanned, punctuated::Punctuated, Token, token, MetaList};
 use proc_macro2::{TokenStream, Span};
 use crate::error::error;
 use cfg_if::cfg_if;
@@ -24,7 +24,7 @@ pub struct ParametrizeInfo {
 /// attributes.
 pub struct TestCase {
     pub args: Vec<CaseArg>,
-    pub description: Option<Ident>
+    pub description: Option<Ident>,
 }
 
 impl Parse for TestCase {
@@ -97,14 +97,14 @@ impl Parse for UnwrapRustCode {
         Self::report_deprecated(&nested);
         let arg = Self::get_unwrap(&nested)?;
         let tokens = arg.nested.first()
-                .map(|m| *m.value())
-                .and_then(Self::nested_meta_literal_str)
-                .map(Self::compile_lit_str)
-                .unwrap_or_else(
-                        || Ok(error(&format!("Invalid {} argument",
-                                             arg.ident),
-                                        nested.span(), nested.span()))
-                )?;
+            .map(|m| *m.value())
+            .and_then(Self::nested_meta_literal_str)
+            .map(Self::compile_lit_str)
+            .unwrap_or_else(
+                || Ok(error(&format!("Invalid {} argument",
+                                     arg.ident),
+                            nested.span(), nested.span()))
+            )?;
         syn::parse2(tokens).map(UnwrapRustCode)
     }
 }
@@ -113,7 +113,7 @@ impl UnwrapRustCode {
     const UNWRAP_NAME: &'static str = "Unwrap";
 
     fn peek(input: ParseStream) -> bool {
-        input.fork().parse::<NestedMeta>().map( |nested|
+        input.fork().parse::<NestedMeta>().map(|nested|
             Self::get_unwrap(&nested).is_ok()
         ).unwrap_or(false)
     }
@@ -183,9 +183,9 @@ impl Parse for CaseArg {
                 .map(CaseArg::new)
                 .map_err(|e| Error::new(
                     e.span(),
-                    format!("Cannot parse due {}", e)
+                    format!("Cannot parse due {}", e),
                 )
-            )
+                )
         }
     }
 }
@@ -208,7 +208,7 @@ impl Parse for Modifiers {
 pub enum RsTestAttribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),
-    Type(Ident, syn::Type)
+    Type(Ident, syn::Type),
 }
 
 fn no_literal_nested(nested: NestedMeta) -> Result<Meta> {
@@ -274,7 +274,7 @@ impl Parse for ParametrizeData {
                 input, |input_tokens|
                     if input_tokens.is_empty() { Ok(None) } else {
                         TestCase::parse(input_tokens).map(|inner| Some(inner))
-                    }
+                    },
             )?.into_iter().filter_map(|it| it).collect();
         Ok(ParametrizeData {
             args,
@@ -315,13 +315,13 @@ impl Parse for ValueList {
         let content;
         let _paren = syn::bracketed!(content in input);
         let values = content
-                .parse_terminated::<_, Token![,]>(Parse::parse)?
-                .into_iter()
-                .collect();
+            .parse_terminated::<_, Token![,]>(Parse::parse)?
+            .into_iter()
+            .collect();
 
         let ret = Self {
             arg,
-            values
+            values,
         };
         Ok(ret)
     }
@@ -354,7 +354,9 @@ impl Parse for MatrixInfo {
         Ok(
             MatrixInfo {
                 args: MatrixInfo::parse_value_list(input)?,
-                modifiers: Default::default()
+                modifiers: input.parse::<Token![::]>()
+                    .or_else(|_| Ok(Default::default()))
+                    .and_then(|_| input.parse())?,
             }
         )
     }
@@ -362,11 +364,11 @@ impl Parse for MatrixInfo {
 
 impl MatrixInfo {
     fn parse_value_list(input: ParseStream) -> Result<MatrixValues> {
-        let values =             Punctuated::<Option<ValueList>, Token![,]>::parse_separated_nonempty_with(
+        let values = Punctuated::<Option<ValueList>, Token![,]>::parse_separated_nonempty_with(
             input, |input_tokens|
                 if input_tokens.is_empty() { Ok(None) } else {
                     ValueList::parse(input_tokens).map(|inner| Some(inner))
-                }
+                },
         )?.into_iter()
             .filter_map(|it| it)
             .collect();
@@ -375,10 +377,9 @@ impl MatrixInfo {
 }
 
 
-
 impl From<Vec<(CaseArg, usize)>> for TestCase {
     fn from(expressions: Vec<(CaseArg, usize)>) -> Self {
-        let description= expressions.iter()
+        let description = expressions.iter()
             .map(|(_, pos)| format!("_{}", pos + 1))
             .collect::<String>();
         Self {
@@ -434,7 +435,7 @@ mod should {
     use syn::{parse_str, ItemFn, parse2};
     use quote::quote;
     use super::*;
-    use proc_macro2::{TokenTree};
+    use proc_macro2::TokenTree;
 
     fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
         let to_parse = format!(r#"
@@ -503,6 +504,38 @@ mod should {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
     }
 
+    trait IntoIdent {
+        fn into_ident(self) -> Ident;
+    }
+
+    impl<S: AsRef<str>> IntoIdent for S {
+        fn into_ident(self) -> Ident {
+            parse_str(self.as_ref()).unwrap()
+        }
+    }
+
+    impl RsTestAttribute {
+        fn attr<I: IntoIdent>(i: I) -> Self {
+            RsTestAttribute::Attr(i.into_ident())
+        }
+
+        fn tagged<I: IntoIdent, A: IntoIdent>(tag: I, attrs: Vec<A>) -> Self {
+            RsTestAttribute::Tagged(
+                tag.into_ident(),
+                attrs.into_iter()
+                    .map(|a| a.into_ident())
+                    .collect(),
+            )
+        }
+
+        fn typed<I: IntoIdent, T: AsRef<str>>(tag: I, inner: T) -> Self {
+            RsTestAttribute::Type(
+                tag.into_ident(),
+                parse_str(inner.as_ref()).unwrap(),
+            )
+        }
+    }
+
     mod parse_modifiers {
         use super::assert_eq;
         use super::*;
@@ -511,45 +544,14 @@ mod should {
             parse_meta(modifiers)
         }
 
-        trait IntoIdent {
-            fn into_ident(self) -> Ident;
-        }
-
-        impl<S: AsRef<str>> IntoIdent for S {
-            fn into_ident(self) -> Ident {
-                parse_str(self.as_ref()).unwrap()
-            }
-        }
-
-        impl RsTestAttribute {
-            fn attr<I: IntoIdent>(i: I) -> Self {
-                RsTestAttribute::Attr(i.into_ident())
-            }
-
-            fn tagged<I: IntoIdent, A: IntoIdent>(tag: I, attrs: Vec<A>) -> Self {
-                RsTestAttribute::Tagged(
-                    tag.into_ident(),
-                    attrs.into_iter()
-                        .map(|a| a.into_ident())
-                        .collect()
-                )
-            }
-
-            fn typed<I: IntoIdent, T: AsRef<str>>(tag: I, inner: T) -> Self {
-                RsTestAttribute::Type(
-                    tag.into_ident(),
-                    parse_str(inner.as_ref()).unwrap()
-                )
-            }
-        }
-
         #[test]
         fn one_simple_ident() {
             let modifiers = parse_modifiers("my_ident");
 
-            let expected = Modifiers{ modifiers: vec![
-                RsTestAttribute::attr("my_ident")
-            ]
+            let expected = Modifiers {
+                modifiers: vec![
+                    RsTestAttribute::attr("my_ident")
+                ]
             };
 
             assert_eq!(expected, modifiers);
@@ -559,9 +561,11 @@ mod should {
         fn one_simple_group() {
             let modifiers = parse_modifiers("group_tag(first, second)");
 
-            let expected = Modifiers{ modifiers: vec![
-                RsTestAttribute::tagged("group_tag", vec!["first", "second"])
-            ] };
+            let expected = Modifiers {
+                modifiers: vec![
+                    RsTestAttribute::tagged("group_tag", vec!["first", "second"])
+                ]
+            };
 
             assert_eq!(expected, modifiers);
         }
@@ -570,9 +574,11 @@ mod should {
         fn one_simple_type() {
             let modifiers = parse_modifiers("type_tag<(u32, T, (String, i32))>");
 
-            let expected = Modifiers{ modifiers: vec![
-                RsTestAttribute::typed("type_tag", "(u32, T, (String, i32))")
-            ] };
+            let expected = Modifiers {
+                modifiers: vec![
+                    RsTestAttribute::typed("type_tag", "(u32, T, (String, i32))")
+                ]
+            };
 
             assert_eq!(expected, modifiers);
         }
@@ -582,12 +588,14 @@ mod should {
             let modifiers = parse_modifiers(r#"
             simple :: tagged(first, second) :: type_tag<(u32, T, (std::string::String, i32))> :: more_tagged(a,b)"#);
 
-            let expected = Modifiers{ modifiers: vec![
-                RsTestAttribute::attr("simple"),
-                RsTestAttribute::tagged("tagged", vec!["first", "second"]),
-                RsTestAttribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
-                RsTestAttribute::tagged("more_tagged", vec!["a", "b"]),
-            ] };
+            let expected = Modifiers {
+                modifiers: vec![
+                    RsTestAttribute::attr("simple"),
+                    RsTestAttribute::tagged("tagged", vec!["first", "second"]),
+                    RsTestAttribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
+                    RsTestAttribute::tagged("more_tagged", vec!["a", "b"]),
+                ]
+            };
 
             assert_eq!(expected, modifiers);
         }
@@ -749,7 +757,7 @@ mod should {
                             .map(ToString::to_string)
                             .collect::<Vec<String>>()
                             .join(", "))
-                );
+            );
 
             assert_eq!(name, &values_list.arg.to_string());
             assert_eq!(values_list.args(), to_args!(literals));
@@ -796,6 +804,16 @@ mod should {
             assert_eq!(info.modifiers, Default::default());
         }
 
+        #[test]
+        fn should_parse_modifiers_too() {
+            let info = parse_matrix_info(r#"
+                a => [12, 24, 42]
+                ::trace
+            "#);
+
+            assert_eq!(Modifiers { modifiers: vec![RsTestAttribute::attr("trace")] },
+                       info.modifiers);
+        }
     }
 }
 
