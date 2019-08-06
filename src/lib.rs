@@ -645,15 +645,23 @@ fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
 }
 
 fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
-    let invalid_args = params.args.iter()
-        .filter(|&p| !fn_args_has_ident(test, p));
-
     let mut tokens = TokenStream::default();
-    for missed in invalid_args {
-        let span = missed.span().into();
-        let message = format!("Missed argument: '{}' should be a test function argument.", missed);
-        tokens.extend(error_statement(&message, span, span));
-    }
+    tokens.append_all(
+        params.args.iter()
+            .filter(|&p| !fn_args_has_ident(test, p))
+            .map(|missed|
+                error_statement(&format!("Missed argument: '{}' should be a test function argument.", missed),
+                                missed.span(), missed.span())
+            )
+    );
+    tokens.append_all(
+        params.cases.iter()
+            .filter(|case| case.args.len() != params.args.len())
+            .map(|case|
+                error_statement("Wrong case signature: should match the given parameters list.",
+                                case.span_start(), case.span_end())
+            )
+    );
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -670,10 +678,7 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     let mut cases = TokenStream::new();
     for (n, case) in params.cases.iter().enumerate() {
         cases.append_all(
-            if case.args.len() != params.args.len() {
-                error_statement("Wrong case signature: should match the given parameters list.",
-                                case.span_start(), case.span_end())
-            } else {
+            {
                 let resolver = Resolver::new(&params.args, &case);
                 let name = Ident::new(&format_case_name(&params, n), fname.span());
                 render_fn_test(name, &test, &resolver, &modifiers, false)
@@ -1211,7 +1216,7 @@ mod render {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::MatrixValues(
                     fn_args_idents(item_fn).iter()
-                        .map(|it| ValueList {arg: it.clone(), values: vec![]} )
+                        .map(|it| ValueList { arg: it.clone(), values: vec![] })
                         .collect()
                 )
             }
