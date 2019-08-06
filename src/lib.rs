@@ -192,7 +192,8 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
-use quote::{quote, TokenStreamExt, ToTokens};
+use quote::{quote, ToTokens};
+use std::iter::FromIterator;
 
 mod parse;
 mod error;
@@ -644,23 +645,27 @@ fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
         .is_some()
 }
 
+fn missed_arguments_errors<'a>(test: &'a ItemFn, params: &'a parse::ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
+    params.args.iter()
+        .filter(move |&p| !fn_args_has_ident(test, p))
+        .map(|missed|
+            error_statement(&format!("Missed argument: '{}' should be a test function argument.", missed),
+                            missed.span(), missed.span())
+        )
+}
+
+fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
+    params.cases.iter()
+        .filter(move|case| case.args.len() != params.args.len())
+        .map(|case|
+            error_statement("Wrong case signature: should match the given parameters list.",
+                            case.span_start(), case.span_end())
+        )
+}
+
 fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
-    let mut tokens = TokenStream::default();
-    tokens.append_all(
-        params.args.iter()
-            .filter(|&p| !fn_args_has_ident(test, p))
-            .map(|missed|
-                error_statement(&format!("Missed argument: '{}' should be a test function argument.", missed),
-                                missed.span(), missed.span())
-            )
-    );
-    tokens.append_all(
-        params.cases.iter()
-            .filter(|case| case.args.len() != params.args.len())
-            .map(|case|
-                error_statement("Wrong case signature: should match the given parameters list.",
-                                case.span_start(), case.span_end())
-            )
+    let tokens = TokenStream::from_iter(
+        missed_arguments_errors(test, params).chain(invalid_case_errors(params))
     );
 
     if !tokens.is_empty() {
@@ -675,16 +680,16 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     let parse::ParametrizeInfo { data: params, modifiers } = params;
     let modifiers = modifiers.into();
 
-    let mut cases = TokenStream::new();
-    for (n, case) in params.cases.iter().enumerate() {
-        cases.append_all(
-            {
-                let resolver = Resolver::new(&params.args, &case);
-                let name = Ident::new(&format_case_name(&params, n), fname.span());
-                render_fn_test(name, &test, &resolver, &modifiers, false)
-            }
-        )
-    };
+    let cases = TokenStream::from_iter(params.cases.iter()
+                         .enumerate()
+                         .map(|(n, case)|
+                             {
+                                 let resolver = Resolver::new(&params.args, &case);
+                                 let name = Ident::new(&format_case_name(&params, n), fname.span());
+                                 render_fn_test(name, &test, &resolver, &modifiers, false)
+                             }
+                         )
+    );
     quote! {
         #[cfg(test)]
         #test
