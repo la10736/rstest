@@ -387,15 +387,14 @@ impl ArgsResolver for ItemFn {
     }
 }
 
-fn render_fn_test<'a>(name: Ident, testfn: &ItemFn,
-                      resolver: &'a Resolver, modifiers: &'a RsTestModifiers, inline_impl: bool)
+fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
+                      resolver: Resolver, modifiers: &'a RsTestModifiers)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn);
     let attrs = &testfn.attrs;
     let output = &testfn.decl.output;
-    let test_impl = if inline_impl { Some(testfn) } else { None };
-    let inject = testfn.resolve_args(resolver);
+    let inject = testfn.resolve_args(&resolver);
     let trace_args = trace_arguments(&args, modifiers);
     quote! {
         #[test]
@@ -634,7 +633,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let modifiers = parse_macro_input!(args as Modifiers).into();
     let name = &test.ident;
     let resolver = Resolver::default();
-    render_fn_test(name.clone(), &test, &resolver, &modifiers, true)
+    render_fn_test(name.clone(), &test, Some(&test), resolver, &modifiers)
         .into()
 }
 
@@ -656,7 +655,7 @@ fn missed_arguments_errors<'a>(test: &'a ItemFn, params: &'a parse::ParametrizeD
 
 fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
     params.cases.iter()
-        .filter(move|case| case.args.len() != params.args.len())
+        .filter(move |case| case.args.len() != params.args.len())
         .map(|case|
             error_statement("Wrong case signature: should match the given parameters list.",
                             case.span_start(), case.span_end())
@@ -681,14 +680,11 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     let modifiers = modifiers.into();
 
     let cases = TokenStream::from_iter(params.cases.iter()
-                         .enumerate()
-                         .map(|(n, case)|
-                             {
-                                 let resolver = Resolver::new(&params.args, &case);
-                                 let name = Ident::new(&format_case_name(&params, n), fname.span());
-                                 render_fn_test(name, &test, &resolver, &modifiers, false)
-                             }
-                         )
+        .enumerate()
+        .map(|(n, case)|
+            (Ident::new(&format_case_name(&params, n), fname.span()), Resolver::new(&params.args, &case))
+        )
+        .map(|(name, resolver)| render_fn_test(name, &test, None, resolver, &modifiers))
     );
     quote! {
         #[cfg(test)]
@@ -926,7 +922,7 @@ mod render {
             let ast: ItemFn = parse_str("fn function(mut fix: String) -> Result<i32, String> { Ok(42) }").unwrap();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
-                                        &ast, &Default::default(), &Default::default(), false);
+                                        &ast, None, Default::default(), &Default::default());
 
             let result: ItemFn = parse2(tokens).unwrap();
 
@@ -948,7 +944,7 @@ mod render {
             ).unwrap();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
-                                        &input_fn, &Default::default(), &Default::default(), true);
+                                        &input_fn, Some(&input_fn), Default::default(), &Default::default());
 
             let result: ItemFn = parse2(tokens).unwrap();
 
