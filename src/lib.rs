@@ -409,7 +409,6 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
     }
 }
 
-
 fn type_ident(t: &syn::Type) -> Option<&syn::Ident> {
     match t {
         syn::Type::Path(tp) if tp.qself.is_none() && tp.path.segments.len() == 1 => {
@@ -674,6 +673,21 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
     }
 }
 
+struct Case<'a> {
+    name: Ident,
+    resolver: Resolver<'a>,
+}
+
+impl<'a> Case<'a> {
+    pub fn new(name: Ident, resolver: Resolver<'a>) -> Self {
+        Case{ name, resolver }
+    }
+
+    fn render(self, testfn: &ItemFn, modifiers: &RsTestModifiers) -> TokenStream {
+        render_fn_test(self.name, testfn, None, self.resolver, modifiers)
+    }
+}
+
 fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
     let fname = &test.ident;
     let parse::ParametrizeInfo { data: params, modifiers } = params;
@@ -682,9 +696,10 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
     let cases = TokenStream::from_iter(params.cases.iter()
         .enumerate()
         .map(|(n, case)|
-            (Ident::new(&format_case_name(&params, n), fname.span()), Resolver::new(&params.args, &case))
+            Case::new(Ident::new(&format_case_name(&params, n), fname.span()),
+                      Resolver::new(&params.args, &case))
         )
-        .map(|(name, resolver)| render_fn_test(name, &test, None, resolver, &modifiers))
+        .map(|case| case.render(&test, &modifiers))
     );
     quote! {
         #[cfg(test)]
