@@ -680,7 +680,7 @@ struct Case<'a> {
 
 impl<'a> Case<'a> {
     pub fn new(name: Ident, resolver: Resolver<'a>) -> Self {
-        Case{ name, resolver }
+        Case { name, resolver }
     }
 
     fn render(self, testfn: &ItemFn, modifiers: &RsTestModifiers) -> TokenStream {
@@ -688,19 +688,10 @@ impl<'a> Case<'a> {
     }
 }
 
-fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
+fn render_cases<'a>(test: ItemFn, cases: impl Iterator<Item=Case<'a>>, modifiers: RsTestModifiers) -> TokenStream {
     let fname = &test.ident;
-    let parse::ParametrizeInfo { data: params, modifiers } = params;
-    let modifiers = modifiers.into();
+    let cases = cases.map(|case| case.render(&test, &modifiers));
 
-    let cases = TokenStream::from_iter(params.cases.iter()
-        .enumerate()
-        .map(|(n, case)|
-            Case::new(Ident::new(&format_case_name(&params, n), fname.span()),
-                      Resolver::new(&params.args, &case))
-        )
-        .map(|case| case.render(&test, &modifiers))
-    );
     quote! {
         #[cfg(test)]
         #test
@@ -709,9 +700,26 @@ fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenS
         mod #fname {
             use super::*;
 
-            #cases
+            #(#cases)*
         }
     }
+}
+
+fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
+    let parse::ParametrizeInfo { data: params, modifiers } = params;
+
+    let cases = params.cases.iter()
+        .enumerate()
+        .map({
+            let span = test.ident.span();
+            let params = &params;
+            move |(n, case)|
+                Case::new(Ident::new(&format_case_name(params, n), span),
+                          Resolver::new(&params.args, case))
+        }
+        );
+
+    render_cases(test, cases, modifiers.into())
 }
 
 fn add_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
