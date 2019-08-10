@@ -161,6 +161,19 @@ mod should_show_correct_errors {
            |                                                    |"##,
            name).deindent());
     }
+
+    #[test]
+    fn if_a_value_contains_empty_list() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!(r##"
+        error: Values list should not be empty
+          --> {}/src/lib.rs:24:26
+           |
+        24 | #[rstest_matrix(empty => [])]
+           |                          ^^"##,
+           name).deindent());
+    }
 }
 
 #[test]

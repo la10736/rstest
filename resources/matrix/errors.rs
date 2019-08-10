@@ -20,3 +20,6 @@ fn error_param_wrong_type(f: &str) {}
 fn error_in_arbitrary_rust_code(condition: bool) {
     assert!(condition)
 }
+
+#[rstest_matrix(empty => [])]
+fn error_empty_list(empty: &str) {}

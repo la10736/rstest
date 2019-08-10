@@ -248,17 +248,32 @@ fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt
 struct Resolver<'a> (std::collections::HashMap<String, &'a parse::CaseArg>);
 
 impl<'a> Resolver<'a> {
-    fn new(args: &Vec<Ident>, case: &'a parse::TestCase) -> Self {
-        Resolver(
-            args.iter()
+    fn resolve(&self, ident: &Ident) -> Option<&parse::CaseArg> {
+        self.0.get(&ident.to_string()).map(|&a| a)
+    }
+}
+
+impl<'a> From<(Vec<Ident>, &'a parse::TestCase)> for Resolver<'a> {
+    fn from(data: (Vec<Ident>, &'a parse::TestCase)) -> Self {
+        let (args, case) =  data;
+        Self (
+            args.into_iter()
                 .zip(case.args.iter())
-                .map(|(ref name, case_arg)| (name.to_string(), case_arg))
+                .map(|(name, case_arg)| (name.to_string(), case_arg))
                 .collect()
         )
     }
+}
 
-    fn resolve(&self, ident: &Ident) -> Option<&parse::CaseArg> {
-        self.0.get(&ident.to_string()).map(|&a| a)
+impl<'a> From<(Vec<Ident>, Vec<&'a parse::CaseArg>)> for Resolver<'a> {
+    fn from(data: (Vec<Ident>, Vec<&'a parse::CaseArg>)) -> Self {
+        let (args, exprs) =  data;
+        Self (
+            args.into_iter()
+                .zip(exprs.into_iter())
+                .map(|(name, case_arg)| (name.to_string(), case_arg))
+                .collect()
+        )
     }
 }
 
@@ -673,14 +688,14 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
     }
 }
 
-struct Case<'a> {
+struct CaseRender<'a> {
     name: Ident,
     resolver: Resolver<'a>,
 }
 
-impl<'a> Case<'a> {
+impl<'a> CaseRender<'a> {
     pub fn new(name: Ident, resolver: Resolver<'a>) -> Self {
-        Case { name, resolver }
+        CaseRender { name, resolver }
     }
 
     fn render(self, testfn: &ItemFn, modifiers: &RsTestModifiers) -> TokenStream {
@@ -688,7 +703,7 @@ impl<'a> Case<'a> {
     }
 }
 
-fn render_cases<'a>(test: ItemFn, cases: impl Iterator<Item=Case<'a>>, modifiers: RsTestModifiers) -> TokenStream {
+fn render_cases<'a>(test: ItemFn, cases: impl Iterator<Item=CaseRender<'a>>, modifiers: RsTestModifiers) -> TokenStream {
     let fname = &test.ident;
     let cases = cases.map(|case| case.render(&test, &modifiers));
 
@@ -706,29 +721,84 @@ fn render_cases<'a>(test: ItemFn, cases: impl Iterator<Item=Case<'a>>, modifiers
 }
 
 fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
-    let parse::ParametrizeInfo { data: params, modifiers } = params;
+    let parse::ParametrizeInfo { data, modifiers } = params;
+    let parse::ParametrizeData { args, cases} = data;
 
-    let cases = params.cases.iter()
+    let cases = cases.iter()
         .enumerate()
         .map({
             let span = test.ident.span();
-            let params = &params;
+            let cases = &cases;
             move |(n, case)|
-                Case::new(Ident::new(&format_case_name(params, n), span),
-                          Resolver::new(&params.args, case))
+                CaseRender::new(Ident::new(&format_case_name(cases, n), span),
+                                (args.clone(), case).into())
         }
         );
 
     render_cases(test, cases, modifiers.into())
 }
 
-fn add_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
-    add_parametrize_cases(test, params.into())
+fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
+
+    // TODO:
+    // - [x] Use cases instead transform matrix in parametrize
+    // - [ ] Clean up (i.e. remove unused impl to transform matrix in parametrize)
+    // - [ ] Change description
+    // - [ ] test more than 10 case per variable
+    // - [ ] Span from test function for ident arg
+
+    let values = &values.0;
+
+    let mut results: Vec<_> = values[0].values.iter()
+        .enumerate()
+        .map(|(pos, expr)| vec![(&values[0].arg, expr, pos)])
+        .collect();
+    for list in &values[1..] {
+        results = list.values.iter()
+            .enumerate()
+            .flat_map(|(pos, v)|
+                results.clone().into_iter()
+                    .map(move |mut vec| {
+                        vec.push((&list.arg, v, pos));
+                        vec
+                    }
+                    )
+            ).collect()
+    }
+    let len_max = format!("{}", results.len()).len();
+    results.into_iter()
+        .enumerate()
+        .map(|(pos, c)| {
+            let (args, exprs, indexes) = c.into_iter()
+                .fold((vec![], vec![], vec![]),
+                      |(mut args, mut exprs, mut indexes), (arg, expr, index)|
+                          {
+                              args.push(arg.clone());
+                              exprs.push(expr);
+                              indexes.push(index);
+                              (args, exprs, indexes)
+                          }
+                );
+            let args_info = indexes.into_iter()
+                .map(|i| format!("_{}", i + 1))
+                .collect::<String>();
+
+            let name = format!("case_{:0len$}_{coords}", pos + 1, len = len_max as usize, coords=args_info);
+            CaseRender::new(Ident::new(&name, proc_macro2::Span::call_site()), (args, exprs).into())
+        }
+        )
+        .collect()
 }
 
-fn format_case_name(params: &parse::ParametrizeData, index: usize) -> String {
-    let len_max = format!("{}", params.cases.len()).len();
-    let description = params.cases[index]
+fn add_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
+    let parse::MatrixInfo { args, modifiers } = params;
+
+    render_cases(test, cases(&args).into_iter(), modifiers.into())
+}
+
+fn format_case_name(cases: &Vec<parse::TestCase>, index: usize) -> String {
+    let len_max = format!("{}", cases.len()).len();
+    let description = cases[index]
         .description.as_ref()
         .map(|d| format!("_{}", d))
         .unwrap_or_default();

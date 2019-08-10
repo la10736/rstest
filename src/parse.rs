@@ -313,7 +313,7 @@ impl Parse for ValueList {
         let arg = input.parse()?;
         let _to: Token![=>] = input.parse()?;
         let content;
-        let _paren = syn::bracketed!(content in input);
+        let paren = syn::bracketed!(content in input);
         let values = content
             .parse_terminated::<_, Token![,]>(Parse::parse)?
             .into_iter()
@@ -323,7 +323,11 @@ impl Parse for ValueList {
             arg,
             values,
         };
-        Ok(ret)
+        if ret.values.len() == 0 {
+            Err(syn::Error::new(paren.span, "Values list should not be empty"))
+        } else {
+            Ok(ret)
+        }
     }
 }
 
@@ -335,7 +339,6 @@ pub struct MatrixInfo {
     pub args: MatrixValues,
     pub modifiers: Modifiers,
 }
-
 
 #[allow(dead_code)]
 fn drain_stream(input: ParseStream) {
@@ -813,6 +816,14 @@ mod should {
 
             assert_eq!(Modifiers { modifiers: vec![RsTestAttribute::attr("trace")] },
                        info.modifiers);
+        }
+
+        #[test]
+        #[should_panic]
+        fn should_not_compile_if_empty_expression_slice() {
+            parse_matrix_info(r#"
+                invalid => []
+            "#);
         }
     }
 }
