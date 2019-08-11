@@ -26,10 +26,10 @@ fn happy_path() {
     let (output, _) = run_test("simple.rs");
 
     TestResults::new()
-        .ok("strlen_test::case_1__1_1")
-        .ok("strlen_test::case_2__2_1")
-        .ok("strlen_test::case_3__1_2")
-        .ok("strlen_test::case_4__2_2")
+        .ok("strlen_test::case_1_1")
+        .ok("strlen_test::case_1_2")
+        .ok("strlen_test::case_2_1")
+        .ok("strlen_test::case_2_2")
         .assert(output);
 }
 
@@ -46,14 +46,14 @@ mod dump_input_values {
         let out = output.stdout.str().to_string();
 
         TestResults::new()
-            .fail("should_fail::case_1__1_1_1")
-            .fail("should_fail::case_2__2_1_1")
-            .fail("should_fail::case_3__1_2_1")
-            .fail("should_fail::case_4__2_2_1")
-            .fail("should_fail::case_5__1_1_2")
-            .fail("should_fail::case_6__2_1_2")
-            .fail("should_fail::case_7__1_2_2")
-            .fail("should_fail::case_8__2_2_2")
+            .fail("should_fail::case_1_1_1")
+            .fail("should_fail::case_1_1_2")
+            .fail("should_fail::case_1_2_1")
+            .fail("should_fail::case_1_2_2")
+            .fail("should_fail::case_2_1_1")
+            .fail("should_fail::case_2_1_2")
+            .fail("should_fail::case_1_2_1")
+            .fail("should_fail::case_2_2_2")
             .assert(output);
 
         assert_in!(out, "u = 42");

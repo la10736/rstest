@@ -194,6 +194,7 @@ use error::error_statement;
 use parse::{Modifiers, RsTestAttribute};
 use quote::{quote, ToTokens};
 use std::iter::FromIterator;
+use itertools::Itertools;
 
 mod parse;
 mod error;
@@ -271,6 +272,16 @@ impl<'a> From<(Vec<Ident>, Vec<&'a parse::CaseArg>)> for Resolver<'a> {
         Self (
             args.into_iter()
                 .zip(exprs.into_iter())
+                .map(|(name, case_arg)| (name.to_string(), case_arg))
+                .collect()
+        )
+    }
+}
+
+impl<'a, ID: ToString> FromIterator<(ID, &'a parse::CaseArg)> for Resolver<'a> {
+    fn from_iter<T: IntoIterator<Item=(ID, &'a parse::CaseArg)>>(iter: T) -> Self {
+        Self (
+            iter.into_iter()
                 .map(|(name, case_arg)| (name.to_string(), case_arg))
                 .collect()
         )
@@ -743,48 +754,26 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
     // TODO:
     // - [x] Use cases instead transform matrix in parametrize
     // - [ ] Clean up (i.e. remove unused impl to transform matrix in parametrize)
-    // - [ ] Change description
+    // - [x] Change description
+    // - [ ] add unit test for matrix naming
     // - [ ] test more than 10 case per variable
     // - [ ] Span from test function for ident arg
 
-    let values = &values.0;
-
-    let mut results: Vec<_> = values[0].values.iter()
-        .enumerate()
-        .map(|(pos, expr)| vec![(&values[0].arg, expr, pos)])
-        .collect();
-    for list in &values[1..] {
-        results = list.values.iter()
-            .enumerate()
-            .flat_map(|(pos, v)|
-                results.clone().into_iter()
-                    .map(move |mut vec| {
-                        vec.push((&list.arg, v, pos));
-                        vec
-                    }
-                    )
-            ).collect()
-    }
-    let len_max = format!("{}", results.len()).len();
-    results.into_iter()
-        .enumerate()
-        .map(|(pos, c)| {
-            let (args, exprs, indexes) = c.into_iter()
-                .fold((vec![], vec![], vec![]),
-                      |(mut args, mut exprs, mut indexes), (arg, expr, index)|
-                          {
-                              args.push(arg.clone());
-                              exprs.push(expr);
-                              indexes.push(index);
-                              (args, exprs, indexes)
-                          }
-                );
-            let args_info = indexes.into_iter()
-                .map(|i| format!("_{}", i + 1))
-                .collect::<String>();
-
-            let name = format!("case_{:0len$}_{coords}", pos + 1, len = len_max as usize, coords=args_info);
-            CaseRender::new(Ident::new(&name, proc_macro2::Span::call_site()), (args, exprs).into())
+    values.0.iter()
+        .map( |group|
+            group.values.iter()
+                .enumerate()
+                .map(move | (pos, expr) | (&group.arg, expr, pos))
+        )
+        .multi_cartesian_product()
+        .map(|c| {
+            let args_indexes = c.iter()
+                .map(|(_,_,index)| (index + 1).to_string())
+                .collect::<Vec<_>>()
+                .join("_");
+            let name = format!("case_{}", args_indexes);
+            CaseRender::new(Ident::new(&name, proc_macro2::Span::call_site()),
+                            c.into_iter().map(|(a, e, _)| (a, e)).collect())
         }
         )
         .collect()
