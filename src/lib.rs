@@ -982,7 +982,7 @@ mod render {
         assert!(resolver.resolve(&arg).is_none())
     }
 
-    mod render_fn_test_should {
+    mod fn_test_should {
         use pretty_assertions::assert_eq;
         use proc_macro2::Span;
 
@@ -1073,7 +1073,7 @@ mod render {
         }
     }
 
-    mod add_parametrize_cases {
+    mod parametrize_cases {
         use std::borrow::Cow;
 
         use super::{*, assert_eq};
@@ -1278,7 +1278,7 @@ mod render {
         }
     }
 
-    mod add_matrix_cases {
+    mod matrix_cases {
         /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo
         /// transformation
 
