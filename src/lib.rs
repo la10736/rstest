@@ -256,8 +256,8 @@ impl<'a> Resolver<'a> {
 
 impl<'a> From<(Vec<Ident>, &'a parse::TestCase)> for Resolver<'a> {
     fn from(data: (Vec<Ident>, &'a parse::TestCase)) -> Self {
-        let (args, case) =  data;
-        Self (
+        let (args, case) = data;
+        Self(
             args.into_iter()
                 .zip(case.args.iter())
                 .map(|(name, case_arg)| (name.to_string(), case_arg))
@@ -266,21 +266,9 @@ impl<'a> From<(Vec<Ident>, &'a parse::TestCase)> for Resolver<'a> {
     }
 }
 
-impl<'a> From<(Vec<Ident>, Vec<&'a parse::CaseArg>)> for Resolver<'a> {
-    fn from(data: (Vec<Ident>, Vec<&'a parse::CaseArg>)) -> Self {
-        let (args, exprs) =  data;
-        Self (
-            args.into_iter()
-                .zip(exprs.into_iter())
-                .map(|(name, case_arg)| (name.to_string(), case_arg))
-                .collect()
-        )
-    }
-}
-
 impl<'a, ID: ToString> FromIterator<(ID, &'a parse::CaseArg)> for Resolver<'a> {
     fn from_iter<T: IntoIterator<Item=(ID, &'a parse::CaseArg)>>(iter: T) -> Self {
-        Self (
+        Self(
             iter.into_iter()
                 .map(|(name, case_arg)| (name.to_string(), case_arg))
                 .collect()
@@ -731,9 +719,18 @@ fn render_cases<'a>(test: ItemFn, cases: impl Iterator<Item=CaseRender<'a>>, mod
     }
 }
 
-fn add_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
+fn format_case_name(cases: &Vec<parse::TestCase>, index: usize) -> String {
+    let len_max = format!("{}", cases.len()).len();
+    let description = cases[index]
+        .description.as_ref()
+        .map(|d| format!("_{}", d))
+        .unwrap_or_default();
+    format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
+}
+
+fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
     let parse::ParametrizeInfo { data, modifiers } = params;
-    let parse::ParametrizeData { args, cases} = data;
+    let parse::ParametrizeData { args, cases } = data;
 
     let cases = cases.iter()
         .enumerate()
@@ -753,22 +750,23 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
 
     // TODO:
     // - [x] Use cases instead transform matrix in parametrize
-    // - [ ] Clean up (i.e. remove unused impl to transform matrix in parametrize)
+    // - [x] Clean up (i.e. remove unused impl to transform matrix in parametrize)
     // - [x] Change description
     // - [ ] add unit test for matrix naming
     // - [ ] test more than 10 case per variable
+    // - [ ] test case for no invalid name in ident
     // - [ ] Span from test function for ident arg
 
     values.0.iter()
-        .map( |group|
+        .map(|group|
             group.values.iter()
                 .enumerate()
-                .map(move | (pos, expr) | (&group.arg, expr, pos))
+                .map(move |(pos, expr)| (&group.arg, expr, pos))
         )
         .multi_cartesian_product()
         .map(|c| {
             let args_indexes = c.iter()
-                .map(|(_,_,index)| (index + 1).to_string())
+                .map(|(_, _, index)| (index + 1).to_string())
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
@@ -779,19 +777,10 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
         .collect()
 }
 
-fn add_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
+fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
     let parse::MatrixInfo { args, modifiers } = params;
 
     render_cases(test, cases(&args).into_iter(), modifiers.into())
-}
-
-fn format_case_name(cases: &Vec<parse::TestCase>, index: usize) -> String {
-    let len_max = format!("{}", cases.len()).len();
-    let description = cases[index]
-        .description.as_ref()
-        .map(|d| format!("_{}", d))
-        .unwrap_or_default();
-    format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
 }
 
 /// Write table-based tests: you must indicate the arguments tha you want use in your cases
@@ -875,7 +864,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     if let Some(tokens) = errors_in_parametrize(&test, &params.data) {
         tokens
     } else {
-        add_parametrize_cases(test, params)
+        render_parametrize_cases(test, params)
     }.into()
 }
 
@@ -886,7 +875,7 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
     let info = parse_macro_input!(args as parse::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    add_matrix_cases(test, info).into()
+    render_matrix_cases(test, info).into()
 }
 
 #[cfg(test)]
@@ -1111,7 +1100,7 @@ mod render {
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
             let info = (&item_fn).into();
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
 
@@ -1124,7 +1113,7 @@ mod render {
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = (&item_fn).into();
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let mut output = TestsGroup::from(tokens);
 
@@ -1138,7 +1127,7 @@ mod render {
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = (&item_fn).into();
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
 
@@ -1156,7 +1145,7 @@ mod render {
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = (&item_fn).into();
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
 
@@ -1224,7 +1213,7 @@ mod render {
         fn should_add_a_test_case() {
             let (item_fn, info) = one_simple_case();
 
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -1236,7 +1225,7 @@ mod render {
         fn case_number_should_starts_from_1() {
             let (item_fn, info) = one_simple_case();
 
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -1247,7 +1236,7 @@ mod render {
         fn should_add_all_test_cases() {
             let (item_fn, info) = some_simple_cases(5);
 
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -1260,7 +1249,7 @@ mod render {
         fn should_left_pad_case_number_by_zeros() {
             let (item_fn, info) = some_simple_cases(1000);
 
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -1281,7 +1270,7 @@ mod render {
             let description = "show_this_description";
             info.data.cases[0].description = Some(parse_str::<Ident>(description).unwrap());
 
-            let tokens = add_parametrize_cases(item_fn.clone(), info);
+            let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -1318,7 +1307,7 @@ mod render {
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
             let info = (&item_fn).into();
-            let tokens = add_matrix_cases(item_fn.clone(), info);
+            let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
 
@@ -1331,7 +1320,7 @@ mod render {
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = (&item_fn).into();
-            let tokens = add_matrix_cases(item_fn.clone(), info);
+            let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let mut output = TestsGroup::from(tokens);
 
@@ -1345,7 +1334,7 @@ mod render {
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = (&item_fn).into();
-            let tokens = add_matrix_cases(item_fn.clone(), info);
+            let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
 
@@ -1363,7 +1352,7 @@ mod render {
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = (&item_fn).into();
-            let tokens = add_matrix_cases(item_fn.clone(), info);
+            let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
 
@@ -1388,7 +1377,7 @@ mod render {
         fn should_add_a_test_case() {
             let (item_fn, info) = one_simple_case();
 
-            let tokens = add_matrix_cases(item_fn.clone(), info);
+            let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 

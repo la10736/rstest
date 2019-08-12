@@ -379,57 +379,6 @@ impl MatrixInfo {
     }
 }
 
-
-impl From<Vec<(CaseArg, usize)>> for TestCase {
-    fn from(expressions: Vec<(CaseArg, usize)>) -> Self {
-        let description = expressions.iter()
-            .map(|(_, pos)| format!("_{}", pos + 1))
-            .collect::<String>();
-        Self {
-            args: expressions.into_iter().map(|(expr, _)| expr).collect(),
-            description: syn::parse_str(&description).ok(),
-        }
-    }
-}
-
-fn cases(values: &Vec<ValueList>) -> Vec<Vec<(CaseArg, usize)>> {
-    assert!(values.len() > 0);
-
-    let mut results: Vec<_> = values[0].values.iter()
-        .enumerate()
-        .map(|(pos, expr)| vec![(expr.clone(), pos)])
-        .collect();
-    for list in &values[1..] {
-        assert!(list.values.len() > 0);
-        results = list.values.iter()
-            .enumerate()
-            .flat_map(|(pos, v)|
-                results.clone().into_iter()
-                    .map(move |mut vec| {
-                        vec.push((v.clone(), pos));
-                        vec
-                    }
-                    )
-            ).collect()
-    }
-    results
-}
-
-impl From<MatrixInfo> for ParametrizeInfo {
-    fn from(info: MatrixInfo) -> Self {
-        Self {
-            modifiers: info.modifiers,
-            data: ParametrizeData {
-                args: info.args.0.iter().map(|ValueList { arg: ident, .. }| ident).cloned().collect(),
-                cases: cases(&info.args.0)
-                    .into_iter()
-                    .map(TestCase::from)
-                    .collect(),
-            },
-        }
-    }
-}
-
 #[cfg(test)]
 mod should {
     #[allow(unused_imports)]
