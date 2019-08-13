@@ -1074,8 +1074,6 @@ mod render {
     }
 
     mod parametrize_cases {
-        use std::borrow::Cow;
-
         use super::{*, assert_eq};
 
         impl<'a> From<&'a ItemFn> for parse::ParametrizeData {
@@ -1167,27 +1165,20 @@ mod render {
             }
         }
 
-        impl<'a> From<Vec<Cow<'a, str>>> for TestCase {
-            fn from(arguments: Vec<Cow<'a, str>>) -> Self {
+        impl<'a> FromIterator<&'a str> for TestCase {
+            fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
                 TestCase {
-                    args: arguments
-                        .iter().map(|a| CaseArg::new(parse_str(a.as_ref().into()).unwrap())).collect(),
+                    args: iter.into_iter()
+                        .map(CaseArg::from)
+                        .collect(),
                     description: None,
                 }
             }
         }
 
-        impl<'a> From<Cow<'a, str>> for TestCase {
-            fn from(argument: Cow<'a, str>) -> Self {
-                vec![argument].into()
-            }
-        }
-
         impl<'a> From<&'a str> for TestCase {
             fn from(argument: &'a str) -> Self {
-                argument.split(",\n")
-                    .map(|s| Cow::from(s))
-                    .collect::<Vec<_>>().into()
+                std::iter::once(argument).collect()
             }
         }
 
@@ -1383,6 +1374,47 @@ mod render {
 
             assert_eq!(1, tests.len());
             assert!(&tests[0].ident.to_string().starts_with("case_"))
+        }
+
+        impl<'a, 'b, 'c> From<(&'a str, &'b [&'c str])> for ValueList {
+            fn from(data: (&'a str, &'b [&'c str])) -> Self {
+                let (arg, values) = data;
+                Self {
+                    arg: parse_str(arg).unwrap(),
+                    values: values.into_iter().map(|&s| CaseArg::from(s)).collect()
+                }
+            }
+        }
+
+        #[test]
+        fn should_add_a_test_cases_from_all_combinations() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
+            ).unwrap();
+            let mut info: MatrixInfo = (&item_fn).into();
+            info.args.0[0] = ("first", ["1", "2"].as_ref()).into();
+            info.args.0[1] = ("second", ["3", "4"].as_ref()).into();
+            info.args.0[2] = ("third", ["5", "6"].as_ref()).into();
+
+            let tokens = render_matrix_cases(item_fn.clone(), info);
+
+            let tests = TestsGroup::from(tokens).get_test_functions();
+
+            let tests = tests.into_iter()
+                .map(|t| t.ident.to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+            // TODO: use unindent crate
+            assert_eq!(tests, r#"
+case_1_1_1
+case_1_1_2
+case_1_2_1
+case_1_2_2
+case_2_1_1
+case_2_1_2
+case_2_2_1
+case_2_2_2
+"#.trim());
         }
     }
 
