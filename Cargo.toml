@@ -29,6 +29,7 @@ temp_testdir = "0.2"
 lazy_static = "1.1"
 toml_edit = "0.1"
 pretty_assertions = "0.6"
+unindent = "0.1"
 
 [build-dependencies]
 rustc_version = "0.2"
