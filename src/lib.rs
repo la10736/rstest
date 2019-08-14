@@ -719,13 +719,22 @@ fn render_cases<'a>(test: ItemFn, cases: impl Iterator<Item=CaseRender<'a>>, mod
     }
 }
 
+trait DisplayLen {
+    fn display_len(&self) -> usize;
+}
+
+impl<D: std::fmt::Display> DisplayLen for D {
+    fn display_len(&self) -> usize {
+        format!("{}", self).len()
+    }
+}
+
 fn format_case_name(cases: &Vec<parse::TestCase>, index: usize) -> String {
-    let len_max = format!("{}", cases.len()).len();
     let description = cases[index]
         .description.as_ref()
         .map(|d| format!("_{}", d))
         .unwrap_or_default();
-    format!("case_{:0len$}{d}", index + 1, len = len_max as usize, d = description)
+    format!("case_{:0len$}{d}", index + 1, len = cases.len().display_len(), d = description)
 }
 
 fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
@@ -752,8 +761,8 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
     // - [x] Use cases instead transform matrix in parametrize
     // - [x] Clean up (i.e. remove unused impl to transform matrix in parametrize)
     // - [x] Change description
-    // - [ ] add unit test for matrix naming
-    // - [ ] test more than 10 case per variable
+    // - [x] add unit test for matrix naming
+    // - [x] test more than 10 case per variable
     // - [ ] test case for no invalid name in ident
     // - [ ] Span from test function for ident arg
 
@@ -761,12 +770,14 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
         .map(|group|
             group.values.iter()
                 .enumerate()
-                .map(move |(pos, expr)| (&group.arg, expr, pos))
+                .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
         )
         .multi_cartesian_product()
         .map(|c| {
             let args_indexes = c.iter()
-                .map(|(_, _, index)| (index + 1).to_string())
+                .map(|(_, _, (index, max))|
+                    format!("{:0len$}", index + 1, len = max.display_len())
+                )
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
@@ -1377,12 +1388,12 @@ mod render {
             assert!(&tests[0].ident.to_string().starts_with("case_"))
         }
 
-        impl<'a, 'b, 'c> From<(&'a str, &'b [&'c str])> for ValueList {
-            fn from(data: (&'a str, &'b [&'c str])) -> Self {
+        impl<'a, 'b, 'c, S: ToString> From<(&'a str, &'b [S])> for ValueList {
+            fn from(data: (&'a str, &'b [S])) -> Self {
                 let (arg, values) = data;
                 Self {
                     arg: parse_str(arg).unwrap(),
-                    values: values.into_iter().map(|&s| CaseArg::from(s)).collect()
+                    values: values.into_iter().map(|s| CaseArg::from(s.to_string())).collect()
                 }
             }
         }
@@ -1416,6 +1427,25 @@ mod render {
                                 case_2_2_1
                                 case_2_2_2"#)
             )
+        }
+
+        #[test]
+        fn should_pad_case_index() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
+            ).unwrap();
+            let mut info: MatrixInfo = (&item_fn).into();
+            let values = (1..=1000).map(|i| i.to_string()).collect::<Vec<_>>();
+            info.args.0[0] = ("first", values.as_ref()).into();
+            info.args.0[1] = ("second", values[..100].as_ref()).into();
+            info.args.0[2] = ("third", values[..10].as_ref()).into();
+
+            let tokens = render_matrix_cases(item_fn.clone(), info);
+
+            let tests = TestsGroup::from(tokens).get_test_functions();
+
+            assert_eq!(tests[0].ident.to_string(), "case_0001_001_01");
+            assert_eq!(tests.last().unwrap().ident.to_string(), "case_1000_100_10");
         }
     }
 
