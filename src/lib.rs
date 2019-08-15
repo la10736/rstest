@@ -657,9 +657,8 @@ fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
         .is_some()
 }
 
-fn missed_arguments_errors<'a>(test: &'a ItemFn, params: &'a parse::ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
-    params.args.iter()
-        .filter(move |&p| !fn_args_has_ident(test, p))
+fn missed_arguments_errors<'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a Ident> + 'a) -> impl Iterator<Item=TokenStream> + 'a {
+    args.filter(move |&p| !fn_args_has_ident(test, p))
         .map(|missed|
             error_statement(&format!("Missed argument: '{}' should be a test function argument.", missed),
                             missed.span(), missed.span())
@@ -676,9 +675,21 @@ fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<
 }
 
 fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
-    let tokens = TokenStream::from_iter(
-        missed_arguments_errors(test, params).chain(invalid_case_errors(params))
-    );
+    let tokens: TokenStream =
+        missed_arguments_errors(test, params.args.iter())
+        .chain(
+            invalid_case_errors(params)
+        ).collect();
+
+    if !tokens.is_empty() {
+        Some(tokens)
+    } else {
+        None
+    }
+}
+
+fn errors_in_matrix(test: &ItemFn, args: &parse::MatrixValues) -> Option<TokenStream> {
+    let tokens:TokenStream = missed_arguments_errors(test, args.0.iter().map(|v| &v.arg)).collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -763,7 +774,7 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
     // - [x] Change description
     // - [x] add unit test for matrix naming
     // - [x] test more than 10 case per variable
-    // - [ ] test case for no invalid name in ident
+    // - [x] test case for no invalid name in ident
     // - [ ] Span from test function for ident arg
 
     values.0.iter()
@@ -886,7 +897,11 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
     let info = parse_macro_input!(args as parse::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    render_matrix_cases(test, info).into()
+    if let Some(tokens) = errors_in_matrix(&test, &info.args) {
+        tokens
+    } else {
+        render_matrix_cases(test, info).into()
+    }.into()
 }
 
 #[cfg(test)]

@@ -23,3 +23,7 @@ fn error_in_arbitrary_rust_code(condition: bool) {
 
 #[rstest_matrix(empty => [])]
 fn error_empty_list(empty: &str) {}
+
+#[rstest_matrix(not_exist_1 => [42],
+                not_exist_2 => [42])]
+fn error_no_match_args() {}

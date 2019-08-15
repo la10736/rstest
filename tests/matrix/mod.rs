@@ -174,6 +174,28 @@ mod should_show_correct_errors {
            |                          ^^"##,
            name).deindent());
     }
+
+    #[test]
+    fn if_argument_dont_match_function_signature() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!(r##"
+        error: Missed argument: 'not_exist_1' should be a test function argument.
+          --> {}/src/lib.rs:27:17
+           |
+        27 | #[rstest_matrix(not_exist_1 => [42],
+           |                 ^^^^^^^^^^^"##,
+           name).deindent());
+
+        assert_in!(output.stderr.str(), format!(r##"
+        error: Missed argument: 'not_exist_2' should be a test function argument.
+          --> {}/src/lib.rs:28:17
+           |
+        28 |                 not_exist_2 => [42])]
+           |                 ^^^^^^^^^^^"##,
+           name).deindent());
+
+    }
 }
 
 #[test]
