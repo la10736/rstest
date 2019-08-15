@@ -766,17 +766,7 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
     render_cases(test, cases, modifiers.into())
 }
 
-fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
-
-    // TODO:
-    // - [x] Use cases instead transform matrix in parametrize
-    // - [x] Clean up (i.e. remove unused impl to transform matrix in parametrize)
-    // - [x] Change description
-    // - [x] add unit test for matrix naming
-    // - [x] test more than 10 case per variable
-    // - [x] test case for no invalid name in ident
-    // - [ ] Span from test function for ident arg
-
+fn cases(values: &parse::MatrixValues, case_span: proc_macro2::Span) -> Vec<CaseRender> {
     values.0.iter()
         .map(|group|
             group.values.iter()
@@ -792,7 +782,7 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
-            CaseRender::new(Ident::new(&name, proc_macro2::Span::call_site()),
+            CaseRender::new(Ident::new(&name, case_span),
                             c.into_iter().map(|(a, e, _)| (a, e)).collect())
         }
         )
@@ -801,8 +791,9 @@ fn cases(values: &parse::MatrixValues) -> Vec<CaseRender> {
 
 fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
     let parse::MatrixInfo { args, modifiers } = params;
+    let span = test.ident.span();
 
-    render_cases(test, cases(&args).into_iter(), modifiers.into())
+    render_cases(test, cases(&args, span).into_iter(), modifiers.into())
 }
 
 /// Write table-based tests: you must indicate the arguments tha you want use in your cases
