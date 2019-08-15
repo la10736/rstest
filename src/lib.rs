@@ -1417,7 +1417,7 @@ mod render {
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            assert_eq!(tests, unindent(r#"
+            assert_eq!(tests, unindent("
                                 case_1_1_1
                                 case_1_1_2
                                 case_1_2_1
@@ -1425,7 +1425,7 @@ mod render {
                                 case_2_1_1
                                 case_2_1_2
                                 case_2_2_1
-                                case_2_2_2"#)
+                                case_2_2_2")
             )
         }
 
@@ -1435,17 +1435,17 @@ mod render {
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
             let mut info: MatrixInfo = (&item_fn).into();
-            let values = (1..=1000).map(|i| i.to_string()).collect::<Vec<_>>();
+            let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
             info.args.0[0] = ("first", values.as_ref()).into();
-            info.args.0[1] = ("second", values[..100].as_ref()).into();
-            info.args.0[2] = ("third", values[..10].as_ref()).into();
+            info.args.0[1] = ("second", values[..10].as_ref()).into();
+            info.args.0[2] = ("third", values[..2].as_ref()).into();
 
             let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
-            assert_eq!(tests[0].ident.to_string(), "case_0001_001_01");
-            assert_eq!(tests.last().unwrap().ident.to_string(), "case_1000_100_10");
+            assert_eq!(tests[0].ident.to_string(), "case_001_01_1");
+            assert_eq!(tests.last().unwrap().ident.to_string(), "case_100_10_2");
         }
     }
 
