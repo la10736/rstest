@@ -766,8 +766,15 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
     render_cases(test, cases, modifiers.into())
 }
 
-fn cases(values: &parse::MatrixValues, case_span: proc_macro2::Span) -> Vec<CaseRender> {
-    values.0.iter()
+fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
+    let parse::MatrixInfo { args, modifiers } = params;
+    let span = test.ident.span();
+
+    // Steps:
+    // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
+    // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
+    // 3. format case by packed data vactor
+    let cases = args.0.iter()
         .map(|group|
             group.values.iter()
                 .enumerate()
@@ -782,18 +789,12 @@ fn cases(values: &parse::MatrixValues, case_span: proc_macro2::Span) -> Vec<Case
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
-            CaseRender::new(Ident::new(&name, case_span),
+            CaseRender::new(Ident::new(&name, span),
                             c.into_iter().map(|(a, e, _)| (a, e)).collect())
         }
-        )
-        .collect()
-}
+        );
 
-fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
-    let parse::MatrixInfo { args, modifiers } = params;
-    let span = test.ident.span();
-
-    render_cases(test, cases(&args, span).into_iter(), modifiers.into())
+    render_cases(test, cases, modifiers.into())
 }
 
 /// Write table-based tests: you must indicate the arguments tha you want use in your cases
