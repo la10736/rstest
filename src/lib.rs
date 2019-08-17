@@ -21,6 +21,8 @@
 //! - [`[rstest]`](attr.rstest.html): A normal Rust test that may additionally take fixtures.
 //! - [`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
 //! added ability to also generate new test cases based on input tables.
+//! - [`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases for every combination of given values.
 //! - [`[fixture]`](attr.fixture.html): To mark a function as a fixture.
 //!
 //! ## Why
@@ -92,7 +94,7 @@
 //! }
 //! ```
 //!
-//! ## Injecting fixtures as funtion arguments
+//! ## Injecting fixtures as function arguments
 //!
 //! `rstest` functions can receive fixtures by using them as an input argument. A function decorated
 //! with [`[rstest]`](attr.rstest.html) will resolve each argument name by call the fixture
@@ -773,7 +775,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
     // Steps:
     // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
     // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
-    // 3. format case by packed data vactor
+    // 3. format case by packed data vector
     let cases = args.0.iter()
         .map(|group|
             group.values.iter()
@@ -797,7 +799,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
     render_cases(test, cases, modifiers.into())
 }
 
-/// Write table-based tests: you must indicate the arguments tha you want use in your cases
+/// Write table-based tests: you must indicate the arguments that you want use in your cases
 /// and provide them for each case you want to test.
 ///
 /// `rstest_parametrize` generates an independent test for each case.
@@ -839,7 +841,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
 ///     case[::description_1](val_1_1, ..., val_n_1),
 ///     ...,
 ///     case[::description_m](val_1_m, ..., val_n_m)[,]
-///     [::modifier_1[:: ... [::modifir_k]]]
+///     [::modifier_1[:: ... [::modifier_k]]]
 /// )
 /// ```
 /// * `ident_x` should be a valid function argument name
@@ -882,6 +884,70 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     }.into()
 }
 
+/// Write matrix-based tests: you must indicate arguments and values list that you want to test and
+/// `rstest_matrix` generate an indipendent test for each argument combination (the carthesian
+/// product of values lists).
+///
+/// ```
+/// # use rstest::rstest_matrix;
+/// #[rstest_matrix(
+///     foo => [42, 24],
+///     bar => ["foo", "bar"]
+/// )]
+/// fn matrix_test(foo: u32, bar: &str) {
+///     //... test body
+/// }
+/// ```
+///
+/// Running `cargo test` in this case executes four tests:
+///
+/// ```bash
+/// running 4 tests
+/// test matrix_test::case_1_1 ... ok
+/// test matrix_test::case_1_2 ... ok
+/// test matrix_test::case_2_1 ... ok
+/// test matrix_test::case_2_2 ... ok
+///
+/// test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+///
+/// ```
+///
+/// Every parameter that isn't mapped as argument list will be resolved as `fixture` like
+/// [`[rstest]`](attr.rstest.html)'s function arguments.
+///
+/// In general `rstest_matrix`'s syntax is:
+///
+/// ```norun
+/// rstest_parametrize(
+///     ident_1 => [val_1_1, ..., val_1_m1],
+///     ....
+///     ident_n => [val_n_1, ..., val_n_mn]
+///     [::modifier_1[:: ... [::modifier_k]]]
+/// )
+/// ```
+/// * `ident_x` should be a valid function argument name
+/// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
+/// * modifiers now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+///
+/// Functions marked by `rstest_matrix` can use generics, `impl` and `dyn` without any
+/// restriction.
+///
+/// ```
+/// # use rstest::rstest_matrix;
+/// #[rstest_matrix(
+///     foo => ["foo", String::from("foo")]
+/// )]
+/// fn len<S: AsRef<str>>(foo: S) {
+///     assert_eq!(3, input.as_ref().len())
+/// }
+///
+/// #[rstest_matrix(
+///     foo => ["foo", String::from("foo")]
+/// )]
+/// fn len_by_impl(foo: impl AsRef<str>) {
+///     assert_eq!(3, input.as_ref().len())
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
