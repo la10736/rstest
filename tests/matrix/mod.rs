@@ -1,6 +1,7 @@
 use std::path::Path;
+use unindent::Unindent;
 
-pub use crate::utils::{*, deindent::Deindent, CountMessageOccurrence};
+pub use crate::utils::{*, CountMessageOccurrence};
 
 fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("matrix").join(res);
@@ -34,11 +35,8 @@ fn happy_path() {
 }
 
 mod dump_input_values {
-    use super::run_test;
-    use crate::utils::{
-        *,
-        deindent::Deindent,
-    };
+    use super::{run_test, Unindent};
+    use crate::utils::*;
 
     #[test]
     fn if_implement_debug() {
@@ -69,12 +67,12 @@ mod dump_input_values {
     fn should_not_compile_if_not_implement_debug() {
         let (output, name) = run_test("dump_not_debug.rs");
 
-        assert_in!(output.stderr.str().to_string(), format!(r#"
+        assert_in!(output.stderr.str().to_string(), format!("
         error[E0277]: `S` doesn't implement `std::fmt::Debug`
          --> {}/src/lib.rs:9:18
           |
         9 | fn test_function(s: S) {{}}
-          |                  ^ `S` cannot be formatted using `{{:?}}`"#, name).deindent());
+          |                  ^ `S` cannot be formatted using `{{:?}}`", name).unindent());
     }
 }
 
@@ -99,7 +97,7 @@ mod should_show_correct_errors {
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:11:33
            |
-        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).deindent());
+        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).unindent());
     }
 
     #[test]
@@ -115,7 +113,7 @@ mod should_show_correct_errors {
           |
           = note: expected type `u32`
                      found type `&'static str`
-        "#, name).deindent());
+        "#, name).unindent());
     }
 
     #[test]
@@ -134,7 +132,7 @@ mod should_show_correct_errors {
            |
            = note: expected type `std::string::String`
                       found type `u32`
-        ", name).deindent());
+        ", name).unindent());
     }
 
     #[test]
@@ -145,55 +143,55 @@ mod should_show_correct_errors {
         error[E0308]: mismatched types
           --> {}/src/lib.rs:17:27
            |
-        17 | fn error_param_wrong_type(f: &str) {{}}", name).deindent());
+        17 | fn error_param_wrong_type(f: &str) {{}}", name).unindent());
     }
 
     #[test]
     fn if_arbitrary_rust_code_has_some_errors() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!(r##"
+        assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
           --> {}/src/lib.rs:19:52
            |
         19 | #[rstest_matrix(condition => [vec![1,2,3].contains(2)] )]
            |                                                    ^
-           |                                                    |"##,
-           name).deindent());
+           |                                                    |",
+           name).unindent());
     }
 
     #[test]
     fn if_a_value_contains_empty_list() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!(r##"
+        assert_in!(output.stderr.str(), format!("
         error: Values list should not be empty
           --> {}/src/lib.rs:24:26
            |
         24 | #[rstest_matrix(empty => [])]
-           |                          ^^"##,
-           name).deindent());
+           |                          ^^",
+           name).unindent());
     }
 
     #[test]
     fn if_argument_dont_match_function_signature() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!(r##"
+        assert_in!(output.stderr.str(), format!("
         error: Missed argument: 'not_exist_1' should be a test function argument.
           --> {}/src/lib.rs:27:17
            |
         27 | #[rstest_matrix(not_exist_1 => [42],
-           |                 ^^^^^^^^^^^"##,
-           name).deindent());
+           |                 ^^^^^^^^^^^",
+           name).unindent());
 
-        assert_in!(output.stderr.str(), format!(r##"
+        assert_in!(output.stderr.str(), format!("
         error: Missed argument: 'not_exist_2' should be a test function argument.
           --> {}/src/lib.rs:28:17
            |
         28 |                 not_exist_2 => [42])]
-           |                 ^^^^^^^^^^^"##,
-           name).deindent());
+           |                 ^^^^^^^^^^^",
+           name).unindent());
 
     }
 }
@@ -209,7 +207,7 @@ fn should_reject_no_item_function() {
           |
         4 | struct Foo;
           | ^^^^^^
-        ", name).deindent());
+        ", name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
@@ -217,7 +215,7 @@ fn should_reject_no_item_function() {
           |
         7 | impl Foo {{}}
           | ^^^^
-        ", name).deindent());
+        ", name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
@@ -225,5 +223,5 @@ fn should_reject_no_item_function() {
            |
         10 | mod mod_baz {{}}
            | ^^^
-        ", name).deindent());
+        ", name).unindent());
 }

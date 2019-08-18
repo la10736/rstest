@@ -1,7 +1,8 @@
-
-pub use crate::utils::{self, *, deindent::Deindent};
-use crate::prj::Project;
 use std::path::Path;
+use unindent::Unindent;
+
+pub use crate::utils::{*, Stringable};
+use crate::prj::Project;
 
 fn prj(res: &str) -> Project {
     let path = Path::new("single").join(res);
@@ -66,10 +67,7 @@ fn should_resolve_generics_fixture_outputs() {
 
 mod dump_input_values {
     use super::{
-        prj, run_test, TestResults,
-        utils::{
-            Stringable, deindent::Deindent
-        },
+        prj, run_test, TestResults, Unindent, Stringable
     };
 
     #[test]
@@ -93,11 +91,11 @@ mod dump_input_values {
 
         let output = prj.run_tests().unwrap();
 
-        assert_in!(output.stderr.str(), format!(r#"
+        assert_in!(output.stderr.str(), format!("
          --> {}/src/lib.rs:9:18
           |
         9 | fn test_function(fixture: S) {{}}
-          |                  ^^^^^^^ `S` cannot be formatted using `{{:?}}`"#, name).deindent());
+          |                  ^^^^^^^ `S` cannot be formatted using `{{:?}}`", name).unindent());
     }
 
     #[test]
@@ -146,7 +144,7 @@ fn should_show_correct_errors() {
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:12:33
            |
-        12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{", name).deindent());
+        12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{", name).unindent());
 
     assert_in!(output.stderr.str(), format!(r#"
         error[E0308]: mismatched types
@@ -157,7 +155,7 @@ fn should_show_correct_errors() {
           |
           = note: expected type `u32`
                      found type `&'static str`
-        "#, name).deindent());
+        "#, name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
@@ -171,7 +169,7 @@ fn should_show_correct_errors() {
            |
            = note: expected type `std::string::String`
                       found type `u32`
-        ", name).deindent());
+        ", name).unindent());
 }
 
 #[test]
@@ -186,7 +184,7 @@ fn should_reject_no_item_function() {
           |
         4 | struct Foo;
           | ^^^^^^
-        ", name).deindent());
+        ", name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
@@ -194,7 +192,7 @@ fn should_reject_no_item_function() {
           |
         7 | impl Foo {{}}
           | ^^^^
-        ", name).deindent());
+        ", name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
@@ -202,5 +200,5 @@ fn should_reject_no_item_function() {
            |
         10 | mod mod_baz {{}}
            | ^^^
-        ", name).deindent());
+        ", name).unindent());
 }

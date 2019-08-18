@@ -1,6 +1,7 @@
 use std::path::Path;
+use unindent::Unindent;
 
-pub use crate::utils::{*, deindent::Deindent, CountMessageOccurrence};
+pub use crate::utils::{*, CountMessageOccurrence};
 
 fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("parametrize").join(res);
@@ -137,11 +138,11 @@ mod not_compile_if_missed_arguments {
 
         assert_ne!(Some(0), output.status.code());
         assert_in!(stderr, "Missed argument");
-        assert_in!(stderr, r#"
+        assert_in!(stderr, "
       |
     4 | #[rstest_parametrize(f, case(42), case(24))]
       |                      ^
-    "#.deindent());
+    ".unindent());
     }
 
     #[test]
@@ -149,16 +150,16 @@ mod not_compile_if_missed_arguments {
         let (output, _) = run_test("missed_some_arguments.rs");
         let stderr = output.stderr.str();
 
-        assert_in!(stderr, r#"
+        assert_in!(stderr, "
       |
     4 | #[rstest_parametrize(a,b,c, case(1,2,3), case(3,2,1))]
       |                      ^
-    "#.deindent());
-        assert_in!(stderr, r#"
+    ".unindent());
+        assert_in!(stderr, "
       |
     4 | #[rstest_parametrize(a,b,c, case(1,2,3), case(3,2,1))]
       |                          ^
-    "#.deindent());
+    ".unindent());
 
         assert_eq!(2, stderr.count("Missed argument"),
                    "Should contain message exactly 2 occurrences in error message:\n{}", stderr)
@@ -203,17 +204,17 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         let (output, _) = execute();
         let stderr = output.stderr.str();
 
-        assert_in!(stderr, r#"
+        assert_in!(stderr, "
           |
         8 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
           |                              ^^^^^^
-        "#.deindent());
+        ".unindent());
 
-        assert_in!(stderr, r#"
+        assert_in!(stderr, "
           |
         8 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
           |                                                      ^^^^^^
-        "#.deindent());
+        ".unindent());
     }
 
     #[test]
@@ -221,17 +222,17 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         let (output, _) = execute();
         let stderr = output.stderr.str();
 
-        assert_in!(stderr, r#"
+        assert_in!(stderr, "
           |
         4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
           |                                 ^^
-        "#.deindent());
+        ".unindent());
 
-        assert_in!(stderr, r#"
+        assert_in!(stderr, "
           |
         4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
           |                                                       ^^
-        "#.deindent());
+        ".unindent());
     }
 
     #[test]
@@ -246,11 +247,7 @@ mod not_compile_if_a_case_has_a_wrong_signature {
 }
 
 mod dump_input_values {
-    use super::run_test;
-    use crate::utils::{
-            *,
-            deindent::Deindent,
-    };
+    use super::*;
 
     #[test]
     fn if_implement_debug() {
@@ -275,12 +272,12 @@ mod dump_input_values {
     fn should_not_compile_if_not_implement_debug() {
         let (output, name) = run_test("dump_not_debug.rs");
 
-        assert_in!(output.stderr.str().to_string(), format!(r#"
+        assert_in!(output.stderr.str().to_string(), format!("
         error[E0277]: `S` doesn't implement `std::fmt::Debug`
          --> {}/src/lib.rs:9:18
           |
         9 | fn test_function(s: S) {{}}
-          |                  ^ `S` cannot be formatted using `{{:?}}`"#, name).deindent());
+          |                  ^ `S` cannot be formatted using `{{:?}}`", name).unindent());
     }
 
     #[test]
@@ -339,7 +336,7 @@ mod should_show_correct_errors {
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:11:33
            |
-        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).deindent());
+        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).unindent());
     }
 
     #[test]
@@ -355,7 +352,7 @@ mod should_show_correct_errors {
           |
           = note: expected type `u32`
                      found type `&'static str`
-        "#, name).deindent());
+        "#, name).unindent());
     }
 
     #[test]
@@ -374,7 +371,7 @@ mod should_show_correct_errors {
            |
            = note: expected type `std::string::String`
                       found type `u32`
-        ", name).deindent());
+        ", name).unindent());
     }
 
     #[test]
@@ -385,21 +382,21 @@ mod should_show_correct_errors {
         error[E0308]: mismatched types
           --> {}/src/lib.rs:17:27
            |
-        17 | fn error_param_wrong_type(f: &str) {{}}", name).deindent());
+        17 | fn error_param_wrong_type(f: &str) {{}}", name).unindent());
     }
 
     #[test]
     fn if_arbitrary_rust_code_has_some_errors() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!(r##"
+        assert_in!(output.stderr.str(), format!("
         error[E0308]: mismatched types
           --> {}/src/lib.rs:20:31
            |
         20 |     case(vec![1,2,3].contains(2)))
            |                               ^
-           |                               |"##,
-           name).deindent());
+           |                               |",
+           name).unindent());
     }
 }
 
@@ -414,7 +411,7 @@ fn should_reject_no_item_function() {
           |
         4 | struct Foo;
           | ^^^^^^
-        ", name).deindent());
+        ", name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
@@ -422,7 +419,7 @@ fn should_reject_no_item_function() {
           |
         7 | impl Foo {{}}
           | ^^^^
-        ", name).deindent());
+        ", name).unindent());
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`
@@ -430,5 +427,5 @@ fn should_reject_no_item_function() {
            |
         10 | mod mod_baz {{}}
            | ^^^
-        ", name).deindent());
+        ", name).unindent());
 }

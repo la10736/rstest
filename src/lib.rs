@@ -965,7 +965,7 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
 #[cfg(test)]
 mod render {
     use pretty_assertions::assert_eq;
-    use unindent::unindent;
+    use unindent::Unindent;
     use syn::{
         export::Debug, Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
@@ -1358,7 +1358,7 @@ mod render {
         /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo
         /// transformation
 
-        use super::{*, assert_eq, unindent};
+        use super::{*, assert_eq};
 
         impl<'a> From<&'a ItemFn> for parse::MatrixValues {
             fn from(item_fn: &'a ItemFn) -> Self {
@@ -1490,15 +1490,15 @@ mod render {
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            assert_eq!(tests, unindent("
-                                case_1_1_1
-                                case_1_1_2
-                                case_1_2_1
-                                case_1_2_2
-                                case_2_1_1
-                                case_2_1_2
-                                case_2_2_1
-                                case_2_2_2")
+            assert_eq!(tests, "
+                    case_1_1_1
+                    case_1_1_2
+                    case_1_2_1
+                    case_1_2_2
+                    case_2_1_1
+                    case_2_1_2
+                    case_2_2_1
+                    case_2_2_2".unindent()
             )
         }
 

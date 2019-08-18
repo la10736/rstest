@@ -157,37 +157,6 @@ pub fn testname() -> String {
     thread::current().name().unwrap().to_string()
 }
 
-pub mod deindent {
-    pub trait Deindent {
-        fn deindent(self) -> String;
-    }
-
-    impl <S: AsRef<str>> Deindent for S {
-        fn deindent(self) -> String {
-            use std::fmt::Write;
-            let message = self.as_ref();
-            let skip = min_indent_size(message);
-            let mut output = String::new();
-            message.lines().for_each(|l|
-                writeln!(&mut output, "{}", &l[skip.min(l.len())..])
-                    .unwrap());
-            output
-        }
-    }
-
-    fn min_indent_size(message: &str) -> usize {
-        let skip = message.lines()
-            .filter(|l| l.len() > 0)
-            .map(|l| count_start(l, ' '))
-            .min().unwrap_or(0);
-        skip
-    }
-
-    fn count_start(l: &str, ch: char) -> usize {
-        l.chars().take_while(|&c| c == ch ).count()
-    }
-}
-
 pub trait CountMessageOccurrence {
     fn count<S: AsRef<str>>(&self, message: S) -> usize;
 }
