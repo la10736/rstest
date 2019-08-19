@@ -5,6 +5,7 @@ use cfg_if::cfg_if;
 // TODO: Remove this dependency
 use quote::quote;
 use quote::ToTokens;
+use crate::RsTestModifiers;
 
 #[derive(Default, Debug)]
 pub struct ParametrizeData {
@@ -379,6 +380,20 @@ impl MatrixInfo {
     }
 }
 
+pub(crate) struct RsTestData {
+    pub modifiers: RsTestModifiers
+}
+
+impl Parse for RsTestData {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(
+            Self {
+                modifiers: input.parse::<Modifiers>()?.into()
+            }
+        )
+    }
+}
+
 #[cfg(test)]
 mod should {
     #[allow(unused_imports)]
@@ -411,15 +426,23 @@ mod should {
         }
     }
 
+    fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
+        parse_str::<syn::Ident>(s.as_ref()).unwrap()
+    }
+
+    fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
+        parse_str::<syn::Expr>(s.as_ref()).unwrap()
+    }
+
     impl From<String> for CaseArg {
         fn from(data: String) -> Self {
-            CaseArg::new(parse_str::<syn::Expr>(data.as_ref()).unwrap())
+            CaseArg::new(expr(data))
         }
     }
 
     impl<'a> From<&'a str> for CaseArg {
         fn from(data: &str) -> Self {
-            CaseArg::new(parse_str::<syn::Expr>(data).unwrap())
+            CaseArg::new(expr(data))
         }
     }
 
@@ -456,35 +479,69 @@ mod should {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
     }
 
-    trait IntoIdent {
-        fn into_ident(self) -> Ident;
-    }
-
-    impl<S: AsRef<str>> IntoIdent for S {
-        fn into_ident(self) -> Ident {
-            parse_str(self.as_ref()).unwrap()
-        }
-    }
-
     impl RsTestAttribute {
-        fn attr<I: IntoIdent>(i: I) -> Self {
-            RsTestAttribute::Attr(i.into_ident())
+        fn attr<S: AsRef<str>>(s: S) -> Self {
+            RsTestAttribute::Attr(ident(s))
         }
 
-        fn tagged<I: IntoIdent, A: IntoIdent>(tag: I, attrs: Vec<A>) -> Self {
+        fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
             RsTestAttribute::Tagged(
-                tag.into_ident(),
+                ident(tag),
                 attrs.into_iter()
-                    .map(|a| a.into_ident())
+                    .map(|a| ident(a))
                     .collect(),
             )
         }
 
-        fn typed<I: IntoIdent, T: AsRef<str>>(tag: I, inner: T) -> Self {
+        fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
             RsTestAttribute::Type(
-                tag.into_ident(),
+                ident(tag),
                 parse_str(inner.as_ref()).unwrap(),
             )
+        }
+    }
+
+    mod parse_fixture_values {
+        use super::assert_eq;
+        use super::*;
+
+        #[derive(PartialEq, Debug)]
+        struct Fixture {
+            name: Ident,
+            positional: Vec<syn::Expr>
+        }
+
+        #[derive(PartialEq, Debug)]
+        struct Fixtures {
+            fixtures: Vec<Fixture>
+        }
+
+        impl Parse for Fixtures {
+            fn parse(input: ParseStream) -> Result<Self> {
+                drain_stream(input);
+                Ok(
+                    Self {
+                        fixtures: vec![]
+                    }
+                )
+            }
+        }
+
+        fn parse_fixtures<S: AsRef<str>>(fixtures: S) -> Fixtures {
+            parse_meta(fixtures)
+        }
+
+        #[test]
+        fn one_arg() {
+            let fixtures = parse_fixtures("my_fixture(42)");
+
+            let expected = Fixtures {
+                fixtures: vec![
+                    Fixture { name: ident("my_fixture"), positional: vec! [expr("42")] }
+                ]
+            };
+
+            assert_eq!(expected, fixtures);
         }
     }
 

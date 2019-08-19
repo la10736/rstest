@@ -65,6 +65,18 @@ fn should_resolve_generics_fixture_outputs() {
         .assert(output);
 }
 
+#[test]
+fn should_apply_partial_fixture() {
+    let output = run_test("partial.rs");
+
+    TestResults::new()
+        .ok("default")
+        .ok("partial_1")
+        .ok("partial_2")
+        .ok("complete")
+        .assert(output);
+}
+
 mod dump_input_values {
     use super::{
         prj, run_test, TestResults, Unindent, Stringable

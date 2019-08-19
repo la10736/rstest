@@ -193,7 +193,7 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
           parse_macro_input, Pat, ReturnType, Stmt};
 
 use error::error_statement;
-use parse::{Modifiers, RsTestAttribute};
+use parse::{Modifiers, RsTestAttribute, RsTestData};
 use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
@@ -645,10 +645,10 @@ pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
-    let modifiers = parse_macro_input!(args as Modifiers).into();
+    let data = parse_macro_input!(args as RsTestData);
     let name = &test.ident;
     let resolver = Resolver::default();
-    render_fn_test(name.clone(), &test, Some(&test), resolver, &modifiers)
+    render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
         .into()
 }
 
