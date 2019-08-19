@@ -511,6 +511,20 @@ mod should {
             positional: Vec<syn::Expr>
         }
 
+        impl Parse for Fixture {
+            fn parse(input: ParseStream) -> Result<Self> {
+                let name = input.parse()?;
+                let content;
+                let _ = syn::parenthesized!(content in input);
+                let positional = Punctuated::<syn::Expr, Token![,]>::parse_terminated(&content)?
+                    .into_iter()
+                    .collect();
+                Ok(
+                    Self { name, positional }
+                )
+            }
+        }
+
         #[derive(PartialEq, Debug)]
         struct Fixtures {
             fixtures: Vec<Fixture>
@@ -518,10 +532,9 @@ mod should {
 
         impl Parse for Fixtures {
             fn parse(input: ParseStream) -> Result<Self> {
-                drain_stream(input);
                 Ok(
                     Self {
-                        fixtures: vec![]
+                        fixtures: vec![input.parse()?]
                     }
                 )
             }
@@ -539,6 +552,17 @@ mod should {
                 fixtures: vec![
                     Fixture { name: ident("my_fixture"), positional: vec! [expr("42")] }
                 ]
+            };
+
+            assert_eq!(expected, fixtures);
+        }
+
+        #[test]
+        fn no_fixtures() {
+            let fixtures = parse_fixtures("");
+
+            let expected = Fixtures {
+                fixtures: vec![]
             };
 
             assert_eq!(expected, fixtures);
