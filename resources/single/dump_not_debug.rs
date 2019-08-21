@@ -5,5 +5,5 @@ struct S;
 #[fixture]
 fn fixture() -> S { S {} }
 
-#[rstest(trace)]
+#[rstest(::trace)]
 fn test_function(fixture: S) {}

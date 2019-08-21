@@ -284,7 +284,7 @@ fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
 
 macro_rules! wrap_modifiers {
     ($ident:ident) => {
-        #[derive(Default)]
+        #[derive(Default, Debug, PartialEq)]
         struct $ident {
             inner: Modifiers,
         }
@@ -610,7 +610,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// #[fixture]
 /// fn injected() -> i32 { 42 }
 ///
-/// #[rstest(trace)]
+/// #[rstest(::trace)]
 /// fn the_test(injected: i32) {
 ///     assert_eq!(42, injected)
 /// }
@@ -635,7 +635,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// # use rstest::*;
 /// # struct Xyz;
 /// # struct NoSense;
-/// #[rstest(trace::notrace(xzy, have_no_sense))]
+/// #[rstest(::trace::notrace(xzy, have_no_sense))]
 /// fn the_test(injected: i32, xyz: Xyz, have_no_sense: NoSense) {
 ///     assert_eq!(42, injected)
 /// }

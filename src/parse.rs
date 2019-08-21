@@ -380,15 +380,71 @@ impl MatrixInfo {
     }
 }
 
+#[derive(PartialEq, Debug)]
+struct Fixture {
+    name: Ident,
+    positional: Vec<syn::Expr>,
+}
+
+impl Parse for Fixture {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let name = input.parse()?;
+        let content;
+        let _ = syn::parenthesized!(content in input);
+        let positional = Punctuated::<syn::Expr, Token![,]>::parse_terminated(&content)?
+            .into_iter()
+            .collect();
+        Ok(
+            Self { name, positional }
+        )
+    }
+}
+
+#[derive(PartialEq, Debug, Default)]
+pub(crate) struct Fixtures {
+    fixtures: Vec<Fixture>
+}
+
+impl Parse for Fixtures {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![::]) {
+            Ok(Default::default())
+        } else {
+            Ok(
+                Self {
+                    fixtures: Punctuated::<Fixture, Token![,]>::parse_separated_nonempty(input)?
+                        .into_iter()
+                        .collect()
+                }
+            )
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestData {
-    pub modifiers: RsTestModifiers
+    pub fixtures: Fixtures,
+    pub modifiers: RsTestModifiers,
+}
+
+impl Parse for RsTestModifiers {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(input.parse::<Modifiers>()?.into())
+    }
 }
 
 impl Parse for RsTestData {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(
-            Self {
-                modifiers: input.parse::<Modifiers>()?.into()
+            if input.is_empty() {
+                Default::default()
+            } else {
+                Self {
+                    fixtures: input.parse()?,
+                    modifiers: input.parse::<Token![::]>()
+                        .or_else(|_| Ok(Default::default()))
+                        .and_then(|_| input.parse())?,
+                }
             }
         )
     }
@@ -501,44 +557,15 @@ mod should {
         }
     }
 
+    impl From<Vec<Fixture>> for Fixtures {
+        fn from(fixtures: Vec<Fixture>) -> Self {
+            Self { fixtures }
+        }
+    }
+
     mod parse_fixture_values {
         use super::assert_eq;
         use super::*;
-
-        #[derive(PartialEq, Debug)]
-        struct Fixture {
-            name: Ident,
-            positional: Vec<syn::Expr>
-        }
-
-        impl Parse for Fixture {
-            fn parse(input: ParseStream) -> Result<Self> {
-                let name = input.parse()?;
-                let content;
-                let _ = syn::parenthesized!(content in input);
-                let positional = Punctuated::<syn::Expr, Token![,]>::parse_terminated(&content)?
-                    .into_iter()
-                    .collect();
-                Ok(
-                    Self { name, positional }
-                )
-            }
-        }
-
-        #[derive(PartialEq, Debug)]
-        struct Fixtures {
-            fixtures: Vec<Fixture>
-        }
-
-        impl Parse for Fixtures {
-            fn parse(input: ParseStream) -> Result<Self> {
-                Ok(
-                    Self {
-                        fixtures: vec![input.parse()?]
-                    }
-                )
-            }
-        }
 
         fn parse_fixtures<S: AsRef<str>>(fixtures: S) -> Fixtures {
             parse_meta(fixtures)
@@ -550,22 +577,72 @@ mod should {
 
             let expected = Fixtures {
                 fixtures: vec![
-                    Fixture { name: ident("my_fixture"), positional: vec! [expr("42")] }
+                    Fixture { name: ident("my_fixture"), positional: vec![expr("42")] }
                 ]
             };
 
             assert_eq!(expected, fixtures);
         }
+    }
+
+    mod parse_rstest {
+        use super::assert_eq;
+        use super::*;
+
+        fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestData {
+            parse_meta(rstest_data)
+        }
 
         #[test]
-        fn no_fixtures() {
-            let fixtures = parse_fixtures("");
+        fn happy_path() {
+            let data = parse_rstest(r#"my_fixture(42, "other"), other(vec![42])
+                    :: trace :: no_trace(some)"#);
 
-            let expected = Fixtures {
-                fixtures: vec![]
+            let expected = RsTestData {
+                fixtures: vec![
+                    Fixture { name: ident("my_fixture"), positional: vec![expr("42"), expr(r#""other""#)] },
+                    Fixture { name: ident("other"), positional: vec![expr("vec![42]")] },
+                ].into(),
+                modifiers: Modifiers {
+                    modifiers: vec![
+                        RsTestAttribute::attr("trace"),
+                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                    ]
+                }.into(),
             };
 
-            assert_eq!(expected, fixtures);
+            assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn empty_fixtures() {
+            let data = parse_rstest(r#"::trace::no_trace(some)"#);
+
+            let expected = RsTestData {
+                modifiers: Modifiers {
+                    modifiers: vec![
+                        RsTestAttribute::attr("trace"),
+                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                    ]
+                }.into(),
+                ..Default::default()
+            };
+
+            assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn empty_modifiers() {
+            let data = parse_rstest(r#"my_fixture(42, "other")"#);
+
+            let expected = RsTestData {
+                fixtures: vec![
+                    Fixture { name: ident("my_fixture"), positional: vec![expr("42"), expr(r#""other""#)] },
+                ].into(),
+                ..Default::default()
+            };
+
+            assert_eq!(expected, data);
         }
     }
 

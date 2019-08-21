@@ -16,7 +16,7 @@ fn fa2() -> A { A {} }
 #[fixture]
 fn fb() -> B { B {} }
 
-#[rstest(trace::notrace(fa,fa2,fb))]
+#[rstest(::trace::notrace(fa,fa2,fb))]
 fn should_fail(fu32: u32, fa: A, fd: D, fa2: A, fb: B) {
     assert!(false);
 }
