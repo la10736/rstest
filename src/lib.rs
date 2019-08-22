@@ -188,7 +188,7 @@
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
           parse_macro_input, Pat, ReturnType, Stmt};
 
@@ -386,21 +386,18 @@ fn trace_arguments(args: &Vec<Ident>, modifiers: &RsTestModifiers) -> Option<pro
         )
 }
 
-trait ArgsResolver {
-    fn resolve_args(&self, resolver: &Resolver) -> TokenStream;
+fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &Resolver) -> TokenStream {
+    let define_vars = args
+        .map(|arg|
+            arg_2_fixture(arg, resolver)
+        );
+    quote! {
+        #(#define_vars)*
+    }
 }
 
-impl ArgsResolver for ItemFn {
-    fn resolve_args(&self, resolver: &Resolver) -> TokenStream {
-        let define_vars = fn_args(self)
-            .filter_map(fn_arg_ident)
-            .map(|arg|
-                arg_2_fixture(arg, resolver)
-            );
-        quote! {
-            #(#define_vars)*
-        }
-    }
+fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &Resolver) -> TokenStream {
+    resolve_args(args.filter_map(fn_arg_ident), resolver)
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
@@ -410,7 +407,7 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
     let args = fn_args_idents(&testfn);
     let attrs = &testfn.attrs;
     let output = &testfn.decl.output;
-    let inject = testfn.resolve_args(&resolver);
+    let inject = resolve_fn_args(fn_args(&testfn), &resolver);
     let trace_args = trace_arguments(&args, modifiers);
     quote! {
         #[test]
@@ -492,7 +489,21 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let inject = fixture.resolve_args(&resolver);
+    let inject = resolve_fn_args(fn_args(&fixture), &resolver);
+    let partials = (1..=args.len()).map(|n|
+        {
+            let decl_args = orig_args.iter().cloned().take(n);
+            let resolver_args = args.iter().skip(n);
+            let inject = resolve_args(resolver_args, &resolver);
+            let name = Ident::new(&format!("partial_{}", n), Span::call_site());
+            quote! {
+                pub fn #name #generics (#(#decl_args),*) #output #where_clause {
+                    #(#inject)*
+                    Self::get(#(#args),*)
+                }
+            }
+        }
+    );
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {}
@@ -507,6 +518,8 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
                 #(#inject)*
                 Self::get(#(#args),*)
             }
+
+            #(#partials)*
         }
 
         #[allow(dead_code)]
@@ -1530,6 +1543,7 @@ mod render {
 
         use super::{*, assert_eq};
 
+        #[derive(Clone)]
         struct FixtureOutput {
             orig: ItemFn,
             fixture: ItemStruct,
@@ -1697,6 +1711,39 @@ mod render {
                 .decl;
 
             assert_eq!(*expected.decl, default_decl);
+        }
+
+        #[test]
+        fn should_implement_partial_methods() {
+            let (item_fn, out) = parse_fixture(
+                r#"
+                pub fn test(mut s: String, v: &u32, a: &mut [i32]) -> usize
+                { }
+                "#);
+
+            let partials = (1..=3).map(|n|
+                    select_method(out.core_impl.clone(), format!("partial_{}", n))
+                        .unwrap()
+                        .sig
+                        .decl)
+                .collect::<Vec<_>>();
+
+            // All 3 methods found
+
+            assert!(select_method(out.core_impl, "partial_4").is_none());
+
+            let expected_1 = parse_str::<ItemFn>(
+                r#"
+                pub fn partial_1(mut s: String) -> usize
+                { }
+                "#
+            ).unwrap();
+
+
+            assert_eq!(&expected_1.decl, &Box::new(partials[0].clone()));
+            for p in partials {
+                assert_eq!(item_fn.decl.output, p.output);
+            }
         }
     }
 }
