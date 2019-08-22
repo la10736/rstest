@@ -189,14 +189,14 @@
 extern crate proc_macro;
 
 use proc_macro2::{TokenStream, Span};
-use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
-          parse_macro_input, Pat, ReturnType, Stmt};
+use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn, parse_macro_input, Pat, ReturnType, Stmt};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute, RsTestData};
 use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
+use std::collections::HashMap;
 
 mod parse;
 mod error;
@@ -248,33 +248,45 @@ fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt
 #[derive(Default)]
 /// `Resolver` can `resolve` an ident to a `CaseArg`. Pass it to `render_fn_test`
 /// function to inject the case arguments resolution.
-struct Resolver<'a> (std::collections::HashMap<String, &'a parse::CaseArg>);
+struct Resolver<'a> {
+    borrow: HashMap<String, &'a parse::CaseArg>,
+    owned: HashMap<String, parse::CaseArg>
+}
 
 impl<'a> Resolver<'a> {
     fn resolve(&self, ident: &Ident) -> Option<&parse::CaseArg> {
-        self.0.get(&ident.to_string()).map(|&a| a)
+        let ident = ident.to_string();
+        self.borrow.get(&ident).map(|&a| a).or_else(|| self.owned.get(&ident))
+    }
+
+    fn add_owned(&mut self, ident: &Ident, case_arg: parse::CaseArg) {
+        self.owned.insert(ident.to_string(), case_arg);
     }
 }
 
 impl<'a> From<(Vec<Ident>, &'a parse::TestCase)> for Resolver<'a> {
     fn from(data: (Vec<Ident>, &'a parse::TestCase)) -> Self {
         let (args, case) = data;
-        Self(
-            args.into_iter()
+        Self {
+            borrow: args.into_iter()
                 .zip(case.args.iter())
-                .map(|(name, case_arg)| (name.to_string(), case_arg))
-                .collect()
-        )
+                .map( | (name,
+                    case_arg) | (name.to_string(), case_arg))
+                .collect(),
+            ..Default::default()
+        }
     }
 }
 
 impl<'a, ID: ToString> FromIterator<(ID, &'a parse::CaseArg)> for Resolver<'a> {
     fn from_iter<T: IntoIterator<Item=(ID, &'a parse::CaseArg)>>(iter: T) -> Self {
-        Self(
-            iter.into_iter()
-                .map(|(name, case_arg)| (name.to_string(), case_arg))
-                .collect()
-        )
+        Self {
+            borrow: iter.into_iter()
+                .map( | (name,case_arg) | (name.to_string(), case_arg))
+                .collect(),
+            ..Default::default()
+
+        }
     }
 }
 
@@ -658,9 +670,23 @@ pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
-    let data = parse_macro_input!(args as RsTestData);
+    let data: RsTestData = parse_macro_input!(args as RsTestData);
     let name = &test.ident;
-    let resolver = Resolver::default();
+    let mut resolver = Resolver::default();
+    for f in data.fixtures.fixtures {
+        let name = &f.name;
+        let pname = format!("partial_{}", f.positional.len());
+        let partial = Ident::new(&pname, Span::call_site());
+        let args = &f.positional;
+        let tokens = quote! {
+                    #name::#partial(#(#args), *)
+                };
+        resolver.add_owned(name,
+                           syn::parse2::<syn::Expr>(tokens)
+                               .expect(&format!("Resolve partial call '{}'", pname))
+                               .into()
+            );
+    }
     render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
         .into()
 }
@@ -1055,7 +1081,7 @@ mod render {
 
     impl<'a> Resolver<'a> {
         fn add<S: AsRef<str>>(&mut self, ident: S, expr: &'a CaseArg) {
-            self.0.insert(ident.as_ref().to_string(), expr);
+            self.borrow.insert(ident.as_ref().to_string(), expr);
         }
     }
 

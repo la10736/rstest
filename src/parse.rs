@@ -381,9 +381,9 @@ impl MatrixInfo {
 }
 
 #[derive(PartialEq, Debug)]
-struct Fixture {
-    name: Ident,
-    positional: Vec<syn::Expr>,
+pub(crate) struct Fixture {
+    pub name: Ident,
+    pub positional: Vec<syn::Expr>,
 }
 
 impl Parse for Fixture {
@@ -402,7 +402,7 @@ impl Parse for Fixture {
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct Fixtures {
-    fixtures: Vec<Fixture>
+    pub fixtures: Vec<Fixture>
 }
 
 impl Parse for Fixtures {
