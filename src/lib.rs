@@ -192,11 +192,12 @@ use proc_macro2::{TokenStream, Span};
 use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn, parse_macro_input, Pat, ReturnType, Stmt};
 
 use error::error_statement;
-use parse::{Modifiers, RsTestAttribute, RsTestData};
+use parse::{Modifiers, RsTestAttribute, RsTestInfo};
 use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
 use std::collections::HashMap;
+use crate::parse::RsTestItem;
 
 mod parse;
 mod error;
@@ -250,7 +251,7 @@ fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt
 /// function to inject the case arguments resolution.
 struct Resolver<'a> {
     borrow: HashMap<String, &'a parse::CaseArg>,
-    owned: HashMap<String, parse::CaseArg>
+    owned: HashMap<String, parse::CaseArg>,
 }
 
 impl<'a> Resolver<'a> {
@@ -270,8 +271,8 @@ impl<'a> From<(Vec<Ident>, &'a parse::TestCase)> for Resolver<'a> {
         Self {
             borrow: args.into_iter()
                 .zip(case.args.iter())
-                .map( | (name,
-                    case_arg) | (name.to_string(), case_arg))
+                .map(|(name,
+                          case_arg)| (name.to_string(), case_arg))
                 .collect(),
             ..Default::default()
         }
@@ -282,10 +283,9 @@ impl<'a, ID: ToString> FromIterator<(ID, &'a parse::CaseArg)> for Resolver<'a> {
     fn from_iter<T: IntoIterator<Item=(ID, &'a parse::CaseArg)>>(iter: T) -> Self {
         Self {
             borrow: iter.into_iter()
-                .map( | (name,case_arg) | (name.to_string(), case_arg))
+                .map(|(name, case_arg)| (name.to_string(), case_arg))
                 .collect(),
             ..Default::default()
-
         }
     }
 }
@@ -670,24 +670,25 @@ pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
-    let data: RsTestData = parse_macro_input!(args as RsTestData);
+    let data: RsTestInfo = parse_macro_input!(args as RsTestInfo);
     let name = &test.ident;
     let mut resolver = Resolver::default();
-    for f in &data.fixtures.fixtures {
-        let name = &f.name;
-        let pname = format!("partial_{}", f.positional.len());
-        let partial = Ident::new(&pname, Span::call_site());
-        let args = &f.positional;
-        let tokens = quote! {
-                    #name::#partial(#(#args), *)
+    for f in &data.data.items {
+        if let RsTestItem::Fixture { ref name, ref positional } = f
+        {
+            let pname = format!("partial_{}", positional.len());
+            let partial = Ident::new(&pname, Span::call_site());
+            let tokens = quote! {
+                    #name::#partial(#(#positional), *)
                 };
-        resolver.add_owned(name,
-                           syn::parse2::<syn::Expr>(tokens)
-                               .expect(&format!("Resolve partial call '{}'", pname))
-                               .into()
+            resolver.add_owned(name,
+                               syn::parse2::<syn::Expr>(tokens)
+                                   .expect(&format!("Resolve partial call '{}'", pname))
+                                   .into(),
             );
+        }
     }
-    if let Some(tokens) = errors_in_fixture(&test, &data.fixtures) {
+    if let Some(tokens) = errors_in_fixture(&test, &data.data) {
         tokens
     } else {
         render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
@@ -721,9 +722,9 @@ fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<
 fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
     let tokens: TokenStream =
         missed_arguments_errors(test, params.args.iter())
-        .chain(
-            invalid_case_errors(params)
-        ).collect();
+            .chain(
+                invalid_case_errors(params)
+            ).collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -733,7 +734,7 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
 }
 
 fn errors_in_matrix(test: &ItemFn, args: &parse::MatrixValues) -> Option<TokenStream> {
-    let tokens:TokenStream = missed_arguments_errors(test, args.0.iter().map(|v| &v.arg)).collect();
+    let tokens: TokenStream = missed_arguments_errors(test, args.0.iter().map(|v| &v.arg)).collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -742,8 +743,10 @@ fn errors_in_matrix(test: &ItemFn, args: &parse::MatrixValues) -> Option<TokenSt
     }
 }
 
-fn errors_in_fixture(test: &ItemFn, args: &parse::Fixtures) -> Option<TokenStream> {
-    let tokens:TokenStream = missed_arguments_errors(test, args.fixtures.iter().map(|v| &v.name)).collect();
+fn errors_in_fixture(test: &ItemFn, args: &parse::RsTestData) -> Option<TokenStream> {
+    let tokens: TokenStream = missed_arguments_errors(test, args.items.iter()
+        .map(|v| v.name()))
+        .collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -1518,7 +1521,7 @@ mod render {
                 let (arg, values) = data;
                 Self {
                     arg: parse_str(arg).unwrap(),
-                    values: values.into_iter().map(|s| CaseArg::from(s.to_string())).collect()
+                    values: values.into_iter().map(|s| CaseArg::from(s.to_string())).collect(),
                 }
             }
         }
@@ -1761,10 +1764,10 @@ mod render {
                 "#);
 
             let partials = (1..=3).map(|n|
-                    select_method(out.core_impl.clone(), format!("partial_{}", n))
-                        .unwrap()
-                        .sig
-                        .decl)
+                select_method(out.core_impl.clone(), format!("partial_{}", n))
+                    .unwrap()
+                    .sig
+                    .decl)
                 .collect::<Vec<_>>();
 
             // All 3 methods found
