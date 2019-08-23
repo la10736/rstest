@@ -182,6 +182,14 @@ fn should_show_correct_errors() {
            = note: expected type `std::string::String`
                       found type `u32`
         ", name).unindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: Missed argument: 'not_a_fixture' should be a test function argument.
+          --> {}/src/lib.rs:19:10
+           |
+        19 | #[rstest(not_a_fixture(24))]
+           |          ^^^^^^^^^^^^^
+        ", name).unindent());
 }
 
 #[test]

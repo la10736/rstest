@@ -673,7 +673,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let data: RsTestData = parse_macro_input!(args as RsTestData);
     let name = &test.ident;
     let mut resolver = Resolver::default();
-    for f in data.fixtures.fixtures {
+    for f in &data.fixtures.fixtures {
         let name = &f.name;
         let pname = format!("partial_{}", f.positional.len());
         let partial = Ident::new(&pname, Span::call_site());
@@ -687,8 +687,11 @@ pub fn rstest(args: proc_macro::TokenStream,
                                .into()
             );
     }
-    render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
-        .into()
+    if let Some(tokens) = errors_in_fixture(&test, &data.fixtures) {
+        tokens
+    } else {
+        render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
+    }.into()
 }
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
@@ -731,6 +734,16 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
 
 fn errors_in_matrix(test: &ItemFn, args: &parse::MatrixValues) -> Option<TokenStream> {
     let tokens:TokenStream = missed_arguments_errors(test, args.0.iter().map(|v| &v.arg)).collect();
+
+    if !tokens.is_empty() {
+        Some(tokens)
+    } else {
+        None
+    }
+}
+
+fn errors_in_fixture(test: &ItemFn, args: &parse::Fixtures) -> Option<TokenStream> {
+    let tokens:TokenStream = missed_arguments_errors(test, args.fixtures.iter().map(|v| &v.name)).collect();
 
     if !tokens.is_empty() {
         Some(tokens)
