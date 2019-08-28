@@ -5,7 +5,7 @@ pub fn i() -> u32 {
     42
 }
 
-#[fixture(default<impl Iterator<Item=u32>>)]
+#[fixture(::default<impl Iterator<Item=u32>>)]
 pub fn fx<I>(i: I) -> impl Iterator<Item=I> {
     std::iter::once(i)
 }

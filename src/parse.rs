@@ -5,7 +5,7 @@ use cfg_if::cfg_if;
 // TODO: Remove this dependency
 use quote::quote;
 use quote::ToTokens;
-use crate::RsTestModifiers;
+use crate::{RsTestModifiers, FixtureModifiers};
 
 #[derive(Default, Debug)]
 pub struct ParametrizeData {
@@ -386,11 +386,6 @@ pub(crate) struct Fixture {
     pub positional: Vec<syn::Expr>,
 }
 
-#[derive(PartialEq, Debug)]
-pub(crate) enum RsTestItem {
-    Fixture(Fixture)
-}
-
 impl Fixture {
     pub fn new(name: Ident, positional: Vec<syn::Expr>) -> Self {
         Self { name, positional }
@@ -409,6 +404,11 @@ impl Parse for Fixture {
             Self::new(name, positional)
         )
     }
+}
+
+#[derive(PartialEq, Debug)]
+pub(crate) enum RsTestItem {
+    Fixture(Fixture)
 }
 
 impl RsTestItem {
@@ -465,6 +465,81 @@ impl Parse for RsTestModifiers {
 }
 
 impl Parse for RsTestInfo {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(
+            if input.is_empty() {
+                Default::default()
+            } else {
+                Self {
+                    data: input.parse()?,
+                    modifiers: input.parse::<Token![::]>()
+                        .or_else(|_| Ok(Default::default()))
+                        .and_then(|_| input.parse())?,
+                }
+            }
+        )
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub(crate) enum FixtureItem {
+    Fixture(Fixture)
+}
+
+impl FixtureItem {
+    pub fn name(&self) -> &Ident {
+        match self {
+            FixtureItem::Fixture(Fixture { ref name, .. } ) => name
+        }
+    }
+}
+
+impl From<Fixture> for FixtureItem {
+    fn from(f: Fixture) -> Self {
+        FixtureItem::Fixture(f)
+    }
+}
+
+impl Parse for FixtureItem {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse().map(FixtureItem::Fixture)
+    }
+}
+
+#[derive(PartialEq, Debug, Default)]
+pub(crate) struct FixtureData {
+    pub items: Vec<FixtureItem>
+}
+
+impl Parse for FixtureData {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![::]) {
+            Ok(Default::default())
+        } else {
+            Ok(
+                Self {
+                    items: Punctuated::<FixtureItem, Token![,]>::parse_separated_nonempty(input)?
+                        .into_iter()
+                        .collect()
+                }
+            )
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Default)]
+pub(crate) struct FixtureInfo {
+    pub data: FixtureData,
+    pub modifiers: FixtureModifiers,
+}
+
+impl Parse for FixtureModifiers {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(input.parse::<Modifiers>()?.into())
+    }
+}
+
+impl Parse for FixtureInfo {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(
             if input.is_empty() {
@@ -594,6 +669,12 @@ mod should {
         }
     }
 
+    impl From<Vec<FixtureItem>> for FixtureData {
+        fn from(fixtures: Vec<FixtureItem>) -> Self {
+            Self { items: fixtures }
+        }
+    }
+
     mod parse_fixture_values {
         use super::assert_eq;
         use super::*;
@@ -613,6 +694,67 @@ mod should {
             };
 
             assert_eq!(expected, fixtures);
+        }
+    }
+
+    mod parse_fixture {
+        use super::assert_eq;
+        use super::*;
+
+        fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
+            parse_meta(fixture_data)
+        }
+
+        #[test]
+        fn happy_path() {
+            let data = parse_fixture(r#"my_fixture(42, "other"), other(vec![42])
+                    :: trace :: no_trace(some)"#);
+
+            let expected = FixtureInfo {
+                data: vec![
+                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
+                    Fixture::new(ident("other"), vec![expr("vec![42]")]).into(),
+                ].into(),
+                modifiers: Modifiers {
+                    modifiers: vec![
+                        RsTestAttribute::attr("trace"),
+                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                    ]
+                }.into(),
+            };
+
+            assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn empty_fixtures() {
+            let data = parse_fixture(r#"::trace::no_trace(some)"#);
+
+            let expected = FixtureInfo {
+                modifiers: Modifiers {
+                    modifiers: vec![
+                        RsTestAttribute::attr("trace"),
+                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                    ]
+                }.into(),
+                ..Default::default()
+            };
+
+            assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn empty_modifiers() {
+            let data = parse_fixture(r#"my_fixture(42, "other")"#);
+
+            let expected = FixtureInfo {
+                data: vec![
+                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
+                ].into(),
+                ..Default::default()
+            };
+
+            assert_eq!(expected, data);
         }
     }
 

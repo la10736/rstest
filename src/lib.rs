@@ -197,7 +197,7 @@ use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
 use std::collections::HashMap;
-use crate::parse::RsTestItem;
+use crate::parse::{RsTestItem, FixtureInfo};
 
 mod parse;
 mod error;
@@ -485,8 +485,7 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
     result
 }
 
-fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
-                      modifiers: FixtureModifiers)
+fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
     let name = &fixture.ident;
     let vargs = fn_args_idents(&fixture);
@@ -494,13 +493,14 @@ fn render_fixture<'a>(fixture: ItemFn, resolver: Resolver,
     let orig_args = &fixture.decl.inputs;
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.decl.generics;
-    let default_output = modifiers.extract_default_type().unwrap_or(fixture.decl.output.clone());
+    let default_output = info.modifiers.extract_default_type().unwrap_or(fixture.decl.output.clone());
     let default_generics = generics_clean_up(fixture.decl.generics.clone(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
+    let resolver= Default::default();
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
     let partials = (1..=args.len()).map(|n|
         {
@@ -582,7 +582,7 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 ///     42
 /// }
 ///
-/// #[fixture(default<impl Iterator<Item=u32>>)]
+/// #[fixture(::default<impl Iterator<Item=u32>>)]
 /// pub fn fx<I>(i: I) -> impl Iterator<Item=I> {
 ///     std::iter::once(i)
 /// }
@@ -597,9 +597,10 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 pub fn fixture(args: proc_macro::TokenStream,
                input: proc_macro::TokenStream)
                -> proc_macro::TokenStream {
+
+    let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let fixture = parse_macro_input!(input as ItemFn);
-    let modifiers = parse_macro_input!(args as Modifiers).into();
-    render_fixture(fixture, Resolver::default(), modifiers).into()
+    render_fixture(fixture, info).into()
 }
 
 /// Write a test that can be injected with [`[fixture]`](attr.fixture.html)s. You can declare all used fixtures
@@ -1607,8 +1608,7 @@ mod render {
                 code.as_ref()
             ).unwrap();
 
-            let tokens = render_fixture(item_fn.clone(),
-                                        Default::default(), Default::default());
+            let tokens = render_fixture(item_fn.clone(), Default::default());
             (item_fn, parse2(tokens).unwrap())
         }
 
@@ -1728,15 +1728,17 @@ mod render {
             ).unwrap();
 
             let tokens = render_fixture(item_fn.clone(),
-                                        Default::default(),
-                                        Modifiers {
-                                            modifiers: vec![
-                                                RsTestAttribute::Type(
-                                                    parse_str("default").unwrap(),
-                                                    parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
-                                                )
-                                            ]
-                                        }.into());
+                                        FixtureInfo {
+                                            modifiers: Modifiers {
+                                                modifiers: vec![
+                                                    RsTestAttribute::Type(
+                                                        parse_str("default").unwrap(),
+                                                        parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
+                                                    )
+                                                ]
+                                            }.into(),
+                                            ..Default::default()
+                                        });
             let out: FixtureOutput = parse2(tokens).unwrap();
 
             let expected = parse_str::<syn::ItemFn>(
