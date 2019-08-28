@@ -103,4 +103,16 @@ mod should {
             .ok("resolve")
             .assert(output);
     }
+
+    #[test]
+    fn apply_partial_fixture() {
+        let (output, _) = run_test("partial.rs");
+
+        TestResults::new()
+            .ok("default")
+            .ok("t_partial_1")
+            .ok("t_partial_2")
+            .ok("t_complete")
+            .assert(output);
+    }
 }
