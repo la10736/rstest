@@ -674,7 +674,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let name = &test.ident;
     let mut resolver = Resolver::default();
     for f in &data.data.items {
-        if let RsTestItem::Fixture { ref name, ref positional } = f
+        if let RsTestItem::Fixture(parse::Fixture { ref name, ref positional } ) = f
         {
             let pname = format!("partial_{}", positional.len());
             let partial = Ident::new(&pname, Span::call_site());

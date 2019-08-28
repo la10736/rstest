@@ -388,22 +388,16 @@ pub(crate) struct Fixture {
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum RsTestItem {
-    Fixture { name: Ident, positional: Vec<syn::Expr> }
+    Fixture(Fixture)
 }
 
-impl RsTestItem {
-    fn fixture(name: Ident, positional: Vec<syn::Expr>) -> Self {
-        RsTestItem::Fixture { name, positional }
-    }
-
-    pub fn name(&self) -> &Ident {
-        match self {
-            RsTestItem::Fixture { ref name, .. } => name
-        }
+impl Fixture {
+    pub fn new(name: Ident, positional: Vec<syn::Expr>) -> Self {
+        Self { name, positional }
     }
 }
 
-impl Parse for RsTestItem {
+impl Parse for Fixture {
     fn parse(input: ParseStream) -> Result<Self> {
         let name = input.parse()?;
         let content;
@@ -412,8 +406,28 @@ impl Parse for RsTestItem {
             .into_iter()
             .collect();
         Ok(
-            Self::fixture(name, positional)
+            Self::new(name, positional)
         )
+    }
+}
+
+impl RsTestItem {
+    pub fn name(&self) -> &Ident {
+        match self {
+            RsTestItem::Fixture(Fixture { ref name, .. } ) => name
+        }
+    }
+}
+
+impl From<Fixture> for RsTestItem {
+    fn from(f: Fixture) -> Self {
+        RsTestItem::Fixture(f)
+    }
+}
+
+impl Parse for RsTestItem {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse().map(RsTestItem::Fixture)
     }
 }
 
@@ -594,7 +608,7 @@ mod should {
 
             let expected = RsTestData {
                 items: vec![
-                    RsTestItem::fixture(ident("my_fixture"), vec![expr("42")])
+                    Fixture::new(ident("my_fixture"), vec![expr("42")]).into()
                 ]
             };
 
@@ -617,8 +631,8 @@ mod should {
 
             let expected = RsTestInfo {
                 data: vec![
-                    RsTestItem::fixture(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]),
-                    RsTestItem::fixture(ident("other"), vec![expr("vec![42]")]),
+                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
+                    Fixture::new(ident("other"), vec![expr("vec![42]")]).into(),
                 ].into(),
                 modifiers: Modifiers {
                     modifiers: vec![
@@ -654,7 +668,7 @@ mod should {
 
             let expected = RsTestInfo {
                 data: vec![
-                    RsTestItem::fixture(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]),
+                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
                 ].into(),
                 ..Default::default()
             };
