@@ -585,8 +585,33 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 /// }
 /// ```
 ///
+/// You can also partialy inject fixture dependency simply indicate dependency value as fixture
+/// argument:
+///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn first() -> i32 { 1 }
+///
+/// #[fixture]
+/// fn second() -> i32 { 2 }
+///
+/// #[fixture]
+/// fn third() -> i32 { 3 }
+///
+/// #[fixture(second(-2))]
+/// fn injected(first: i32, second: i32, third: i32) -> i32 { first * second * third }
+///
+/// #[rstest]
+/// fn the_test(injected: i32) {
+///     assert_eq!(-6, injected)
+/// }
+/// ```
+/// Note that injected value can be an arbitrary rust expression and not just a literal.
+///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
-/// need to do it, you can use the `default<type>` syntax to define it:
+/// need to do it, you can use the `default<type>` modifier syntax to define it:
 ///
 /// ```
 /// use rstest::*;
