@@ -615,7 +615,12 @@ pub fn fixture(args: proc_macro::TokenStream,
 
     let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let fixture = parse_macro_input!(input as ItemFn);
-    render_fixture(fixture, info).into()
+
+    if let Some(tokens) = errors_in_fixture(&fixture, &info) {
+        tokens
+    } else {
+        render_fixture(fixture, info).into()
+    }.into()
 }
 
 /// Write a test that can be injected with [`[fixture]`](attr.fixture.html)s. You can declare all used fixtures
@@ -704,7 +709,7 @@ pub fn rstest(args: proc_macro::TokenStream,
             );
         }
     }
-    if let Some(tokens) = errors_in_fixture(&test, &data.data) {
+    if let Some(tokens) = errors_in_rstest(&test, &data) {
         tokens
     } else {
         render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
@@ -735,11 +740,11 @@ fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<
         )
 }
 
-fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Option<TokenStream> {
+fn errors_in_parametrize(test: &ItemFn, info: &parse::ParametrizeInfo) -> Option<TokenStream> {
     let tokens: TokenStream =
-        missed_arguments_errors(test, params.args.iter())
+        missed_arguments_errors(test, info.data.args.iter())
             .chain(
-                invalid_case_errors(params)
+                invalid_case_errors(&info.data)
             ).collect();
 
     if !tokens.is_empty() {
@@ -749,8 +754,8 @@ fn errors_in_parametrize(test: &ItemFn, params: &parse::ParametrizeData) -> Opti
     }
 }
 
-fn errors_in_matrix(test: &ItemFn, args: &parse::MatrixValues) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test, args.0.iter().map(|v| &v.arg)).collect();
+fn errors_in_matrix(test: &ItemFn, info: &parse::MatrixInfo) -> Option<TokenStream> {
+    let tokens: TokenStream = missed_arguments_errors(test, info.args.0.iter().map(|v| &v.arg)).collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -759,8 +764,20 @@ fn errors_in_matrix(test: &ItemFn, args: &parse::MatrixValues) -> Option<TokenSt
     }
 }
 
-fn errors_in_fixture(test: &ItemFn, args: &parse::RsTestData) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test, args.items.iter()
+fn errors_in_rstest(test: &ItemFn, info: &parse::RsTestInfo) -> Option<TokenStream> {
+    let tokens: TokenStream = missed_arguments_errors(test, info.data.items.iter()
+        .map(|v| v.name()))
+        .collect();
+
+    if !tokens.is_empty() {
+        Some(tokens)
+    } else {
+        None
+    }
+}
+
+fn errors_in_fixture(test: &ItemFn, info: &parse::FixtureInfo) -> Option<TokenStream> {
+    let tokens: TokenStream = missed_arguments_errors(test, info.data.items.iter()
         .map(|v| v.name()))
         .collect();
 
@@ -948,7 +965,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     let params = parse_macro_input!(args as parse::ParametrizeInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    if let Some(tokens) = errors_in_parametrize(&test, &params.data) {
+    if let Some(tokens) = errors_in_parametrize(&test, &params) {
         tokens
     } else {
         render_parametrize_cases(test, params)
@@ -1026,7 +1043,7 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
     let info = parse_macro_input!(args as parse::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    if let Some(tokens) = errors_in_matrix(&test, &info.args) {
+    if let Some(tokens) = errors_in_matrix(&test, &info) {
         tokens
     } else {
         render_matrix_cases(test, info).into()
