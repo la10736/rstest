@@ -197,7 +197,7 @@ use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
 use std::collections::HashMap;
-use crate::parse::{RsTestItem, FixtureInfo};
+use crate::parse::{RsTestItem, FixtureInfo, FixtureItem};
 
 mod parse;
 mod error;
@@ -500,7 +500,22 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let resolver= Default::default();
+    let mut resolver = Resolver::default();
+    for f in &info.data.items {
+        if let FixtureItem::Fixture(parse::Fixture { ref name, ref positional } ) = f
+        {
+            let pname = format!("partial_{}", positional.len());
+            let partial = Ident::new(&pname, Span::call_site());
+            let tokens = quote! {
+                    #name::#partial(#(#positional), *)
+                };
+            resolver.add_owned(name,
+                               syn::parse2::<syn::Expr>(tokens)
+                                   .expect(&format!("Resolve partial call '{}'", pname))
+                                   .into(),
+            );
+        }
+    }
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
     let partials = (1..=args.len()).map(|n|
         {

@@ -31,7 +31,7 @@ fn t_partial_1(partial_1: u32) {
 
 #[rstest]
 fn t_partial_2(partial_2: u32) {
-    assert_eq!(partial_2, 7);
+    assert_eq!(partial_2, 42);
 }
 
 #[rstest]
