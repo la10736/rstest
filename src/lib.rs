@@ -592,16 +592,16 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 /// use rstest::*;
 ///
 /// #[fixture]
-/// fn first() -> i32 { 1 }
+/// fn base() -> i32 { 1 }
 ///
 /// #[fixture]
-/// fn second() -> i32 { 2 }
+/// fn first(base: i32) -> i32 { 1 * base }
 ///
 /// #[fixture]
-/// fn third() -> i32 { 3 }
+/// fn second(base: i32) -> i32 { 2 * base }
 ///
-/// #[fixture(second(-2))]
-/// fn injected(first: i32, second: i32, third: i32) -> i32 { first * second * third }
+/// #[fixture(second(-3))]
+/// fn injected(first: i32, second: i32) -> i32 { first * second }
 ///
 /// #[rstest]
 /// fn the_test(injected: i32) {
@@ -757,8 +757,9 @@ fn missed_arguments_errors<'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a Id
 }
 
 fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
-    params.cases.iter()
-        .filter(move |case| case.args.len() != params.args.len())
+    let n_args = params.args().count();
+    params.cases()
+        .filter(move |case| case.args.len() != n_args)
         .map(|case|
             error_statement("Wrong case signature: should match the given parameters list.",
                             case.span_start(), case.span_end())
@@ -767,7 +768,7 @@ fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<
 
 fn errors_in_parametrize(test: &ItemFn, info: &parse::ParametrizeInfo) -> Option<TokenStream> {
     let tokens: TokenStream =
-        missed_arguments_errors(test, info.data.args.iter())
+        missed_arguments_errors(test, info.data.args())
             .chain(
                 invalid_case_errors(&info.data)
             ).collect();
@@ -855,25 +856,26 @@ impl<D: std::fmt::Display> DisplayLen for D {
     }
 }
 
-fn format_case_name(cases: &Vec<parse::TestCase>, index: usize) -> String {
-    let description = cases[index]
+fn format_case_name(case: &parse::TestCase, index: usize, display_len: usize) -> String {
+    let description = case
         .description.as_ref()
         .map(|d| format!("_{}", d))
         .unwrap_or_default();
-    format!("case_{:0len$}{d}", index + 1, len = cases.len().display_len(), d = description)
+    format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
 fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
     let parse::ParametrizeInfo { data, modifiers } = params;
-    let parse::ParametrizeData { args, cases } = data;
+    let args = data.args().cloned().collect::<Vec<_>>();
 
-    let cases = cases.iter()
+    let display_len = data.cases().count().display_len();
+
+    let cases = data.cases()
         .enumerate()
         .map({
             let span = test.ident.span();
-            let cases = &cases;
             move |(n, case)|
-                CaseRender::new(Ident::new(&format_case_name(cases, n), span),
+                CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
                                 (args.clone(), case).into())
         }
         );
@@ -1277,8 +1279,10 @@ mod render {
         impl<'a> From<&'a ItemFn> for parse::ParametrizeData {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::ParametrizeData {
-                    args: fn_args_idents(item_fn),
-                    cases: vec![],
+                    data: fn_args_idents(item_fn)
+                        .into_iter()
+                        .map(ParametrizeItem::CaseArgName)
+                        .collect(),
                 }
             }
         }
@@ -1355,11 +1359,11 @@ mod render {
 
         impl ParametrizeInfo {
             fn push_case(&mut self, case: TestCase) {
-                self.data.cases.push(case);
+                self.data.data.push(ParametrizeItem::TestCase(case));
             }
 
             fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
-                self.data.cases.extend(cases);
+                self.data.data.extend(cases.map(ParametrizeItem::TestCase));
             }
         }
 
@@ -1418,7 +1422,7 @@ mod render {
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
-            assert!(&tests[0].ident.to_string().starts_with("case_1"))
+            assert!(&tests[0].ident.to_string().starts_with("case_1"), "Should starts with case_1 but is {}", tests[0].ident.to_string())
         }
 
         #[test]
@@ -1445,8 +1449,8 @@ mod render {
             let first_name = tests[0].ident.to_string();
             let last_name = tests[999].ident.to_string();
 
-            assert!(first_name.ends_with("_0001"));
-            assert!(last_name.ends_with("_1000"));
+            assert!(first_name.ends_with("_0001"), "Should ends by _0001 but is {}", first_name);
+            assert!(last_name.ends_with("_1000"), "Should ends by _1000 but is {}", last_name);
 
             let valid_names = tests.iter()
                 .filter(|it| it.ident.to_string().len() == first_name.len());
@@ -1457,7 +1461,12 @@ mod render {
         fn should_use_description_if_any() {
             let (item_fn, mut info) = one_simple_case();
             let description = "show_this_description";
-            info.data.cases[0].description = Some(parse_str::<Ident>(description).unwrap());
+
+            if let &mut ParametrizeItem::TestCase(ref mut case) = &mut info.data.data[1] {
+                case.description = Some(parse_str::<Ident>(description).unwrap());
+            } else {
+                panic!("Test case should be the second one");
+            }
 
             let tokens = render_parametrize_cases(item_fn.clone(), info);
 

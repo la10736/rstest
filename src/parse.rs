@@ -7,10 +7,37 @@ use quote::quote;
 use quote::ToTokens;
 use crate::{RsTestModifiers, FixtureModifiers};
 
+#[derive(Debug)]
+pub enum ParametrizeItem {
+    CaseArgName(Ident),
+    TestCase(TestCase),
+}
+
 #[derive(Default, Debug)]
 pub struct ParametrizeData {
-    pub args: Vec<Ident>,
-    pub cases: Vec<TestCase>,
+    pub data: Vec<ParametrizeItem>,
+}
+
+impl ParametrizeData {
+    pub fn args(&self) -> impl Iterator<Item=&Ident> {
+        self.data.iter()
+            .filter_map(|it|
+                match it {
+                    ParametrizeItem::CaseArgName(ref arg) => Some(arg),
+                    _ => None
+                }
+            )
+    }
+
+    pub fn cases(&self) -> impl Iterator<Item=&TestCase> {
+        self.data.iter()
+            .filter_map(|it|
+                match it {
+                    ParametrizeItem::TestCase(ref case) => Some(case),
+                    _ => None
+                }
+            )
+    }
 }
 
 #[derive(Default, Debug)]
@@ -255,13 +282,13 @@ impl Parse for RsTestAttribute {
 
 impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> Result<Self> {
-        let mut args = vec![];
+        let mut data = vec![];
         loop {
             if input.peek2(token::Paren) || input.peek2(Token![::]) {
                 break;
             }
-            if let Ok(arg) = input.parse() {
-                args.push(arg);
+            if let Ok(name) = input.parse() {
+                data.push(ParametrizeItem::CaseArgName(name));
                 if input.parse::<Token![,]>().is_err() {
                     break;
                 }
@@ -270,16 +297,17 @@ impl Parse for ParametrizeData {
             }
         }
 
-        let cases: Vec<_> =
+        data.extend(
             Punctuated::<Option<TestCase>, Token![,]>::parse_separated_nonempty_with(
                 input, |input_tokens|
                     if input_tokens.is_empty() { Ok(None) } else {
                         TestCase::parse(input_tokens).map(|inner| Some(inner))
                     },
-            )?.into_iter().filter_map(|it| it).collect();
+            )?.into_iter()
+                .filter_map(|it| it.map(ParametrizeItem::TestCase))
+        );
         Ok(ParametrizeData {
-            args,
-            cases,
+            data
         })
     }
 }
@@ -414,7 +442,7 @@ pub(crate) enum RsTestItem {
 impl RsTestItem {
     pub fn name(&self) -> &Ident {
         match self {
-            RsTestItem::Fixture(Fixture { ref name, .. } ) => name
+            RsTestItem::Fixture(Fixture { ref name, .. }) => name
         }
     }
 }
@@ -489,7 +517,7 @@ pub(crate) enum FixtureItem {
 impl FixtureItem {
     pub fn name(&self) -> &Ident {
         match self {
-            FixtureItem::Fixture(Fixture { ref name, .. } ) => name
+            FixtureItem::Fixture(Fixture { ref name, .. }) => name
         }
     }
 }
@@ -984,10 +1012,13 @@ mod should {
         fn one_simple_case_one_arg() {
             let data = parse_data(r#"arg, case(42)"#);
 
-            assert_eq!(1, data.args.len());
-            assert_eq!(1, data.cases.len());
-            assert_eq!("arg", &data.args[0].to_string());
-            assert_eq!(to_args!(["42"]), data.cases[0].args())
+            let args = data.args().collect::<Vec<_>>();
+            let cases = data.cases().collect::<Vec<_>>();
+
+            assert_eq!(1, args.len());
+            assert_eq!(1, cases.len());
+            assert_eq!("arg", &args[0].to_string());
+            assert_eq!(to_args!(["42"]), cases[0].args())
         }
 
         #[test]
@@ -999,11 +1030,14 @@ mod should {
                 case(21,22,23)
                 "#);
 
-            assert_eq!(to_strs!(vec!["arg1", "arg2", "arg3"]), to_strs!(data.args));
-            assert_eq!(3, data.cases.len());
-            assert_eq!(to_args!(["1", "2", "3"]), data.cases[0].args());
-            assert_eq!(to_args!(["11", "12", "13"]), data.cases[1].args());
-            assert_eq!(to_args!(["21", "22", "23"]), data.cases[2].args());
+            assert_eq!(to_strs!(vec!["arg1", "arg2", "arg3"]), data.args()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>());
+            let cases = data.cases().collect::<Vec<_>>();
+            assert_eq!(3, cases.len());
+            assert_eq!(to_args!(["1", "2", "3"]), cases[0].args());
+            assert_eq!(to_args!(["11", "12", "13"]), cases[1].args());
+            assert_eq!(to_args!(["21", "22", "23"]), cases[2].args());
         }
 
         #[test]
@@ -1013,10 +1047,13 @@ mod should {
                 case(42),
                 "#);
 
-            assert_eq!(1, data.args.len());
-            assert_eq!(1, data.cases.len());
-            assert_eq!("arg", &data.args[0].to_string());
-            assert_eq!(to_args!(["42"]), data.cases[0].args())
+            let args = data.args().collect::<Vec<_>>();
+            let cases = data.cases().collect::<Vec<_>>();
+
+            assert_eq!(1, args.len());
+            assert_eq!(1, cases.len());
+            assert_eq!("arg", &args[0].to_string());
+            assert_eq!(to_args!(["42"]), cases[0].args())
         }
     }
 
