@@ -4,7 +4,7 @@ struct A;
 #[derive(Debug)]
 struct D;
 
-#[rstest_parametrize(u,a,d
+#[rstest_parametrize(u,a,d,
     case(42, A{}, D{})
     ::trace::notrace(a))
 ]
