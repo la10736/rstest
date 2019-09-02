@@ -1,11 +1,16 @@
-use syn::{Expr, Ident, Lit, LitStr, Meta, NestedMeta, parse::{Parse, ParseStream, Result, Error}, spanned::Spanned, punctuated::Punctuated, Token, token, MetaList};
-use proc_macro2::{TokenStream, Span};
-use crate::error::error;
+use proc_macro2::{Span, TokenStream};
+use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token,
+          parse::{Error, Parse, ParseStream, Result},
+          punctuated::Punctuated,
+          spanned::Spanned};
+
 use cfg_if::cfg_if;
 // TODO: Remove this dependency
 use quote::quote;
 use quote::ToTokens;
-use crate::{RsTestModifiers, FixtureModifiers};
+
+use crate::{FixtureModifiers, RsTestModifiers};
+use crate::error::error;
 
 #[derive(Debug)]
 pub enum ParametrizeItem {
@@ -280,34 +285,28 @@ impl Parse for RsTestAttribute {
     }
 }
 
+impl Parse for ParametrizeItem {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.fork().parse::<TestCase>().is_ok() {
+            input.parse::<TestCase>().map(ParametrizeItem::TestCase)
+        } else if input.fork().parse::<Ident>().is_ok() {
+            input.parse::<Ident>().map(ParametrizeItem::CaseArgName)
+        } else {
+            Err(syn::Error::new(Span::call_site(), "Cannot parse parametrize info"))
+        }
+    }
+}
+
 impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> Result<Self> {
-        let mut data = vec![];
-        loop {
-            if input.peek2(token::Paren) || input.peek2(Token![::]) {
-                break;
-            }
-            if let Ok(name) = input.parse() {
-                data.push(ParametrizeItem::CaseArgName(name));
-                if input.parse::<Token![,]>().is_err() {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-
-        data.extend(
-            Punctuated::<Option<TestCase>, Token![,]>::parse_separated_nonempty_with(
+        Ok(ParametrizeData {
+            data: Punctuated::<Option<ParametrizeItem>, Token![,]>::parse_separated_nonempty_with(
                 input, |input_tokens|
                     if input_tokens.is_empty() { Ok(None) } else {
-                        TestCase::parse(input_tokens).map(|inner| Some(inner))
+                        ParametrizeItem::parse(input_tokens)
+                            .map(|inner| Some(inner))
                     },
-            )?.into_iter()
-                .filter_map(|it| it.map(ParametrizeItem::TestCase))
-        );
-        Ok(ParametrizeData {
-            data
+            )?.into_iter().filter_map(|it| it).collect()
         })
     }
 }
@@ -588,11 +587,12 @@ impl Parse for FixtureInfo {
 mod should {
     #[allow(unused_imports)]
     use pretty_assertions::assert_eq;
-
-    use syn::{parse_str, ItemFn, parse2};
-    use quote::quote;
-    use super::*;
     use proc_macro2::TokenTree;
+    use syn::{ItemFn, parse2, parse_str};
+
+    use quote::quote;
+
+    use super::*;
 
     fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
         let to_parse = format!(r#"
@@ -704,8 +704,8 @@ mod should {
     }
 
     mod parse_fixture_values {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_fixtures<S: AsRef<str>>(fixtures: S) -> RsTestData {
             parse_meta(fixtures)
@@ -726,8 +726,8 @@ mod should {
     }
 
     mod parse_fixture {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
             parse_meta(fixture_data)
@@ -787,8 +787,8 @@ mod should {
     }
 
     mod parse_rstest {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
             parse_meta(rstest_data)
@@ -848,8 +848,8 @@ mod should {
     }
 
     mod parse_modifiers {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_modifiers<S: AsRef<str>>(modifiers: S) -> Modifiers {
             parse_meta(modifiers)
@@ -918,8 +918,8 @@ mod should {
     }
 
     mod parse_test_case {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
             parse_meta(test_case)
@@ -1002,6 +1002,7 @@ mod should {
 
     mod parse_args_and_cases {
         use pretty_assertions::assert_eq;
+
         use super::*;
 
         fn parse_data<S: AsRef<str>>(test_case: S) -> ParametrizeData {
@@ -1055,11 +1056,87 @@ mod should {
             assert_eq!("arg", &args[0].to_string());
             assert_eq!(to_args!(["42"]), cases[0].args())
         }
+
+        #[test]
+        fn integrated_1() {
+            let data = parse_data(r#"
+                u,a,d,
+                case(42, A{}, D{})
+                "#);
+
+            assert_eq!(to_strs!(vec!["u", "a", "d"]), data.args()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>());
+            let cases = data.cases().collect::<Vec<_>>();
+            assert_eq!(1, cases.len());
+            assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
+        }
+
+        #[test]
+        fn integrated_2() {
+            let data = parse_data(r#"
+                ret,
+                case::should_success(Ok(())),
+                case::should_fail(Err("Return Error"))
+                "#);
+
+            assert_eq!(to_strs!(vec!["ret"]), data.args()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>());
+            let cases = data.cases().collect::<Vec<_>>();
+            assert_eq!(2, cases.len());
+            assert_eq!(to_args!(["Ok(())"]), cases[0].args());
+            assert_eq!("should_success", &cases[0].description.as_ref().unwrap().to_string());
+            assert_eq!(to_args!([r#"Err("Return Error")"#]), cases[1].args());
+            assert_eq!("should_fail", &cases[1].description.as_ref().unwrap().to_string());
+        }
+
+        #[test]
+        #[should_panic]
+        fn should_not_accept_invalid_separator_from_args_and_cases() {
+            parse_data(r#"
+                ret
+                case::should_success(Ok(())),
+                case::should_fail(Err("Return Error"))
+                "#);
+        }
+
+        #[test]
+        fn should_accept_any_order() {
+            let data = parse_data(r#"
+                u,
+                case(42, A{}, D{}),
+                a,
+                case(43, A{}, D{}),
+                d
+                "#);
+
+            assert_eq!(to_strs!(vec!["u", "a", "d"]), data.args()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>());
+            let cases = data.cases().collect::<Vec<_>>();
+            assert_eq!(2, cases.len());
+            assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
+            assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
+        }
+
+        #[test]
+        fn case_could_be_arg_name() {
+            let data = parse_data(r#"
+                case,
+                case(42)
+                "#);
+
+            assert_eq!("case", &data.args().next().unwrap().to_string());
+            let cases = data.cases().collect::<Vec<_>>();
+            assert_eq!(1, cases.len());
+            assert_eq!(to_args!(["42"]), cases[0].args());
+        }
     }
 
     mod parse_values_list {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_values_list<S: AsRef<str>>(values_list: S) -> ValueList {
             parse_meta(values_list)
@@ -1104,8 +1181,8 @@ mod should {
     }
 
     mod parse_matrix_info {
-        use super::assert_eq;
         use super::*;
+        use super::assert_eq;
 
         fn parse_matrix_info<S: AsRef<str>>(matrix_info: S) -> MatrixInfo {
             parse_meta(matrix_info)
