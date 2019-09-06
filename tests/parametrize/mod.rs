@@ -137,10 +137,10 @@ fn should_apply_partial_fixture() {
         .ok("partial_1::case_1")
         .ok("partial_2::case_1")
         .ok("complete::case_1")
-        .fail("default::case_1")
-        .fail("partial_1::case_1")
-        .fail("partial_2::case_1")
-        .fail("complete::case_1")
+        .fail("default::case_2")
+        .fail("partial_1::case_2")
+        .fail("partial_2::case_2")
+        .fail("complete::case_2")
         .assert(output);
 }
 

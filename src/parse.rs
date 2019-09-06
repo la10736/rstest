@@ -495,8 +495,8 @@ impl Parse for RsTestData {
 
 #[derive(PartialEq, Debug, Default)]
 pub struct RsTestInfo {
-    pub data: RsTestData,
-    pub modifiers: RsTestModifiers,
+    pub(crate) data: RsTestData,
+    pub(crate) modifiers: RsTestModifiers,
 }
 
 impl Parse for RsTestModifiers {
@@ -570,8 +570,8 @@ impl Parse for FixtureData {
 
 #[derive(PartialEq, Debug, Default)]
 pub struct FixtureInfo {
-    pub data: FixtureData,
-    pub modifiers: FixtureModifiers,
+    pub(crate) data: FixtureData,
+    pub(crate) modifiers: FixtureModifiers,
 }
 
 impl Parse for FixtureModifiers {

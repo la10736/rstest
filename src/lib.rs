@@ -297,7 +297,7 @@ fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
 macro_rules! wrap_modifiers {
     ($ident:ident) => {
         #[derive(Default, Debug, PartialEq)]
-        pub struct $ident {
+        pub(crate) struct $ident {
             inner: Modifiers,
         }
 
@@ -869,15 +869,32 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
     let args = data.args().cloned().collect::<Vec<_>>();
 
     let display_len = data.cases().count().display_len();
+    let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
 
     let cases = data.cases()
         .enumerate()
         .map({
             let span = test.ident.span();
+            let fixtures = &fixtures;
             move |(n, case)|
-                CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
-                                (args.clone(), case).into())
-        }
+                {
+                    let mut resolver: Resolver = (args.clone(), case).into();
+                    for f in fixtures {
+                        let name = &f.name;
+                        let positional = &f.positional;
+                        let pname = format!("partial_{}", positional.len());
+                        let partial = Ident::new(&pname, Span::call_site());
+                        let tokens = quote! { #name::#partial(#(#positional), *) };
+                        resolver.add_owned(name,
+                                           syn::parse2::<syn::Expr>(tokens)
+                                               .expect(&format!("Resolve partial call '{}'", pname))
+                                               .into(),
+                        );
+                    };
+                    CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
+                                    resolver)
+                }
+            }
         );
 
     render_cases(test, cases, modifiers.into())
