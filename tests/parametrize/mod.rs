@@ -128,6 +128,22 @@ fn case_description() {
         .assert(output);
 }
 
+#[test]
+fn should_apply_partial_fixture() {
+    let (output, _) = run_test("partial.rs");
+
+    TestResults::new()
+        .ok("default::case_1")
+        .ok("partial_1::case_1")
+        .ok("partial_2::case_1")
+        .ok("complete::case_1")
+        .fail("default::case_1")
+        .fail("partial_1::case_1")
+        .fail("partial_2::case_1")
+        .fail("complete::case_1")
+        .assert(output);
+}
+
 mod not_compile_if_missed_arguments {
     use super::*;
 

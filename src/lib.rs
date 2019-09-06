@@ -297,7 +297,7 @@ fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
 macro_rules! wrap_modifiers {
     ($ident:ident) => {
         #[derive(Default, Debug, PartialEq)]
-        struct $ident {
+        pub struct $ident {
             inner: Modifiers,
         }
 

@@ -14,6 +14,7 @@ use crate::error::error;
 
 #[derive(Debug)]
 pub enum ParametrizeItem {
+    Fixture(Fixture),
     CaseArgName(Ident),
     TestCase(TestCase),
 }
@@ -43,6 +44,17 @@ impl ParametrizeData {
                 }
             )
     }
+
+    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
+        self.data.iter()
+            .filter_map(|it|
+                match it {
+                    ParametrizeItem::Fixture(ref fixture) => Some(fixture),
+                    _ => None
+                }
+            )
+    }
+
 }
 
 #[derive(Default, Debug)]
@@ -289,6 +301,8 @@ impl Parse for ParametrizeItem {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.fork().parse::<TestCase>().is_ok() {
             input.parse::<TestCase>().map(ParametrizeItem::TestCase)
+        } else if input.fork().parse::<Fixture>().is_ok() {
+            input.parse::<Fixture>().map(ParametrizeItem::Fixture)
         } else if input.fork().parse::<Ident>().is_ok() {
             input.parse::<Ident>().map(ParametrizeItem::CaseArgName)
         } else {
@@ -407,8 +421,8 @@ impl MatrixInfo {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub(crate) struct Fixture {
+#[derive(PartialEq, Debug, Clone)]
+pub struct Fixture {
     pub name: Ident,
     pub positional: Vec<syn::Expr>,
 }
@@ -434,7 +448,7 @@ impl Parse for Fixture {
 }
 
 #[derive(PartialEq, Debug)]
-pub(crate) enum RsTestItem {
+pub enum RsTestItem {
     Fixture(Fixture)
 }
 
@@ -459,7 +473,7 @@ impl Parse for RsTestItem {
 }
 
 #[derive(PartialEq, Debug, Default)]
-pub(crate) struct RsTestData {
+pub struct RsTestData {
     pub items: Vec<RsTestItem>
 }
 
@@ -480,7 +494,7 @@ impl Parse for RsTestData {
 }
 
 #[derive(PartialEq, Debug, Default)]
-pub(crate) struct RsTestInfo {
+pub struct RsTestInfo {
     pub data: RsTestData,
     pub modifiers: RsTestModifiers,
 }
@@ -509,7 +523,7 @@ impl Parse for RsTestInfo {
 }
 
 #[derive(PartialEq, Debug)]
-pub(crate) enum FixtureItem {
+pub enum FixtureItem {
     Fixture(Fixture)
 }
 
@@ -534,7 +548,7 @@ impl Parse for FixtureItem {
 }
 
 #[derive(PartialEq, Debug, Default)]
-pub(crate) struct FixtureData {
+pub struct FixtureData {
     pub items: Vec<FixtureItem>
 }
 
@@ -555,7 +569,7 @@ impl Parse for FixtureData {
 }
 
 #[derive(PartialEq, Debug, Default)]
-pub(crate) struct FixtureInfo {
+pub struct FixtureInfo {
     pub data: FixtureData,
     pub modifiers: FixtureModifiers,
 }
@@ -616,12 +630,28 @@ mod should {
         }
     }
 
+    macro_rules! to_args {
+        ($e:expr) => {Args::from($e.iter().map(|s| s as & dyn ToString))};
+    }
+
+    macro_rules! to_exprs {
+        ($e:expr) => {$e.iter().map(|s| expr(s)).collect::<Vec<_>>()};
+    }
+
+    macro_rules! to_strs {
+        ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
+    }
+
     fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
         parse_str::<syn::Ident>(s.as_ref()).unwrap()
     }
 
     fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
         parse_str::<syn::Expr>(s.as_ref()).unwrap()
+    }
+
+    fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
+        Fixture::new(ident(name), to_exprs!(args))
     }
 
     impl From<String> for CaseArg {
@@ -659,14 +689,6 @@ mod should {
         fn from(refs: IT) -> Self {
             Args(refs.map(|s| CaseArg::from(s.to_string())).collect())
         }
-    }
-
-    macro_rules! to_args {
-        ($e:expr) => {Args::from($e.iter().map(|s| s as & dyn ToString))};
-    }
-
-    macro_rules! to_strs {
-        ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
     }
 
     impl RsTestAttribute {
@@ -740,8 +762,8 @@ mod should {
 
             let expected = FixtureInfo {
                 data: vec![
-                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
-                    Fixture::new(ident("other"), vec![expr("vec![42]")]).into(),
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                    fixture("other", vec!["vec![42]"]).into(),
                 ].into(),
                 modifiers: Modifiers {
                     modifiers: vec![
@@ -777,7 +799,7 @@ mod should {
 
             let expected = FixtureInfo {
                 data: vec![
-                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
                 ].into(),
                 ..Default::default()
             };
@@ -801,8 +823,8 @@ mod should {
 
             let expected = RsTestInfo {
                 data: vec![
-                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
-                    Fixture::new(ident("other"), vec![expr("vec![42]")]).into(),
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                    fixture("other", vec!["vec![42]"]).into(),
                 ].into(),
                 modifiers: Modifiers {
                     modifiers: vec![
@@ -838,7 +860,7 @@ mod should {
 
             let expected = RsTestInfo {
                 data: vec![
-                    Fixture::new(ident("my_fixture"), vec![expr("42"), expr(r#""other""#)]).into(),
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
                 ].into(),
                 ..Default::default()
             };
@@ -1000,7 +1022,7 @@ mod should {
         }
     }
 
-    mod parse_args_and_cases {
+    mod parse_parametrize {
         use pretty_assertions::assert_eq;
 
         use super::*;
@@ -1025,12 +1047,17 @@ mod should {
         #[test]
         fn happy_path() {
             let data = parse_data(r#"
+                my_fixture(42,"foo"),
                 arg1, arg2, arg3,
                 case(1,2,3),
                 case(11,12,13),
                 case(21,22,23)
                 "#);
 
+            let fixtures = data.fixtures()
+                .cloned()
+                .collect::<Vec<_>>();
+            assert_eq!(vec![fixture("my_fixture", vec!["42", r#""foo""#])], fixtures);
             assert_eq!(to_strs!(vec!["arg1", "arg2", "arg3"]), data.args()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>());
@@ -1108,6 +1135,7 @@ mod should {
                 case(42, A{}, D{}),
                 a,
                 case(43, A{}, D{}),
+                the_fixture(42),
                 d
                 "#);
 
@@ -1118,6 +1146,8 @@ mod should {
             assert_eq!(2, cases.len());
             assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
             assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
+            let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
+            assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
         }
 
         #[test]
