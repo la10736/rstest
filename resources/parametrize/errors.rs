@@ -22,3 +22,7 @@ fn error_param_wrong_type(f: &str) {}
 fn error_in_arbitrary_rust_code(condition: bool) {
     assert!(condition)
 }
+
+#[rstest_parametrize(f, case(42), not_a_fixture(24))]
+fn error_inject_an_invalid_fixture(f: u32) {
+}

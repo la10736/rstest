@@ -356,6 +356,19 @@ mod should_show_correct_errors {
     }
 
     #[test]
+    fn if_inject_wrong_fixture() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+        error: Missed argument: 'not_a_fixture' should be a test function argument.
+          --> {}/src/lib.rs:26:35
+           |
+        26 | #[rstest_parametrize(f, case(42), not_a_fixture(24))]
+           |                                   ^^^^^^^^^^^^^
+        ", name).unindent());
+    }
+
+    #[test]
     fn if_wrong_type() {
         let (output, name) = execute();
 

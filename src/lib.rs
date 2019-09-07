@@ -770,6 +770,11 @@ fn errors_in_parametrize(test: &ItemFn, info: &parse::ParametrizeInfo) -> Option
     let tokens: TokenStream =
         missed_arguments_errors(test, info.data.args())
             .chain(
+                missed_arguments_errors(test, info.data
+                    .fixtures()
+                    .map(|f| &f.name))
+            )
+            .chain(
                 invalid_case_errors(&info.data)
             ).collect();
 
@@ -963,8 +968,8 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
-/// Every parameter that isn't mapped in `case()`s will be resolved as `fixture` like
-/// [`[rstest]`](attr.rstest.html)'s function arguments.
+/// Like in [`[rstest]`](attr.rstest.html) you can inject fixture values and every parameter that
+/// isn't mapped in `case()`s will be resolved as default `fixture`.
 ///
 /// In general `rstest_parametrize`'s syntax is:
 ///
@@ -973,13 +978,19 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
 ///     case[::description_1](val_1_1, ..., val_n_1),
 ///     ...,
 ///     case[::description_m](val_1_m, ..., val_n_m)[,]
+///     [fixture_1(...]
+///     [...,]
+///     [fixture_k(...)]
 ///     [::modifier_1[:: ... [::modifier_k]]]
 /// )
 /// ```
 /// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
-/// * `description_l` when present should be a valid Rust identity
+/// * `description_z` when present should be a valid Rust identity
+/// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](attr.fixture.html) fixture function
 /// * modifiers now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+///
+/// Function's arguments can be present just once as identity or fixture.
 ///
 /// Functions marked by `rstest_parametrize` can use generics, `impl` and `dyn` without any
 /// restriction.
