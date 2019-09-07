@@ -34,6 +34,31 @@ fn happy_path() {
         .assert(output);
 }
 
+#[test]
+fn should_apply_partial_fixture() {
+    let (output, _) = run_test("partial.rs");
+
+    TestResults::new()
+        .ok("default::case_1_1")
+        .ok("default::case_1_2")
+        .ok("default::case_2_1")
+        .ok("partial_1::case_1_1")
+        .ok("partial_2::case_2_2")
+        .ok("complete::case_2_2")
+        .fail("default::case_2_2")
+        .fail("partial_1::case_1_1")
+        .fail("partial_1::case_1_2")
+        .fail("partial_1::case_2_1")
+        .fail("partial_1::case_2_2")
+        .fail("partial_2::case_1_1")
+        .fail("partial_2::case_1_2")
+        .fail("partial_2::case_2_1")
+        .fail("complete::case_1_1")
+        .fail("complete::case_1_2")
+        .fail("complete::case_2_1")
+        .assert(output);
+}
+
 mod dump_input_values {
     use super::{run_test, Unindent};
     use crate::utils::*;
