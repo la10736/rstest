@@ -35,7 +35,6 @@ fn happy_path() {
 }
 
 #[test]
-#[should_panic]
 fn should_apply_partial_fixture() {
     let (output, _) = run_test("partial.rs");
 
@@ -43,7 +42,6 @@ fn should_apply_partial_fixture() {
         .ok("default::case_1_1")
         .ok("default::case_1_2")
         .ok("default::case_2_1")
-        .ok("partial_1::case_1_1")
         .ok("partial_2::case_2_2")
         .ok("complete::case_2_2")
         .fail("default::case_2_2")

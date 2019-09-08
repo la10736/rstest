@@ -869,33 +869,39 @@ fn format_case_name(case: &parse::TestCase, index: usize, display_len: usize) ->
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
+fn resolver_add_injected_fixtures<'a>(mut resolver: Resolver, fixtures: impl Iterator<Item=&'a parse::Fixture> ) -> Resolver {
+    for f in fixtures {
+        let name = &f.name;
+        let positional = &f.positional;
+        let pname = format!("partial_{}", positional.len());
+        let partial = Ident::new(&pname, Span::call_site());
+        let tokens = quote! { #name::#partial(#(#positional), *) };
+        resolver.add_owned(name,
+                           syn::parse2::<syn::Expr>(tokens)
+                               .expect(&format!("Resolve partial call '{}'", pname))
+                               .into(),
+        );
+    };
+    resolver
+}
+
 fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
     let parse::ParametrizeInfo { data, modifiers } = params;
     let args = data.args().cloned().collect::<Vec<_>>();
 
     let display_len = data.cases().count().display_len();
-    let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
 
     let cases = data.cases()
         .enumerate()
         .map({
             let span = test.ident.span();
-            let fixtures = &fixtures;
+            let data = &data;
             move |(n, case)|
                 {
-                    let mut resolver: Resolver = (args.clone(), case).into();
-                    for f in fixtures {
-                        let name = &f.name;
-                        let positional = &f.positional;
-                        let pname = format!("partial_{}", positional.len());
-                        let partial = Ident::new(&pname, Span::call_site());
-                        let tokens = quote! { #name::#partial(#(#positional), *) };
-                        resolver.add_owned(name,
-                                           syn::parse2::<syn::Expr>(tokens)
-                                               .expect(&format!("Resolve partial call '{}'", pname))
-                                               .into(),
-                        );
-                    };
+                    let resolver = resolver_add_injected_fixtures(
+                        (args.clone(), case).into(),
+                        data.fixtures()
+                    );
                     CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
                                     resolver)
                 }
@@ -928,8 +934,12 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
+            let render = resolver_add_injected_fixtures(
+                c.into_iter().map(|(a, e, _)| (a, e)).collect(),
+                args.fixtures()
+            );
             CaseRender::new(Ident::new(&name, span),
-                            c.into_iter().map(|(a, e, _)| (a, e)).collect())
+                            render)
         }
         );
 
@@ -1061,7 +1071,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 /// In general `rstest_matrix`'s syntax is:
 ///
 /// ```norun
-/// rstest_parametrize(
+/// rstest_matrix(
 ///     ident_1 => [val_1_1, ..., val_1_m1],
 ///     ....
 ///     ident_n => [val_n_1, ..., val_n_mn]

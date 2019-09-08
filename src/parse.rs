@@ -380,7 +380,7 @@ pub enum MatrixItem {
 
 impl Parse for MatrixItem {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.fork().parse::<ValueList>().is_ok() {
+        if input.peek2(Token![=>]) {
             input.parse::<ValueList>().map(Self::from)
         } else if input.fork().parse::<Fixture>().is_ok() {
             input.parse::<Fixture>().map(Self::from)
@@ -1306,7 +1306,7 @@ pub mod should {
         }
 
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "should not be empty")]
         fn should_not_compile_if_empty_expression_slice() {
             parse_matrix_info(r#"
                 invalid => []

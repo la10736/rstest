@@ -15,17 +15,17 @@ fn default(fixture: u32, a: u32, b: u32) {
     assert_eq!(fixture, a * b);
 }
 
-#[rstest_matrix(a => [0, 1], b => [0, 2]), fixture(1)]
+#[rstest_matrix(a => [0, 1], b => [0, 2], fixture(1))]
 fn partial_1(fixture: u32, a: u32, b: u32) {
     assert_eq!(fixture, a * b);
 }
 
-#[rstest_matrix(a => [0, 1], b => [0, 2]), fixture(0, 2)]
+#[rstest_matrix(a => [0, 1], b => [0, 2], fixture(0, 2))]
 fn partial_2(fixture: u32, a: u32, b: u32) {
     assert_eq!(fixture, a * b);
 }
 
-#[rstest_matrix(a => [0, 1], b => [0, 2]), fixture(0, 0, 1)]
+#[rstest_matrix(a => [0, 1], b => [0, 2], fixture(0, 0, 1))]
 fn complete(fixture: u32, a: u32, b: u32) {
     assert_eq!(fixture, a * b);
 }
