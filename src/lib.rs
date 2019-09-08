@@ -502,7 +502,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let visibility = &fixture.vis;
     let mut resolver = Resolver::default();
     for f in &info.data.items {
-        if let FixtureItem::Fixture(parse::Fixture { ref name, ref positional } ) = f
+        if let FixtureItem::Fixture(parse::Fixture { ref name, ref positional }) = f
         {
             let pname = format!("partial_{}", positional.len());
             let partial = Ident::new(&pname, Span::call_site());
@@ -637,7 +637,6 @@ fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 pub fn fixture(args: proc_macro::TokenStream,
                input: proc_macro::TokenStream)
                -> proc_macro::TokenStream {
-
     let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let fixture = parse_macro_input!(input as ItemFn);
 
@@ -720,7 +719,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let name = &test.ident;
     let mut resolver = Resolver::default();
     for f in &data.data.items {
-        if let RsTestItem::Fixture(parse::Fixture { ref name, ref positional } ) = f
+        if let RsTestItem::Fixture(parse::Fixture { ref name, ref positional }) = f
         {
             let pname = format!("partial_{}", positional.len());
             let partial = Ident::new(&pname, Span::call_site());
@@ -786,7 +785,17 @@ fn errors_in_parametrize(test: &ItemFn, info: &parse::ParametrizeInfo) -> Option
 }
 
 fn errors_in_matrix(test: &ItemFn, info: &parse::MatrixInfo) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test, info.args.list_values().map(|v| &v.arg)).collect();
+    let tokens: TokenStream = missed_arguments_errors(test,
+                                                      info.args
+                                                          .list_values()
+                                                          .map(|v| &v.arg))
+        .chain(
+            missed_arguments_errors(test,
+                                    info.args
+                                        .fixtures()
+                                        .map(|f| &f.name))
+        )
+        .collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -869,7 +878,7 @@ fn format_case_name(case: &parse::TestCase, index: usize, display_len: usize) ->
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
-fn resolver_add_injected_fixtures<'a>(mut resolver: Resolver, fixtures: impl Iterator<Item=&'a parse::Fixture> ) -> Resolver {
+fn resolver_add_injected_fixtures<'a>(mut resolver: Resolver, fixtures: impl Iterator<Item=&'a parse::Fixture>) -> Resolver {
     for f in fixtures {
         let name = &f.name;
         let positional = &f.positional;
@@ -900,19 +909,19 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
                 {
                     let resolver = resolver_add_injected_fixtures(
                         (args.clone(), case).into(),
-                        data.fixtures()
+                        data.fixtures(),
                     );
                     CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
                                     resolver)
                 }
-            }
+        }
         );
 
     render_cases(test, cases, modifiers.into())
 }
 
 fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
-    let parse::MatrixInfo { args, modifiers, ..} = params;
+    let parse::MatrixInfo { args, modifiers, .. } = params;
     let span = test.ident.span();
 
     // Steps:
@@ -936,7 +945,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
             let name = format!("case_{}", args_indexes);
             let render = resolver_add_injected_fixtures(
                 c.into_iter().map(|(a, e, _)| (a, e)).collect(),
-                args.fixtures()
+                args.fixtures(),
             );
             CaseRender::new(Ident::new(&name, span),
                             render)

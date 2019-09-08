@@ -218,6 +218,19 @@ mod should_show_correct_errors {
            name).unindent());
 
     }
+
+    #[test]
+    fn if_inject_wrong_fixture() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+        error: Missed argument: 'not_a_fixture' should be a test function argument.
+          --> {}/src/lib.rs:31:32
+           |
+        31 | #[rstest_matrix(f => [41, 42], not_a_fixture(24))]
+           |                                ^^^^^^^^^^^^^
+        ", name).unindent());
+    }
 }
 
 #[test]

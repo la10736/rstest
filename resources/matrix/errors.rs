@@ -27,3 +27,7 @@ fn error_empty_list(empty: &str) {}
 #[rstest_matrix(not_exist_1 => [42],
                 not_exist_2 => [42])]
 fn error_no_match_args() {}
+
+#[rstest_matrix(f => [41, 42], not_a_fixture(24))]
+fn error_inject_an_invalid_fixture(f: u32) {
+}
