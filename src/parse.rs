@@ -54,7 +54,6 @@ impl ParametrizeData {
                 }
             )
     }
-
 }
 
 #[derive(Default, Debug)]
@@ -311,17 +310,28 @@ impl Parse for ParametrizeItem {
     }
 }
 
+fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
+    where
+        T: Parse,
+        P: syn::token::Token + Parse
+{
+    Ok(
+        Punctuated::<Option<T>, P>::parse_separated_nonempty_with(
+            input, |input_tokens|
+                if input_tokens.is_empty() {
+                    Ok(None)
+                } else {
+                    T::parse(input_tokens).map(|inner| Some(inner))
+                },
+        )?.into_iter()
+            .filter_map(|it| it)
+            .collect()
+    )
+}
+
 impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(ParametrizeData {
-            data: Punctuated::<Option<ParametrizeItem>, Token![,]>::parse_separated_nonempty_with(
-                input, |input_tokens|
-                    if input_tokens.is_empty() { Ok(None) } else {
-                        ParametrizeItem::parse(input_tokens)
-                            .map(|inner| Some(inner))
-                    },
-            )?.into_iter().filter_map(|it| it).collect()
-        })
+        Ok(ParametrizeData { data: parse_vector_trailing::<_, Token![,]>(input)? })
     }
 }
 
@@ -375,7 +385,7 @@ impl Parse for ValueList {
 
 pub enum MatrixItem {
     ValueList(ValueList),
-    Fixture(Fixture)
+    Fixture(Fixture),
 }
 
 impl Parse for MatrixItem {
@@ -447,27 +457,13 @@ impl Parse for MatrixInfo {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(
             MatrixInfo {
-                args: MatrixInfo::parse_value_list(input)?,
+                args: parse_vector_trailing::<_, Token![,]>(input)
+                    .map(MatrixValues)?,
                 modifiers: input.parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
             }
         )
-    }
-}
-
-impl MatrixInfo {
-    fn parse_value_list(input: ParseStream) -> Result<MatrixValues> {
-        let values = Punctuated::<Option<MatrixItem>, Token![,]>::parse_separated_nonempty_with(
-            input, |input_tokens|
-                if input_tokens.is_empty() { Ok(None) } else {
-                    MatrixItem::parse(input_tokens)
-                        .map(|inner| Some(inner))
-                },
-        )?.into_iter()
-            .filter_map(|it| it)
-            .collect();
-        Ok(MatrixValues(values))
     }
 }
 
@@ -532,13 +528,7 @@ impl Parse for RsTestData {
         if input.peek(Token![::]) {
             Ok(Default::default())
         } else {
-            Ok(
-                Self {
-                    items: Punctuated::<RsTestItem, Token![,]>::parse_separated_nonempty(input)?
-                        .into_iter()
-                        .collect()
-                }
-            )
+            Ok(Self { items: parse_vector_trailing::<_, Token![,]>(input)? })
         }
     }
 }
@@ -602,18 +592,25 @@ pub struct FixtureData {
     pub items: Vec<FixtureItem>
 }
 
+impl FixtureData {
+    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
+        self.items.iter()
+            .filter_map(|f|
+                match f {
+                    FixtureItem::Fixture(ref fixture) => Some(fixture),
+                    #[allow(unreachable_patterns)]
+                    _ => None,
+                }
+            )
+    }
+}
+
 impl Parse for FixtureData {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![::]) {
             Ok(Default::default())
         } else {
-            Ok(
-                Self {
-                    items: Punctuated::<FixtureItem, Token![,]>::parse_separated_nonempty(input)?
-                        .into_iter()
-                        .collect()
-                }
-            )
+            Ok(Self { items: parse_vector_trailing::<_, Token![,]>(input)? })
         }
     }
 }
@@ -851,6 +848,18 @@ pub mod should {
             };
 
             assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn should_accept_trailing_comma() {
+            let fixtures = vec![
+                parse_fixture(r#"first(42),"#),
+                parse_fixture(r#"fixture(42, "other") :: trace"#),
+            ];
+
+            for f in fixtures {
+                assert_eq!(1, f.data.fixtures().count());
+            }
         }
     }
 
