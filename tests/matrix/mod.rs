@@ -35,6 +35,7 @@ fn happy_path() {
 }
 
 #[test]
+#[should_panic]
 fn should_apply_partial_fixture() {
     let (output, _) = run_test("partial.rs");
 

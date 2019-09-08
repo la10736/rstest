@@ -786,7 +786,7 @@ fn errors_in_parametrize(test: &ItemFn, info: &parse::ParametrizeInfo) -> Option
 }
 
 fn errors_in_matrix(test: &ItemFn, info: &parse::MatrixInfo) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test, info.args.0.iter().map(|v| &v.arg)).collect();
+    let tokens: TokenStream = missed_arguments_errors(test, info.args.list_values().map(|v| &v.arg)).collect();
 
     if !tokens.is_empty() {
         Some(tokens)
@@ -906,14 +906,14 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
 }
 
 fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
-    let parse::MatrixInfo { args, modifiers } = params;
+    let parse::MatrixInfo { args, modifiers, ..} = params;
     let span = test.ident.span();
 
     // Steps:
     // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
     // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
     // 3. format case by packed data vector
-    let cases = args.0.iter()
+    let cases = args.list_values()
         .map(|group|
             group.values.iter()
                 .enumerate()
@@ -1114,7 +1114,7 @@ mod render {
         parse_str, punctuated, visit::Visit,
     };
 
-    use crate::parse::*;
+    use crate::parse::{*, should::*};
 
     use super::*;
 
@@ -1399,7 +1399,7 @@ mod render {
             fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
                 TestCase {
                     args: iter.into_iter()
-                        .map(CaseArg::from)
+                        .map(case_arg)
                         .collect(),
                     description: None,
                 }
@@ -1514,7 +1514,9 @@ mod render {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::MatrixValues(
                     fn_args_idents(item_fn).iter()
-                        .map(|it| ValueList { arg: it.clone(), values: vec![] })
+                        .map(|it|
+                            ValueList { arg: it.clone(), values: vec![] }.into()
+                        )
                         .collect()
                 )
             }
@@ -1594,8 +1596,13 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: MatrixInfo = (&item_fn).into();
-            info.args.0[0].values.push(CaseArg::from("value".to_string()));
+            let info = MatrixInfo {
+                args: MatrixValues(vec![
+                    ValueList { arg: ident("fix"), values: vec![case_arg(r#""value""#)] }.into()
+                ]
+                ),
+                ..Default::default()
+            };
             (item_fn, info)
         }
 
@@ -1611,25 +1618,19 @@ mod render {
             assert!(&tests[0].ident.to_string().starts_with("case_"))
         }
 
-        impl<'a, 'b, 'c, S: ToString> From<(&'a str, &'b [S])> for ValueList {
-            fn from(data: (&'a str, &'b [S])) -> Self {
-                let (arg, values) = data;
-                Self {
-                    arg: parse_str(arg).unwrap(),
-                    values: values.into_iter().map(|s| CaseArg::from(s.to_string())).collect(),
-                }
-            }
-        }
-
         #[test]
         fn should_add_a_test_cases_from_all_combinations() {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
-            let mut info: MatrixInfo = (&item_fn).into();
-            info.args.0[0] = ("first", ["1", "2"].as_ref()).into();
-            info.args.0[1] = ("second", ["3", "4"].as_ref()).into();
-            info.args.0[2] = ("third", ["5", "6"].as_ref()).into();
+            let info = MatrixInfo {
+                args: MatrixValues(vec![
+                    values_list("first", ["1", "2"].as_ref()).into(),
+                    values_list("second", ["3", "4"].as_ref()).into(),
+                    values_list("third", ["5", "6"].as_ref()).into(),
+                ]),
+                ..Default::default()
+            };
 
             let tokens = render_matrix_cases(item_fn.clone(), info);
 
@@ -1657,11 +1658,15 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
-            let mut info: MatrixInfo = (&item_fn).into();
             let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
-            info.args.0[0] = ("first", values.as_ref()).into();
-            info.args.0[1] = ("second", values[..10].as_ref()).into();
-            info.args.0[2] = ("third", values[..2].as_ref()).into();
+            let info = MatrixInfo {
+                args: MatrixValues(vec![
+                    values_list("first", values.as_ref()).into(),
+                    values_list("second", values[..10].as_ref()).into(),
+                    values_list("third", values[..2].as_ref()).into(),
+                ]),
+                ..Default::default()
+            };
 
             let tokens = render_matrix_cases(item_fn.clone(), info);
 

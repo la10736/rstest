@@ -373,8 +373,33 @@ impl Parse for ValueList {
     }
 }
 
+pub enum MatrixItem {
+    ValueList(ValueList)
+}
+
+impl From<ValueList> for MatrixItem {
+    fn from(value_list: ValueList) -> Self {
+        MatrixItem::ValueList(value_list)
+    }
+}
+
 #[derive(Default)]
-pub struct MatrixValues(pub Vec<ValueList>);
+pub struct MatrixValues(pub Vec<MatrixItem>);
+
+impl MatrixValues {
+    pub fn list_values(&self) -> impl Iterator<Item=&ValueList> {
+        self.0.iter().filter_map(|mv|
+            match mv {
+                MatrixItem::ValueList(ref value_list) => Some(value_list),
+                _ => None
+            }
+        )
+    }
+
+    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
+        std::iter::empty()
+    }
+}
 
 #[derive(Default)]
 pub struct MatrixInfo {
@@ -416,6 +441,7 @@ impl MatrixInfo {
                 },
         )?.into_iter()
             .filter_map(|it| it)
+            .map(|it| it.into())
             .collect();
         Ok(MatrixValues(values))
     }
@@ -598,11 +624,12 @@ impl Parse for FixtureInfo {
 }
 
 #[cfg(test)]
-mod should {
+pub mod should {
     #[allow(unused_imports)]
     use pretty_assertions::assert_eq;
     use proc_macro2::TokenTree;
     use syn::{ItemFn, parse2, parse_str};
+    use itertools::Itertools;
 
     use quote::quote;
 
@@ -630,64 +657,59 @@ mod should {
         }
     }
 
+    #[macro_export]
     macro_rules! to_args {
-        ($e:expr) => {Args::from($e.iter().map(|s| s as & dyn ToString))};
+        ($e:expr) => {$e.iter()
+                        .map(|s| s as & dyn AsRef<str>)
+                        .map(case_arg)
+                        .collect_vec()
+                        };
     }
-
+    #[macro_export]
     macro_rules! to_exprs {
         ($e:expr) => {$e.iter().map(|s| expr(s)).collect::<Vec<_>>()};
     }
-
+    #[macro_export]
     macro_rules! to_strs {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
     }
 
-    fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
+    pub fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
         parse_str::<syn::Ident>(s.as_ref()).unwrap()
     }
 
-    fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
+    pub fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
         parse_str::<syn::Expr>(s.as_ref()).unwrap()
     }
 
-    fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
+    pub fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
         Fixture::new(ident(name), to_exprs!(args))
     }
 
-    impl From<String> for CaseArg {
-        fn from(data: String) -> Self {
-            CaseArg::new(expr(data))
-        }
+    pub fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
+        CaseArg::new(expr(s))
     }
 
-    impl<'a> From<&'a str> for CaseArg {
-        fn from(data: &str) -> Self {
-            CaseArg::new(expr(data))
+    pub fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
+        ValueList {
+            arg: ident(arg),
+            values: values.into_iter().map(|s| case_arg(s)).collect(),
         }
     }
-
-    #[derive(Debug, PartialEq)]
-    struct Args(Vec<CaseArg>);
 
     trait ExtractArgs {
-        fn args(&self) -> Args;
+        fn args(&self) -> Vec<CaseArg>;
     }
 
     impl ExtractArgs for TestCase {
-        fn args(&self) -> Args {
-            Args(self.args.iter().cloned().collect())
+        fn args(&self) -> Vec<CaseArg> {
+            self.args.iter().cloned().collect()
         }
     }
 
     impl ExtractArgs for ValueList {
-        fn args(&self) -> Args {
-            Args(self.values.iter().cloned().collect())
-        }
-    }
-
-    impl<'a, IT: Iterator<Item=&'a dyn ToString>> From<IT> for Args {
-        fn from(refs: IT) -> Self {
-            Args(refs.map(|s| CaseArg::from(s.to_string())).collect())
+        fn args(&self) -> Vec<CaseArg> {
+            self.values.iter().cloned().collect()
         }
     }
 
@@ -1213,6 +1235,7 @@ mod should {
     mod parse_matrix_info {
         use super::*;
         use super::assert_eq;
+        use itertools::Itertools;
 
         fn parse_matrix_info<S: AsRef<str>>(matrix_info: S) -> MatrixInfo {
             parse_meta(matrix_info)
@@ -1225,9 +1248,10 @@ mod should {
                 input => [format!("aa_{}", 2), "other"],
             "#);
 
-            assert_eq!(2, info.args.0.len());
-            assert_eq!(to_args!(["12", "34 * 2"]), info.args.0[0].args());
-            assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), info.args.0[1].args());
+            let value_ranges = info.args.list_values().collect_vec();
+            assert_eq!(2, value_ranges.len());
+            assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
+            assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), value_ranges[1].args());
             assert_eq!(info.modifiers, Default::default());
         }
 
@@ -1240,6 +1264,22 @@ mod should {
 
             assert_eq!(Modifiers { modifiers: vec![RsTestAttribute::attr("trace")] },
                        info.modifiers);
+        }
+
+        #[test]
+        #[should_panic]
+        fn should_parse_injected_fixtures_too() {
+            let info = parse_matrix_info(r#"
+                a => [12, 24, 42],
+                fixture_1(42, "foo"),
+                fixture_2("bar")
+            "#);
+
+            let fixtures = info.args.fixtures().cloned().collect::<Vec<_>>();
+
+            assert_eq!(vec![fixture("fixture_1", vec!["42", r#""foo""#]),
+                            fixture("fixture_2", vec![r#""car""#])],
+                       fixtures);
         }
 
         #[test]
