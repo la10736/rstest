@@ -374,12 +374,31 @@ impl Parse for ValueList {
 }
 
 pub enum MatrixItem {
-    ValueList(ValueList)
+    ValueList(ValueList),
+    Fixture(Fixture)
+}
+
+impl Parse for MatrixItem {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.fork().parse::<ValueList>().is_ok() {
+            input.parse::<ValueList>().map(Self::from)
+        } else if input.fork().parse::<Fixture>().is_ok() {
+            input.parse::<Fixture>().map(Self::from)
+        } else {
+            Err(syn::Error::new(Span::call_site(), "Cannot parse matrix info"))
+        }
+    }
 }
 
 impl From<ValueList> for MatrixItem {
     fn from(value_list: ValueList) -> Self {
         MatrixItem::ValueList(value_list)
+    }
+}
+
+impl From<Fixture> for MatrixItem {
+    fn from(fixture: Fixture) -> Self {
+        MatrixItem::Fixture(fixture)
     }
 }
 
@@ -397,7 +416,12 @@ impl MatrixValues {
     }
 
     pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
-        std::iter::empty()
+        self.0.iter().filter_map(|mv|
+            match mv {
+                MatrixItem::Fixture(ref fixture) => Some(fixture),
+                _ => None
+            }
+        )
     }
 }
 
@@ -434,14 +458,14 @@ impl Parse for MatrixInfo {
 
 impl MatrixInfo {
     fn parse_value_list(input: ParseStream) -> Result<MatrixValues> {
-        let values = Punctuated::<Option<ValueList>, Token![,]>::parse_separated_nonempty_with(
+        let values = Punctuated::<Option<MatrixItem>, Token![,]>::parse_separated_nonempty_with(
             input, |input_tokens|
                 if input_tokens.is_empty() { Ok(None) } else {
-                    ValueList::parse(input_tokens).map(|inner| Some(inner))
+                    MatrixItem::parse(input_tokens)
+                        .map(|inner| Some(inner))
                 },
         )?.into_iter()
             .filter_map(|it| it)
-            .map(|it| it.into())
             .collect();
         Ok(MatrixValues(values))
     }
@@ -1267,7 +1291,6 @@ pub mod should {
         }
 
         #[test]
-        #[should_panic]
         fn should_parse_injected_fixtures_too() {
             let info = parse_matrix_info(r#"
                 a => [12, 24, 42],
@@ -1275,10 +1298,10 @@ pub mod should {
                 fixture_2("bar")
             "#);
 
-            let fixtures = info.args.fixtures().cloned().collect::<Vec<_>>();
+            let fixtures = info.args.fixtures().cloned().collect_vec();
 
             assert_eq!(vec![fixture("fixture_1", vec!["42", r#""foo""#]),
-                            fixture("fixture_2", vec![r#""car""#])],
+                            fixture("fixture_2", vec![r#""bar""#])],
                        fixtures);
         }
 
