@@ -1065,8 +1065,8 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 ///
 /// ```
 ///
-/// Every parameter that isn't mapped as argument list will be resolved as `fixture` like
-/// [`[rstest]`](attr.rstest.html)'s function arguments.
+/// Like in [`[rstest]`](attr.rstest.html) you can inject fixture values and every parameter that
+/// isn't mapped in `case()`s will be resolved as default `fixture`.
 ///
 /// In general `rstest_matrix`'s syntax is:
 ///
@@ -1074,13 +1074,19 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 /// rstest_matrix(
 ///     ident_1 => [val_1_1, ..., val_1_m1],
 ///     ....
-///     ident_n => [val_n_1, ..., val_n_mn]
+///     ident_n => [val_n_1, ..., val_n_mn][,]
+///     [fixture_1(...]
+///     [...,]
+///     [fixture_k(...)]
 ///     [::modifier_1[:: ... [::modifier_k]]]
 /// )
 /// ```
 /// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
+/// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](attr.fixture.html) fixture function
 /// * modifiers now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+///
+/// Function's arguments can be present just once as identity or fixture.
 ///
 /// Functions marked by `rstest_matrix` can use generics, `impl` and `dyn` without any
 /// restriction.
