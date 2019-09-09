@@ -199,7 +199,7 @@ use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
 use std::collections::HashMap;
-use crate::parse::{RsTestItem, FixtureInfo, FixtureItem, CaseArg};
+use crate::parse::{RsTestItem, FixtureInfo, CaseArg};
 use std::borrow::Cow;
 
 mod parse;
@@ -518,6 +518,14 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
     result
 }
 
+fn extract_resolve_expression(fixture: &parse::Fixture) -> syn::Expr {
+    let name = &fixture.name;
+    let positional= &fixture.positional;
+    let pname = format!("partial_{}", positional.len());
+    let partial = Ident::new(&pname, Span::call_site());
+    parse_quote! { #name::#partial(#(#positional), *) }
+}
+
 fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
     let name = &fixture.ident;
@@ -534,14 +542,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
     let resolver = info.data.fixtures().map(|f|
-        {
-            let name = f.name.clone();
-            let positional= &f.positional;
-            let pname = format!("partial_{}", positional.len());
-            let partial = Ident::new(&pname, Span::call_site());
-            let expr: syn::Expr = parse_quote! { #name::#partial(#(#positional), *) };
-            (  name.to_string(), expr.into() )
-        }
+            ( f.name.to_string(), extract_resolve_expression(f).into() )
     ).collect::<HashMap<_, CaseArg>>();
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
     let partials = (1..=args.len()).map(|n|
