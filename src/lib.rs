@@ -189,7 +189,9 @@
 extern crate proc_macro;
 
 use proc_macro2::{TokenStream, Span};
-use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn, parse_macro_input, Pat, ReturnType, Stmt};
+use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
+        parse_macro_input, Pat, ReturnType, Stmt,
+        parse_quote};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute, RsTestInfo};
@@ -197,7 +199,8 @@ use quote::{quote, ToTokens};
 use std::iter::FromIterator;
 use itertools::Itertools;
 use std::collections::HashMap;
-use crate::parse::{RsTestItem, FixtureInfo, FixtureItem};
+use crate::parse::{RsTestItem, FixtureInfo, FixtureItem, CaseArg};
+use std::borrow::Cow;
 
 mod parse;
 mod error;
@@ -213,10 +216,8 @@ impl<T: ToTokens> Tokenize for T {
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> parse::CaseArg {
-    syn::parse2(
-        quote! {#ident::default()}
-    ).unwrap()
+fn default_fixture_resolve(ident: &Ident) -> Cow<CaseArg> {
+    Cow::Owned(parse_quote! { #ident::default() } )
 }
 
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
@@ -226,7 +227,7 @@ fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
     }
 }
 
-fn arg_2_fixture(ident: &Ident, resolver: &Resolver) -> TokenStream {
+fn arg_2_fixture(ident: &Ident, resolver: &impl ResolverT) -> TokenStream {
     let fixture = resolver
         .resolve(ident)
         .map(|e| e.clone())
@@ -246,20 +247,52 @@ fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt
     }
 }
 
+trait  ResolverT {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>>;
+}
+
 #[derive(Default)]
 /// `Resolver` can `resolve` an ident to a `CaseArg`. Pass it to `render_fn_test`
 /// function to inject the case arguments resolution.
 struct Resolver<'a> {
-    borrow: HashMap<String, &'a parse::CaseArg>,
-    owned: HashMap<String, parse::CaseArg>,
+    borrow: HashMap<String, &'a CaseArg>,
+    owned: HashMap<String, CaseArg>,
+}
+
+impl<'a> ResolverT for HashMap<String, &'a CaseArg> {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
+        let ident = ident.to_string();
+        self.get(&ident)
+            .map(|&c| Cow::Borrowed(c) )
+    }
+}
+
+impl<'a> ResolverT for HashMap<String, CaseArg> {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
+        let ident = ident.to_string();
+        self.get(&ident)
+            .map(|c| Cow::Borrowed(c) )
+    }
+}
+
+impl<R1:ResolverT, R2:ResolverT> ResolverT for (R1, R2) {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
+        self.0.resolve(ident).or_else(|| self.1.resolve(ident))
+    }
+}
+
+impl<'a> ResolverT for Resolver<'a> {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
+        let ident = ident.to_string();
+        self.borrow
+            .get(&ident)
+            .map(|&case| case)
+            .or_else(|| self.owned.get(&ident))
+            .map(|case| Cow::Borrowed(case))
+    }
 }
 
 impl<'a> Resolver<'a> {
-    fn resolve(&self, ident: &Ident) -> Option<&parse::CaseArg> {
-        let ident = ident.to_string();
-        self.borrow.get(&ident).map(|&a| a).or_else(|| self.owned.get(&ident))
-    }
-
     fn add_owned(&mut self, ident: &Ident, case_arg: parse::CaseArg) {
         self.owned.insert(ident.to_string(), case_arg);
     }
@@ -398,7 +431,7 @@ fn trace_arguments(args: &Vec<Ident>, modifiers: &RsTestModifiers) -> Option<pro
         )
 }
 
-fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &Resolver) -> TokenStream {
+fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &impl ResolverT) -> TokenStream {
     let define_vars = args
         .map(|arg|
             arg_2_fixture(arg, resolver)
@@ -408,18 +441,18 @@ fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &Resolver) ->
     }
 }
 
-fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &Resolver) -> TokenStream {
+fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl ResolverT) -> TokenStream {
     resolve_args(args.filter_map(fn_arg_ident), resolver)
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
-                      resolver: Resolver, modifiers: &'a RsTestModifiers)
+                      resolver: &impl ResolverT, modifiers: &'a RsTestModifiers)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn);
     let attrs = &testfn.attrs;
     let output = &testfn.decl.output;
-    let inject = resolve_fn_args(fn_args(&testfn), &resolver);
+    let inject = resolve_fn_args(fn_args(&testfn), resolver);
     let trace_args = trace_arguments(&args, modifiers);
     quote! {
         #[test]
@@ -500,22 +533,16 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let mut resolver = Resolver::default();
-    for f in &info.data.items {
-        if let FixtureItem::Fixture(parse::Fixture { ref name, ref positional }) = f
+    let resolver = info.data.fixtures().map(|f|
         {
+            let name = f.name.clone();
+            let positional= &f.positional;
             let pname = format!("partial_{}", positional.len());
             let partial = Ident::new(&pname, Span::call_site());
-            let tokens = quote! {
-                    #name::#partial(#(#positional), *)
-                };
-            resolver.add_owned(name,
-                               syn::parse2::<syn::Expr>(tokens)
-                                   .expect(&format!("Resolve partial call '{}'", pname))
-                                   .into(),
-            );
+            let expr: syn::Expr = parse_quote! { #name::#partial(#(#positional), *) };
+            (  name.to_string(), expr.into() )
         }
-    }
+    ).collect::<HashMap<_, CaseArg>>();
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
     let partials = (1..=args.len()).map(|n|
         {
@@ -736,7 +763,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     if let Some(tokens) = errors_in_rstest(&test, &data) {
         tokens
     } else {
-        render_fn_test(name.clone(), &test, Some(&test), resolver, &data.modifiers)
+        render_fn_test(name.clone(), &test, Some(&test), &resolver, &data.modifiers)
     }.into()
 }
 
@@ -839,7 +866,7 @@ impl<'a> CaseRender<'a> {
     }
 
     fn render(self, testfn: &ItemFn, modifiers: &RsTestModifiers) -> TokenStream {
-        render_fn_test(self.name, testfn, None, self.resolver, modifiers)
+        render_fn_test(self.name, testfn, None, &self.resolver, modifiers)
     }
 }
 
@@ -1223,7 +1250,7 @@ mod render {
 
         resolver.add("foo", &expected);
 
-        assert_eq!(&expected, resolver.resolve(&arg).unwrap())
+        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
     }
 
     #[test]
@@ -1232,7 +1259,7 @@ mod render {
         let arg = first_arg_ident(&ast);
         let resolver = Resolver::default();
 
-        assert!(resolver.resolve(&arg).is_none())
+        assert!((&resolver).resolve(&arg).is_none())
     }
 
     mod fn_test_should {
@@ -1246,7 +1273,7 @@ mod render {
             let ast: ItemFn = parse_str("fn function(mut fix: String) -> Result<i32, String> { Ok(42) }").unwrap();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
-                                        &ast, None, Default::default(), &Default::default());
+                                        &ast, None, &Resolver::default(), &Default::default());
 
             let result: ItemFn = parse2(tokens).unwrap();
 
@@ -1268,7 +1295,7 @@ mod render {
             ).unwrap();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
-                                        &input_fn, Some(&input_fn), Default::default(), &Default::default());
+                                        &input_fn, Some(&input_fn), &Resolver::default(), &Default::default());
 
             let result: ItemFn = parse2(tokens).unwrap();
 
