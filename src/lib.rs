@@ -476,6 +476,12 @@ fn extract_resolve_expression(fixture: &parse::Fixture) -> syn::Expr {
     parse_quote! { #name::#partial(#(#positional), *) }
 }
 
+fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a parse::Fixture>) -> impl Resolver + 'a {
+    fixtures.map(|f|
+        ( f.name.to_string(), extract_resolve_expression(f).into() )
+    ).collect::<HashMap<_, CaseArg>>()
+}
+
 fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
     let name = &fixture.ident;
@@ -491,9 +497,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let resolver = info.data.fixtures().map(|f|
-            ( f.name.to_string(), extract_resolve_expression(f).into() )
-    ).collect::<HashMap<_, CaseArg>>();
+    let resolver = fixture_resolver(info.data.fixtures());
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
     let partials = (1..=args.len()).map(|n|
         {
@@ -695,9 +699,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let test = parse_macro_input!(input as ItemFn);
     let info: RsTestInfo = parse_macro_input!(args as RsTestInfo);
     let name = &test.ident;
-    let resolver = info.data.fixtures().map(|f|
-        ( f.name.to_string(), extract_resolve_expression(f).into() )
-    ).collect::<HashMap<_, CaseArg>>();
+    let resolver = fixture_resolver(info.data.fixtures());
     if let Some(tokens) = errors_in_rstest(&test, &info) {
         tokens
     } else {
@@ -855,9 +857,7 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
             move |(n, case)|
                 {
 
-                    let resolver_fixtures = data.fixtures().map(|f|
-                        ( f.name.to_string(), extract_resolve_expression(f).into() )
-                    ).collect::<HashMap<_, CaseArg>>();
+                    let resolver_fixtures = fixture_resolver(data.fixtures());
                     let resolver_case = data.args()
                         .map(|a| a.to_string())
                         .zip(case.args.iter())
