@@ -523,6 +523,18 @@ pub struct RsTestData {
     pub items: Vec<RsTestItem>
 }
 
+impl RsTestData {
+    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
+        self.items.iter().filter_map(|it|
+            match it {
+                RsTestItem::Fixture(ref fixture) => Some(fixture),
+                #[allow(unreachable_patterns)]
+                _ => None
+            }
+        )
+    }
+}
+
 impl Parse for RsTestData {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![::]) {
