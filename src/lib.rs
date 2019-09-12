@@ -190,18 +190,18 @@ extern crate proc_macro;
 
 use proc_macro2::{TokenStream, Span};
 use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
-        parse_macro_input, Pat, ReturnType, Stmt,
-        parse_quote};
+        parse_macro_input, Pat, ReturnType, Stmt};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute, RsTestInfo};
 use quote::{quote, ToTokens};
 use itertools::Itertools;
 use std::collections::HashMap;
-use crate::parse::{FixtureInfo, CaseArg};
-use std::borrow::Cow;
+use crate::parse::{FixtureInfo};
+use crate::resolver::{Resolver, arg_2_fixture};
 
 mod parse;
+mod resolver;
 mod error;
 
 
@@ -215,24 +215,10 @@ impl<T: ToTokens> Tokenize for T {
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> Cow<CaseArg> {
-    Cow::Owned(parse_quote! { #ident::default() } )
-}
-
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
     match arg {
         FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
         _ => None
-    }
-}
-
-fn arg_2_fixture(ident: &Ident, resolver: &impl Resolver) -> TokenStream {
-    let fixture = resolver
-        .resolve(ident)
-        .map(|e| e.clone())
-        .unwrap_or_else(|| default_fixture_resolve(ident));
-    quote! {
-        let #ident = #fixture;
     }
 }
 
@@ -243,33 +229,6 @@ fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt
         }).ok()
     } else {
         None
-    }
-}
-
-trait Resolver {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>>;
-}
-
-
-impl<'a> Resolver for HashMap<String, &'a CaseArg> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
-        let ident = ident.to_string();
-        self.get(&ident)
-            .map(|&c| Cow::Borrowed(c) )
-    }
-}
-
-impl<'a> Resolver for HashMap<String, CaseArg> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
-        let ident = ident.to_string();
-        self.get(&ident)
-            .map(|c| Cow::Borrowed(c) )
-    }
-}
-
-impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
-        self.0.resolve(ident).or_else(|| self.1.resolve(ident))
     }
 }
 
@@ -468,20 +427,6 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
     result
 }
 
-fn extract_resolve_expression(fixture: &parse::Fixture) -> syn::Expr {
-    let name = &fixture.name;
-    let positional= &fixture.positional;
-    let pname = format!("partial_{}", positional.len());
-    let partial = Ident::new(&pname, Span::call_site());
-    parse_quote! { #name::#partial(#(#positional), *) }
-}
-
-fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a parse::Fixture>) -> impl Resolver + 'a {
-    fixtures.map(|f|
-        ( f.name.to_string(), extract_resolve_expression(f).into() )
-    ).collect::<HashMap<_, CaseArg>>()
-}
-
 fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
     let name = &fixture.ident;
@@ -497,7 +442,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let where_clause = &fixture.decl.generics.where_clause;
     let output = &fixture.decl.output;
     let visibility = &fixture.vis;
-    let resolver = fixture_resolver(info.data.fixtures());
+    let resolver = resolver::fixture_resolver(info.data.fixtures());
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
     let partials = (1..=args.len()).map(|n|
         {
@@ -699,7 +644,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let test = parse_macro_input!(input as ItemFn);
     let info: RsTestInfo = parse_macro_input!(args as RsTestInfo);
     let name = &test.ident;
-    let resolver = fixture_resolver(info.data.fixtures());
+    let resolver = resolver::fixture_resolver(info.data.fixtures());
     if let Some(tokens) = errors_in_rstest(&test, &info) {
         tokens
     } else {
@@ -857,7 +802,7 @@ fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> Tok
             move |(n, case)|
                 {
 
-                    let resolver_fixtures = fixture_resolver(data.fixtures());
+                    let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
                     let resolver_case = data.args()
                         .map(|a| a.to_string())
                         .zip(case.args.iter())
@@ -894,9 +839,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
-            let resolver_fixture = args.fixtures().map(|f|
-                ( f.name.to_string(), extract_resolve_expression(f).into() )
-            ).collect::<HashMap<_, CaseArg>>();
+            let resolver_fixture = resolver::fixture_resolver(args.fixtures());
             let resolver_case = c.into_iter()
                 .map(|(a, e, _)| (a.to_string(), e))
                 .collect::<HashMap<_, _>>();
@@ -1088,11 +1031,12 @@ mod render {
     use pretty_assertions::assert_eq;
     use unindent::Unindent;
     use syn::{
-        export::Debug, Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
+        Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
     };
 
     use crate::parse::{*, should::*};
+    use crate::resolver::{*, test::*};
 
     use super::*;
 
@@ -1105,50 +1049,43 @@ mod render {
         fn_arg_ident(arg).unwrap()
     }
 
-    fn assert_syn_eq<P, S>(expected: S, ast: P) where
-        S: AsRef<str>,
-        P: syn::parse::Parse + Debug + Eq
-    {
-        assert_eq!(
-            parse_str::<P>(expected.as_ref()).unwrap(),
-            ast
-        )
+    trait ToAst {
+        fn ast<T: Parse>(&self) -> T;
     }
 
-    fn assert_statement_eq<T, S>(expected: S, tokens: T) where
-        T: Into<TokenStream>,
-        S: AsRef<str>
-    {
-        assert_syn_eq::<Stmt, _>(expected, parse2::<Stmt>(tokens.into()).unwrap())
+    impl<'a> ToAst for str {
+        fn ast<T: Parse>(&self) -> T {
+            parse_str(self).unwrap()
+        }
     }
 
     #[test]
     fn extract_fixture_call_arg() {
-        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
+        let ast = "fn foo(fix: String) {}".ast();
         let arg = first_arg_ident(&ast);
 
         let line = arg_2_fixture(arg, &EmptyResolver);
 
-        assert_statement_eq("let fix = fix::default();", line);
+        assert_eq!(line, "let fix = fix::default();".ast());
     }
 
     #[test]
     fn extract_fixture_should_not_add_mut() {
-        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
+        let ast = "fn foo(mut fix: String) {}".ast();
         let arg = first_arg_ident(&ast);
 
         let line = arg_2_fixture(arg, &EmptyResolver);
 
-        assert_statement_eq("let fix = fix::default();", line);
+        assert_eq!(line, "let fix = fix::default();".ast());
     }
 
     fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
-        parse_str::<Expr>(s.as_ref()).unwrap().into()
+        s.as_ref().ast::<Expr>().into()
     }
 
     #[test]
     fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
-        let ast = parse_str("fn foo(mut fix: String) {}").unwrap();
+        let ast = "fn foo(mut fix: String) {}".ast();
         let arg = first_arg_ident(&ast);
         let call = case_arg("bar()");
         let mut resolver = HashMap::new();
@@ -1156,15 +1093,7 @@ mod render {
 
         let line = arg_2_fixture(arg, &resolver);
 
-        assert_statement_eq("let fix = bar();", line);
-    }
-
-    struct EmptyResolver;
-
-    impl<'a> Resolver for EmptyResolver {
-        fn resolve(&self, _ident: &Ident) -> Option<Cow<CaseArg>> {
-            None
-        }
+        assert_eq!(line, "let fix = bar();".ast());
     }
 
     #[test]
@@ -1181,7 +1110,7 @@ mod render {
 
     #[test]
     fn resolver_should_return_none_for_unknown_argument() {
-        let ast = parse_str("fn function(mut fix: String) {}").unwrap();
+        let ast = "fn function(mut fix: String) {}".ast();
         let arg = first_arg_ident(&ast);
 
         assert!(EmptyResolver.resolve(&arg).is_none())
@@ -1195,7 +1124,7 @@ mod render {
 
         #[test]
         fn add_return_type_if_any() {
-            let ast: ItemFn = parse_str("fn function(mut fix: String) -> Result<i32, String> { Ok(42) }").unwrap();
+            let ast: ItemFn = "fn function(mut fix: String) -> Result<i32, String> { Ok(42) }".ast();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
                                         &ast, None, EmptyResolver, &Default::default());
@@ -1208,16 +1137,14 @@ mod render {
 
         #[test]
         fn should_include_given_function() {
-            let input_fn: ItemFn = parse_str(
-                r#"
+            let input_fn: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                         where B: Borrow<u32>
                 {
                     let some = 42;
                     assert_eq!(42, some);
                 }
-                "#
-            ).unwrap();
+                "#.ast();
 
             let tokens = render_fn_test(Ident::new("new_name", Span::call_site()),
                                         &input_fn, Some(&input_fn), EmptyResolver, &Default::default());
