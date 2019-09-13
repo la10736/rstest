@@ -189,46 +189,22 @@
 extern crate proc_macro;
 
 use proc_macro2::{TokenStream, Span};
-use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
-        parse_macro_input, Pat, ReturnType, Stmt, parse_quote};
+use syn::{FnArg, Generics, Ident, ItemFn, parse_macro_input, ReturnType, Stmt, parse_quote};
 
-use error::error_statement;
-use parse::RsTestInfo;
 use quote::quote;
 use itertools::Itertools;
 use std::collections::HashMap;
-use crate::parse::{FixtureInfo};
+
+use crate::parse::{RsTestInfo, FixtureInfo};
 use crate::resolver::{Resolver, arg_2_fixture};
+use crate::refident::RefIdent;
+use crate::error::error_statement;
 
 mod parse;
 mod resolver;
 mod modifiers;
 mod error;
-
-trait RefIdent {
-    fn ident(&self) -> Option<&Ident>;
-}
-
-impl RefIdent for FnArg {
-    fn ident(&self) -> Option<&Ident> {
-        match self {
-            FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
-            _ => None
-        }
-    }
-}
-
-impl RefIdent for syn::Type {
-    fn ident(&self) -> Option<&Ident> {
-        match self {
-            syn::Type::Path(tp) if tp.qself.is_none() && tp.path.segments.len() == 1 => {
-                tp.path.segments.first()
-                    .map(|pair| &pair.value().ident)
-            }
-            _ => None
-        }
-    }
-}
+mod refident;
 
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
