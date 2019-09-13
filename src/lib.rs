@@ -190,7 +190,7 @@ extern crate proc_macro;
 
 use proc_macro2::{TokenStream, Span};
 use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
-        parse_macro_input, Pat, ReturnType, Stmt};
+        parse_macro_input, Pat, ReturnType, Stmt, parse_quote};
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute, RsTestInfo};
@@ -205,30 +205,10 @@ mod resolver;
 mod error;
 
 
-trait Tokenize {
-    fn into_tokens(self) -> TokenStream;
-}
-
-impl<T: ToTokens> Tokenize for T {
-    fn into_tokens(self) -> TokenStream {
-        quote! { #self }
-    }
-}
-
 fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
     match arg {
         FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
         _ => None
-    }
-}
-
-fn arg_2_fixture_dump(ident: &Ident, modifiers: &RsTestModifiers) -> Option<Stmt> {
-    if modifiers.trace_me(ident) {
-        syn::parse2(quote! {
-            println!("{} = {:?}", stringify!(#ident), #ident);
-        }).ok()
-    } else {
-        None
     }
 }
 
@@ -316,21 +296,30 @@ trait Iterable<I, IT: Iterator<Item=I>, OUT: Iterator<Item=I>> {
     fn iterable(self) -> Option<OUT>;
 }
 
-impl<I, IT: Iterator<Item=I>> Iterable<I, IT, std::iter::Peekable<IT>> for IT {
-    fn iterable(self) -> Option<std::iter::Peekable<IT>> {
-        let mut peekable = self.peekable();
-        if peekable.peek().is_some() {
-            Some(peekable)
-        } else {
-            None
+trait IntoOption: Sized {
+    fn into_option(self, predicate: fn(&mut Self) -> bool) -> Option<Self>;
+}
+
+impl<T: Sized> IntoOption for T {
+    fn into_option(mut self, predicate: fn(&mut Self) -> bool) -> Option<Self> {
+        match predicate(&mut self) {
+            true => Some(self),
+            false => None
         }
     }
 }
 
 fn trace_arguments(args: &Vec<Ident>, modifiers: &RsTestModifiers) -> Option<proc_macro2::TokenStream> {
     args.iter()
-        .filter_map(move |arg| arg_2_fixture_dump(arg, modifiers))
-        .iterable()
+        .filter(|&arg| modifiers.trace_me(arg))
+        .map(|arg|
+            parse_quote! {
+                println!("{} = {:?}", stringify!(#arg), #arg);
+            }
+        )
+        .map(|stmt: Stmt| stmt)
+        .peekable()
+        .into_option(|it| it.peek().is_some())
         .map(
             |it|
                 quote! {
@@ -1150,8 +1139,11 @@ mod render {
                                         &input_fn, Some(&input_fn), EmptyResolver, &Default::default());
 
             let result: ItemFn = parse2(tokens).unwrap();
+            let first_stmt = result.block.stmts.get(0).unwrap();
 
-            let inner_fn: ItemFn = parse2(result.block.stmts.get(0).into_tokens()).unwrap();
+            let inner_fn: ItemFn = parse_quote! {
+                #first_stmt
+            };
 
             assert_eq!(inner_fn, inner_fn);
         }
