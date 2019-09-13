@@ -9,7 +9,7 @@ use cfg_if::cfg_if;
 use quote::quote;
 use quote::ToTokens;
 
-use crate::{FixtureModifiers, RsTestModifiers};
+use crate::{modifiers::FixtureModifiers, modifiers::RsTestModifiers};
 use crate::error::error;
 
 #[derive(Debug)]

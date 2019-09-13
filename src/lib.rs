@@ -193,7 +193,7 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
         parse_macro_input, Pat, ReturnType, Stmt, parse_quote};
 
 use error::error_statement;
-use parse::{Modifiers, RsTestAttribute, RsTestInfo};
+use parse::RsTestInfo;
 use quote::quote;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -202,6 +202,7 @@ use crate::resolver::{Resolver, arg_2_fixture};
 
 mod parse;
 mod resolver;
+mod modifiers;
 mod error;
 
 trait RefIdent {
@@ -221,82 +222,6 @@ fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
 }
 
-macro_rules! wrap_modifiers {
-    ($ident:ident) => {
-        #[derive(Default, Debug, PartialEq)]
-        pub(crate) struct $ident {
-            inner: Modifiers,
-        }
-
-        impl From<Modifiers> for $ident {
-            fn from(inner: Modifiers) -> Self {
-                $ident { inner }
-            }
-        }
-
-        impl $ident {
-            fn iter(&self) -> impl Iterator<Item=&RsTestAttribute> {
-                self.inner.modifiers.iter()
-            }
-        }
-    };
-}
-
-wrap_modifiers!(RsTestModifiers);
-
-impl RsTestModifiers {
-    const TRACE_VARIABLE_ATTR: &'static str = "trace";
-    const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
-
-    fn trace_me(&self, ident: &Ident) -> bool {
-        if self.should_trace() {
-            self.iter()
-                .filter(|&m|
-                    Self::is_notrace(ident, m)
-                ).next().is_none()
-        } else { false }
-    }
-
-    fn is_notrace(ident: &Ident, m: &RsTestAttribute) -> bool {
-        match m {
-            RsTestAttribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR =>
-                args.iter().find(|&a| a == ident).is_some(),
-            _ => false
-        }
-    }
-
-    fn should_trace(&self) -> bool {
-        self.iter()
-            .filter(|&m|
-                Self::is_trace(m)
-            ).next().is_some()
-    }
-
-    fn is_trace(m: &RsTestAttribute) -> bool {
-        match m {
-            RsTestAttribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
-            _ => false
-        }
-    }
-}
-
-wrap_modifiers!(FixtureModifiers);
-
-impl FixtureModifiers {
-    const DEFAULT_RET_ATTR: &'static str = "default";
-
-    fn extract_default_type(self) -> Option<syn::ReturnType> {
-        self.iter()
-            .filter_map(|m|
-                match m {
-                    RsTestAttribute::Type(name, t) if name == Self::DEFAULT_RET_ATTR =>
-                        Some(syn::parse2(quote!( -> #t)).unwrap()),
-                    _ => None
-                })
-            .next()
-    }
-}
-
 trait IntoOption: Sized {
     fn into_option(self, predicate: fn(&mut Self) -> bool) -> Option<Self>;
 }
@@ -310,7 +235,7 @@ impl<T: Sized> IntoOption for T {
     }
 }
 
-fn trace_arguments(args: &Vec<Ident>, modifiers: &RsTestModifiers) -> Option<proc_macro2::TokenStream> {
+fn trace_arguments(args: &Vec<Ident>, modifiers: &modifiers::RsTestModifiers) -> Option<proc_macro2::TokenStream> {
     args.iter()
         .filter(|&arg| modifiers.trace_me(arg))
         .map(|arg|
@@ -345,7 +270,7 @@ fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Reso
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
-                      resolver: impl Resolver, modifiers: &'a RsTestModifiers)
+                      resolver: impl Resolver, modifiers: &'a modifiers::RsTestModifiers)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn);
@@ -740,12 +665,12 @@ impl<R: Resolver> CaseRender<R> {
         CaseRender { name, resolver }
     }
 
-    fn render(self, testfn: &ItemFn, modifiers: &RsTestModifiers) -> TokenStream {
+    fn render(self, testfn: &ItemFn, modifiers: &modifiers::RsTestModifiers) -> TokenStream {
         render_fn_test(self.name, testfn, None, self.resolver, modifiers)
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, modifiers: RsTestModifiers) -> TokenStream {
+fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, modifiers: modifiers::RsTestModifiers) -> TokenStream {
     let fname = &test.ident;
     let cases = cases.map(|case| case.render(&test, &modifiers));
 
