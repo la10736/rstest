@@ -297,10 +297,6 @@ impl FixtureModifiers {
     }
 }
 
-trait Iterable<I, IT: Iterator<Item=I>, OUT: Iterator<Item=I>> {
-    fn iterable(self) -> Option<OUT>;
-}
-
 trait IntoOption: Sized {
     fn into_option(self, predicate: fn(&mut Self) -> bool) -> Option<Self>;
 }
