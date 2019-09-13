@@ -218,6 +218,18 @@ impl RefIdent for FnArg {
     }
 }
 
+impl RefIdent for syn::Type {
+    fn ident(&self) -> Option<&Ident> {
+        match self {
+            syn::Type::Path(tp) if tp.qself.is_none() && tp.path.segments.len() == 1 => {
+                tp.path.segments.first()
+                    .map(|pair| &pair.value().ident)
+            }
+            _ => None
+        }
+    }
+}
+
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
 }
@@ -235,9 +247,8 @@ impl<T: Sized> IntoOption for T {
     }
 }
 
-fn trace_arguments(args: &Vec<Ident>, modifiers: &modifiers::RsTestModifiers) -> Option<proc_macro2::TokenStream> {
-    args.iter()
-        .filter(|&arg| modifiers.trace_me(arg))
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, modifiers: &modifiers::RsTestModifiers) -> Option<proc_macro2::TokenStream> {
+    args.filter(|&arg| modifiers.trace_me(arg))
         .map(|arg|
             parse_quote! {
                 println!("{} = {:?}", stringify!(#arg), #arg);
@@ -266,18 +277,18 @@ fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &impl Resolve
 }
 
 fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Resolver) -> TokenStream {
-    resolve_args(args.filter_map(FnArg::ident), resolver)
+    resolve_args(args.filter_map(RefIdent::ident), resolver)
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
                       resolver: impl Resolver, modifiers: &'a modifiers::RsTestModifiers)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
-    let args = fn_args_idents(&testfn);
+    let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
     let attrs = &testfn.attrs;
     let output = &testfn.decl.output;
     let inject = resolve_fn_args(fn_args(&testfn), &resolver);
-    let trace_args = trace_arguments(&args, modifiers);
+    let trace_args = trace_arguments(args.iter(), modifiers);
     quote! {
         #[test]
         #(#attrs)*
@@ -288,16 +299,6 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
             println!("{:-^40}", " TEST START ");
             #testfn_name(#(#args),*)
         }
-    }
-}
-
-fn type_ident(t: &syn::Type) -> Option<&syn::Ident> {
-    match t {
-        syn::Type::Path(tp) if tp.qself.is_none() && tp.path.segments.len() == 1 => {
-            tp.path.segments.first()
-                .map(|pair| &pair.value().ident)
-        }
-        _ => None
     }
 }
 
@@ -334,7 +335,7 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
         |mut w| w.predicates = w.predicates.clone()
             .into_iter()
             .filter(|wp| where_predicate_bounded_type(wp)
-                .and_then(type_ident)
+                .and_then(RefIdent::ident)
                 .map(|t| outs.0.contains(t))
                 .unwrap_or(true)
             ).collect()
@@ -345,7 +346,7 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
 fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
     let name = &fixture.ident;
-    let vargs = fn_args_idents(&fixture);
+    let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
     let args = &vargs;
     let orig_args = &fixture.decl.inputs;
     let orig_attrs = &fixture.attrs;
@@ -396,12 +397,16 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     }
 }
 
-fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
+fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item=&Ident> {
     fn_args(&test)
-        .filter_map(FnArg::ident)
-        .cloned()
-        .collect::<Vec<_>>()
+        .filter_map(RefIdent::ident)
 }
+//fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
+//    fn_args(&test)
+//        .filter_map(RefIdent::ident)
+//        .cloned()
+//        .collect::<Vec<_>>()
+//}
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
@@ -569,7 +574,7 @@ pub fn rstest(args: proc_macro::TokenStream,
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
     fn_args(fn_decl)
-        .filter_map(FnArg::ident)
+        .filter_map(RefIdent::ident)
         .find(|&id| id == ident)
         .is_some()
 }
@@ -1132,7 +1137,7 @@ mod render {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::ParametrizeData {
                     data: fn_args_idents(item_fn)
-                        .into_iter()
+                        .cloned()
                         .map(ParametrizeItem::CaseArgName)
                         .collect(),
                 }
@@ -1337,9 +1342,10 @@ mod render {
         impl<'a> From<&'a ItemFn> for parse::MatrixValues {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::MatrixValues(
-                    fn_args_idents(item_fn).iter()
+                    fn_args_idents(item_fn)
+                        .cloned()
                         .map(|it|
-                            ValueList { arg: it.clone(), values: vec![] }.into()
+                            ValueList { arg: it, values: vec![] }.into()
                         )
                         .collect()
                 )
