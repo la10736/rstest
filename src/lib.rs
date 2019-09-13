@@ -194,7 +194,7 @@ use syn::{ArgCaptured, FnArg, Generics, Ident, ItemFn,
 
 use error::error_statement;
 use parse::{Modifiers, RsTestAttribute, RsTestInfo};
-use quote::{quote, ToTokens};
+use quote::quote;
 use itertools::Itertools;
 use std::collections::HashMap;
 use crate::parse::{FixtureInfo};
@@ -204,11 +204,16 @@ mod parse;
 mod resolver;
 mod error;
 
+trait RefIdent {
+    fn ident(&self) -> Option<&Ident>;
+}
 
-fn fn_arg_ident(arg: &FnArg) -> Option<&Ident> {
-    match arg {
-        FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
-        _ => None
+impl RefIdent for FnArg {
+    fn ident(&self) -> Option<&Ident> {
+        match self {
+            FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
+            _ => None
+        }
     }
 }
 
@@ -340,7 +345,7 @@ fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &impl Resolve
 }
 
 fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Resolver) -> TokenStream {
-    resolve_args(args.filter_map(fn_arg_ident), resolver)
+    resolve_args(args.filter_map(FnArg::ident), resolver)
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
@@ -472,7 +477,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
 
 fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
     fn_args(&test)
-        .filter_map(fn_arg_ident)
+        .filter_map(FnArg::ident)
         .cloned()
         .collect::<Vec<_>>()
 }
@@ -643,7 +648,7 @@ pub fn rstest(args: proc_macro::TokenStream,
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
     fn_args(fn_decl)
-        .filter_map(fn_arg_ident)
+        .filter_map(FnArg::ident)
         .find(|&id| id == ident)
         .is_some()
 }
@@ -1034,8 +1039,9 @@ mod render {
     }
 
     fn first_arg_ident(ast: &ItemFn) -> &Ident {
-        let arg = fn_args(&ast).next().unwrap();
-        fn_arg_ident(arg).unwrap()
+        fn_args(&ast)
+            .next().unwrap()
+            .ident().unwrap()
     }
 
     trait ToAst {
