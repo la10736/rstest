@@ -5,12 +5,9 @@ use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token,
           spanned::Spanned};
 
 use cfg_if::cfg_if;
-// TODO: Remove this dependency
-use quote::quote;
 use quote::ToTokens;
 
 use crate::{modifiers::FixtureModifiers, modifiers::RsTestModifiers};
-use crate::error::error;
 
 #[derive(Debug)]
 pub enum ParametrizeItem {
@@ -120,6 +117,7 @@ impl PartialEq for CaseArg {
     }
 }
 
+// To Enable Spanned trait
 impl ToTokens for CaseArg {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.expr.to_tokens(tokens);
@@ -140,16 +138,13 @@ impl Parse for UnwrapRustCode {
         let nested: NestedMeta = input.parse()?;
         Self::report_deprecated(&nested);
         let arg = Self::get_unwrap(&nested)?;
-        let tokens = arg.nested.first()
+        arg.nested.first()
             .map(|m| *m.value())
             .and_then(Self::nested_meta_literal_str)
-            .map(Self::compile_lit_str)
-            .unwrap_or_else(
-                || Ok(error(&format!("Invalid {} argument",
-                                     arg.ident),
-                            nested.span(), nested.span()))
-            )?;
-        syn::parse2(tokens).map(UnwrapRustCode)
+            .ok_or(syn::Error::new_spanned(&nested,
+                                           &format!("Invalid {} argument", arg.ident)))
+            .and_then(|lit| lit.parse())
+            .map(UnwrapRustCode)
     }
 }
 
@@ -205,16 +200,6 @@ impl UnwrapRustCode {
             NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
             _ => None
         }
-    }
-
-    fn compile_lit_str(lit: &LitStr) -> Result<TokenStream> {
-        lit.parse::<Expr>()
-            .map(|e| quote! { #e })
-            .or_else(|e| Err(Error::new(
-                lit.span(),
-                &format!("Cannot parse '{}' due {}", lit.value(), e),
-            ))
-            )
     }
 }
 

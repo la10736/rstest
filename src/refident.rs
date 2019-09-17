@@ -1,7 +1,7 @@
 use proc_macro2::Ident;
 use syn::{FnArg, ArgCaptured, Pat};
 
-/// Provide `RefIdent` trait that gives a shortcut to extract identity ref (`syn::Ident` struct)
+/// Provide `RefIdent` trait that gives a shortcut to extract identity reference (`syn::Ident` struct)
 /// if any.
 
 pub trait RefIdent {
