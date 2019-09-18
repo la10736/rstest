@@ -7,7 +7,11 @@ use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token,
 use cfg_if::cfg_if;
 use quote::ToTokens;
 
-use crate::{modifiers::FixtureModifiers, modifiers::RsTestModifiers};
+// To use the macros this should be the first one module
+#[macro_use]
+pub(crate) mod macros;
+
+pub(crate) mod fixture;
 
 #[derive(Debug)]
 pub enum ParametrizeItem {
@@ -277,6 +281,44 @@ impl Parse for RsTestAttribute {
                     )),
                 NameValue(nv) => Err(Error::new(nv.span(), "Invalid attribute"))
             }
+        }
+    }
+}
+
+wrap_modifiers!(RsTestModifiers);
+
+impl RsTestModifiers {
+    const TRACE_VARIABLE_ATTR: &'static str = "trace";
+    const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
+
+    pub(crate) fn trace_me(&self, ident: &Ident) -> bool {
+        if self.should_trace() {
+            self.iter()
+                .filter(|&m|
+                    Self::is_notrace(ident, m)
+                ).next().is_none()
+        } else { false }
+    }
+
+    fn is_notrace(ident: &Ident, m: &RsTestAttribute) -> bool {
+        match m {
+            RsTestAttribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR =>
+                args.iter().find(|&a| a == ident).is_some(),
+            _ => false
+        }
+    }
+
+    fn should_trace(&self) -> bool {
+        self.iter()
+            .filter(|&m|
+                Self::is_trace(m)
+            ).next().is_some()
+    }
+
+    fn is_trace(m: &RsTestAttribute) -> bool {
+        match m {
+            RsTestAttribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
+            _ => false
         }
     }
 }
@@ -559,101 +601,19 @@ impl Parse for RsTestInfo {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub enum FixtureItem {
-    Fixture(Fixture)
-}
-
-impl FixtureItem {
-    pub fn name(&self) -> &Ident {
-        match self {
-            FixtureItem::Fixture(Fixture { ref name, .. }) => name
-        }
-    }
-}
-
-impl From<Fixture> for FixtureItem {
-    fn from(f: Fixture) -> Self {
-        FixtureItem::Fixture(f)
-    }
-}
-
-impl Parse for FixtureItem {
-    fn parse(input: ParseStream) -> Result<Self> {
-        input.parse().map(FixtureItem::Fixture)
-    }
-}
-
-#[derive(PartialEq, Debug, Default)]
-pub struct FixtureData {
-    pub items: Vec<FixtureItem>
-}
-
-impl FixtureData {
-    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
-        self.items.iter()
-            .filter_map(|f|
-                match f {
-                    FixtureItem::Fixture(ref fixture) => Some(fixture),
-                    #[allow(unreachable_patterns)]
-                    _ => None,
-                }
-            )
-    }
-}
-
-impl Parse for FixtureData {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(Token![::]) {
-            Ok(Default::default())
-        } else {
-            Ok(Self { items: parse_vector_trailing::<_, Token![,]>(input)? })
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Default)]
-pub struct FixtureInfo {
-    pub(crate) data: FixtureData,
-    pub(crate) modifiers: FixtureModifiers,
-}
-
-impl Parse for FixtureModifiers {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(input.parse::<Modifiers>()?.into())
-    }
-}
-
-impl Parse for FixtureInfo {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(
-            if input.is_empty() {
-                Default::default()
-            } else {
-                Self {
-                    data: input.parse()?,
-                    modifiers: input.parse::<Token![::]>()
-                        .or_else(|_| Ok(Default::default()))
-                        .and_then(|_| input.parse())?,
-                }
-            }
-        )
-    }
-}
-
 #[cfg(test)]
-pub mod should {
-    #[allow(unused_imports)]
-    use pretty_assertions::assert_eq;
+#[macro_use]
+pub(crate) mod test {
+    pub use pretty_assertions::assert_eq;
     use proc_macro2::TokenTree;
     use syn::{ItemFn, parse2, parse_str};
-    use itertools::Itertools;
 
     use quote::quote;
 
     use super::*;
+    use crate::parse::fixture::{FixtureItem, FixtureData};
 
-    fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
+    pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
         let to_parse = format!(r#"
         #[{}]
         fn to_parse() {{}}
@@ -675,28 +635,31 @@ pub mod should {
         }
     }
 
-    #[macro_export]
     macro_rules! to_args {
-        ($e:expr) => {$e.iter()
-                        .map(|s| s as & dyn AsRef<str>)
-                        .map(case_arg)
-                        .collect_vec()
-                        };
+        ($e:expr) => {
+                       {
+                       use itertools::Itertools;
+                       $e.iter()
+                       .map(|s| s as & dyn AsRef<str>)
+                       .map(case_arg)
+                       .collect_vec()
+                       }
+                     };
     }
-    #[macro_export]
+
     macro_rules! to_exprs {
         ($e:expr) => {$e.iter().map(|s| expr(s)).collect::<Vec<_>>()};
     }
-    #[macro_export]
+
     macro_rules! to_strs {
         ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
     }
 
-    pub fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
+    pub(crate) fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
         parse_str::<syn::Ident>(s.as_ref()).unwrap()
     }
 
-    pub fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
+    pub(crate) fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
         parse_str::<syn::Expr>(s.as_ref()).unwrap()
     }
 
@@ -704,18 +667,18 @@ pub mod should {
         Fixture::new(ident(name), to_exprs!(args))
     }
 
-    pub fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
+    pub(crate) fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
         CaseArg::new(expr(s))
     }
 
-    pub fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
+    pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
         ValueList {
             arg: ident(arg),
             values: values.into_iter().map(|s| case_arg(s)).collect(),
         }
     }
 
-    trait ExtractArgs {
+    pub(crate) trait ExtractArgs {
         fn args(&self) -> Vec<CaseArg>;
     }
 
@@ -732,11 +695,11 @@ pub mod should {
     }
 
     impl RsTestAttribute {
-        fn attr<S: AsRef<str>>(s: S) -> Self {
+        pub fn attr<S: AsRef<str>>(s: S) -> Self {
             RsTestAttribute::Attr(ident(s))
         }
 
-        fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
+        pub fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
             RsTestAttribute::Tagged(
                 ident(tag),
                 attrs.into_iter()
@@ -745,7 +708,7 @@ pub mod should {
             )
         }
 
-        fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
+        pub fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
             RsTestAttribute::Type(
                 ident(tag),
                 parse_str(inner.as_ref()).unwrap(),
@@ -764,6 +727,12 @@ pub mod should {
             Self { items: fixtures }
         }
     }
+}
+
+#[cfg(test)]
+mod should {
+    use super::*;
+    use super::test::*;
 
     mod parse_fixture_values {
         use super::*;
@@ -790,6 +759,7 @@ pub mod should {
     mod parse_fixture {
         use super::*;
         use super::assert_eq;
+        use super::super::fixture::FixtureInfo;
 
         fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
             parse_meta(fixture_data)

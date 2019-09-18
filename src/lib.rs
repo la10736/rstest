@@ -195,14 +195,13 @@ use quote::quote;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-use crate::parse::{RsTestInfo, FixtureInfo};
+use crate::parse::{RsTestInfo, fixture::FixtureInfo};
 use crate::resolver::{Resolver, arg_2_fixture};
 use crate::refident::RefIdent;
 use crate::error::error_statement;
 
 mod parse;
 mod resolver;
-mod modifiers;
 mod error;
 mod refident;
 
@@ -223,7 +222,7 @@ impl<T: Sized> IntoOption for T {
     }
 }
 
-fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, modifiers: &modifiers::RsTestModifiers) -> Option<proc_macro2::TokenStream> {
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, modifiers: &parse::RsTestModifiers) -> Option<proc_macro2::TokenStream> {
     args.filter(|&arg| modifiers.trace_me(arg))
         .map(|arg|
             parse_quote! {
@@ -257,7 +256,7 @@ fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Reso
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
-                      resolver: impl Resolver, modifiers: &'a modifiers::RsTestModifiers)
+                      resolver: impl Resolver, modifiers: &'a parse::RsTestModifiers)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
@@ -624,7 +623,7 @@ fn errors_in_rstest(test: &ItemFn, info: &parse::RsTestInfo) -> Option<TokenStre
     }
 }
 
-fn errors_in_fixture(test: &ItemFn, info: &parse::FixtureInfo) -> Option<TokenStream> {
+fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> Option<TokenStream> {
     let tokens: TokenStream = missed_arguments_errors(test, info.data.items.iter()
         .map(|v| v.name()))
         .collect();
@@ -646,12 +645,12 @@ impl<R: Resolver> CaseRender<R> {
         CaseRender { name, resolver }
     }
 
-    fn render(self, testfn: &ItemFn, modifiers: &modifiers::RsTestModifiers) -> TokenStream {
+    fn render(self, testfn: &ItemFn, modifiers: &parse::RsTestModifiers) -> TokenStream {
         render_fn_test(self.name, testfn, None, self.resolver, modifiers)
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, modifiers: modifiers::RsTestModifiers) -> TokenStream {
+fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, modifiers: parse::RsTestModifiers) -> TokenStream {
     let fname = &test.ident;
     let cases = cases.map(|case| case.render(&test, &modifiers));
 
@@ -931,7 +930,7 @@ mod render {
         parse_str, punctuated, visit::Visit,
     };
 
-    use crate::parse::{*, should::*};
+    use crate::parse::{*, test::*};
     use crate::resolver::{*, test::*};
 
     use super::*;
