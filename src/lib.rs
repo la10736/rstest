@@ -199,11 +199,18 @@ use crate::parse::{RsTestInfo, fixture::FixtureInfo};
 use crate::resolver::{Resolver, arg_2_fixture};
 use crate::refident::RefIdent;
 use crate::error::error_statement;
+use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, TestCase};
+
+// Test utility module
+#[cfg(test)]
+#[macro_use]
+pub(crate) mod test;
 
 mod parse;
 mod resolver;
 mod error;
 mod refident;
+
 
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
@@ -562,7 +569,7 @@ fn missed_arguments_errors<'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a Id
         )
 }
 
-fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
+fn invalid_case_errors<'a>(params: &'a ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
     let n_args = params.args().count();
     params.cases()
         .filter(move |case| case.args.len() != n_args)
@@ -572,7 +579,7 @@ fn invalid_case_errors<'a>(params: &'a parse::ParametrizeData) -> impl Iterator<
         )
 }
 
-fn errors_in_parametrize(test: &ItemFn, info: &parse::ParametrizeInfo) -> Option<TokenStream> {
+fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> Option<TokenStream> {
     let tokens: TokenStream =
         missed_arguments_errors(test, info.data.args())
             .chain(
@@ -677,7 +684,7 @@ impl<D: std::fmt::Display> DisplayLen for D {
     }
 }
 
-fn format_case_name(case: &parse::TestCase, index: usize, display_len: usize) -> String {
+fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String {
     let description = case
         .description.as_ref()
         .map(|d| format!("_{}", d))
@@ -685,8 +692,8 @@ fn format_case_name(case: &parse::TestCase, index: usize, display_len: usize) ->
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
-fn render_parametrize_cases(test: ItemFn, params: parse::ParametrizeInfo) -> TokenStream {
-    let parse::ParametrizeInfo { data, modifiers } = params;
+fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
+    let ParametrizeInfo { data, modifiers } = params;
     let display_len = data.cases().count().display_len();
 
     let cases = data.cases()
@@ -827,7 +834,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
-    let params = parse_macro_input!(args as parse::ParametrizeInfo);
+    let params = parse_macro_input!(args as ParametrizeInfo);
     let test = parse_macro_input!(input as ItemFn);
 
     if let Some(tokens) = errors_in_parametrize(&test, &params) {
@@ -930,7 +937,8 @@ mod render {
         parse_str, punctuated, visit::Visit,
     };
 
-    use crate::parse::{*, test::*};
+    use crate::test::*;
+    use crate::parse::*;
     use crate::resolver::{*, test::*};
 
     use super::*;
@@ -1107,10 +1115,11 @@ mod render {
     mod parametrize_cases {
         use super::{*, assert_eq};
         use std::iter::FromIterator;
+        use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, TestCase, ParametrizeItem};
 
-        impl<'a> From<&'a ItemFn> for parse::ParametrizeData {
+        impl<'a> From<&'a ItemFn> for ParametrizeData {
             fn from(item_fn: &'a ItemFn) -> Self {
-                parse::ParametrizeData {
+                ParametrizeData {
                     data: fn_args_idents(item_fn)
                         .cloned()
                         .map(ParametrizeItem::CaseArgName)
@@ -1119,9 +1128,9 @@ mod render {
             }
         }
 
-        impl<'a> From<&'a ItemFn> for parse::ParametrizeInfo {
+        impl<'a> From<&'a ItemFn> for ParametrizeInfo {
             fn from(item_fn: &'a ItemFn) -> Self {
-                parse::ParametrizeInfo {
+                ParametrizeInfo {
                     data: item_fn.into(),
                     modifiers: Default::default(),
                 }

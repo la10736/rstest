@@ -12,95 +12,7 @@ use quote::ToTokens;
 pub(crate) mod macros;
 
 pub(crate) mod fixture;
-
-#[derive(Debug)]
-pub enum ParametrizeItem {
-    Fixture(Fixture),
-    CaseArgName(Ident),
-    TestCase(TestCase),
-}
-
-#[derive(Default, Debug)]
-pub struct ParametrizeData {
-    pub data: Vec<ParametrizeItem>,
-}
-
-impl ParametrizeData {
-    pub fn args(&self) -> impl Iterator<Item=&Ident> {
-        self.data.iter()
-            .filter_map(|it|
-                match it {
-                    ParametrizeItem::CaseArgName(ref arg) => Some(arg),
-                    _ => None
-                }
-            )
-    }
-
-    pub fn cases(&self) -> impl Iterator<Item=&TestCase> {
-        self.data.iter()
-            .filter_map(|it|
-                match it {
-                    ParametrizeItem::TestCase(ref case) => Some(case),
-                    _ => None
-                }
-            )
-    }
-
-    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
-        self.data.iter()
-            .filter_map(|it|
-                match it {
-                    ParametrizeItem::Fixture(ref fixture) => Some(fixture),
-                    _ => None
-                }
-            )
-    }
-}
-
-#[derive(Default, Debug)]
-/// Parametrize
-pub struct ParametrizeInfo {
-    pub data: ParametrizeData,
-    pub modifiers: Modifiers,
-}
-
-#[derive(Debug)]
-/// A test case instance data. Contains a list of arguments. It is parsed by parametrize
-/// attributes.
-pub struct TestCase {
-    pub args: Vec<CaseArg>,
-    pub description: Option<Ident>,
-}
-
-impl Parse for TestCase {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let case: Ident = input.parse()?;
-        if case == "case" {
-            let mut description = None;
-            if input.peek(Token![::]) {
-                let _ = input.parse::<Token![::]>();
-                description = Some(input.parse()?);
-            }
-            let content;
-            let _ = syn::parenthesized!(content in input);
-            let args = Punctuated::<CaseArg, Token![,]>::parse_terminated(&content)?
-                .into_iter()
-                .collect();
-            Ok(TestCase { args, description })
-        } else {
-            Err(Error::new(case.span(), "expected a test case"))
-        }
-    }
-}
-
-impl TestCase {
-    pub fn span_start(&self) -> Span {
-        self.args.first().map(|arg| arg.span()).unwrap_or(Span::call_site())
-    }
-    pub fn span_end(&self) -> Span {
-        self.args.last().map(|arg| arg.span()).unwrap_or(Span::call_site())
-    }
-}
+pub(crate) mod parametrize;
 
 #[derive(Debug, Clone)]
 /// A test case's argument as an expression that can be assigned.
@@ -134,6 +46,21 @@ impl From<Expr> for CaseArg {
     }
 }
 
+impl Parse for CaseArg {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if UnwrapRustCode::peek(input) {
+            Ok(CaseArg::new(input.parse::<UnwrapRustCode>()?.0))
+        } else {
+            input.parse()
+                .map(CaseArg::new)
+                .map_err(|e| Error::new(
+                    e.span(),
+                    format!("Cannot parse due {}", e),
+                )
+                )
+        }
+    }
+}
 
 struct UnwrapRustCode(Expr);
 
@@ -203,22 +130,6 @@ impl UnwrapRustCode {
         match nested {
             NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
             _ => None
-        }
-    }
-}
-
-impl Parse for CaseArg {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if UnwrapRustCode::peek(input) {
-            Ok(CaseArg::new(input.parse::<UnwrapRustCode>()?.0))
-        } else {
-            input.parse()
-                .map(CaseArg::new)
-                .map_err(|e| Error::new(
-                    e.span(),
-                    format!("Cannot parse due {}", e),
-                )
-                )
         }
     }
 }
@@ -323,20 +234,6 @@ impl RsTestModifiers {
     }
 }
 
-impl Parse for ParametrizeItem {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.fork().parse::<TestCase>().is_ok() {
-            input.parse::<TestCase>().map(ParametrizeItem::TestCase)
-        } else if input.fork().parse::<Fixture>().is_ok() {
-            input.parse::<Fixture>().map(ParametrizeItem::Fixture)
-        } else if input.fork().parse::<Ident>().is_ok() {
-            input.parse::<Ident>().map(ParametrizeItem::CaseArgName)
-        } else {
-            Err(syn::Error::new(Span::call_site(), "Cannot parse parametrize info"))
-        }
-    }
-}
-
 fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
     where
         T: Parse,
@@ -354,32 +251,6 @@ fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
             .filter_map(|it| it)
             .collect()
     )
-}
-
-impl Parse for ParametrizeData {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(ParametrizeData { data: parse_vector_trailing::<_, Token![,]>(input)? })
-    }
-}
-
-impl Parse for ParametrizeInfo {
-    fn parse(input: ParseStream) -> Result<Self> {
-        // Parse a `ParametrizeData` and then look for `Modifiers` after `::` token if any.
-        // Example
-        //  |-    u,a,d
-        //  |-    case(42, r("A{}"), Unwrap("D{}"))
-        //  |  ::trace::notrace(a))
-        //  |    ^^^^^^^^^^^^^^^^^^ Modifiers
-        //  |______________________ ParametrizeData
-        Ok(
-            ParametrizeInfo {
-                data: input.parse()?,
-                modifiers: input.parse::<Token![::]>()
-                    .or_else(|_| Ok(Default::default()))
-                    .and_then(|_| input.parse())?,
-            }
-        )
-    }
 }
 
 pub struct ValueList {
@@ -602,137 +473,9 @@ impl Parse for RsTestInfo {
 }
 
 #[cfg(test)]
-#[macro_use]
-pub(crate) mod test {
-    pub use pretty_assertions::assert_eq;
-    use proc_macro2::TokenTree;
-    use syn::{ItemFn, parse2, parse_str};
-
-    use quote::quote;
-
-    use super::*;
-    use crate::parse::fixture::{FixtureItem, FixtureData};
-
-    pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
-        let to_parse = format!(r#"
-        #[{}]
-        fn to_parse() {{}}
-        "#, test_case.as_ref());
-
-        let item_fn = parse_str::<ItemFn>(&to_parse).unwrap();
-
-        let tokens = quote!(
-            #item_fn
-        );
-
-        let tt = tokens.into_iter().skip(1).next().unwrap();
-
-        if let TokenTree::Group(g) = tt {
-            let ts = g.stream();
-            parse2::<T>(ts).unwrap()
-        } else {
-            panic!("Cannot find group in {:#?}", tt)
-        }
-    }
-
-    macro_rules! to_args {
-        ($e:expr) => {
-                       {
-                       use itertools::Itertools;
-                       $e.iter()
-                       .map(|s| s as & dyn AsRef<str>)
-                       .map(case_arg)
-                       .collect_vec()
-                       }
-                     };
-    }
-
-    macro_rules! to_exprs {
-        ($e:expr) => {$e.iter().map(|s| expr(s)).collect::<Vec<_>>()};
-    }
-
-    macro_rules! to_strs {
-        ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
-    }
-
-    pub(crate) fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
-        parse_str::<syn::Ident>(s.as_ref()).unwrap()
-    }
-
-    pub(crate) fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
-        parse_str::<syn::Expr>(s.as_ref()).unwrap()
-    }
-
-    pub fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
-        Fixture::new(ident(name), to_exprs!(args))
-    }
-
-    pub(crate) fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
-        CaseArg::new(expr(s))
-    }
-
-    pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
-        ValueList {
-            arg: ident(arg),
-            values: values.into_iter().map(|s| case_arg(s)).collect(),
-        }
-    }
-
-    pub(crate) trait ExtractArgs {
-        fn args(&self) -> Vec<CaseArg>;
-    }
-
-    impl ExtractArgs for TestCase {
-        fn args(&self) -> Vec<CaseArg> {
-            self.args.iter().cloned().collect()
-        }
-    }
-
-    impl ExtractArgs for ValueList {
-        fn args(&self) -> Vec<CaseArg> {
-            self.values.iter().cloned().collect()
-        }
-    }
-
-    impl RsTestAttribute {
-        pub fn attr<S: AsRef<str>>(s: S) -> Self {
-            RsTestAttribute::Attr(ident(s))
-        }
-
-        pub fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
-            RsTestAttribute::Tagged(
-                ident(tag),
-                attrs.into_iter()
-                    .map(|a| ident(a))
-                    .collect(),
-            )
-        }
-
-        pub fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
-            RsTestAttribute::Type(
-                ident(tag),
-                parse_str(inner.as_ref()).unwrap(),
-            )
-        }
-    }
-
-    impl From<Vec<RsTestItem>> for RsTestData {
-        fn from(fixtures: Vec<RsTestItem>) -> Self {
-            Self { items: fixtures }
-        }
-    }
-
-    impl From<Vec<FixtureItem>> for FixtureData {
-        fn from(fixtures: Vec<FixtureItem>) -> Self {
-            Self { items: fixtures }
-        }
-    }
-}
-
-#[cfg(test)]
 mod should {
     use super::*;
-    use super::test::*;
+    use crate::test::*;
 
     mod parse_fixture_values {
         use super::*;
@@ -954,236 +697,6 @@ mod should {
             };
 
             assert_eq!(expected, modifiers);
-        }
-    }
-
-    fn literal_expressions_str() -> Vec<&'static str> {
-        vec!["42", "42isize", "1.0", "-1", "-1.0", "true", "1_000_000u64", "0b10100101u8",
-             r#""42""#, "b'H'"]
-    }
-
-    mod parse_test_case {
-        use super::*;
-        use super::assert_eq;
-
-        fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
-            parse_meta(test_case)
-        }
-
-        #[test]
-        fn two_literal_args() {
-            let test_case = parse_test_case(r#"case(42, "value")"#);
-            let args = test_case.args();
-
-            let expected = to_args!(["42", r#""value""#]);
-
-            assert_eq!(expected, args);
-        }
-
-        #[test]
-        fn some_literals() {
-            let args_expressions = literal_expressions_str();
-            let test_case = parse_test_case(&format!("case({})", args_expressions.join(", ")));
-            let args = test_case.args();
-
-            assert_eq!(to_args!(args_expressions), args);
-        }
-
-        #[test]
-        fn raw_code() {
-            let test_case = parse_test_case(r#"case(vec![1,2,3])"#);
-            let args = test_case.args();
-
-            assert_eq!(to_args!(["vec![1, 2, 3]"]), args);
-        }
-
-        #[test]
-        #[should_panic(expected = r#"Cannot parse due"#)]
-        fn raw_code_with_parsing_error() {
-            parse_test_case(r#"case(some:<>(1,2,3))"#);
-        }
-
-        #[test]
-        fn should_read_test_description_if_any() {
-            let test_case = parse_test_case(r#"case::this_test_description(42)"#);
-            let args = test_case.args();
-
-            assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
-            assert_eq!(to_args!(["42"]), args);
-        }
-
-        #[test]
-        fn should_read_test_description_also_with_more_args() {
-            let test_case = parse_test_case(r#"case :: this_test_description (42, 24)"#);
-            let args = test_case.args();
-
-            assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
-            assert_eq!(to_args!(["42", "24"]), args);
-        }
-
-        #[test]
-        fn should_parse_arbitrary_rust_code_as_expression() {
-            let test_case = parse_test_case(r##"
-            case(42, -42,
-            pippo("pluto"),
-            Vec::new(),
-            String::from(r#"prrr"#),
-            {
-                let mut sum=0;
-                for i in 1..3 {
-                    sum += i;
-                }
-                sum
-            },
-            vec![1,2,3]
-            )"##);
-            let args = test_case.args();
-
-            assert_eq!(to_args!(["42", "-42", r#"pippo("pluto")"#, "Vec::new()",
-            r##"String::from(r#"prrr"#)"##, r#"{let mut sum=0;for i in 1..3 {sum += i;}sum}"#,
-            "vec![1,2,3]"]), args);
-        }
-    }
-
-    mod parse_parametrize {
-        use pretty_assertions::assert_eq;
-
-        use super::*;
-
-        fn parse_data<S: AsRef<str>>(test_case: S) -> ParametrizeData {
-            parse_meta(test_case)
-        }
-
-        #[test]
-        fn one_simple_case_one_arg() {
-            let data = parse_data(r#"arg, case(42)"#);
-
-            let args = data.args().collect::<Vec<_>>();
-            let cases = data.cases().collect::<Vec<_>>();
-
-            assert_eq!(1, args.len());
-            assert_eq!(1, cases.len());
-            assert_eq!("arg", &args[0].to_string());
-            assert_eq!(to_args!(["42"]), cases[0].args())
-        }
-
-        #[test]
-        fn happy_path() {
-            let data = parse_data(r#"
-                my_fixture(42,"foo"),
-                arg1, arg2, arg3,
-                case(1,2,3),
-                case(11,12,13),
-                case(21,22,23)
-                "#);
-
-            let fixtures = data.fixtures()
-                .cloned()
-                .collect::<Vec<_>>();
-            assert_eq!(vec![fixture("my_fixture", vec!["42", r#""foo""#])], fixtures);
-            assert_eq!(to_strs!(vec!["arg1", "arg2", "arg3"]), data.args()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>());
-            let cases = data.cases().collect::<Vec<_>>();
-            assert_eq!(3, cases.len());
-            assert_eq!(to_args!(["1", "2", "3"]), cases[0].args());
-            assert_eq!(to_args!(["11", "12", "13"]), cases[1].args());
-            assert_eq!(to_args!(["21", "22", "23"]), cases[2].args());
-        }
-
-        #[test]
-        fn should_accept_comma_at_the_end_of_cases() {
-            let data = parse_data(r#"
-                arg,
-                case(42),
-                "#);
-
-            let args = data.args().collect::<Vec<_>>();
-            let cases = data.cases().collect::<Vec<_>>();
-
-            assert_eq!(1, args.len());
-            assert_eq!(1, cases.len());
-            assert_eq!("arg", &args[0].to_string());
-            assert_eq!(to_args!(["42"]), cases[0].args())
-        }
-
-        #[test]
-        fn integrated_1() {
-            let data = parse_data(r#"
-                u,a,d,
-                case(42, A{}, D{})
-                "#);
-
-            assert_eq!(to_strs!(vec!["u", "a", "d"]), data.args()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>());
-            let cases = data.cases().collect::<Vec<_>>();
-            assert_eq!(1, cases.len());
-            assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
-        }
-
-        #[test]
-        fn integrated_2() {
-            let data = parse_data(r#"
-                ret,
-                case::should_success(Ok(())),
-                case::should_fail(Err("Return Error"))
-                "#);
-
-            assert_eq!(to_strs!(vec!["ret"]), data.args()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>());
-            let cases = data.cases().collect::<Vec<_>>();
-            assert_eq!(2, cases.len());
-            assert_eq!(to_args!(["Ok(())"]), cases[0].args());
-            assert_eq!("should_success", &cases[0].description.as_ref().unwrap().to_string());
-            assert_eq!(to_args!([r#"Err("Return Error")"#]), cases[1].args());
-            assert_eq!("should_fail", &cases[1].description.as_ref().unwrap().to_string());
-        }
-
-        #[test]
-        #[should_panic]
-        fn should_not_accept_invalid_separator_from_args_and_cases() {
-            parse_data(r#"
-                ret
-                case::should_success(Ok(())),
-                case::should_fail(Err("Return Error"))
-                "#);
-        }
-
-        #[test]
-        fn should_accept_any_order() {
-            let data = parse_data(r#"
-                u,
-                case(42, A{}, D{}),
-                a,
-                case(43, A{}, D{}),
-                the_fixture(42),
-                d
-                "#);
-
-            assert_eq!(to_strs!(vec!["u", "a", "d"]), data.args()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>());
-            let cases = data.cases().collect::<Vec<_>>();
-            assert_eq!(2, cases.len());
-            assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
-            assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
-            let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
-            assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
-        }
-
-        #[test]
-        fn case_could_be_arg_name() {
-            let data = parse_data(r#"
-                case,
-                case(42)
-                "#);
-
-            assert_eq!("case", &data.args().next().unwrap().to_string());
-            let cases = data.cases().collect::<Vec<_>>();
-            assert_eq!(1, cases.len());
-            assert_eq!(to_args!(["42"]), cases[0].args());
         }
     }
 

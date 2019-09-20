@@ -109,7 +109,7 @@ impl FixtureModifiers {
 
 #[cfg(test)]
 mod should_understand_attributes {
-    use crate::parse::test::{*, assert_eq};
+    use crate::test::{*, assert_eq};
     use super::FixtureInfo;
     use crate::parse::{Modifiers, RsTestAttribute};
 
