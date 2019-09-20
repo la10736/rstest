@@ -178,9 +178,8 @@ impl Parse for RsTestAttribute {
             let _close = input.parse::<Token![>]>()?;
             Ok(RsTestAttribute::Type(tag, inner))
         } else {
-            let meta = no_literal_nested(NestedMeta::parse(input)?)?;
             use Meta::*;
-            match meta {
+            match no_literal_nested(NestedMeta::parse(input)?)? {
                 Word(ident) => Ok(RsTestAttribute::Attr(ident)),
                 List(l) =>
                     Ok(RsTestAttribute::Tagged(l.ident,
