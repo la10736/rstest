@@ -6,7 +6,8 @@ use quote::quote;
 
 use super::*;
 use crate::parse::fixture::{FixtureItem, FixtureData};
-use crate::parse::{Fixture, CaseArg, ValueList, RsTestAttribute, RsTestItem, RsTestData};
+use crate::parse::rstest::{RsTestItem, RsTestData};
+use crate::parse::{Fixture, CaseArg, ValueList, RsTestAttribute};
 
 macro_rules! to_args {
     ($e:expr) => {

@@ -195,7 +195,7 @@ use quote::quote;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-use crate::parse::{RsTestInfo, fixture::FixtureInfo};
+use crate::parse::{rstest::RsTestInfo, fixture::FixtureInfo};
 use crate::resolver::{Resolver, arg_2_fixture};
 use crate::refident::RefIdent;
 use crate::error::error_statement;
@@ -618,7 +618,7 @@ fn errors_in_matrix(test: &ItemFn, info: &parse::MatrixInfo) -> Option<TokenStre
     }
 }
 
-fn errors_in_rstest(test: &ItemFn, info: &parse::RsTestInfo) -> Option<TokenStream> {
+fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> Option<TokenStream> {
     let tokens: TokenStream = missed_arguments_errors(test, info.data.items.iter()
         .map(|v| v.name()))
         .collect();

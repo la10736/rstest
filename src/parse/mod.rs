@@ -12,6 +12,7 @@ use quote::ToTokens;
 pub(crate) mod macros;
 
 pub(crate) mod fixture;
+pub(crate) mod rstest;
 pub(crate) mod parametrize;
 
 #[derive(Debug, Clone)]
@@ -339,7 +340,7 @@ pub struct MatrixInfo {
 }
 
 #[allow(dead_code)]
-fn drain_stream(input: ParseStream) {
+pub(crate) fn drain_stream(input: ParseStream) {
     // JUST TO SKIP ALL
     let _ = input.step(|cursor| {
         let mut rest = *cursor;
@@ -390,84 +391,9 @@ impl Parse for Fixture {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub enum RsTestItem {
-    Fixture(Fixture)
-}
-
-impl RsTestItem {
-    pub fn name(&self) -> &Ident {
-        match self {
-            RsTestItem::Fixture(Fixture { ref name, .. }) => name
-        }
-    }
-}
-
-impl From<Fixture> for RsTestItem {
-    fn from(f: Fixture) -> Self {
-        RsTestItem::Fixture(f)
-    }
-}
-
-impl Parse for RsTestItem {
-    fn parse(input: ParseStream) -> Result<Self> {
-        input.parse().map(RsTestItem::Fixture)
-    }
-}
-
-#[derive(PartialEq, Debug, Default)]
-pub struct RsTestData {
-    pub items: Vec<RsTestItem>
-}
-
-impl RsTestData {
-    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
-        self.items.iter().filter_map(|it|
-            match it {
-                RsTestItem::Fixture(ref fixture) => Some(fixture),
-                #[allow(unreachable_patterns)]
-                _ => None
-            }
-        )
-    }
-}
-
-impl Parse for RsTestData {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(Token![::]) {
-            Ok(Default::default())
-        } else {
-            Ok(Self { items: parse_vector_trailing::<_, Token![,]>(input)? })
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Default)]
-pub struct RsTestInfo {
-    pub(crate) data: RsTestData,
-    pub(crate) modifiers: RsTestModifiers,
-}
-
 impl Parse for RsTestModifiers {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(input.parse::<Modifiers>()?.into())
-    }
-}
-
-impl Parse for RsTestInfo {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(
-            if input.is_empty() {
-                Default::default()
-            } else {
-                Self {
-                    data: input.parse()?,
-                    modifiers: input.parse::<Token![::]>()
-                        .or_else(|_| Ok(Default::default()))
-                        .and_then(|_| input.parse())?,
-                }
-            }
-        )
     }
 }
 
@@ -475,28 +401,6 @@ impl Parse for RsTestInfo {
 mod should {
     use super::*;
     use crate::test::*;
-
-    mod parse_fixture_values {
-        use super::*;
-        use super::assert_eq;
-
-        fn parse_fixtures<S: AsRef<str>>(fixtures: S) -> RsTestData {
-            parse_meta(fixtures)
-        }
-
-        #[test]
-        fn one_arg() {
-            let fixtures = parse_fixtures("my_fixture(42)");
-
-            let expected = RsTestData {
-                items: vec![
-                    Fixture::new(ident("my_fixture"), vec![expr("42")]).into()
-                ]
-            };
-
-            assert_eq!(expected, fixtures);
-        }
-    }
 
     mod parse_fixture {
         use super::*;
@@ -570,67 +474,6 @@ mod should {
             for f in fixtures {
                 assert_eq!(1, f.data.fixtures().count());
             }
-        }
-    }
-
-    mod parse_rstest {
-        use super::*;
-        use super::assert_eq;
-
-        fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
-            parse_meta(rstest_data)
-        }
-
-        #[test]
-        fn happy_path() {
-            let data = parse_rstest(r#"my_fixture(42, "other"), other(vec![42])
-                    :: trace :: no_trace(some)"#);
-
-            let expected = RsTestInfo {
-                data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                    fixture("other", vec!["vec![42]"]).into(),
-                ].into(),
-                modifiers: Modifiers {
-                    modifiers: vec![
-                        RsTestAttribute::attr("trace"),
-                        RsTestAttribute::tagged("no_trace", vec!["some"])
-                    ]
-                }.into(),
-            };
-
-            assert_eq!(expected, data);
-        }
-
-        #[test]
-        fn empty_fixtures() {
-            let data = parse_rstest(r#"::trace::no_trace(some)"#);
-
-            let expected = RsTestInfo {
-                modifiers: Modifiers {
-                    modifiers: vec![
-                        RsTestAttribute::attr("trace"),
-                        RsTestAttribute::tagged("no_trace", vec!["some"])
-                    ]
-                }.into(),
-                ..Default::default()
-            };
-
-            assert_eq!(expected, data);
-        }
-
-        #[test]
-        fn empty_modifiers() {
-            let data = parse_rstest(r#"my_fixture(42, "other")"#);
-
-            let expected = RsTestInfo {
-                data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                ].into(),
-                ..Default::default()
-            };
-
-            assert_eq!(expected, data);
         }
     }
 
