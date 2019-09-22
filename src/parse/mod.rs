@@ -1,4 +1,4 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token,
           parse::{Error, Parse, ParseStream, Result},
           punctuated::Punctuated,
@@ -14,15 +14,16 @@ pub(crate) mod macros;
 pub(crate) mod fixture;
 pub(crate) mod rstest;
 pub(crate) mod parametrize;
+pub(crate) mod matrix;
 
 #[derive(Debug, Clone)]
 /// A test case's argument as an expression that can be assigned.
-pub struct CaseArg {
+pub(crate) struct CaseArg {
     expr: Expr,
 }
 
 impl CaseArg {
-    pub fn new(expr: Expr) -> Self {
+    pub(crate) fn new(expr: Expr) -> Self {
         Self { expr }
     }
 }
@@ -136,8 +137,8 @@ impl UnwrapRustCode {
 }
 
 #[derive(Default, Debug, PartialEq)]
-pub struct Attributes {
-    pub attributes: Vec<Attribute>
+pub(crate) struct Attributes {
+    pub(crate) attributes: Vec<Attribute>
 }
 
 impl Parse for Attributes {
@@ -150,7 +151,7 @@ impl Parse for Attributes {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Attribute {
+pub(crate) enum Attribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),
     Type(Ident, syn::Type),
@@ -215,92 +216,6 @@ fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
     )
 }
 
-pub struct ValueList {
-    pub arg: Ident,
-    pub values: Vec<CaseArg>,
-}
-
-impl Parse for ValueList {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let arg = input.parse()?;
-        let _to: Token![=>] = input.parse()?;
-        let content;
-        let paren = syn::bracketed!(content in input);
-        let values = content
-            .parse_terminated::<_, Token![,]>(Parse::parse)?
-            .into_iter()
-            .collect();
-
-        let ret = Self {
-            arg,
-            values,
-        };
-        if ret.values.len() == 0 {
-            Err(syn::Error::new(paren.span, "Values list should not be empty"))
-        } else {
-            Ok(ret)
-        }
-    }
-}
-
-pub enum MatrixItem {
-    ValueList(ValueList),
-    Fixture(Fixture),
-}
-
-impl Parse for MatrixItem {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek2(Token![=>]) {
-            input.parse::<ValueList>().map(Self::from)
-        } else if input.fork().parse::<Fixture>().is_ok() {
-            input.parse::<Fixture>().map(Self::from)
-        } else {
-            Err(syn::Error::new(Span::call_site(), "Cannot parse matrix info"))
-        }
-    }
-}
-
-impl From<ValueList> for MatrixItem {
-    fn from(value_list: ValueList) -> Self {
-        MatrixItem::ValueList(value_list)
-    }
-}
-
-impl From<Fixture> for MatrixItem {
-    fn from(fixture: Fixture) -> Self {
-        MatrixItem::Fixture(fixture)
-    }
-}
-
-#[derive(Default)]
-pub struct MatrixValues(pub Vec<MatrixItem>);
-
-impl MatrixValues {
-    pub fn list_values(&self) -> impl Iterator<Item=&ValueList> {
-        self.0.iter().filter_map(|mv|
-            match mv {
-                MatrixItem::ValueList(ref value_list) => Some(value_list),
-                _ => None
-            }
-        )
-    }
-
-    pub fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
-        self.0.iter().filter_map(|mv|
-            match mv {
-                MatrixItem::Fixture(ref fixture) => Some(fixture),
-                _ => None
-            }
-        )
-    }
-}
-
-#[derive(Default)]
-pub struct MatrixInfo {
-    pub args: MatrixValues,
-    pub attributes: Attributes,
-}
-
 #[allow(dead_code)]
 pub(crate) fn drain_stream(input: ParseStream) {
     // JUST TO SKIP ALL
@@ -313,28 +228,14 @@ pub(crate) fn drain_stream(input: ParseStream) {
     });
 }
 
-impl Parse for MatrixInfo {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(
-            MatrixInfo {
-                args: parse_vector_trailing::<_, Token![,]>(input)
-                    .map(MatrixValues)?,
-                attributes: input.parse::<Token![::]>()
-                    .or_else(|_| Ok(Default::default()))
-                    .and_then(|_| input.parse())?,
-            }
-        )
-    }
-}
-
 #[derive(PartialEq, Debug, Clone)]
-pub struct Fixture {
-    pub name: Ident,
-    pub positional: Vec<syn::Expr>,
+pub(crate) struct Fixture {
+    pub(crate) name: Ident,
+    pub(crate) positional: Vec<syn::Expr>,
 }
 
 impl Fixture {
-    pub fn new(name: Ident, positional: Vec<syn::Expr>) -> Self {
+    pub(crate) fn new(name: Ident, positional: Vec<syn::Expr>) -> Self {
         Self { name, positional }
     }
 }
@@ -357,81 +258,6 @@ impl Parse for Fixture {
 mod should {
     use super::*;
     use crate::test::*;
-
-    mod parse_fixture {
-        use super::*;
-        use super::assert_eq;
-        use super::super::fixture::FixtureInfo;
-
-        fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
-            parse_meta(fixture_data)
-        }
-
-        #[test]
-        fn happy_path() {
-            let data = parse_fixture(r#"my_fixture(42, "other"), other(vec![42])
-                    :: trace :: no_trace(some)"#);
-
-            let expected = FixtureInfo {
-                data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                    fixture("other", vec!["vec![42]"]).into(),
-                ].into(),
-                attributes: Attributes {
-                    attributes: vec![
-                        Attribute::attr("trace"),
-                        Attribute::tagged("no_trace", vec!["some"])
-                    ]
-                }.into(),
-            };
-
-            assert_eq!(expected, data);
-        }
-
-        #[test]
-        fn empty_fixtures() {
-            let data = parse_fixture(r#"::trace::no_trace(some)"#);
-
-            let expected = FixtureInfo {
-                attributes: Attributes {
-                    attributes: vec![
-                        Attribute::attr("trace"),
-                        Attribute::tagged("no_trace", vec!["some"])
-                    ]
-                }.into(),
-                ..Default::default()
-            };
-
-            assert_eq!(expected, data);
-        }
-
-        #[test]
-        fn empty_attributes() {
-            let data = parse_fixture(r#"my_fixture(42, "other")"#);
-
-            let expected = FixtureInfo {
-                data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                ].into(),
-                ..Default::default()
-            };
-
-            assert_eq!(expected, data);
-        }
-
-        #[test]
-        fn should_accept_trailing_comma() {
-            let fixtures = vec![
-                parse_fixture(r#"first(42),"#),
-                // See #52
-            //    parse_fixture(r#"fixture(42, "other"), :: trace"#),
-            ];
-
-            for f in fixtures {
-                assert_eq!(1, f.data.fixtures().count());
-            }
-        }
-    }
 
     mod parse_attributes {
         use super::*;
@@ -495,110 +321,6 @@ mod should {
             };
 
             assert_eq!(expected, attributes);
-        }
-    }
-
-    mod parse_values_list {
-        use super::*;
-        use super::assert_eq;
-
-        fn parse_values_list<S: AsRef<str>>(values_list: S) -> ValueList {
-            parse_meta(values_list)
-        }
-
-        #[test]
-        fn some_literals() {
-            let literals = literal_expressions_str();
-            let name = "argument";
-
-            let values_list = parse_values_list(
-                format!(r#"{} => [{}]"#, name,
-                        literals
-                            .iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<String>>()
-                            .join(", "))
-            );
-
-            assert_eq!(name, &values_list.arg.to_string());
-            assert_eq!(values_list.args(), to_args!(literals));
-        }
-
-        #[test]
-        fn raw_code() {
-            let values_list = parse_values_list(r#"no_mater => [vec![1,2,3]]"#);
-
-            assert_eq!(values_list.args(), to_args!(["vec![1, 2, 3]"]));
-        }
-
-        #[test]
-        #[should_panic(expected = r#"Cannot parse due"#)]
-        fn raw_code_with_parsing_error() {
-            parse_values_list(r#"other => [some:<>(1,2,3)]"#);
-        }
-
-        #[test]
-        #[should_panic(expected = r#"expected square brackets"#)]
-        fn forget_brackets() {
-            parse_values_list(r#"other => 42"#);
-        }
-    }
-
-    mod parse_matrix_info {
-        use super::*;
-        use super::assert_eq;
-        use itertools::Itertools;
-
-        fn parse_matrix_info<S: AsRef<str>>(matrix_info: S) -> MatrixInfo {
-            parse_meta(matrix_info)
-        }
-
-        #[test]
-        fn happy_path() {
-            let info = parse_matrix_info(r#"
-                expected => [12, 34 * 2],
-                input => [format!("aa_{}", 2), "other"],
-            "#);
-
-            let value_ranges = info.args.list_values().collect_vec();
-            assert_eq!(2, value_ranges.len());
-            assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
-            assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), value_ranges[1].args());
-            assert_eq!(info.attributes, Default::default());
-        }
-
-        #[test]
-        fn should_parse_attributes_too() {
-            let info = parse_matrix_info(r#"
-                a => [12, 24, 42]
-                ::trace
-            "#);
-
-            assert_eq!(Attributes { attributes: vec![Attribute::attr("trace")] },
-                       info.attributes);
-        }
-
-        #[test]
-        fn should_parse_injected_fixtures_too() {
-            let info = parse_matrix_info(r#"
-                a => [12, 24, 42],
-                fixture_1(42, "foo"),
-                fixture_2("bar")
-            "#);
-
-            let fixtures = info.args.fixtures().cloned().collect_vec();
-
-            assert_eq!(vec![fixture("fixture_1", vec!["42", r#""foo""#]),
-                            fixture("fixture_2", vec![r#""bar""#])],
-                       fixtures);
-        }
-
-        #[test]
-        #[should_panic(expected = "should not be empty")]
-        fn should_not_compile_if_empty_expression_slice() {
-            parse_matrix_info(r#"
-                invalid => []
-            "#);
         }
     }
 }

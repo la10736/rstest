@@ -601,7 +601,7 @@ fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> Option<TokenS
     }
 }
 
-fn errors_in_matrix(test: &ItemFn, info: &parse::MatrixInfo) -> Option<TokenStream> {
+fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> Option<TokenStream> {
     let tokens: TokenStream = missed_arguments_errors(test,
                                                       info.args
                                                           .list_values()
@@ -721,8 +721,8 @@ fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStrea
     render_cases(test, cases, attributes.into())
 }
 
-fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
-    let parse::MatrixInfo { args, attributes, .. } = params;
+fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> TokenStream {
+    let parse::matrix::MatrixInfo { args, attributes, .. } = params;
     let span = test.ident.span();
 
     // Steps:
@@ -921,7 +921,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {
-    let info = parse_macro_input!(args as parse::MatrixInfo);
+    let info = parse_macro_input!(args as parse::matrix::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
     if let Some(tokens) = errors_in_matrix(&test, &info) {
@@ -1326,9 +1326,11 @@ mod render {
 
         use super::{*, assert_eq};
 
-        impl<'a> From<&'a ItemFn> for parse::MatrixValues {
+        use crate::parse::matrix::{MatrixInfo, MatrixData, ValueList};
+
+        impl<'a> From<&'a ItemFn> for MatrixData {
             fn from(item_fn: &'a ItemFn) -> Self {
-                parse::MatrixValues(
+                MatrixData(
                     fn_args_idents(item_fn)
                         .cloned()
                         .map(|it|
@@ -1339,9 +1341,9 @@ mod render {
             }
         }
 
-        impl<'a> From<&'a ItemFn> for parse::MatrixInfo {
+        impl<'a> From<&'a ItemFn> for MatrixInfo {
             fn from(item_fn: &'a ItemFn) -> Self {
-                parse::MatrixInfo {
+                MatrixInfo {
                     args: item_fn.into(),
                     attributes: Default::default(),
                 }
@@ -1414,7 +1416,7 @@ mod render {
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = MatrixInfo {
-                args: MatrixValues(vec![
+                args: MatrixData(vec![
                     ValueList { arg: ident("fix"), values: vec![case_arg(r#""value""#)] }.into()
                 ]
                 ),
@@ -1441,7 +1443,7 @@ mod render {
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
             let info = MatrixInfo {
-                args: MatrixValues(vec![
+                args: MatrixData(vec![
                     values_list("first", ["1", "2"].as_ref()).into(),
                     values_list("second", ["3", "4"].as_ref()).into(),
                     values_list("third", ["5", "6"].as_ref()).into(),
@@ -1477,7 +1479,7 @@ mod render {
             ).unwrap();
             let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
             let info = MatrixInfo {
-                args: MatrixValues(vec![
+                args: MatrixData(vec![
                     values_list("first", values.as_ref()).into(),
                     values_list("second", values[..10].as_ref()).into(),
                     values_list("third", values[..2].as_ref()).into(),

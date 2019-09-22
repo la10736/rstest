@@ -7,7 +7,8 @@ use quote::quote;
 use super::*;
 use crate::parse::fixture::{FixtureItem, FixtureData};
 use crate::parse::rstest::{RsTestItem, RsTestData};
-use crate::parse::{Fixture, CaseArg, ValueList, Attribute};
+use crate::parse::matrix::ValueList;
+use crate::parse::{Fixture, CaseArg, Attribute};
 
 macro_rules! to_args {
     ($e:expr) => {
@@ -59,7 +60,7 @@ pub(crate) fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
     parse_str::<syn::Expr>(s.as_ref()).unwrap()
 }
 
-pub fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
+pub(crate) fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
     Fixture::new(ident(name), to_exprs!(args))
 }
 

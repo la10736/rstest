@@ -106,79 +106,81 @@ impl FixtureModifiers {
     }
 }
 
-
 #[cfg(test)]
-mod should_understand_attributes {
+mod should {
+    use super::*;
     use crate::test::{*, assert_eq};
-    use super::FixtureInfo;
-    use crate::parse::{Attributes, Attribute};
 
-    fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
-        parse_meta(fixture_data)
-    }
+    mod parse {
+        use super::{*, assert_eq};
 
-    #[test]
-    fn happy_path() {
-        let data = parse_fixture(r#"my_fixture(42, "other"), other(vec![42])
-            :: trace :: no_trace(some)"#);
+        fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
+            parse_meta(fixture_data)
+        }
 
-        let expected = FixtureInfo {
-            data: vec![
-                fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                fixture("other", vec!["vec![42]"]).into(),
-            ].into(),
-            attributes: Attributes {
-                attributes: vec![
-                    Attribute::attr("trace"),
-                    Attribute::tagged("no_trace", vec!["some"])
-                ]
-            }.into(),
-        };
+        #[test]
+        fn happy_path() {
+            let data = parse_fixture(r#"my_fixture(42, "other"), other(vec![42])
+                    :: trace :: no_trace(some)"#);
 
-        assert_eq!(expected, data);
-    }
+            let expected = FixtureInfo {
+                data: vec![
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                    fixture("other", vec!["vec![42]"]).into(),
+                ].into(),
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"])
+                    ]
+                }.into(),
+            };
 
-    #[test]
-    fn empty_fixtures() {
-        let data = parse_fixture(r#"::trace::no_trace(some)"#);
+            assert_eq!(expected, data);
+        }
 
-        let expected = FixtureInfo {
-            attributes: Attributes {
-                attributes: vec![
-                    Attribute::attr("trace"),
-                    Attribute::tagged("no_trace", vec!["some"])
-                ]
-            }.into(),
-            ..Default::default()
-        };
+        #[test]
+        fn empty_fixtures() {
+            let data = parse_fixture(r#"::trace::no_trace(some)"#);
 
-        assert_eq!(expected, data);
-    }
+            let expected = FixtureInfo {
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"])
+                    ]
+                }.into(),
+                ..Default::default()
+            };
 
-    #[test]
-    fn empty_attributes() {
-        let data = parse_fixture(r#"my_fixture(42, "other")"#);
+            assert_eq!(expected, data);
+        }
 
-        let expected = FixtureInfo {
-            data: vec![
-                fixture("my_fixture", vec!["42", r#""other""#]).into(),
-            ].into(),
-            ..Default::default()
-        };
+        #[test]
+        fn empty_attributes() {
+            let data = parse_fixture(r#"my_fixture(42, "other")"#);
 
-        assert_eq!(expected, data);
-    }
+            let expected = FixtureInfo {
+                data: vec![
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                ].into(),
+                ..Default::default()
+            };
 
-    #[test]
-    fn should_accept_trailing_comma() {
-        let fixtures = vec![
-            parse_fixture(r#"first(42),"#),
-            // See #52
-            //    parse_fixture(r#"fixture(42, "other"), :: trace"#),
-        ];
+            assert_eq!(expected, data);
+        }
 
-        for f in fixtures {
-            assert_eq!(1, f.data.fixtures().count());
+        #[test]
+        fn should_accept_trailing_comma() {
+            let fixtures = vec![
+                parse_fixture(r#"first(42),"#),
+                // See #52
+                //    parse_fixture(r#"fixture(42, "other"), :: trace"#),
+            ];
+
+            for f in fixtures {
+                assert_eq!(1, f.data.fixtures().count());
+            }
         }
     }
 }
