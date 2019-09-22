@@ -4,13 +4,13 @@ use syn::{Ident, Token,
           punctuated::Punctuated,
           spanned::Spanned};
 
-use super::{Fixture, Modifiers, CaseArg, parse_vector_trailing};
+use super::{Fixture, Attributes, CaseArg, parse_vector_trailing};
 
 #[derive(Default, Debug)]
 /// Parametrize
 pub(crate) struct ParametrizeInfo {
     pub(crate) data: ParametrizeData,
-    pub(crate) modifiers: Modifiers,
+    pub(crate) attributes: Attributes,
 }
 
 impl Parse for ParametrizeInfo {
@@ -25,7 +25,7 @@ impl Parse for ParametrizeInfo {
         Ok(
             ParametrizeInfo {
                 data: input.parse()?,
-                modifiers: input.parse::<Token![::]>()
+                attributes: input.parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
             }

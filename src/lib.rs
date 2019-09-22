@@ -229,8 +229,8 @@ impl<T: Sized> IntoOption for T {
     }
 }
 
-fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, modifiers: &parse::RsTestModifiers) -> Option<proc_macro2::TokenStream> {
-    args.filter(|&arg| modifiers.trace_me(arg))
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, attributes: &parse::RsTestAttributes) -> Option<proc_macro2::TokenStream> {
+    args.filter(|&arg| attributes.trace_me(arg))
         .map(|arg|
             parse_quote! {
                 println!("{} = {:?}", stringify!(#arg), #arg);
@@ -263,14 +263,14 @@ fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Reso
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
-                      resolver: impl Resolver, modifiers: &'a parse::RsTestModifiers)
+                      resolver: impl Resolver, attributes: &'a parse::RsTestAttributes)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
     let attrs = &testfn.attrs;
     let output = &testfn.decl.output;
     let inject = resolve_fn_args(fn_args(&testfn), &resolver);
-    let trace_args = trace_arguments(args.iter(), modifiers);
+    let trace_args = trace_arguments(args.iter(), attributes);
     quote! {
         #[test]
         #(#attrs)*
@@ -333,7 +333,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let orig_args = &fixture.decl.inputs;
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.decl.generics;
-    let default_output = info.modifiers.extract_default_type().unwrap_or(fixture.decl.output.clone());
+    let default_output = info.attributes.extract_default_type().unwrap_or(fixture.decl.output.clone());
     let default_generics = generics_clean_up(fixture.decl.generics.clone(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
@@ -440,7 +440,7 @@ fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item=&Ident> {
 /// Note that injected value can be an arbitrary rust expression and not just a literal.
 ///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
-/// need to do it, you can use the `default<type>` modifier syntax to define it:
+/// need to do it, you can use the `default<type>` attribute syntax to define it:
 ///
 /// ```
 /// use rstest::*;
@@ -528,7 +528,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// Actual   :43
 /// ```
 /// If you want to trace input arguments but skip some of them that do not implement the `Debug`
-/// trait, you can also use the `notrace(list_of_inputs)` modifier:
+/// trait, you can also use the `notrace(list_of_inputs)` attribute:
 ///
 /// ```
 /// # use rstest::*;
@@ -550,7 +550,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     if let Some(tokens) = errors_in_rstest(&test, &info) {
         tokens
     } else {
-        render_fn_test(name.clone(), &test, Some(&test), resolver, &info.modifiers)
+        render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
     }.into()
 }
 
@@ -652,14 +652,14 @@ impl<R: Resolver> CaseRender<R> {
         CaseRender { name, resolver }
     }
 
-    fn render(self, testfn: &ItemFn, modifiers: &parse::RsTestModifiers) -> TokenStream {
-        render_fn_test(self.name, testfn, None, self.resolver, modifiers)
+    fn render(self, testfn: &ItemFn, attributes: &parse::RsTestAttributes) -> TokenStream {
+        render_fn_test(self.name, testfn, None, self.resolver, attributes)
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, modifiers: parse::RsTestModifiers) -> TokenStream {
+fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, attributes: parse::RsTestAttributes) -> TokenStream {
     let fname = &test.ident;
-    let cases = cases.map(|case| case.render(&test, &modifiers));
+    let cases = cases.map(|case| case.render(&test, &attributes));
 
     quote! {
         #[cfg(test)]
@@ -693,7 +693,7 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
 }
 
 fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
-    let ParametrizeInfo { data, modifiers } = params;
+    let ParametrizeInfo { data, attributes } = params;
     let display_len = data.cases().count().display_len();
 
     let cases = data.cases()
@@ -715,11 +715,11 @@ fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStrea
         }
         );
 
-    render_cases(test, cases, modifiers.into())
+    render_cases(test, cases, attributes.into())
 }
 
 fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
-    let parse::MatrixInfo { args, modifiers, .. } = params;
+    let parse::MatrixInfo { args, attributes, .. } = params;
     let span = test.ident.span();
 
     // Steps:
@@ -750,7 +750,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
         }
         );
 
-    render_cases(test, cases, modifiers.into())
+    render_cases(test, cases, attributes.into())
 }
 
 /// Write table-based tests: you must indicate the arguments that you want use in your cases
@@ -798,14 +798,14 @@ fn render_matrix_cases(test: ItemFn, params: parse::MatrixInfo) -> TokenStream {
 ///     [fixture_1(...]
 ///     [...,]
 ///     [fixture_k(...)]
-///     [::modifier_1[:: ... [::modifier_k]]]
+///     [::attribute_1[:: ... [::attribute_k]]]
 /// )
 /// ```
 /// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
 /// * `description_z` when present should be a valid Rust identity
 /// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](attr.fixture.html) fixture function
-/// * modifiers now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+/// * attributes now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
 ///
 /// Function's arguments can be present just once as identity or fixture.
 ///
@@ -885,13 +885,13 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 ///     [fixture_1(...]
 ///     [...,]
 ///     [fixture_k(...)]
-///     [::modifier_1[:: ... [::modifier_k]]]
+///     [::attribute_1[:: ... [::attribute_k]]]
 /// )
 /// ```
 /// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
 /// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](attr.fixture.html) fixture function
-/// * modifiers now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+/// * attributes now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
 ///
 /// Function's arguments can be present just once as identity or fixture.
 ///
@@ -1132,7 +1132,7 @@ mod render {
             fn from(item_fn: &'a ItemFn) -> Self {
                 ParametrizeInfo {
                     data: item_fn.into(),
-                    modifiers: Default::default(),
+                    attributes: Default::default(),
                 }
             }
         }
@@ -1340,7 +1340,7 @@ mod render {
             fn from(item_fn: &'a ItemFn) -> Self {
                 parse::MatrixInfo {
                     args: item_fn.into(),
-                    modifiers: Default::default(),
+                    attributes: Default::default(),
                 }
             }
         }
@@ -1495,7 +1495,7 @@ mod render {
         use syn::{ItemImpl, ItemStruct};
 
         use crate::{generics_clean_up, render_fixture};
-        use crate::parse::{Modifiers, RsTestAttribute};
+        use crate::parse::{Attributes, Attribute};
 
         use super::{*, assert_eq};
 
@@ -1642,9 +1642,9 @@ mod render {
 
             let tokens = render_fixture(item_fn.clone(),
                                         FixtureInfo {
-                                            modifiers: Modifiers {
-                                                modifiers: vec![
-                                                    RsTestAttribute::Type(
+                                            attributes: Attributes {
+                                                attributes: vec![
+                                                    Attribute::Type(
                                                         parse_str("default").unwrap(),
                                                         parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
                                                     )

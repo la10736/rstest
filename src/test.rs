@@ -7,7 +7,7 @@ use quote::quote;
 use super::*;
 use crate::parse::fixture::{FixtureItem, FixtureData};
 use crate::parse::rstest::{RsTestItem, RsTestData};
-use crate::parse::{Fixture, CaseArg, ValueList, RsTestAttribute};
+use crate::parse::{Fixture, CaseArg, ValueList, Attribute};
 
 macro_rules! to_args {
     ($e:expr) => {
@@ -95,13 +95,13 @@ impl ExtractArgs for ValueList {
     }
 }
 
-impl RsTestAttribute {
+impl Attribute {
     pub fn attr<S: AsRef<str>>(s: S) -> Self {
-        RsTestAttribute::Attr(ident(s))
+        Attribute::Attr(ident(s))
     }
 
     pub fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
-        RsTestAttribute::Tagged(
+        Attribute::Tagged(
             ident(tag),
             attrs.into_iter()
                 .map(|a| ident(a))
@@ -110,7 +110,7 @@ impl RsTestAttribute {
     }
 
     pub fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
-        RsTestAttribute::Type(
+        Attribute::Type(
             ident(tag),
             parse_str(inner.as_ref()).unwrap(),
         )

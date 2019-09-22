@@ -136,21 +136,21 @@ impl UnwrapRustCode {
 }
 
 #[derive(Default, Debug, PartialEq)]
-pub struct Modifiers {
-    pub modifiers: Vec<RsTestAttribute>
+pub struct Attributes {
+    pub attributes: Vec<Attribute>
 }
 
-impl Parse for Modifiers {
+impl Parse for Attributes {
     fn parse(input: ParseStream) -> Result<Self> {
-        let vars = Punctuated::<RsTestAttribute, Token![::]>::parse_terminated(input)?;
-        Ok(Modifiers {
-            modifiers: vars.into_iter().collect(),
+        let vars = Punctuated::<Attribute, Token![::]>::parse_terminated(input)?;
+        Ok(Attributes {
+            attributes: vars.into_iter().collect(),
         })
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum RsTestAttribute {
+pub enum Attribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),
     Type(Ident, syn::Type),
@@ -170,21 +170,21 @@ fn just_word_meta(meta: Meta) -> Result<Ident> {
     }
 }
 
-impl Parse for RsTestAttribute {
+impl Parse for Attribute {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek2(Token![<]) {
             let tag = input.parse()?;
             let _open = input.parse::<Token![<]>()?;
             let inner = input.parse()?;
             let _close = input.parse::<Token![>]>()?;
-            Ok(RsTestAttribute::Type(tag, inner))
+            Ok(Attribute::Type(tag, inner))
         } else {
             use Meta::*;
             match no_literal_nested(NestedMeta::parse(input)?)? {
-                Word(ident) => Ok(RsTestAttribute::Attr(ident)),
+                Word(ident) => Ok(Attribute::Attr(ident)),
                 List(l) =>
-                    Ok(RsTestAttribute::Tagged(l.ident,
-                                               l.nested.into_iter()
+                    Ok(Attribute::Tagged(l.ident,
+                                         l.nested.into_iter()
                                                    .map(no_literal_nested)
                                                    .collect::<Result<Vec<Meta>>>()?
                                                    .into_iter().map(just_word_meta)
@@ -196,9 +196,9 @@ impl Parse for RsTestAttribute {
     }
 }
 
-wrap_modifiers!(RsTestModifiers);
+wrap_attributes!(RsTestAttributes);
 
-impl RsTestModifiers {
+impl RsTestAttributes {
     const TRACE_VARIABLE_ATTR: &'static str = "trace";
     const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
 
@@ -211,9 +211,9 @@ impl RsTestModifiers {
         } else { false }
     }
 
-    fn is_notrace(ident: &Ident, m: &RsTestAttribute) -> bool {
+    fn is_notrace(ident: &Ident, m: &Attribute) -> bool {
         match m {
-            RsTestAttribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR =>
+            Attribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR =>
                 args.iter().find(|&a| a == ident).is_some(),
             _ => false
         }
@@ -226,9 +226,9 @@ impl RsTestModifiers {
             ).next().is_some()
     }
 
-    fn is_trace(m: &RsTestAttribute) -> bool {
+    fn is_trace(m: &Attribute) -> bool {
         match m {
-            RsTestAttribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
+            Attribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
             _ => false
         }
     }
@@ -336,7 +336,7 @@ impl MatrixValues {
 #[derive(Default)]
 pub struct MatrixInfo {
     pub args: MatrixValues,
-    pub modifiers: Modifiers,
+    pub attributes: Attributes,
 }
 
 #[allow(dead_code)]
@@ -357,7 +357,7 @@ impl Parse for MatrixInfo {
             MatrixInfo {
                 args: parse_vector_trailing::<_, Token![,]>(input)
                     .map(MatrixValues)?,
-                modifiers: input.parse::<Token![::]>()
+                attributes: input.parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
             }
@@ -391,9 +391,9 @@ impl Parse for Fixture {
     }
 }
 
-impl Parse for RsTestModifiers {
+impl Parse for RsTestAttributes {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(input.parse::<Modifiers>()?.into())
+        Ok(input.parse::<Attributes>()?.into())
     }
 }
 
@@ -421,10 +421,10 @@ mod should {
                     fixture("my_fixture", vec!["42", r#""other""#]).into(),
                     fixture("other", vec!["vec![42]"]).into(),
                 ].into(),
-                modifiers: Modifiers {
-                    modifiers: vec![
-                        RsTestAttribute::attr("trace"),
-                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"])
                     ]
                 }.into(),
             };
@@ -437,10 +437,10 @@ mod should {
             let data = parse_fixture(r#"::trace::no_trace(some)"#);
 
             let expected = FixtureInfo {
-                modifiers: Modifiers {
-                    modifiers: vec![
-                        RsTestAttribute::attr("trace"),
-                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"])
                     ]
                 }.into(),
                 ..Default::default()
@@ -450,7 +450,7 @@ mod should {
         }
 
         #[test]
-        fn empty_modifiers() {
+        fn empty_attributes() {
             let data = parse_fixture(r#"my_fixture(42, "other")"#);
 
             let expected = FixtureInfo {
@@ -477,68 +477,68 @@ mod should {
         }
     }
 
-    mod parse_modifiers {
+    mod parse_attributes {
         use super::*;
         use super::assert_eq;
 
-        fn parse_modifiers<S: AsRef<str>>(modifiers: S) -> Modifiers {
-            parse_meta(modifiers)
+        fn parse_attributes<S: AsRef<str>>(attributes: S) -> Attributes {
+            parse_meta(attributes)
         }
 
         #[test]
         fn one_simple_ident() {
-            let modifiers = parse_modifiers("my_ident");
+            let attributes = parse_attributes("my_ident");
 
-            let expected = Modifiers {
-                modifiers: vec![
-                    RsTestAttribute::attr("my_ident")
+            let expected = Attributes {
+                attributes: vec![
+                    Attribute::attr("my_ident")
                 ]
             };
 
-            assert_eq!(expected, modifiers);
+            assert_eq!(expected, attributes);
         }
 
         #[test]
         fn one_simple_group() {
-            let modifiers = parse_modifiers("group_tag(first, second)");
+            let attributes = parse_attributes("group_tag(first, second)");
 
-            let expected = Modifiers {
-                modifiers: vec![
-                    RsTestAttribute::tagged("group_tag", vec!["first", "second"])
+            let expected = Attributes {
+                attributes: vec![
+                    Attribute::tagged("group_tag", vec!["first", "second"])
                 ]
             };
 
-            assert_eq!(expected, modifiers);
+            assert_eq!(expected, attributes);
         }
 
         #[test]
         fn one_simple_type() {
-            let modifiers = parse_modifiers("type_tag<(u32, T, (String, i32))>");
+            let attributes = parse_attributes("type_tag<(u32, T, (String, i32))>");
 
-            let expected = Modifiers {
-                modifiers: vec![
-                    RsTestAttribute::typed("type_tag", "(u32, T, (String, i32))")
+            let expected = Attributes {
+                attributes: vec![
+                    Attribute::typed("type_tag", "(u32, T, (String, i32))")
                 ]
             };
 
-            assert_eq!(expected, modifiers);
+            assert_eq!(expected, attributes);
         }
 
         #[test]
         fn integrated() {
-            let modifiers = parse_modifiers(r#"
+            let attributes = parse_attributes(r#"
             simple :: tagged(first, second) :: type_tag<(u32, T, (std::string::String, i32))> :: more_tagged(a,b)"#);
 
-            let expected = Modifiers {
-                modifiers: vec![
-                    RsTestAttribute::attr("simple"),
-                    RsTestAttribute::tagged("tagged", vec!["first", "second"]),
-                    RsTestAttribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
-                    RsTestAttribute::tagged("more_tagged", vec!["a", "b"]),
+            let expected = Attributes {
+                attributes: vec![
+                    Attribute::attr("simple"),
+                    Attribute::tagged("tagged", vec!["first", "second"]),
+                    Attribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
+                    Attribute::tagged("more_tagged", vec!["a", "b"]),
                 ]
             };
 
-            assert_eq!(expected, modifiers);
+            assert_eq!(expected, attributes);
         }
     }
 
@@ -608,18 +608,18 @@ mod should {
             assert_eq!(2, value_ranges.len());
             assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
             assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), value_ranges[1].args());
-            assert_eq!(info.modifiers, Default::default());
+            assert_eq!(info.attributes, Default::default());
         }
 
         #[test]
-        fn should_parse_modifiers_too() {
+        fn should_parse_attributes_too() {
             let info = parse_matrix_info(r#"
                 a => [12, 24, 42]
                 ::trace
             "#);
 
-            assert_eq!(Modifiers { modifiers: vec![RsTestAttribute::attr("trace")] },
-                       info.modifiers);
+            assert_eq!(Attributes { attributes: vec![Attribute::attr("trace")] },
+                       info.attributes);
         }
 
         #[test]

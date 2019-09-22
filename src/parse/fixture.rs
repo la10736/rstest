@@ -4,18 +4,18 @@ use syn::{Ident, Token, parse_quote,
           parse::{Parse, ParseStream, Result},
           };
 
-use super::{Fixture, Modifiers, parse_vector_trailing};
-use crate::parse::RsTestAttribute;
+use super::{Fixture, Attributes, parse_vector_trailing};
+use crate::parse::Attribute;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct FixtureInfo {
     pub(crate) data: FixtureData,
-    pub(crate) modifiers: FixtureModifiers,
+    pub(crate) attributes: FixtureModifiers,
 }
 
 impl Parse for FixtureModifiers {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(input.parse::<Modifiers>()?.into())
+        Ok(input.parse::<Attributes>()?.into())
     }
 }
 
@@ -27,7 +27,7 @@ impl Parse for FixtureInfo {
             } else {
                 Self {
                     data: input.parse()?,
-                    modifiers: input.parse::<Token![::]>()
+                    attributes: input.parse::<Token![::]>()
                         .or_else(|_| Ok(Default::default()))
                         .and_then(|_| input.parse())?,
                 }
@@ -89,7 +89,7 @@ impl Parse for FixtureItem {
     }
 }
 
-wrap_modifiers!(FixtureModifiers);
+wrap_attributes!(FixtureModifiers);
 
 impl FixtureModifiers {
     const DEFAULT_RET_ATTR: &'static str = "default";
@@ -98,7 +98,7 @@ impl FixtureModifiers {
         self.iter()
             .filter_map(|m|
                 match m {
-                    RsTestAttribute::Type(name, t) if name == Self::DEFAULT_RET_ATTR =>
+                    Attribute::Type(name, t) if name == Self::DEFAULT_RET_ATTR =>
                         Some(parse_quote!{ -> #t}),
                     _ => None
                 })
@@ -111,7 +111,7 @@ impl FixtureModifiers {
 mod should_understand_attributes {
     use crate::test::{*, assert_eq};
     use super::FixtureInfo;
-    use crate::parse::{Modifiers, RsTestAttribute};
+    use crate::parse::{Attributes, Attribute};
 
     fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
         parse_meta(fixture_data)
@@ -127,10 +127,10 @@ mod should_understand_attributes {
                 fixture("my_fixture", vec!["42", r#""other""#]).into(),
                 fixture("other", vec!["vec![42]"]).into(),
             ].into(),
-            modifiers: Modifiers {
-                modifiers: vec![
-                    RsTestAttribute::attr("trace"),
-                    RsTestAttribute::tagged("no_trace", vec!["some"])
+            attributes: Attributes {
+                attributes: vec![
+                    Attribute::attr("trace"),
+                    Attribute::tagged("no_trace", vec!["some"])
                 ]
             }.into(),
         };
@@ -143,10 +143,10 @@ mod should_understand_attributes {
         let data = parse_fixture(r#"::trace::no_trace(some)"#);
 
         let expected = FixtureInfo {
-            modifiers: Modifiers {
-                modifiers: vec![
-                    RsTestAttribute::attr("trace"),
-                    RsTestAttribute::tagged("no_trace", vec!["some"])
+            attributes: Attributes {
+                attributes: vec![
+                    Attribute::attr("trace"),
+                    Attribute::tagged("no_trace", vec!["some"])
                 ]
             }.into(),
             ..Default::default()
@@ -156,7 +156,7 @@ mod should_understand_attributes {
     }
 
     #[test]
-    fn empty_modifiers() {
+    fn empty_attributes() {
         let data = parse_fixture(r#"my_fixture(42, "other")"#);
 
         let expected = FixtureInfo {

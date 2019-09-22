@@ -2,12 +2,13 @@ use syn::{Ident, Token,
           parse::{Parse, ParseStream, Result},
           };
 
-use super::{Fixture, RsTestModifiers, parse_vector_trailing};
+use super::{Fixture, parse_vector_trailing};
+use crate::parse::RsTestAttributes;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
     pub(crate) data: RsTestData,
-    pub(crate) modifiers: RsTestModifiers,
+    pub(crate) attributes: RsTestAttributes,
 }
 
 impl Parse for RsTestInfo {
@@ -18,7 +19,7 @@ impl Parse for RsTestInfo {
             } else {
                 Self {
                     data: input.parse()?,
-                    modifiers: input.parse::<Token![::]>()
+                    attributes: input.parse::<Token![::]>()
                         .or_else(|_| Ok(Default::default()))
                         .and_then(|_| input.parse())?,
                 }
@@ -108,7 +109,7 @@ mod should {
 
     mod parse_rstest {
         use super::{*, assert_eq};
-        use crate::parse::{Modifiers, RsTestAttribute};
+        use crate::parse::{Attributes, Attribute};
 
         fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
             parse_meta(rstest_data)
@@ -124,10 +125,10 @@ mod should {
                     fixture("my_fixture", vec!["42", r#""other""#]).into(),
                     fixture("other", vec!["vec![42]"]).into(),
                 ].into(),
-                modifiers: Modifiers {
-                    modifiers: vec![
-                        RsTestAttribute::attr("trace"),
-                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"])
                     ]
                 }.into(),
             };
@@ -140,10 +141,10 @@ mod should {
             let data = parse_rstest(r#"::trace::no_trace(some)"#);
 
             let expected = RsTestInfo {
-                modifiers: Modifiers {
-                    modifiers: vec![
-                        RsTestAttribute::attr("trace"),
-                        RsTestAttribute::tagged("no_trace", vec!["some"])
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"])
                     ]
                 }.into(),
                 ..Default::default()
@@ -153,7 +154,7 @@ mod should {
         }
 
         #[test]
-        fn empty_modifiers() {
+        fn empty_attributes() {
             let data = parse_rstest(r#"my_fixture(42, "other")"#);
 
             let expected = RsTestInfo {
