@@ -196,44 +196,6 @@ impl Parse for Attribute {
     }
 }
 
-wrap_attributes!(RsTestAttributes);
-
-impl RsTestAttributes {
-    const TRACE_VARIABLE_ATTR: &'static str = "trace";
-    const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
-
-    pub(crate) fn trace_me(&self, ident: &Ident) -> bool {
-        if self.should_trace() {
-            self.iter()
-                .filter(|&m|
-                    Self::is_notrace(ident, m)
-                ).next().is_none()
-        } else { false }
-    }
-
-    fn is_notrace(ident: &Ident, m: &Attribute) -> bool {
-        match m {
-            Attribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR =>
-                args.iter().find(|&a| a == ident).is_some(),
-            _ => false
-        }
-    }
-
-    fn should_trace(&self) -> bool {
-        self.iter()
-            .filter(|&m|
-                Self::is_trace(m)
-            ).next().is_some()
-    }
-
-    fn is_trace(m: &Attribute) -> bool {
-        match m {
-            Attribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
-            _ => false
-        }
-    }
-}
-
 fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
     where
         T: Parse,
@@ -388,12 +350,6 @@ impl Parse for Fixture {
         Ok(
             Self::new(name, positional)
         )
-    }
-}
-
-impl Parse for RsTestAttributes {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(input.parse::<Attributes>()?.into())
     }
 }
 

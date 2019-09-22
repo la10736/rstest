@@ -195,11 +195,14 @@ use quote::quote;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-use crate::parse::{rstest::RsTestInfo, fixture::FixtureInfo};
+use crate::parse::{
+    rstest::{RsTestInfo, RsTestAttributes},
+    fixture::FixtureInfo,
+    parametrize::{ParametrizeData, ParametrizeInfo, TestCase}
+};
 use crate::resolver::{Resolver, arg_2_fixture};
 use crate::refident::RefIdent;
 use crate::error::error_statement;
-use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, TestCase};
 
 // Test utility module
 #[cfg(test)]
@@ -229,7 +232,7 @@ impl<T: Sized> IntoOption for T {
     }
 }
 
-fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, attributes: &parse::RsTestAttributes) -> Option<proc_macro2::TokenStream> {
+fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, attributes: &RsTestAttributes) -> Option<proc_macro2::TokenStream> {
     args.filter(|&arg| attributes.trace_me(arg))
         .map(|arg|
             parse_quote! {
@@ -263,7 +266,7 @@ fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Reso
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
-                      resolver: impl Resolver, attributes: &'a parse::RsTestAttributes)
+                      resolver: impl Resolver, attributes: &'a RsTestAttributes)
                       -> TokenStream {
     let testfn_name = &testfn.ident;
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
@@ -652,12 +655,12 @@ impl<R: Resolver> CaseRender<R> {
         CaseRender { name, resolver }
     }
 
-    fn render(self, testfn: &ItemFn, attributes: &parse::RsTestAttributes) -> TokenStream {
+    fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
         render_fn_test(self.name, testfn, None, self.resolver, attributes)
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, attributes: parse::RsTestAttributes) -> TokenStream {
+fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, attributes: RsTestAttributes) -> TokenStream {
     let fname = &test.ident;
     let cases = cases.map(|case| case.render(&test, &attributes));
 
