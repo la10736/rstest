@@ -1,9 +1,11 @@
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream};
 use syn::{Ident, Token,
           parse::{Parse, ParseStream, Result}
 };
 
 use super::{Fixture, CaseArg, Attributes, parse_vector_trailing};
+use crate::refident::RefIdent;
+use quote::ToTokens;
 
 #[derive(Default)]
 pub(crate) struct MatrixInfo {
@@ -102,6 +104,18 @@ impl Parse for ValueList {
         } else {
             Ok(ret)
         }
+    }
+}
+
+impl RefIdent for ValueList {
+    fn ident(&self) -> &Ident {
+        &self.arg
+    }
+}
+
+impl ToTokens for ValueList {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.arg.to_tokens(tokens)
     }
 }
 

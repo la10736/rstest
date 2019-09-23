@@ -1,10 +1,12 @@
-use proc_macro2::Span;
 use syn::{Ident, Token,
           parse::{Error, Parse, ParseStream, Result},
-          punctuated::Punctuated,
-          spanned::Spanned};
+          punctuated::Punctuated};
 
 use super::{Fixture, Attributes, CaseArg, parse_vector_trailing};
+
+use proc_macro2::{Span, TokenStream};
+use quote::ToTokens;
+use crate::refident::{RefIdent, MaybeIdent};
 
 #[derive(Default, Debug)]
 /// Parametrize
@@ -97,6 +99,22 @@ impl Parse for ParametrizeItem {
     }
 }
 
+impl MaybeIdent for ParametrizeItem {
+    fn maybe_ident(&self) -> Option<&Ident> {
+        match self {
+            ParametrizeItem::Fixture( ref fixture) => Some(fixture.ident()),
+            ParametrizeItem::CaseArgName(ref arg) => Some(arg),
+            _ => None,
+        }
+    }
+}
+
+impl ToTokens for ParametrizeItem {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.maybe_ident().map(|ident| ident.to_tokens(tokens));
+    }
+}
+
 #[derive(Debug)]
 /// A test case instance data. Contains a list of arguments. It is parsed by parametrize
 /// attributes.
@@ -126,12 +144,9 @@ impl Parse for TestCase {
     }
 }
 
-impl TestCase {
-    pub(crate) fn span_start(&self) -> Span {
-        self.args.first().map(|arg| arg.span()).unwrap_or(Span::call_site())
-    }
-    pub(crate) fn span_end(&self) -> Span {
-        self.args.last().map(|arg| arg.span()).unwrap_or(Span::call_site())
+impl ToTokens for TestCase {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.args.iter().for_each(|c| c.to_tokens(tokens))
     }
 }
 

@@ -1,5 +1,3 @@
-#![type_length_limit="1335935"]
-
 //! This crate will help you to write simpler tests by leveraging a software testing concept called
 //! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something
 //! that you can use in your tests to encapsulate a test's dependencies.
@@ -200,11 +198,11 @@ use std::collections::HashMap;
 use crate::parse::{
     rstest::{RsTestInfo, RsTestAttributes},
     fixture::FixtureInfo,
-    parametrize::{ParametrizeData, ParametrizeInfo, TestCase}
+    parametrize::{ParametrizeData, ParametrizeInfo, TestCase},
 };
 use crate::resolver::{Resolver, arg_2_fixture};
-use crate::refident::RefIdent;
-use crate::error::error_statement;
+use crate::refident::{MaybeIdent, RefIdent};
+use syn::spanned::Spanned;
 
 // Test utility module
 #[cfg(test)]
@@ -213,9 +211,7 @@ pub(crate) mod test;
 
 mod parse;
 mod resolver;
-mod error;
 mod refident;
-
 
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
     item_fn.decl.inputs.iter()
@@ -264,7 +260,7 @@ fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &impl Resolve
 }
 
 fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Resolver) -> TokenStream {
-    resolve_args(args.filter_map(RefIdent::ident), resolver)
+    resolve_args(args.filter_map(MaybeIdent::maybe_ident), resolver)
 }
 
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
@@ -322,7 +318,7 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
         |mut w| w.predicates = w.predicates.clone()
             .into_iter()
             .filter(|wp| where_predicate_bounded_type(wp)
-                .and_then(RefIdent::ident)
+                .and_then(MaybeIdent::maybe_ident)
                 .map(|t| outs.0.contains(t))
                 .unwrap_or(true)
             ).collect()
@@ -386,7 +382,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
 
 fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item=&Ident> {
     fn_args(&test)
-        .filter_map(RefIdent::ident)
+        .filter_map(MaybeIdent::maybe_ident)
 }
 //fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
 //    fn_args(&test)
@@ -561,111 +557,105 @@ pub fn rstest(args: proc_macro::TokenStream,
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
     fn_args(fn_decl)
-        .filter_map(RefIdent::ident)
+        .filter_map(MaybeIdent::maybe_ident)
         .find(|&id| id == ident)
         .is_some()
 }
 
-fn missed_arguments_errors<'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a Ident> + 'a) -> impl Iterator<Item=TokenStream> + 'a {
-    args.filter(move |&p| !fn_args_has_ident(test, p))
-        .map(|missed|
-            error_statement(&format!("Missed argument: '{}' should be a test function argument.", missed),
-                            missed.span(), missed.span())
-        )
+type Errors<'a> = Box<dyn Iterator<Item=syn::Error> + 'a>;
+
+fn missed_arguments_errors<'a, I: RefIdent + Spanned + 'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
+    Box::new(
+        args
+            .filter(move |&p| !fn_args_has_ident(test, p.ident()))
+            .map(|missed| syn::Error::new(missed.span(),
+                                          &format!("Missed argument: '{}' should be a test function argument.", missed.ident()),
+            ))
+    )
 }
 
-fn duplicate_arguments_errors<'a>(args: impl Iterator<Item=&'a Ident> + 'a) -> impl Iterator<Item=TokenStream> + 'a {
+fn duplicate_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
     let mut used = HashMap::new();
-    args.map(move |p|
-            {
-                let is_duplicate = used.contains_key(&p.to_string());
-                used.insert(p.to_string(), p);
-                (p, is_duplicate)
-            })
-        .filter(|&(_, is_duplicate)| is_duplicate)
-        .map(|(duplicate, _)| duplicate)
-        .map(|duplicate|
-            error_statement(&format!("Duplicate argument: '{}' is already defined.", duplicate),
-                            duplicate.span(), duplicate.span())
-        )
+    Box::new(
+        args
+            .filter(|it| it.maybe_ident().is_some())
+            .map(move |p|
+                {
+                    let ident = p.maybe_ident().unwrap().to_string();
+                    let is_duplicate = used.contains_key(&ident);
+                    used.insert(ident, p);
+                    (p, is_duplicate)
+                })
+            .filter(|&(_, is_duplicate)| is_duplicate)
+            .map(|(duplicate, _)| duplicate)
+            .map(|duplicate|
+                syn::Error::new(duplicate.span(),
+                                &format!("Duplicate argument: '{}' is already defined.", duplicate.maybe_ident().unwrap()),
+                )
+            )
+    )
 }
 
-fn invalid_case_errors<'a>(params: &'a ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
+fn invalid_case_errors(params: &ParametrizeData) -> Errors {
     let n_args = params.args().count();
-    params.cases()
-        .filter(move |case| case.args.len() != n_args)
-        .map(|case|
-            error_statement("Wrong case signature: should match the given parameters list.",
-                            case.span_start(), case.span_end())
-        )
+    Box::new(
+        params.cases()
+            .filter(move |case| case.args.len() != n_args)
+            .map(|case|
+                syn::Error::new_spanned(&case, "Wrong case signature: should match the given parameters list.")
+            )
+    )
 }
 
 fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> Option<TokenStream> {
-    let tokens: TokenStream =
+    let errors: TokenStream =
         missed_arguments_errors(test, info.data.args())
-            .chain(
-                missed_arguments_errors(test, info.data
-                    .fixtures()
-                    .map(|f| &f.name))
-            )
-            .chain(
-                duplicate_arguments_errors(info.data
-                    .fixtures()
-                    .map(|f| &f.name))
-            )
-            .chain(
-                invalid_case_errors(&info.data)
-            ).collect();
+            .chain(missed_arguments_errors(test, info.data.fixtures()))
+            .chain(duplicate_arguments_errors(info.data.data.iter()))
+            .chain(invalid_case_errors(&info.data))
+            .map(|e| e.to_compile_error())
+            .collect();
 
-    if !tokens.is_empty() {
-        Some(tokens)
+    if !errors.is_empty() {
+        Some(errors)
     } else {
         None
     }
 }
 
 fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test,
-                                                      info.args
-                                                          .list_values()
-                                                          .map(|v| &v.arg))
-        .chain(
-            missed_arguments_errors(test,
-                                    info.args
-                                        .fixtures()
-                                        .map(|f| &f.name))
-        )
+    let errors: TokenStream = missed_arguments_errors(test, info.args.list_values())
+        .chain(missed_arguments_errors(test, info.args.fixtures()))
+        .map(|e| e.to_compile_error())
         .collect();
 
-    if !tokens.is_empty() {
-        Some(tokens)
+    if !errors.is_empty() {
+        Some(errors)
     } else {
         None
     }
 }
 
 fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test,
-                                                      info.data.items.iter()
-                                                          .map(|v| v.name()))
-        .chain(duplicate_arguments_errors(info.data.items.iter()
-            .map(|v| v.name())))
+    let errors: TokenStream = missed_arguments_errors(test,info.data.items.iter())
+        .chain(duplicate_arguments_errors(info.data.items.iter()))
+        .map(|e| e.to_compile_error())
         .collect();
 
-    if !tokens.is_empty() {
-        Some(tokens)
+    if !errors.is_empty() {
+        Some(errors)
     } else {
         None
     }
 }
 
 fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test, info.data.items.iter()
-        .map(|v| v.name()))
+    let errors: TokenStream = missed_arguments_errors(test,info.data.items.iter())
+        .map(|e| e.to_compile_error())
         .collect();
 
-    if !tokens.is_empty() {
-        Some(tokens)
+    if !errors.is_empty() {
+        Some(errors)
     } else {
         None
     }
@@ -732,7 +722,6 @@ fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStrea
             let data = &data;
             move |(n, case)|
                 {
-
                     let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
                     let resolver_case = data.args()
                         .map(|a| a.to_string())
@@ -979,7 +968,7 @@ mod render {
     fn first_arg_ident(ast: &ItemFn) -> &Ident {
         fn_args(&ast)
             .next().unwrap()
-            .ident().unwrap()
+            .maybe_ident().unwrap()
     }
 
     trait ToAst {

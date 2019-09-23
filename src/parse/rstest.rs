@@ -3,6 +3,9 @@ use syn::{Ident, Token,
           };
 
 use super::{Fixture, Attribute, Attributes, parse_vector_trailing};
+use crate::refident::RefIdent;
+use quote::ToTokens;
+use proc_macro2::TokenStream;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -59,14 +62,6 @@ pub(crate) enum RsTestItem {
     Fixture(Fixture)
 }
 
-impl RsTestItem {
-    pub(crate) fn name(&self) -> &Ident {
-        match self {
-            RsTestItem::Fixture(Fixture { ref name, .. }) => name
-        }
-    }
-}
-
 impl From<Fixture> for RsTestItem {
     fn from(f: Fixture) -> Self {
         RsTestItem::Fixture(f)
@@ -76,6 +71,20 @@ impl From<Fixture> for RsTestItem {
 impl Parse for RsTestItem {
     fn parse(input: ParseStream) -> Result<Self> {
         input.parse().map(RsTestItem::Fixture)
+    }
+}
+
+impl RefIdent for RsTestItem {
+    fn ident(&self) -> &Ident {
+        match self {
+            RsTestItem::Fixture(ref fixture) => fixture.ident()
+        }
+    }
+}
+
+impl ToTokens for RsTestItem {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.ident().to_tokens(tokens)
     }
 }
 

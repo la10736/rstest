@@ -6,6 +6,7 @@ use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token,
 
 use cfg_if::cfg_if;
 use quote::ToTokens;
+use crate::refident::RefIdent;
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -251,6 +252,18 @@ impl Parse for Fixture {
         Ok(
             Self::new(name, positional)
         )
+    }
+}
+
+impl RefIdent for Fixture {
+    fn ident(&self) -> &Ident {
+        &self.name
+    }
+}
+
+impl ToTokens for Fixture {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.name.to_tokens(tokens)
     }
 }
 
