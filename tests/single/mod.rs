@@ -190,6 +190,14 @@ fn should_show_correct_errors() {
         19 | #[rstest(not_a_fixture(24))]
            |          ^^^^^^^^^^^^^
         ", name).unindent());
+
+    assert_in!(output.stderr.str(), format!(r#"
+        error: Duplicate argument: 'f' is already defined.
+          --> {}/src/lib.rs:33:22
+           |
+        33 | #[rstest(f("first"), f("second"))]
+           |                      ^
+        "#, name).unindent());
 }
 
 #[test]

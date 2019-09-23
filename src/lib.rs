@@ -1,3 +1,5 @@
+#![type_length_limit="1335935"]
+
 //! This crate will help you to write simpler tests by leveraging a software testing concept called
 //! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something
 //! that you can use in your tests to encapsulate a test's dependencies.
@@ -572,6 +574,22 @@ fn missed_arguments_errors<'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a Id
         )
 }
 
+fn duplicate_arguments_errors<'a>(args: impl Iterator<Item=&'a Ident> + 'a) -> impl Iterator<Item=TokenStream> + 'a {
+    let mut used = HashMap::new();
+    args.map(move |p|
+            {
+                let is_duplicate = used.contains_key(&p.to_string());
+                used.insert(p.to_string(), p);
+                (p, is_duplicate)
+            })
+        .filter(|&(_, is_duplicate)| is_duplicate)
+        .map(|(duplicate, _)| duplicate)
+        .map(|duplicate|
+            error_statement(&format!("Duplicate argument: '{}' is already defined.", duplicate),
+                            duplicate.span(), duplicate.span())
+        )
+}
+
 fn invalid_case_errors<'a>(params: &'a ParametrizeData) -> impl Iterator<Item=TokenStream> + 'a {
     let n_args = params.args().count();
     params.cases()
@@ -587,6 +605,11 @@ fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> Option<TokenS
         missed_arguments_errors(test, info.data.args())
             .chain(
                 missed_arguments_errors(test, info.data
+                    .fixtures()
+                    .map(|f| &f.name))
+            )
+            .chain(
+                duplicate_arguments_errors(info.data
                     .fixtures()
                     .map(|f| &f.name))
             )
@@ -622,8 +645,11 @@ fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> Option<T
 }
 
 fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> Option<TokenStream> {
-    let tokens: TokenStream = missed_arguments_errors(test, info.data.items.iter()
-        .map(|v| v.name()))
+    let tokens: TokenStream = missed_arguments_errors(test,
+                                                      info.data.items.iter()
+                                                          .map(|v| v.name()))
+        .chain(duplicate_arguments_errors(info.data.items.iter()
+            .map(|v| v.name())))
         .collect();
 
     if !tokens.is_empty() {
