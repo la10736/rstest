@@ -162,5 +162,13 @@ mod should {
         19 | #[fixture(not_a_fixture(24))]
            |           ^^^^^^^^^^^^^
         ", name).unindent());
+
+        assert_in!(output.stderr.str(), format!(r#"
+        error: Duplicate argument: 'f' is already defined.
+          --> {}/src/lib.rs:33:23
+           |
+        33 | #[fixture(f("first"), f("second"))]
+           |                       ^
+        "#, name).unindent());
     }
 }

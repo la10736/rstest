@@ -188,21 +188,22 @@
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
 
-use proc_macro2::{TokenStream, Span};
-use syn::{FnArg, Generics, Ident, ItemFn, parse_macro_input, ReturnType, Stmt, parse_quote};
-
-use quote::quote;
-use itertools::Itertools;
 use std::collections::HashMap;
 
+use itertools::Itertools;
+use proc_macro2::{Span, TokenStream};
+use syn::{FnArg, Generics, Ident, ItemFn, parse_macro_input, parse_quote, ReturnType, Stmt};
+use syn::spanned::Spanned;
+
+use quote::quote;
+
 use crate::parse::{
-    rstest::{RsTestInfo, RsTestAttributes},
     fixture::FixtureInfo,
     parametrize::{ParametrizeData, ParametrizeInfo, TestCase},
+    rstest::{RsTestAttributes, RsTestInfo},
 };
-use crate::resolver::{Resolver, arg_2_fixture};
 use crate::refident::{MaybeIdent, RefIdent};
-use syn::spanned::Spanned;
+use crate::resolver::{arg_2_fixture, Resolver};
 
 // Test utility module
 #[cfg(test)]
@@ -470,10 +471,11 @@ pub fn fixture(args: proc_macro::TokenStream,
     let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let fixture = parse_macro_input!(input as ItemFn);
 
-    if let Some(tokens) = errors_in_fixture(&fixture, &info) {
-        tokens
-    } else {
+    let errors = errors_in_fixture(&fixture, &info);
+    if errors.is_empty() {
         render_fixture(fixture, info).into()
+    } else {
+        errors
     }.into()
 }
 
@@ -548,10 +550,13 @@ pub fn rstest(args: proc_macro::TokenStream,
     let info: RsTestInfo = parse_macro_input!(args as RsTestInfo);
     let name = &test.ident;
     let resolver = resolver::fixture_resolver(info.data.fixtures());
-    if let Some(tokens) = errors_in_rstest(&test, &info) {
-        tokens
-    } else {
+
+    let errors = errors_in_rstest(&test, &info);
+
+    if errors.is_empty() {
         render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
+    } else {
+        errors
     }.into()
 }
 
@@ -608,58 +613,34 @@ fn invalid_case_errors(params: &ParametrizeData) -> Errors {
     )
 }
 
-fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> Option<TokenStream> {
-    let errors: TokenStream =
-        missed_arguments_errors(test, info.data.args())
-            .chain(missed_arguments_errors(test, info.data.fixtures()))
-            .chain(duplicate_arguments_errors(info.data.data.iter()))
-            .chain(invalid_case_errors(&info.data))
-            .map(|e| e.to_compile_error())
-            .collect();
-
-    if !errors.is_empty() {
-        Some(errors)
-    } else {
-        None
-    }
+fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> TokenStream {
+    missed_arguments_errors(test, info.data.args())
+        .chain(missed_arguments_errors(test, info.data.fixtures()))
+        .chain(duplicate_arguments_errors(info.data.data.iter()))
+        .chain(invalid_case_errors(&info.data))
+        .map(|e| e.to_compile_error())
+        .collect()
 }
 
-fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> Option<TokenStream> {
-    let errors: TokenStream = missed_arguments_errors(test, info.args.list_values())
+fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> TokenStream {
+    missed_arguments_errors(test, info.args.list_values())
         .chain(missed_arguments_errors(test, info.args.fixtures()))
         .map(|e| e.to_compile_error())
-        .collect();
-
-    if !errors.is_empty() {
-        Some(errors)
-    } else {
-        None
-    }
+        .collect()
 }
 
-fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> Option<TokenStream> {
-    let errors: TokenStream = missed_arguments_errors(test,info.data.items.iter())
+fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream{
+    missed_arguments_errors(test, info.data.items.iter())
         .chain(duplicate_arguments_errors(info.data.items.iter()))
         .map(|e| e.to_compile_error())
-        .collect();
-
-    if !errors.is_empty() {
-        Some(errors)
-    } else {
-        None
-    }
+        .collect()
 }
 
-fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> Option<TokenStream> {
-    let errors: TokenStream = missed_arguments_errors(test,info.data.items.iter())
+fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> TokenStream {
+    missed_arguments_errors(test, info.data.items.iter())
+        .chain(duplicate_arguments_errors(info.data.items.iter()))
         .map(|e| e.to_compile_error())
-        .collect();
-
-    if !errors.is_empty() {
-        Some(errors)
-    } else {
-        None
-    }
+        .collect()
 }
 
 struct CaseRender<R: Resolver> {
@@ -856,10 +837,12 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
     let params = parse_macro_input!(args as ParametrizeInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    if let Some(tokens) = errors_in_parametrize(&test, &params) {
-        tokens
-    } else {
+    let errors = errors_in_parametrize(&test, &params);
+
+    if errors.is_empty() {
         render_parametrize_cases(test, params)
+    } else {
+        errors
     }.into()
 }
 
@@ -940,25 +923,27 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
     let info = parse_macro_input!(args as parse::matrix::MatrixInfo);
     let test = parse_macro_input!(input as ItemFn);
 
-    if let Some(tokens) = errors_in_matrix(&test, &info) {
-        tokens
-    } else {
+    let errors = errors_in_matrix(&test, &info);
+
+    if errors.is_empty() {
         render_matrix_cases(test, info).into()
+    } else {
+        errors
     }.into()
 }
 
 #[cfg(test)]
 mod render {
     use pretty_assertions::assert_eq;
-    use unindent::Unindent;
     use syn::{
         Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
     };
+    use unindent::Unindent;
 
-    use crate::test::*;
     use crate::parse::*;
     use crate::resolver::{*, test::*};
+    use crate::test::*;
 
     use super::*;
 
@@ -1132,9 +1117,11 @@ mod render {
     }
 
     mod parametrize_cases {
-        use super::{*, assert_eq};
         use std::iter::FromIterator;
-        use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, TestCase, ParametrizeItem};
+
+        use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, ParametrizeItem, TestCase};
+
+        use super::{*, assert_eq};
 
         impl<'a> From<&'a ItemFn> for ParametrizeData {
             fn from(item_fn: &'a ItemFn) -> Self {
@@ -1337,12 +1324,12 @@ mod render {
     }
 
     mod matrix_cases {
+        use crate::parse::matrix::{MatrixData, MatrixInfo, ValueList};
+
         /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo
-        /// transformation
+                        /// transformation
 
         use super::{*, assert_eq};
-
-        use crate::parse::matrix::{MatrixInfo, MatrixData, ValueList};
 
         impl<'a> From<&'a ItemFn> for MatrixData {
             fn from(item_fn: &'a ItemFn) -> Self {
@@ -1516,7 +1503,7 @@ mod render {
         use syn::{ItemImpl, ItemStruct};
 
         use crate::{generics_clean_up, render_fixture};
-        use crate::parse::{Attributes, Attribute};
+        use crate::parse::{Attribute, Attributes};
 
         use super::{*, assert_eq};
 
