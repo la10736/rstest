@@ -231,6 +231,45 @@ mod should_show_correct_errors {
            |                                ^^^^^^^^^^^^^
         ", name).unindent());
     }
+
+    #[test]
+    fn if_inject_a_fixture_that_is_already_a_value_list() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+        error: Duplicate argument: 'f' is already defined.
+          --> {}/src/lib.rs:45:32
+           |
+        45 | #[rstest_matrix(f => [41, 42], f(42))]
+           |                                ^",
+           name).unindent());
+    }
+
+    #[test]
+    fn if_define_value_list_that_is_already_an_injected_fixture() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+        error: Duplicate argument: 'f' is already defined.
+          --> {}/src/lib.rs:49:24
+           |
+        49 | #[rstest_matrix(f(42), f => [41, 42])]
+           |                        ^",
+           name).unindent());
+    }
+
+    #[test]
+    fn if_inject_a_fixture_more_than_once() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+        error: Duplicate argument: 'f' is already defined.
+          --> {}/src/lib.rs:53:24
+           |
+        53 | #[rstest_matrix(f(42), f(42), v => [41, 42])]
+           |                        ^",
+           name).unindent());
+    }
 }
 
 #[test]

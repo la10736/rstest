@@ -31,3 +31,25 @@ fn error_no_match_args() {}
 #[rstest_matrix(f => [41, 42], not_a_fixture(24))]
 fn error_inject_an_invalid_fixture(f: u32) {
 }
+
+#[fixture]
+fn n() -> u32 {
+    24
+}
+
+#[fixture]
+fn f(n: u32) -> u32 {
+    2*n
+}
+
+#[rstest_matrix(f => [41, 42], f(42))]
+fn error_inject_a_fixture_that_is_already_a_value_list(f: u32) {
+}
+
+#[rstest_matrix(f(42), f => [41, 42])]
+fn error_define_a_value_list_that_is_already_an_injected_fixture(f: u32) {
+}
+
+#[rstest_matrix(f(42), f(42), v => [41, 42])]
+fn error_inject_a_fixture_more_than_once(v: u32, f: u32) {
+}

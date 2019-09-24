@@ -625,6 +625,7 @@ fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> TokenStream {
 fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> TokenStream {
     missed_arguments_errors(test, info.args.list_values())
         .chain(missed_arguments_errors(test, info.args.fixtures()))
+        .chain(duplicate_arguments_errors(info.args.items.iter()))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -1333,14 +1334,14 @@ mod render {
 
         impl<'a> From<&'a ItemFn> for MatrixData {
             fn from(item_fn: &'a ItemFn) -> Self {
-                MatrixData(
-                    fn_args_idents(item_fn)
+                MatrixData {
+                    items: fn_args_idents(item_fn)
                         .cloned()
                         .map(|it|
                             ValueList { arg: it, values: vec![] }.into()
                         )
                         .collect()
-                )
+                }
             }
         }
 
@@ -1419,10 +1420,11 @@ mod render {
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
             let info = MatrixInfo {
-                args: MatrixData(vec![
-                    ValueList { arg: ident("fix"), values: vec![case_arg(r#""value""#)] }.into()
-                ]
-                ),
+                args: MatrixData {
+                    items: vec![
+                        ValueList { arg: ident("fix"), values: vec![case_arg(r#""value""#)] }.into()
+                    ]
+                },
                 ..Default::default()
             };
             (item_fn, info)
@@ -1446,11 +1448,13 @@ mod render {
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
             let info = MatrixInfo {
-                args: MatrixData(vec![
-                    values_list("first", ["1", "2"].as_ref()).into(),
-                    values_list("second", ["3", "4"].as_ref()).into(),
-                    values_list("third", ["5", "6"].as_ref()).into(),
-                ]),
+                args: MatrixData {
+                    items: vec![
+                        values_list("first", ["1", "2"].as_ref()).into(),
+                        values_list("second", ["3", "4"].as_ref()).into(),
+                        values_list("third", ["5", "6"].as_ref()).into(),
+                    ]
+                },
                 ..Default::default()
             };
 
@@ -1482,11 +1486,13 @@ mod render {
             ).unwrap();
             let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
             let info = MatrixInfo {
-                args: MatrixData(vec![
-                    values_list("first", values.as_ref()).into(),
-                    values_list("second", values[..10].as_ref()).into(),
-                    values_list("third", values[..2].as_ref()).into(),
-                ]),
+                args: MatrixData {
+                    items: vec![
+                        values_list("first", values.as_ref()).into(),
+                        values_list("second", values[..10].as_ref()).into(),
+                        values_list("third", values[..2].as_ref()).into(),
+                    ]
+                },
                 ..Default::default()
             };
 

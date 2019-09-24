@@ -1,11 +1,12 @@
 use proc_macro2::{Span, TokenStream};
-use syn::{Ident, Token,
-          parse::{Parse, ParseStream, Result}
+use quote::ToTokens;
+use syn::{Ident, parse::{Parse, ParseStream, Result},
+          Token,
 };
 
-use super::{Fixture, CaseArg, Attributes, parse_vector_trailing};
 use crate::refident::RefIdent;
-use quote::ToTokens;
+
+use super::{Attributes, CaseArg, Fixture, parse_vector_trailing};
 
 #[derive(Default)]
 pub(crate) struct MatrixInfo {
@@ -18,7 +19,7 @@ impl Parse for MatrixInfo {
         Ok(
             MatrixInfo {
                 args: parse_vector_trailing::<_, Token![,]>(input)
-                    .map(MatrixData)?,
+                    .map(|items| MatrixData { items } )?,
                 attributes: input.parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
@@ -28,11 +29,11 @@ impl Parse for MatrixInfo {
 }
 
 #[derive(Default)]
-pub(crate) struct MatrixData(pub(crate) Vec<MatrixItem>);
+pub(crate) struct MatrixData { pub(crate) items: Vec<MatrixItem> }
 
 impl MatrixData {
     pub(crate) fn list_values(&self) -> impl Iterator<Item=&ValueList> {
-        self.0.iter().filter_map(|mv|
+        self.items.iter().filter_map(|mv|
             match mv {
                 MatrixItem::ValueList(ref value_list) => Some(value_list),
                 _ => None
@@ -41,7 +42,7 @@ impl MatrixData {
     }
 
     pub(crate) fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
-        self.0.iter().filter_map(|mv|
+        self.items.iter().filter_map(|mv|
             match mv {
                 MatrixItem::Fixture(ref fixture) => Some(fixture),
                 _ => None
@@ -76,6 +77,21 @@ impl From<ValueList> for MatrixItem {
 impl From<Fixture> for MatrixItem {
     fn from(fixture: Fixture) -> Self {
         MatrixItem::Fixture(fixture)
+    }
+}
+
+impl RefIdent for MatrixItem {
+    fn ident(&self) -> &Ident {
+        match self {
+            MatrixItem::ValueList(ref values) => values.ident(),
+            MatrixItem::Fixture(ref fixture) => fixture.ident(),
+        }
+    }
+}
+
+impl ToTokens for MatrixItem {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.ident().to_tokens(tokens)
     }
 }
 
@@ -121,8 +137,9 @@ impl ToTokens for ValueList {
 
 #[cfg(test)]
 mod should {
-    use super::*;
     use crate::test::{*, assert_eq};
+
+    use super::*;
 
     mod parse_values_list {
         use super::*;
@@ -171,11 +188,12 @@ mod should {
     }
 
     mod parse_matrix_info {
-        use super::*;
-        use super::assert_eq;
         use itertools::Itertools;
 
         use crate::parse::Attribute;
+
+        use super::*;
+        use super::assert_eq;
 
         fn parse_matrix_info<S: AsRef<str>>(matrix_info: S) -> MatrixInfo {
             parse_meta(matrix_info)
