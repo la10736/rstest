@@ -578,19 +578,20 @@ fn duplicate_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(args: impl Itera
     let mut used = HashMap::new();
     Box::new(
         args
-            .filter(|it| it.maybe_ident().is_some())
-            .map(move |p|
+            .filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
+            .filter_map(move |(it, ident)|
                 {
-                    let ident = p.maybe_ident().unwrap().to_string();
-                    let is_duplicate = used.contains_key(&ident);
-                    used.insert(ident, p);
-                    (p, is_duplicate)
+                    let name = ident.to_string();
+                    let is_duplicate = used.contains_key(&name);
+                    used.insert(name, it);
+                    match is_duplicate {
+                        true => Some((it, ident)),
+                        false => None
+                    }
                 })
-            .filter(|&(_, is_duplicate)| is_duplicate)
-            .map(|(duplicate, _)| duplicate)
-            .map(|duplicate|
+            .map(|(duplicate, ident)|
                 syn::Error::new(duplicate.span(),
-                                &format!("Duplicate argument: '{}' is already defined.", duplicate.maybe_ident().unwrap()),
+                                &format!("Duplicate argument: '{}' is already defined.", ident),
                 )
             )
     )
