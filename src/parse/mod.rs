@@ -73,10 +73,9 @@ impl Parse for UnwrapRustCode {
         Self::report_deprecated(&nested);
         let arg = Self::get_unwrap(&nested)?;
         arg.nested.first()
-            .map(|m| *m.value())
             .and_then(Self::nested_meta_literal_str)
             .ok_or(syn::Error::new_spanned(&nested,
-                                           &format!("Invalid {} argument", arg.ident)))
+                                           &format!("Invalid {} argument", UnwrapRustCode::UNWRAP_NAME)))
             .and_then(|lit| lit.parse())
             .map(UnwrapRustCode)
     }
@@ -93,7 +92,8 @@ impl UnwrapRustCode {
 
     fn get_unwrap(nested: &NestedMeta) -> Result<&MetaList> {
         match nested {
-            NestedMeta::Meta(Meta::List(ref arg)) if arg.ident == Self::UNWRAP_NAME => Ok(arg),
+            NestedMeta::Meta(Meta::List(ref arg)) if
+                arg.path.get_ident().map(|id| id.to_string()) == Some(Self::UNWRAP_NAME.to_string()) => Ok(arg),
             _ => return Err(Error::new(nested.span(), "Not a valid string rust code"))
         }
     }
@@ -112,11 +112,10 @@ impl UnwrapRustCode {
                 match nested {
                     NestedMeta::Meta(Meta::List(arg)) => {
                         arg.nested.first()
-                            .map(|m| *m.value())
                             .and_then(UnwrapRustCode::nested_meta_literal_str)
                             .map(|content| {
                                 eprintln!(r#"{}("<code>") is deprecated. Case argument accepts arbitrary rust code now."#,
-                                          arg.ident);
+                                          UnwrapRustCode::UNWRAP_NAME);
                                 content
                             })
                             .unwrap();
@@ -131,7 +130,7 @@ impl UnwrapRustCode {
 
     fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
         match nested {
-            NestedMeta::Literal(Lit::Str(lit)) => Some(lit),
+            NestedMeta::Lit(Lit::Str(lit)) => Some(lit),
             _ => None
         }
     }
@@ -161,15 +160,16 @@ pub(crate) enum Attribute {
 fn no_literal_nested(nested: NestedMeta) -> Result<Meta> {
     match nested {
         NestedMeta::Meta(m) => Ok(m),
-        NestedMeta::Literal(l) => Err(Error::new(l.span(), "Unexpected literal"))
+        NestedMeta::Lit(l) => Err(Error::new(l.span(), "Unexpected literal"))
     }
 }
 
 fn just_word_meta(meta: Meta) -> Result<Ident> {
+    let span = meta.span();
     match meta {
-        Meta::Word(ident) => Ok(ident),
-        other => Err(Error::new(other.span(), "Should be an ident"))
-    }
+        Meta::Path(path)  => path.get_ident().map(|id| id.clone()),
+        _ => None
+    }.ok_or(Error::new(span, "Should be an ident"))
 }
 
 impl Parse for Attribute {
@@ -183,15 +183,21 @@ impl Parse for Attribute {
         } else {
             use Meta::*;
             match no_literal_nested(NestedMeta::parse(input)?)? {
-                Word(ident) => Ok(Attribute::Attr(ident)),
+                Path(path) => path.get_ident().map(|id| id.clone())
+                    .map(Attribute::Attr)
+                    .ok_or(Error::new(path.span(), "Invalid attribute")),
                 List(l) =>
-                    Ok(Attribute::Tagged(l.ident,
-                                         l.nested.into_iter()
-                                                   .map(no_literal_nested)
-                                                   .collect::<Result<Vec<Meta>>>()?
-                                                   .into_iter().map(just_word_meta)
-                                                   .collect::<Result<Vec<Ident>>>()?,
-                    )),
+                    {
+                        let ident = l.path.get_ident().map(|id| id.clone());
+                        let span = l.span();
+                        let tag = l.nested.into_iter()
+                            .map(no_literal_nested)
+                            .collect::<Result<Vec<Meta>>>()?
+                            .into_iter().map(just_word_meta)
+                            .collect::<Result<Vec<Ident>>>()?;
+                        ident.map(|id| Attribute::Tagged(id, tag))
+                        .ok_or(Error::new(span, "Invalid attribute"))
+                    },
                 NameValue(nv) => Err(Error::new(nv.span(), "Invalid attribute"))
             }
         }

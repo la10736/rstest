@@ -1,5 +1,5 @@
 use proc_macro2::Ident;
-use syn::{FnArg, ArgCaptured, Pat};
+use syn::{FnArg, PatType, Pat};
 
 /// Provide `RefIdent` trait that gives a shortcut to extract identity reference (`syn::Ident` struct)
 /// if any.
@@ -35,7 +35,11 @@ impl<'a> RefIdent for &'a Ident {
 impl MaybeIdent for FnArg {
     fn maybe_ident(&self) -> Option<&Ident> {
         match self {
-            FnArg::Captured(ArgCaptured { pat: Pat::Ident(ident), .. }) => Some(&ident.ident),
+            FnArg::Typed(PatType { pat, .. }) =>
+                match pat.as_ref() {
+                    Pat::Ident(ident) => Some(&ident.ident),
+                    _ => None
+                },
             _ => None
         }
     }
@@ -44,9 +48,8 @@ impl MaybeIdent for FnArg {
 impl MaybeIdent for syn::Type {
     fn maybe_ident(&self) -> Option<&Ident> {
         match self {
-            syn::Type::Path(tp) if tp.qself.is_none() && tp.path.segments.len() == 1 => {
-                tp.path.segments.first()
-                    .map(|pair| &pair.value().ident)
+            syn::Type::Path(tp) if tp.qself.is_none()=> {
+                tp.path.get_ident()
             }
             _ => None
         }

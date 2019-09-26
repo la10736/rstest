@@ -215,7 +215,7 @@ mod resolver;
 mod refident;
 
 fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
-    item_fn.decl.inputs.iter()
+    item_fn.sig.inputs.iter()
 }
 
 trait IntoOption: Sized {
@@ -267,10 +267,10 @@ fn resolve_fn_args<'a>(args: impl Iterator<Item=&'a FnArg>, resolver: &impl Reso
 fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
                       resolver: impl Resolver, attributes: &'a RsTestAttributes)
                       -> TokenStream {
-    let testfn_name = &testfn.ident;
+    let testfn_name = &testfn.sig.ident;
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
     let attrs = &testfn.attrs;
-    let output = &testfn.decl.output;
+    let output = &testfn.sig.output;
     let inject = resolve_fn_args(fn_args(&testfn), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
     quote! {
@@ -278,7 +278,7 @@ fn render_fn_test<'a>(name: Ident, testfn: &ItemFn, test_impl: Option<&ItemFn>,
         #(#attrs)*
         fn #name() #output {
             #test_impl
-            #(#inject)*
+            #inject
             #trace_args
             println!("{:-^40}", " TEST START ");
             #testfn_name(#(#args),*)
@@ -302,7 +302,7 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
     impl<'ast> syn::visit::Visit<'ast> for Used {
         fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
             if i.qself.is_none() && i.path.leading_colon.is_none() && i.path.segments.len() == 1 {
-                self.0.insert(i.path.segments.first().unwrap().value().ident.clone());
+                self.0.insert(i.path.segments.first().unwrap().ident.clone());
             }
         }
     }
@@ -329,18 +329,18 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
 
 fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
-    let name = &fixture.ident;
+    let name = &fixture.sig.ident;
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
     let args = &vargs;
-    let orig_args = &fixture.decl.inputs;
+    let orig_args = &fixture.sig.inputs;
     let orig_attrs = &fixture.attrs;
-    let generics = &fixture.decl.generics;
-    let default_output = info.attributes.extract_default_type().unwrap_or(fixture.decl.output.clone());
-    let default_generics = generics_clean_up(fixture.decl.generics.clone(), &default_output);
+    let generics = &fixture.sig.generics;
+    let default_output = info.attributes.extract_default_type().unwrap_or(fixture.sig.output.clone());
+    let default_generics = generics_clean_up(fixture.sig.generics.clone(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
-    let where_clause = &fixture.decl.generics.where_clause;
-    let output = &fixture.decl.output;
+    let where_clause = &fixture.sig.generics.where_clause;
+    let output = &fixture.sig.output;
     let visibility = &fixture.vis;
     let resolver = resolver::fixture_resolver(info.data.fixtures());
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
@@ -352,7 +352,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
             let name = Ident::new(&format!("partial_{}", n), Span::call_site());
             quote! {
                 pub fn #name #generics (#(#decl_args),*) #output #where_clause {
-                    #(#inject)*
+                    #inject
                     Self::get(#(#args),*)
                 }
             }
@@ -369,7 +369,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
             }
 
             pub fn default #default_generics () #default_output #default_where_clause {
-                #(#inject)*
+                #inject
                 Self::get(#(#args),*)
             }
 
@@ -548,7 +548,7 @@ pub fn rstest(args: proc_macro::TokenStream,
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
     let info: RsTestInfo = parse_macro_input!(args as RsTestInfo);
-    let name = &test.ident;
+    let name = &test.sig.ident;
     let resolver = resolver::fixture_resolver(info.data.fixtures());
 
     let errors = errors_in_rstest(&test, &info);
@@ -660,7 +660,7 @@ impl<R: Resolver> CaseRender<R> {
 }
 
 fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, attributes: RsTestAttributes) -> TokenStream {
-    let fname = &test.ident;
+    let fname = &test.sig.ident;
     let cases = cases.map(|case| case.render(&test, &attributes));
 
     quote! {
@@ -701,7 +701,7 @@ fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStrea
     let cases = data.cases()
         .enumerate()
         .map({
-            let span = test.ident.span();
+            let span = test.sig.ident.span();
             let data = &data;
             move |(n, case)|
                 {
@@ -721,7 +721,7 @@ fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStrea
 
 fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> TokenStream {
     let parse::matrix::MatrixInfo { args, attributes, .. } = params;
-    let span = test.ident.span();
+    let span = test.sig.ident.span();
 
     // Steps:
     // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
@@ -949,7 +949,7 @@ mod render {
     use super::*;
 
     fn fn_args(item: &ItemFn) -> punctuated::Iter<'_, FnArg> {
-        item.decl.inputs.iter()
+        item.sig.inputs.iter()
     }
 
     fn first_arg_ident(ast: &ItemFn) -> &Ident {
@@ -1040,8 +1040,8 @@ mod render {
 
             let result: ItemFn = parse2(tokens).unwrap();
 
-            assert_eq!(result.ident.to_string(), "new_name");
-            assert_eq!(result.decl.output, ast.decl.output);
+            assert_eq!(result.sig.ident.to_string(), "new_name");
+            assert_eq!(result.sig.output, ast.sig.output);
         }
 
         #[test]
@@ -1259,7 +1259,7 @@ mod render {
             let tests = TestsGroup::from(tokens).get_test_functions();
 
             assert_eq!(1, tests.len());
-            assert!(&tests[0].ident.to_string().starts_with("case_"))
+            assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
         }
 
         #[test]
@@ -1270,7 +1270,7 @@ mod render {
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
-            assert!(&tests[0].ident.to_string().starts_with("case_1"), "Should starts with case_1 but is {}", tests[0].ident.to_string())
+            assert!(&tests[0].sig.ident.to_string().starts_with("case_1"), "Should starts with case_1 but is {}", tests[0].sig.ident.to_string())
         }
 
         #[test]
@@ -1282,7 +1282,7 @@ mod render {
             let tests = TestsGroup::from(tokens).get_test_functions();
 
             let valid_names = tests.iter()
-                .filter(|it| it.ident.to_string().starts_with("case_"));
+                .filter(|it| it.sig.ident.to_string().starts_with("case_"));
             assert_eq!(5, valid_names.count())
         }
 
@@ -1294,14 +1294,14 @@ mod render {
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
-            let first_name = tests[0].ident.to_string();
-            let last_name = tests[999].ident.to_string();
+            let first_name = tests[0].sig.ident.to_string();
+            let last_name = tests[999].sig.ident.to_string();
 
             assert!(first_name.ends_with("_0001"), "Should ends by _0001 but is {}", first_name);
             assert!(last_name.ends_with("_1000"), "Should ends by _1000 but is {}", last_name);
 
             let valid_names = tests.iter()
-                .filter(|it| it.ident.to_string().len() == first_name.len());
+                .filter(|it| it.sig.ident.to_string().len() == first_name.len());
             assert_eq!(1000, valid_names.count())
         }
 
@@ -1320,7 +1320,7 @@ mod render {
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
-            assert!(tests[0].ident.to_string().ends_with(&format!("_{}", description)));
+            assert!(tests[0].sig.ident.to_string().ends_with(&format!("_{}", description)));
         }
     }
 
@@ -1439,7 +1439,7 @@ mod render {
             let tests = TestsGroup::from(tokens).get_test_functions();
 
             assert_eq!(1, tests.len());
-            assert!(&tests[0].ident.to_string().starts_with("case_"))
+            assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
         }
 
         #[test]
@@ -1463,7 +1463,7 @@ mod render {
             let tests = TestsGroup::from(tokens).get_test_functions();
 
             let tests = tests.into_iter()
-                .map(|t| t.ident.to_string())
+                .map(|t| t.sig.ident.to_string())
                 .collect::<Vec<_>>()
                 .join("\n");
 
@@ -1500,8 +1500,8 @@ mod render {
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
-            assert_eq!(tests[0].ident.to_string(), "case_001_01_1");
-            assert_eq!(tests.last().unwrap().ident.to_string(), "case_100_10_2");
+            assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
+            assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
         }
     }
 
@@ -1581,10 +1581,9 @@ mod render {
 
             let get_decl = select_method(out.core_impl, "get")
                 .unwrap()
-                .sig
-                .decl;
+                .sig;
 
-            assert_eq!(*item_fn.decl, get_decl);
+            assert_eq!(item_fn.sig, get_decl);
         }
 
         #[test]
@@ -1600,8 +1599,7 @@ mod render {
 
             let default_decl = select_method(out.core_impl, "default")
                 .unwrap()
-                .sig
-                .decl;
+                .sig;
 
             let expected = parse_str::<ItemFn>(
                 r#"
@@ -1612,8 +1610,8 @@ mod render {
             ).unwrap();
 
 
-            assert_eq!(expected.decl.generics, default_decl.generics);
-            assert_eq!(item_fn.decl.output, default_decl.output);
+            assert_eq!(expected.sig.generics, default_decl.generics);
+            assert_eq!(item_fn.sig.output, default_decl.output);
             assert!(default_decl.inputs.is_empty());
         }
 
@@ -1638,9 +1636,9 @@ mod render {
                 "#
             ).unwrap();
 
-            let cleaned = generics_clean_up(item_fn.decl.generics, &item_fn.decl.output);
+            let cleaned = generics_clean_up(item_fn.sig.generics, &item_fn.sig.output);
 
-            assert_eq!(expected.decl.generics, cleaned);
+            assert_eq!(expected.sig.generics, cleaned);
         }
 
         #[test]
@@ -1678,10 +1676,9 @@ mod render {
 
             let default_decl = select_method(out.core_impl, "default")
                 .unwrap()
-                .sig
-                .decl;
+                .sig;
 
-            assert_eq!(*expected.decl, default_decl);
+            assert_eq!(expected.sig, default_decl);
         }
 
         #[test]
@@ -1695,8 +1692,7 @@ mod render {
             let partials = (1..=3).map(|n|
                 select_method(out.core_impl.clone(), format!("partial_{}", n))
                     .unwrap()
-                    .sig
-                    .decl)
+                    .sig)
                 .collect::<Vec<_>>();
 
             // All 3 methods found
@@ -1711,9 +1707,9 @@ mod render {
             ).unwrap();
 
 
-            assert_eq!(&expected_1.decl, &Box::new(partials[0].clone()));
+            assert_eq!(expected_1.sig, partials[0]);
             for p in partials {
-                assert_eq!(item_fn.decl.output, p.output);
+                assert_eq!(item_fn.sig.output, p.output);
             }
         }
     }
