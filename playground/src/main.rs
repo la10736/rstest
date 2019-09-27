@@ -1,5 +1,14 @@
 use rstest::*;
 
+#[fixture]
+fn first() -> u32 {
+    42
+}
+
+#[fixture]
+fn second() -> &'static str {
+    "foo"
+}
 
 #[fixture]
 fn double(first: u32, second: &str) -> u32 {
