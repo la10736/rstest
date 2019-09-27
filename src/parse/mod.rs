@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token,
+use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token, token,
           parse::{Error, Parse, ParseStream, Result},
           punctuated::Punctuated,
           spanned::Spanned};
@@ -157,21 +157,6 @@ pub(crate) enum Attribute {
     Type(Ident, syn::Type),
 }
 
-fn no_literal_nested(nested: NestedMeta) -> Result<Meta> {
-    match nested {
-        NestedMeta::Meta(m) => Ok(m),
-        NestedMeta::Lit(l) => Err(Error::new(l.span(), "Unexpected literal"))
-    }
-}
-
-fn just_word_meta(meta: Meta) -> Result<Ident> {
-    let span = meta.span();
-    match meta {
-        Meta::Path(path)  => path.get_ident().map(|id| id.clone()),
-        _ => None
-    }.ok_or(Error::new(span, "Should be an ident"))
-}
-
 impl Parse for Attribute {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek2(Token![<]) {
@@ -180,26 +165,20 @@ impl Parse for Attribute {
             let inner = input.parse()?;
             let _close = input.parse::<Token![>]>()?;
             Ok(Attribute::Type(tag, inner))
+        } else if input.peek2(Token![::]) {
+            let inner = input.parse()?;
+            Ok(Attribute::Attr(inner))
+        } else if input.peek2(token::Paren) {
+            let tag = input.parse()?;
+            let content;
+            let _ = syn::parenthesized!(content in input);
+            let args = Punctuated::<Ident, Token![,]>::parse_terminated(&content)?
+                .into_iter()
+                .collect();
+
+            Ok(Attribute::Tagged(tag, args))
         } else {
-            use Meta::*;
-            match no_literal_nested(NestedMeta::parse(input)?)? {
-                Path(path) => path.get_ident().map(|id| id.clone())
-                    .map(Attribute::Attr)
-                    .ok_or(Error::new(path.span(), "Invalid attribute")),
-                List(l) =>
-                    {
-                        let ident = l.path.get_ident().map(|id| id.clone());
-                        let span = l.span();
-                        let tag = l.nested.into_iter()
-                            .map(no_literal_nested)
-                            .collect::<Result<Vec<Meta>>>()?
-                            .into_iter().map(just_word_meta)
-                            .collect::<Result<Vec<Ident>>>()?;
-                        ident.map(|id| Attribute::Tagged(id, tag))
-                        .ok_or(Error::new(span, "Invalid attribute"))
-                    },
-                NameValue(nv) => Err(Error::new(nv.span(), "Invalid attribute"))
-            }
+            Ok(Attribute::Attr(input.parse()?))
         }
     }
 }

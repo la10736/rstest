@@ -1579,11 +1579,13 @@ mod render {
                 "#);
 
 
-            let get_decl = select_method(out.core_impl, "get")
+            let mut signature = select_method(out.core_impl, "get")
                 .unwrap()
                 .sig;
 
-            assert_eq!(item_fn.sig, get_decl);
+            signature.ident = item_fn.sig.ident.clone();
+
+            assert_eq!(item_fn.sig, signature);
         }
 
         #[test]
