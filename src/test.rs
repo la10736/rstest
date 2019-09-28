@@ -5,10 +5,12 @@ use syn::{ItemFn, parse2, parse_str};
 use quote::quote;
 
 use super::*;
-use crate::parse::fixture::{FixtureItem, FixtureData};
-use crate::parse::rstest::{RsTestItem, RsTestData};
-use crate::parse::matrix::ValueList;
-use crate::parse::{Fixture, CaseArg, Attribute};
+use crate::parse::{
+    Fixture, CaseArg, Attribute,
+    fixture::{FixtureItem, FixtureData},
+    rstest::{RsTestItem, RsTestData},
+    matrix::ValueList,
+};
 
 macro_rules! to_args {
     ($e:expr) => {
