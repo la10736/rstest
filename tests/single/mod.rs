@@ -198,6 +198,15 @@ fn should_show_correct_errors() {
         33 | #[rstest(f("first"), f("second"))]
            |                      ^
         "#, name).unindent());
+
+    assert_in!(output.stderr.str(), format!(r#"
+        error[E0308]: mismatched types
+          --> {}/src/lib.rs:52:17
+           |
+        52 | #[rstest(double("bar"))]
+           |                 ^^^^^ expected u32, found reference
+           |
+           "#, name).unindent());
 }
 
 #[test]
