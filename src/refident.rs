@@ -1,8 +1,8 @@
+/// Provide `RefIdent` and `MaybeIdent` traits that give a shortcut to extract identity reference
+/// (`syn::Ident` struct).
+
 use proc_macro2::Ident;
 use syn::{FnArg, PatType, Pat};
-
-/// Provide `RefIdent` trait that gives a shortcut to extract identity reference (`syn::Ident` struct)
-/// if any.
 
 pub trait RefIdent {
     /// Return the reference to ident if any

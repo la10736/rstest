@@ -1,3 +1,8 @@
+/// Define `Resolver` trait and implement it on some hashmap and also define `Resolver` tuple
+/// composition. Provide also some utility functions related to how to create a `Resolver` and
+/// resolving render.
+///
+
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -12,6 +17,7 @@ pub(crate)  fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) -
     ).collect::<HashMap<_, CaseArg>>()
 }
 
+/// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
     fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>>;
 }
@@ -45,18 +51,6 @@ impl<'a> Resolver for HashMap<String, CaseArg> {
 impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
     fn resolve(&self, ident: &Ident) -> Option<Cow<CaseArg>> {
         self.0.resolve(ident).or_else(|| self.1.resolve(ident))
-    }
-}
-
-#[cfg(test)]
-pub(crate) mod test {
-    use super::*;
-    pub(crate) struct EmptyResolver;
-
-    impl<'a> Resolver for EmptyResolver {
-        fn resolve(&self, _ident: &Ident) -> Option<Cow<CaseArg>> {
-            None
-        }
     }
 }
 

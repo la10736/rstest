@@ -2,11 +2,12 @@
 /// testing bolilerplate.
 ///
 
-pub use pretty_assertions::assert_eq;
+use std::borrow::Cow;
+
 use proc_macro2::TokenTree;
 use syn::{ItemFn, parse2, parse_str};
-
 use quote::quote;
+pub(crate) use pretty_assertions::assert_eq;
 
 use super::*;
 use crate::parse::{
@@ -133,5 +134,13 @@ impl From<Vec<RsTestItem>> for RsTestData {
 impl From<Vec<FixtureItem>> for FixtureData {
     fn from(fixtures: Vec<FixtureItem>) -> Self {
         Self { items: fixtures }
+    }
+}
+
+pub(crate) struct EmptyResolver;
+
+impl<'a> Resolver for EmptyResolver {
+    fn resolve(&self, _ident: &Ident) -> Option<Cow<CaseArg>> {
+        None
     }
 }

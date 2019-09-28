@@ -943,7 +943,7 @@ mod render {
     use unindent::Unindent;
 
     use crate::parse::*;
-    use crate::resolver::{*, test::*};
+    use crate::resolver::*;
     use crate::test::*;
 
     use super::*;
