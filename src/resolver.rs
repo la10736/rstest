@@ -1,8 +1,10 @@
-use proc_macro2::{Ident, Span};
-use crate::parse::{CaseArg, Fixture};
 use std::borrow::Cow;
 use std::collections::HashMap;
+
 use syn::{parse_quote, Stmt};
+use proc_macro2::{Ident, Span};
+
+use crate::parse::{CaseArg, Fixture};
 
 pub(crate)  fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) -> impl Resolver + 'a {
     fixtures.map(|f|
