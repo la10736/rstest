@@ -1,3 +1,7 @@
+/// Unit testing utility module. Collect a bounch of functions&macro and impls to simplify unit
+/// testing bolilerplate.
+///
+
 pub use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use syn::{ItemFn, parse2, parse_str};
