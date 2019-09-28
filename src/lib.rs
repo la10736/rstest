@@ -192,7 +192,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
-use syn::{FnArg, Generics, Ident, ItemFn, parse_macro_input, parse_quote, ReturnType, Stmt};
+use syn::{FnArg, Ident, ItemFn, parse_macro_input, parse_quote, Stmt, Signature, ReturnType};
 use syn::spanned::Spanned;
 
 use quote::quote;
@@ -295,7 +295,7 @@ fn where_predicate_bounded_type(wp: &syn::WherePredicate) -> Option<&syn::Type> 
     }
 }
 
-fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
+fn generics_clean_up<'a>(original: &Signature, inputs: impl Iterator<Item=&'a FnArg>, output: &ReturnType) -> syn::Generics {
     use syn::visit::Visit;
     #[derive(Default, Debug)]
     struct Used(std::collections::HashSet<proc_macro2::Ident>);
@@ -307,8 +307,10 @@ fn generics_clean_up(original: Generics, output: &ReturnType) -> syn::Generics {
         }
     }
     let mut outs = Used::default();
-    outs.visit_return_type(&output);
-    let mut result = original;
+    outs.visit_return_type(output);
+    inputs
+        .for_each(|fn_arg| outs.visit_fn_arg(fn_arg));
+    let mut result = original.generics.clone();
     result.params = result.params.into_iter().filter(|p|
         match p {
             syn::GenericParam::Type(tp) if !outs.0.contains(&tp.ident) => false,
@@ -336,7 +338,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.sig.generics;
     let default_output = info.attributes.extract_default_type().unwrap_or(fixture.sig.output.clone());
-    let default_generics = generics_clean_up(fixture.sig.generics.clone(), &default_output);
+    let default_generics = generics_clean_up(&fixture.sig, std::iter::empty(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
     let where_clause = &fixture.sig.generics.where_clause;
@@ -349,6 +351,8 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
             let decl_args = orig_args.iter().cloned().take(n);
             let resolver_args = args.iter().skip(n);
             let inject = resolve_args(resolver_args, &resolver);
+            let generics = generics_clean_up(&fixture.sig, orig_args.iter().take(n), output);
+            let where_clause = &generics.where_clause;
             let name = Ident::new(&format!("partial_{}", n), Span::call_site());
             quote! {
                 pub fn #name #generics (#(#decl_args),*) #output #where_clause {
@@ -1505,10 +1509,69 @@ mod render {
         }
     }
 
+    mod generics_clean_up {
+        use super::{*, assert_eq};
+
+        #[test]
+        fn should_remove_generics_not_in_output() {
+            // Should remove all generics parameters that are not present in output
+            let item_fn = parse_str::<ItemFn>(
+                r#"
+                    pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B, String, &str)
+                            where F: ToString,
+                            B: Borrow<u32>
+
+                    { }
+                "#
+            ).unwrap();
+
+            let expected = parse_str::<ItemFn>(
+                r#"
+                    pub fn test<B, H: Iterator<Item=u32>>() -> (H, B, String, &str)
+                            where B: Borrow<u32>
+                    { }
+                "#
+            ).unwrap();
+
+            let cleaned = generics_clean_up(&item_fn.sig, item_fn.sig.inputs.iter(), &item_fn.sig.output);
+
+            assert_eq!(expected.sig.generics, cleaned);
+        }
+
+        #[test]
+        fn should_not_remove_generics_used_in_arguments() {
+            // Should remove all generics parameters that are not present in output
+            let item_fn = parse_str::<ItemFn>(
+                r#"
+                    pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>
+                        (h: H, it: impl Iterator<Item=R>, j: &[B])
+                        where F: ToString,
+                        B: Borrow<u32>
+                    { }
+                "#
+            ).unwrap();
+
+            let expected = parse_str::<ItemFn>(
+                r#"
+                    pub fn test<R: AsRef<str>, B, H: Iterator<Item=u32>>
+                        (h: H, it: impl Iterator<Item=R>, j: &[B])
+                        where
+                        B: Borrow<u32>
+                    { }
+                "#
+            ).unwrap();
+
+            let cleaned = generics_clean_up(&item_fn.sig, item_fn.sig.inputs.iter(), &item_fn.sig.output);
+
+            dbg!(item_fn.sig.inputs);
+
+            assert_eq!(expected.sig.generics, cleaned);
+        }
+    }
+
     mod fixture {
         use syn::{ItemImpl, ItemStruct};
 
-        use crate::{generics_clean_up, render_fixture};
         use crate::parse::{Attribute, Attributes};
 
         use super::{*, assert_eq};
@@ -1570,7 +1633,7 @@ mod render {
         }
 
         #[test]
-        fn fixture_impl_should_implement_a_get_method_with_input_fixture_signature() {
+        fn should_implement_a_get_method_with_input_fixture_signature() {
             let (item_fn, out) = parse_fixture(
                 r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
@@ -1589,7 +1652,7 @@ mod render {
         }
 
         #[test]
-        fn fixture_impl_should_implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args() {
+        fn should_implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args() {
             let (item_fn, out) = parse_fixture(
                 r#"
                 pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (H, B, String, &str)
@@ -1615,32 +1678,6 @@ mod render {
             assert_eq!(expected.sig.generics, default_decl.generics);
             assert_eq!(item_fn.sig.output, default_decl.output);
             assert!(default_decl.inputs.is_empty());
-        }
-
-        #[test]
-        fn clean_up_default_generics_no_output() {
-            // Should remove all generics parameters that are not present in output
-            let item_fn = parse_str::<ItemFn>(
-                r#"
-                pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B, String, &str)
-                        where F: ToString,
-                        B: Borrow<u32>
-
-                { }
-                "#
-            ).unwrap();
-
-            let expected = parse_str::<ItemFn>(
-                r#"
-                pub fn test<B, H: Iterator<Item=u32>>() -> (H, B, String, &str)
-                        where B: Borrow<u32>
-                { }
-                "#
-            ).unwrap();
-
-            let cleaned = generics_clean_up(item_fn.sig.generics, &item_fn.sig.output);
-
-            assert_eq!(expected.sig.generics, cleaned);
         }
 
         #[test]
@@ -1713,6 +1750,37 @@ mod render {
             for p in partials {
                 assert_eq!(item_fn.sig.output, p.output);
             }
+        }
+
+        #[test]
+        fn should_clean_generics_in_partial_methods() {
+            let (_, out) = parse_fixture(
+                r#"
+                pub fn test<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
+                { }
+                "#);
+
+            let partials = (1..=2).map(|n|
+                select_method(out.core_impl.clone(), format!("partial_{}", n))
+                    .unwrap()
+                    .sig)
+                .collect::<Vec<_>>();
+
+            let expected = vec![
+                parse_str::<ItemFn>(
+                    r#"
+                    pub fn partial_1<S: AsRef<str>, F: ToString>(mut s: S) -> F
+                    { }
+                    "#
+                ).unwrap().sig,
+                parse_str::<ItemFn>(
+                    r#"
+                    pub fn partial_2<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
+                    { }
+                    "#
+                ).unwrap().sig];
+
+            assert_eq!(expected, partials);
         }
     }
 }

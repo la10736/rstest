@@ -1,7 +1,5 @@
 use rstest::*;
 
-use rstest::*;
-
 pub trait Tr {
     fn get() -> Self;
 }

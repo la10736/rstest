@@ -103,6 +103,7 @@ mod should {
 
         TestResults::new()
             .ok("resolve")
+            .ok("resolve_partial")
             .assert(output);
     }
 
