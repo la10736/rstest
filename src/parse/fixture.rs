@@ -102,12 +102,21 @@ wrap_attributes!(FixtureModifiers);
 
 impl FixtureModifiers {
     const DEFAULT_RET_ATTR: &'static str = "default";
+    const PARTIAL_RET_ATTR: &'static str = "partial_";
 
-    pub(crate) fn extract_default_type(self) -> Option<syn::ReturnType> {
+    pub(crate) fn extract_default_type(&self) -> Option<syn::ReturnType> {
+        self.extract_type(Self::DEFAULT_RET_ATTR)
+    }
+
+    pub(crate) fn extract_partial_type(&self, pos: usize) -> Option<syn::ReturnType> {
+        self.extract_type(&format!("{}{}", Self::PARTIAL_RET_ATTR, pos))
+    }
+
+    fn extract_type(&self, attr_name: &str) -> Option<syn::ReturnType> {
         self.iter()
             .filter_map(|m|
                 match m {
-                    Attribute::Type(name, t) if name == Self::DEFAULT_RET_ATTR =>
+                    Attribute::Type(name, t) if name == attr_name =>
                         Some(parse_quote!{ -> #t}),
                     _ => None
                 })

@@ -192,7 +192,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
-use syn::{FnArg, Ident, ItemFn, parse_macro_input, parse_quote, Stmt, Signature, ReturnType};
+use syn::{FnArg, Ident, ItemFn, parse_macro_input, parse_quote, Stmt, ReturnType, Generics};
 use syn::spanned::Spanned;
 
 use quote::quote;
@@ -295,7 +295,7 @@ fn where_predicate_bounded_type(wp: &syn::WherePredicate) -> Option<&syn::Type> 
     }
 }
 
-fn generics_clean_up<'a>(original: &Signature, inputs: impl Iterator<Item=&'a FnArg>, output: &ReturnType) -> syn::Generics {
+fn generics_clean_up<'a>(original: &Generics, inputs: impl Iterator<Item=&'a FnArg>, output: &ReturnType) -> syn::Generics {
     use syn::visit::Visit;
     #[derive(Default, Debug)]
     struct Used(std::collections::HashSet<proc_macro2::Ident>);
@@ -308,9 +308,8 @@ fn generics_clean_up<'a>(original: &Signature, inputs: impl Iterator<Item=&'a Fn
     }
     let mut outs = Used::default();
     outs.visit_return_type(output);
-    inputs
-        .for_each(|fn_arg| outs.visit_fn_arg(fn_arg));
-    let mut result = original.generics.clone();
+    inputs.for_each(|fn_arg| outs.visit_fn_arg(fn_arg));
+    let mut result: Generics = original.clone();
     result.params = result.params.into_iter().filter(|p|
         match p {
             syn::GenericParam::Type(tp) if !outs.0.contains(&tp.ident) => false,
@@ -338,7 +337,7 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.sig.generics;
     let default_output = info.attributes.extract_default_type().unwrap_or(fixture.sig.output.clone());
-    let default_generics = generics_clean_up(&fixture.sig, std::iter::empty(), &default_output);
+    let default_generics = generics_clean_up(&fixture.sig.generics, std::iter::empty(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let body = &fixture.block;
     let where_clause = &fixture.sig.generics.where_clause;
@@ -351,7 +350,8 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
             let decl_args = orig_args.iter().cloned().take(n);
             let resolver_args = args.iter().skip(n);
             let inject = resolve_args(resolver_args, &resolver);
-            let generics = generics_clean_up(&fixture.sig, orig_args.iter().take(n), output);
+            let output = info.attributes.extract_partial_type(n).unwrap_or(output.clone());
+            let generics = generics_clean_up(&fixture.sig.generics, orig_args.iter().take(n), &output);
             let where_clause = &generics.where_clause;
             let name = Ident::new(&format!("partial_{}", n), Span::call_site());
             quote! {
@@ -1533,7 +1533,7 @@ mod render {
                 "#
             ).unwrap();
 
-            let cleaned = generics_clean_up(&item_fn.sig, item_fn.sig.inputs.iter(), &item_fn.sig.output);
+            let cleaned = generics_clean_up(&item_fn.sig.generics, item_fn.sig.inputs.iter(), &item_fn.sig.output);
 
             assert_eq!(expected.sig.generics, cleaned);
         }
@@ -1561,7 +1561,7 @@ mod render {
                 "#
             ).unwrap();
 
-            let cleaned = generics_clean_up(&item_fn.sig, item_fn.sig.inputs.iter(), &item_fn.sig.output);
+            let cleaned = generics_clean_up(&item_fn.sig.generics, item_fn.sig.inputs.iter(), &item_fn.sig.output);
 
             dbg!(item_fn.sig.inputs);
 
@@ -1781,6 +1781,44 @@ mod render {
                 ).unwrap().sig];
 
             assert_eq!(expected, partials);
+        }
+
+        #[test]
+        fn should_use_partial_return_type_if_any() {
+            let item_fn = parse_str::<ItemFn>(
+                r#"
+                pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(h: H, b: B) -> (H, B)
+                        where F: ToString,
+                        B: Borrow<u32>
+                { }
+                "#
+            ).unwrap();
+
+            let tokens = render_fixture(item_fn.clone(),
+                                        FixtureInfo {
+                                            attributes: Attributes {
+                                                attributes: vec![
+                                                    Attribute::Type(
+                                                        parse_str("partial_1").unwrap(),
+                                                        parse_str("(H, impl Iterator<Item=u32>)").unwrap(),
+                                                    )
+                                                ]
+                                            }.into(),
+                                            ..Default::default()
+                                        });
+            let out: FixtureOutput = parse2(tokens).unwrap();
+
+            let expected = parse_str::<syn::ItemFn>(
+                r#"
+                pub fn partial_1<H: Iterator<Item=u32>>(h: H) -> (H, impl Iterator<Item=u32>)
+                { }
+                "#
+            ).unwrap();
+
+            let partial = select_method(out.core_impl, "partial_1")
+                .unwrap();
+
+            assert_eq!(expected.sig, partial.sig);
         }
     }
 }

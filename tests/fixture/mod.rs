@@ -89,11 +89,12 @@ mod should {
     }
 
     #[test]
-    fn use_default_return_type_if_any() {
-        let (output, _) = run_test("default_return_type.rs");
+    fn use_defined_return_type_if_any() {
+        let (output, _) = run_test("defined_return_type.rs");
 
         TestResults::new()
             .ok("resolve")
+            .ok("resolve_partial")
             .assert(output);
     }
 
