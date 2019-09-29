@@ -1,12 +1,13 @@
 use proc_macro2::TokenStream;
-use syn::{Expr, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Token, token,
-          parse::{Error, Parse, ParseStream, Result},
-          punctuated::Punctuated,
-          spanned::Spanned};
+use syn::{
+    Expr, Ident, Token, token,
+    parse::{Error, Parse, ParseStream, Result},
+    punctuated::Punctuated,
+};
 
-use cfg_if::cfg_if;
 use quote::ToTokens;
 use crate::refident::RefIdent;
+
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -51,88 +52,11 @@ impl From<Expr> for CaseArg {
 
 impl Parse for CaseArg {
     fn parse(input: ParseStream) -> Result<Self> {
-        if UnwrapRustCode::peek(input) {
-            Ok(CaseArg::new(input.parse::<UnwrapRustCode>()?.0))
-        } else {
-            input.parse()
-                .map(CaseArg::new)
-                .map_err(|e| Error::new(
-                    e.span(),
-                    format!("Cannot parse due {}", e),
-                )
-                )
-        }
-    }
-}
-
-struct UnwrapRustCode(Expr);
-
-impl Parse for UnwrapRustCode {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let nested: NestedMeta = input.parse()?;
-        Self::report_deprecated(&nested);
-        let arg = Self::get_unwrap(&nested)?;
-        arg.nested.first()
-            .and_then(Self::nested_meta_literal_str)
-            .ok_or(syn::Error::new_spanned(&nested,
-                                           &format!("Invalid {} argument", UnwrapRustCode::UNWRAP_NAME)))
-            .and_then(|lit| lit.parse())
-            .map(UnwrapRustCode)
-    }
-}
-
-impl UnwrapRustCode {
-    const UNWRAP_NAME: &'static str = "Unwrap";
-
-    fn peek(input: ParseStream) -> bool {
-        input.fork().parse::<NestedMeta>().map(|nested|
-            Self::get_unwrap(&nested).is_ok()
-        ).unwrap_or(false)
-    }
-
-    fn get_unwrap(nested: &NestedMeta) -> Result<&MetaList> {
-        match nested {
-            NestedMeta::Meta(Meta::List(ref arg)) if
-                arg.path.get_ident().map(|id| id.to_string()) == Some(Self::UNWRAP_NAME.to_string()) => Ok(arg),
-            _ => return Err(Error::new(nested.span(), "Not a valid string rust code"))
-        }
-    }
-
-    fn report_deprecated(nested: &NestedMeta) {
-        cfg_if! {
-        if #[cfg(use_proc_macro_diagnostic)] {
-            fn inner(nested: &NestedMeta) {
-                nested.span()
-                    .unwrap()
-                    .warning("Deprecated: Case argument accepts arbitrary rust code now.")
-                    .emit();
-            }
-        } else {
-            fn inner(nested: &NestedMeta) {
-                match nested {
-                    NestedMeta::Meta(Meta::List(arg)) => {
-                        arg.nested.first()
-                            .and_then(UnwrapRustCode::nested_meta_literal_str)
-                            .map(|content| {
-                                eprintln!(r#"{}("<code>") is deprecated. Case argument accepts arbitrary rust code now."#,
-                                          UnwrapRustCode::UNWRAP_NAME);
-                                content
-                            })
-                            .unwrap();
-                    }
-                    _ => { unreachable!() }
-                }
-            }
-        }
-        }
-        inner(nested);
-    }
-
-    fn nested_meta_literal_str(nested: &NestedMeta) -> Option<&LitStr> {
-        match nested {
-            NestedMeta::Lit(Lit::Str(lit)) => Some(lit),
-            _ => None
-        }
+        input.parse()
+            .map(CaseArg::new)
+            .map_err(|e|
+                Error::new(e.span(), format!("Cannot parse due {}", e))
+            )
     }
 }
 
@@ -191,9 +115,9 @@ fn parse_vector_trailing_till_double_comma<T, P>(input: ParseStream) -> Result<V
     Ok(
         Punctuated::<Option<T>, P>::parse_separated_nonempty_with(
             input, |input_tokens|
-                if input_tokens.is_empty() || input_tokens.peek(Token![::]){
+                if input_tokens.is_empty() || input_tokens.peek(Token![::]) {
                     Ok(None)
-                }  else {
+                } else {
                     T::parse(input_tokens).map(|inner| Some(inner))
                 },
         )?.into_iter()

@@ -62,8 +62,6 @@ fn should_understand_arbitrary_rust_code() {
         .ok("arbitrary::case_1")
         .fail("arbitrary::case_2")
         .assert(output);
-
-    assert_in!(stderr, "Case argument accepts arbitrary rust code now")
 }
 
 #[test]

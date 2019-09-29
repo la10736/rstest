@@ -2,7 +2,7 @@ use rstest::rstest_parametrize;
 
 #[rstest_parametrize(
     expected, input,
-    case(4, Unwrap(r#"String::from("ciao")"#)),
+    case(4, String::from("ciao")),
     case(3, "Foo")
 )]
 fn strlen_test<S: AsRef<str>>(expected: usize, input: S) {
