@@ -4,7 +4,7 @@ use syn::{Ident, Token, parse_quote,
           parse::{Parse, ParseStream, Result},
           };
 
-use super::{Fixture, Attributes, parse_vector_trailing};
+use super::{Fixture, Attributes, parse_vector_trailing_till_double_comma};
 use crate::parse::Attribute;
 use crate::refident::RefIdent;
 use quote::ToTokens;
@@ -62,7 +62,7 @@ impl Parse for FixtureData {
         if input.peek(Token![::]) {
             Ok(Default::default())
         } else {
-            Ok(Self { items: parse_vector_trailing::<_, Token![,]>(input)? })
+            Ok(Self { items: parse_vector_trailing_till_double_comma::<_, Token![,]>(input)? })
         }
     }
 }
@@ -192,8 +192,7 @@ mod should {
         fn should_accept_trailing_comma() {
             let fixtures = vec![
                 parse_fixture(r#"first(42),"#),
-                // See #52
-                //    parse_fixture(r#"fixture(42, "other"), :: trace"#),
+                parse_fixture(r#"fixture(42, "other"), :: trace"#),
             ];
 
             for f in fixtures {

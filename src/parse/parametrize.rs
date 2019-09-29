@@ -2,7 +2,7 @@ use syn::{Ident, Token,
           parse::{Error, Parse, ParseStream, Result},
           punctuated::Punctuated};
 
-use super::{Fixture, Attributes, CaseArg, parse_vector_trailing};
+use super::{Fixture, Attributes, CaseArg, parse_vector_trailing_till_double_comma};
 
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -42,7 +42,7 @@ pub(crate) struct ParametrizeData {
 
 impl Parse for ParametrizeData {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(ParametrizeData { data: parse_vector_trailing::<_, Token![,]>(input)? })
+        Ok(ParametrizeData { data: parse_vector_trailing_till_double_comma::<_, Token![,]>(input)? })
     }
 }
 

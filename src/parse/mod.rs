@@ -183,7 +183,7 @@ impl Parse for Attribute {
     }
 }
 
-fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
+fn parse_vector_trailing_till_double_comma<T, P>(input: ParseStream) -> Result<Vec<T>>
     where
         T: Parse,
         P: syn::token::Token + Parse
@@ -191,9 +191,9 @@ fn parse_vector_trailing<T, P>(input: ParseStream) -> Result<Vec<T>>
     Ok(
         Punctuated::<Option<T>, P>::parse_separated_nonempty_with(
             input, |input_tokens|
-                if input_tokens.is_empty() {
+                if input_tokens.is_empty() || input_tokens.peek(Token![::]){
                     Ok(None)
-                } else {
+                }  else {
                     T::parse(input_tokens).map(|inner| Some(inner))
                 },
         )?.into_iter()

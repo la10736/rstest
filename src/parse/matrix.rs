@@ -6,7 +6,7 @@ use syn::{Ident, parse::{Parse, ParseStream, Result},
 
 use crate::refident::RefIdent;
 
-use super::{Attributes, CaseArg, Fixture, parse_vector_trailing};
+use super::{Attributes, CaseArg, Fixture, parse_vector_trailing_till_double_comma};
 
 #[derive(Default)]
 pub(crate) struct MatrixInfo {
@@ -18,7 +18,7 @@ impl Parse for MatrixInfo {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(
             MatrixInfo {
-                args: parse_vector_trailing::<_, Token![,]>(input)
+                args: parse_vector_trailing_till_double_comma::<_, Token![,]>(input)
                     .map(|items| MatrixData { items } )?,
                 attributes: input.parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))

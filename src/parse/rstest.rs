@@ -2,7 +2,7 @@ use syn::{Ident, Token,
           parse::{Parse, ParseStream, Result},
           };
 
-use super::{Fixture, Attribute, Attributes, parse_vector_trailing};
+use super::{Fixture, Attribute, Attributes, parse_vector_trailing_till_double_comma};
 use crate::refident::RefIdent;
 use quote::ToTokens;
 use proc_macro2::TokenStream;
@@ -52,7 +52,7 @@ impl Parse for RsTestData {
         if input.peek(Token![::]) {
             Ok(Default::default())
         } else {
-            Ok(Self { items: parse_vector_trailing::<_, Token![,]>(input)? })
+            Ok(Self { items: parse_vector_trailing_till_double_comma::<_, Token![,]>(input)? })
         }
     }
 }
