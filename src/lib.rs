@@ -328,6 +328,29 @@ fn generics_clean_up<'a>(original: &Generics, inputs: impl Iterator<Item=&'a FnA
     result
 }
 
+fn render_partial_impl(fixture: &ItemFn, n: usize, resolver: &impl Resolver, info: &FixtureInfo) -> TokenStream {
+    let fixture_inputs = &fixture.sig.inputs;
+
+    let output = info.attributes.extract_partial_type(n).unwrap_or(fixture.sig.output.clone());
+
+    let generics = generics_clean_up(&fixture.sig.generics, fixture_inputs.iter().take(n), &output);
+    let where_clause = &generics.where_clause;
+
+    let to_resolve_args = fixture_inputs.iter().skip(n).filter_map(MaybeIdent::maybe_ident);
+    let inject = resolve_args(to_resolve_args, resolver);
+
+    let sign_args = fixture_inputs.iter().take(n);
+    let fixture_args = fixture_inputs.iter().filter_map(MaybeIdent::maybe_ident);
+    let name = Ident::new(&format!("partial_{}", n), Span::call_site());
+
+    quote! {
+                pub fn #name #generics (#(#sign_args),*) #output #where_clause {
+                    #inject
+                    Self::get(#(#fixture_args),*)
+                }
+            }
+}
+
 fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
                       -> TokenStream {
     let name = &fixture.sig.ident;
@@ -345,23 +368,9 @@ fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo)
     let visibility = &fixture.vis;
     let resolver = resolver::fixture_resolver(info.data.fixtures());
     let inject = resolve_fn_args(fn_args(&fixture), &resolver);
-    let partials = (1..=args.len()).map(|n|
-        {
-            let decl_args = orig_args.iter().cloned().take(n);
-            let resolver_args = args.iter().skip(n);
-            let inject = resolve_args(resolver_args, &resolver);
-            let output = info.attributes.extract_partial_type(n).unwrap_or(output.clone());
-            let generics = generics_clean_up(&fixture.sig.generics, orig_args.iter().take(n), &output);
-            let where_clause = &generics.where_clause;
-            let name = Ident::new(&format!("partial_{}", n), Span::call_site());
-            quote! {
-                pub fn #name #generics (#(#decl_args),*) #output #where_clause {
-                    #inject
-                    Self::get(#(#args),*)
-                }
-            }
-        }
-    );
+    let partials = (1..=orig_args.len())
+        .map(|n| render_partial_impl(&fixture, n, &resolver, &info)
+        );
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {}
@@ -389,12 +398,6 @@ fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item=&Ident> {
     fn_args(&test)
         .filter_map(MaybeIdent::maybe_ident)
 }
-//fn fn_args_idents(test: &ItemFn) -> Vec<Ident> {
-//    fn_args(&test)
-//        .filter_map(RefIdent::ident)
-//        .cloned()
-//        .collect::<Vec<_>>()
-//}
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
@@ -446,7 +449,7 @@ fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item=&Ident> {
 /// Note that injected value can be an arbitrary rust expression and not just a literal.
 ///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
-/// need to do it, you can use the `default<type>` attribute syntax to define it:
+/// need to do it, you can use the `default<type>`, `partial_n<type>` attribute syntax to define it:
 ///
 /// ```
 /// use rstest::*;
@@ -457,17 +460,27 @@ fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item=&Ident> {
 ///     42
 /// }
 ///
-/// #[fixture(::default<impl Iterator<Item=u32>>)]
-/// pub fn fx<I>(i: I) -> impl Iterator<Item=I> {
-///     std::iter::once(i)
+/// #[fixture]
+/// pub fn j() -> i32 {
+///     -42
+/// }
+///
+/// #[fixture(::default<impl Iterator<Item=(u32, i32)>>::partial_1<impl Iterator<Item=(I,i32)>>)]
+/// pub fn fx<I, J>(i: I, j: J) -> impl Iterator<Item=(I, J)> {
+///     std::iter::once((i, j))
 /// }
 ///
 /// #[rstest]
-/// fn resolve<I: Debug + PartialEq>(mut fx: impl Iterator<Item=I>) {
-///     assert_eq!(42, fx.next().unwrap())
+/// fn resolve_by_default<I: Debug + PartialEq>(mut fx: impl Iterator<Item=I>) {
+///     assert_eq!((42, -42), fx.next().unwrap())
+/// }
+///
+/// #[rstest(fx(42.0))]
+/// fn resolve_partial<I: Debug + PartialEq>(mut fx: impl Iterator<Item=I>) {
+///     assert_eq!((42.0, -42), fx.next().unwrap())
 /// }
 /// ```
-///
+/// `partial_i` is the fixture used when you inject the first `i` arguments in test call.
 #[proc_macro_attribute]
 pub fn fixture(args: proc_macro::TokenStream,
                input: proc_macro::TokenStream)
