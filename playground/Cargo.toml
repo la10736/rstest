@@ -3,11 +3,6 @@ name = "playground"
 version = "0.1.0"
 authors = ["michele <michele.damico@gmail.com>"]
 edition = "2018"
-exclude = [
-    "playground",
-    "rstest_fixtures",
-]
-
 
 [features]
 default = []

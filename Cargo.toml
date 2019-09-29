@@ -13,6 +13,10 @@ keywords = ["test", "fixture"]
 categories = ["development-tools::testing"]
 readme = "README.md"
 edition = "2018"
+exclude = [
+    "playground",
+    "rstest_fixtures",
+]
 
 [lib]
 proc-macro = true
