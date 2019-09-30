@@ -40,8 +40,6 @@ impl RsTestData {
         self.items.iter().filter_map(|it|
             match it {
                 RsTestItem::Fixture(ref fixture) => Some(fixture),
-                #[allow(unreachable_patterns)]
-                _ => None
             }
         )
     }

@@ -1,7 +1,8 @@
 use std::path::Path;
-use unindent::Unindent;
+pub use unindent::Unindent;
 
-use crate::utils::{TestResults, resources, Stringable};
+use crate::utils::{TestResults, resources};
+pub use crate::utils::Stringable;
 
 fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("fixture").join(res);

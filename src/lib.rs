@@ -957,7 +957,6 @@ mod render {
         Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
     };
-    use unindent::Unindent;
 
     use crate::parse::*;
     use crate::resolver::*;
@@ -1342,6 +1341,8 @@ mod render {
     }
 
     mod matrix_cases {
+        use unindent::Unindent;
+
         use crate::parse::matrix::{MatrixData, MatrixInfo, ValueList};
 
         /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo

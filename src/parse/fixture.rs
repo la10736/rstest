@@ -50,8 +50,6 @@ impl FixtureData {
             .filter_map(|f|
                 match f {
                     FixtureItem::Fixture(ref fixture) => Some(fixture),
-                    #[allow(unreachable_patterns)]
-                    _ => None,
                 }
             )
     }

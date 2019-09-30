@@ -56,7 +56,6 @@ fn generic_input() {
 #[test]
 fn should_understand_arbitrary_rust_code() {
     let (output, _) = run_test("arbitrary_rust_code.rs");
-    let stderr = output.stderr.str().to_string();
 
     TestResults::new()
         .ok("arbitrary::case_1")

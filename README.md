@@ -92,4 +92,4 @@ at your option.
 [license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0
 [license-MIT-link]: http://opensource.org/licenses/MIT
-[rustc-image]: https://img.shields.io/badge/rustc-1.30+-blue.svg
+[rustc-image]: https://img.shields.io/badge/rustc-1.32+-blue.svg
