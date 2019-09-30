@@ -2,7 +2,7 @@
 [![Docs][docs-image]][docs-link]
 [![Apache 2.0 Licensed][license-apache-image]][license-apache-link]
 [![MIT Licensed][license-mit-image]][license-mit-link]
-![Rust 1.30+][rustc-image]
+![Rust 1.32+][rustc-image]
 
 # Rust fixture based test framework
 
