@@ -954,11 +954,10 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
 mod render {
     use pretty_assertions::assert_eq;
     use syn::{
-        Expr, ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
+        ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
     };
 
-    use crate::parse::*;
     use crate::resolver::*;
     use crate::test::*;
 
@@ -972,16 +971,6 @@ mod render {
         fn_args(&ast)
             .next().unwrap()
             .maybe_ident().unwrap()
-    }
-
-    trait ToAst {
-        fn ast<T: Parse>(&self) -> T;
-    }
-
-    impl<'a> ToAst for str {
-        fn ast<T: Parse>(&self) -> T {
-            parse_str(self).unwrap()
-        }
     }
 
     #[test]
@@ -1004,15 +993,11 @@ mod render {
         assert_eq!(line, "let fix = fix::default();".ast());
     }
 
-    fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
-        s.as_ref().ast::<Expr>().into()
-    }
-
     #[test]
     fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
         let ast = "fn foo(mut fix: String) {}".ast();
         let arg = first_arg_ident(&ast);
-        let call = case_arg("bar()");
+        let call = expr("bar()");
         let mut resolver = HashMap::new();
         resolver.insert("fix".to_string(), &call);
 
@@ -1025,7 +1010,7 @@ mod render {
     fn resolver_should_return_the_given_expression() {
         let ast = parse_str("fn function(mut foo: String) {}").unwrap();
         let arg = first_arg_ident(&ast);
-        let expected = case_arg("bar()");
+        let expected = expr("bar()");
         let mut resolver = HashMap::new();
 
         resolver.insert("foo".to_string(), &expected);
@@ -1235,7 +1220,7 @@ mod render {
             fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
                 TestCase {
                     args: iter.into_iter()
-                        .map(case_arg)
+                        .map(expr)
                         .collect(),
                     description: None,
                 }
@@ -1440,7 +1425,7 @@ mod render {
             let info = MatrixInfo {
                 args: MatrixData {
                     items: vec![
-                        ValueList { arg: ident("fix"), values: vec![case_arg(r#""value""#)] }.into()
+                        ValueList { arg: ident("fix"), values: vec![expr(r#""value""#)] }.into()
                     ]
                 },
                 ..Default::default()

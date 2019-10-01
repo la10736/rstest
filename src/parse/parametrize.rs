@@ -1,8 +1,6 @@
-use syn::{Ident, Token,
-          parse::{Error, Parse, ParseStream, Result},
-          punctuated::Punctuated};
+use syn::{Ident, Token, parse::{Error, Parse, ParseStream, Result}, punctuated::Punctuated, Expr};
 
-use super::{Fixture, Attributes, CaseArg, parse_vector_trailing_till_double_comma};
+use super::{Fixture, Attributes, parse_vector_trailing_till_double_comma};
 
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -119,7 +117,7 @@ impl ToTokens for ParametrizeItem {
 /// A test case instance data. Contains a list of arguments. It is parsed by parametrize
 /// attributes.
 pub(crate) struct TestCase {
-    pub(crate) args: Vec<CaseArg>,
+    pub(crate) args: Vec<Expr>,
     pub(crate) description: Option<Ident>,
 }
 
@@ -134,7 +132,7 @@ impl Parse for TestCase {
             }
             let content;
             let _ = syn::parenthesized!(content in input);
-            let args = Punctuated::<CaseArg, Token![,]>::parse_terminated(&content)?
+            let args = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?
                 .into_iter()
                 .collect();
             Ok(TestCase { args, description })
@@ -190,7 +188,7 @@ mod should {
         }
 
         #[test]
-        #[should_panic(expected = r#"Cannot parse due"#)]
+        #[should_panic]
         fn raw_code_with_parsing_error() {
             parse_test_case(r#"case(some:<>(1,2,3))"#);
         }

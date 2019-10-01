@@ -5,17 +5,18 @@
 use std::borrow::Cow;
 
 use proc_macro2::TokenTree;
-use syn::{ItemFn, parse2, parse_str};
+use syn::{ItemFn, parse2, parse_str, Expr};
 use quote::quote;
 pub(crate) use pretty_assertions::assert_eq;
 
 use super::*;
 use crate::parse::{
-    Fixture, CaseArg, Attribute,
+    Fixture, Attribute,
     fixture::{FixtureItem, FixtureData},
     rstest::{RsTestItem, RsTestData},
     matrix::ValueList,
 };
+use syn::parse::Parse;
 
 macro_rules! to_args {
     ($e:expr) => {
@@ -23,7 +24,7 @@ macro_rules! to_args {
                    use itertools::Itertools;
                    $e.iter()
                    .map(|s| s as & dyn AsRef<str>)
-                   .map(case_arg)
+                   .map(expr)
                    .collect_vec()
                    }
                  };
@@ -59,26 +60,32 @@ pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T
     }
 }
 
+pub(crate) trait ToAst {
+    fn ast<T: Parse>(&self) -> T;
+}
+
+impl<'a> ToAst for str {
+    fn ast<T: Parse>(&self) -> T {
+        parse_str(self).unwrap()
+    }
+}
+
 pub(crate) fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
-    parse_str::<syn::Ident>(s.as_ref()).unwrap()
+    s.as_ref().ast()
 }
 
 pub(crate) fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
-    parse_str::<syn::Expr>(s.as_ref()).unwrap()
+    s.as_ref().ast()
 }
 
 pub(crate) fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
     Fixture::new(ident(name), to_exprs!(args))
 }
 
-pub(crate) fn case_arg<S: AsRef<str>>(s: S) -> CaseArg {
-    CaseArg::new(expr(s))
-}
-
 pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
     ValueList {
         arg: ident(arg),
-        values: values.into_iter().map(|s| case_arg(s)).collect(),
+        values: values.into_iter().map(|s| expr(s)).collect(),
     }
 }
 
@@ -88,17 +95,17 @@ pub(crate) fn literal_expressions_str() -> Vec<&'static str> {
 }
 
 pub(crate) trait ExtractArgs {
-    fn args(&self) -> Vec<CaseArg>;
+    fn args(&self) -> Vec<Expr>;
 }
 
 impl ExtractArgs for TestCase {
-    fn args(&self) -> Vec<CaseArg> {
+    fn args(&self) -> Vec<Expr> {
         self.args.iter().cloned().collect()
     }
 }
 
 impl ExtractArgs for ValueList {
-    fn args(&self) -> Vec<CaseArg> {
+    fn args(&self) -> Vec<Expr> {
         self.values.iter().cloned().collect()
     }
 }
@@ -140,7 +147,7 @@ impl From<Vec<FixtureItem>> for FixtureData {
 pub(crate) struct EmptyResolver;
 
 impl<'a> Resolver for EmptyResolver {
-    fn resolve(&self, _ident: &Ident) -> Option<Cow<CaseArg>> {
+    fn resolve(&self, _ident: &Ident) -> Option<Cow<Expr>> {
         None
     }
 }

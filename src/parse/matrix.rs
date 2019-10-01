@@ -1,12 +1,10 @@
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use syn::{Ident, parse::{Parse, ParseStream, Result},
-          Token,
-};
+use syn::{Ident, parse::{Parse, ParseStream, Result}, Token, Expr};
 
 use crate::refident::RefIdent;
 
-use super::{Attributes, CaseArg, Fixture, parse_vector_trailing_till_double_comma};
+use super::{Attributes, Fixture, parse_vector_trailing_till_double_comma};
 
 #[derive(Default)]
 pub(crate) struct MatrixInfo {
@@ -97,7 +95,7 @@ impl ToTokens for MatrixItem {
 
 pub(crate) struct ValueList {
     pub(crate) arg: Ident,
-    pub(crate) values: Vec<CaseArg>,
+    pub(crate) values: Vec<Expr>,
 }
 
 impl Parse for ValueList {
@@ -175,7 +173,7 @@ mod should {
         }
 
         #[test]
-        #[should_panic(expected = r#"Cannot parse due"#)]
+        #[should_panic]
         fn raw_code_with_parsing_error() {
             parse_values_list(r#"other => [some:<>(1,2,3)]"#);
         }

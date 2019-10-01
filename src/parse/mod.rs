@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use syn::{
-    Expr, Ident, Token, token,
-    parse::{Error, Parse, ParseStream, Result},
+    Ident, Token, token,
+    parse::{Parse, ParseStream, Result},
     punctuated::Punctuated,
 };
 
@@ -17,48 +17,6 @@ pub(crate) mod fixture;
 pub(crate) mod rstest;
 pub(crate) mod parametrize;
 pub(crate) mod matrix;
-
-#[derive(Debug, Clone)]
-/// A test case's argument as an expression that can be assigned.
-pub(crate) struct CaseArg {
-    expr: Expr,
-}
-
-impl CaseArg {
-    pub(crate) fn new(expr: Expr) -> Self {
-        Self { expr }
-    }
-}
-
-#[cfg(test)]
-impl PartialEq for CaseArg {
-    fn eq(&self, other: &Self) -> bool {
-        self.expr == other.expr
-    }
-}
-
-// To Enable Spanned trait
-impl ToTokens for CaseArg {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.expr.to_tokens(tokens);
-    }
-}
-
-impl From<Expr> for CaseArg {
-    fn from(expr: Expr) -> Self {
-        CaseArg::new(expr)
-    }
-}
-
-impl Parse for CaseArg {
-    fn parse(input: ParseStream) -> Result<Self> {
-        input.parse()
-            .map(CaseArg::new)
-            .map_err(|e|
-                Error::new(e.span(), format!("Cannot parse due {}", e))
-            )
-    }
-}
 
 #[derive(Default, Debug, PartialEq)]
 pub(crate) struct Attributes {
