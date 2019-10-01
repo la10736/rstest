@@ -7,7 +7,7 @@ use std::{
 };
 
 use toml_edit::{Document, Item, Array};
-use std::fs::File;
+use std::fs::{File, read_to_string};
 use std::io::Read;
 use toml_edit::Table;
 use std::borrow::Cow;
@@ -127,11 +127,20 @@ impl Project {
         }
     }
 
+    fn add_test_global_attribute<P: AsRef<Path>>(&self, path: P) {
+        let body = read_to_string(&path).unwrap();
+        let mut out = std::fs::File::create(&path).unwrap();
+
+        write!(out, "#![cfg(test)]").unwrap();
+        write!(out, "{}", body).unwrap();
+    }
+
     pub fn set_code_file<P: AsRef<Path>>(self, src: P) -> Self {
         std::fs::copy(
             src,
             self.code_path(),
         ).unwrap();
+        self.add_test_global_attribute(self.code_path());
         self
     }
 

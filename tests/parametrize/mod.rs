@@ -467,8 +467,7 @@ mod should_show_correct_errors {
 
 #[test]
 fn should_reject_no_item_function() {
-    let prj = prj("reject_no_item_function.rs");
-    let (output, name) = (prj.compile().unwrap(), prj.get_name());
+    let (output, name) = run_test("reject_no_item_function.rs");
 
     assert_in!(output.stderr.str(), format!("
         error: expected `fn`

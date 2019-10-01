@@ -212,7 +212,7 @@ fn should_show_correct_errors() {
 #[test]
 fn should_reject_no_item_function() {
     let prj = prj("reject_no_item_function.rs");
-    let output = prj.compile().unwrap();
+    let output = prj.run_tests().unwrap();
     let name = prj.get_name();
 
     assert_in!(output.stderr.str(), format!("
