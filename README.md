@@ -11,7 +11,7 @@ based tests. To use it add follow lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.3"
+rstest = "0.4"
 ```
 
 The core idea is that every input arguments of your test function will
@@ -67,7 +67,7 @@ test fibonacci_test::case_5 ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-You can learn more on [Docs](https://docs.rs/rstest/0.3.0/rstest/) and 
+You can learn more on [Docs](https://docs.rs/rstest/0.4.0/rstest/) and 
 find more examples in [`resources`](resources) directory and in 
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
 that use this module intensely.
