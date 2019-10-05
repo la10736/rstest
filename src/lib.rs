@@ -569,7 +569,11 @@ pub fn rstest(args: proc_macro::TokenStream,
     let errors = errors_in_rstest(&test, &info);
 
     if errors.is_empty() {
-        render_single_case(test, info)
+        if info.data.cases().next().is_none() {
+            render_single_case(test, info)
+        } else {
+            render_parametrize_cases(test, info)
+        }
     } else {
         errors
     }.into()
@@ -717,8 +721,8 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
-fn render_parametrize_cases(test: ItemFn, params: RsTestInfo) -> TokenStream {
-    let RsTestInfo { data, attributes } = params;
+fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let RsTestInfo { data, attributes } = info;
     let display_len = data.cases().count().display_len();
 
     let cases = data.cases()
@@ -1052,7 +1056,7 @@ mod render {
         }
 
         #[test]
-        fn should_include_given_function() {
+        fn include_given_function() {
             let input_fn: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                         where B: Borrow<u32>
@@ -1124,11 +1128,13 @@ mod render {
         }
     }
 
-    mod parametrize_cases {
+    mod cases {
         use std::iter::FromIterator;
 
-        use crate::parse::rstest::{RsTestInfo, RsTestData, RsTestItem};
-        use crate::parse::testcase::TestCase;
+        use crate::parse::{
+            rstest::{RsTestInfo, RsTestData, RsTestItem},
+            testcase::TestCase
+        };
 
         use super::{*, assert_eq};
 
