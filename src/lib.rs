@@ -564,17 +564,22 @@ pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
-    let info: RsTestInfo = parse_macro_input!(args as RsTestInfo);
-    let name = &test.sig.ident;
-    let resolver = resolver::fixture_resolver(info.data.fixtures());
+    let info = parse_macro_input!(args as RsTestInfo);
 
     let errors = errors_in_rstest(&test, &info);
 
     if errors.is_empty() {
-        render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
+        render_single_case(test, info)
     } else {
         errors
     }.into()
+}
+
+fn render_single_case(test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let name = &test.sig.ident;
+    let resolver = resolver::fixture_resolver(info.data.fixtures());
+
+    render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
 }
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
@@ -1822,4 +1827,3 @@ mod render {
         }
     }
 }
-
