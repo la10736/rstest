@@ -113,7 +113,7 @@ impl ToTokens for ParametrizeItem {
     }
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 /// A test case instance data. Contains a list of arguments. It is parsed by parametrize
 /// attributes.
 pub(crate) struct TestCase {

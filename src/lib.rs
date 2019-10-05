@@ -202,7 +202,7 @@ use crate::parse::{
     parametrize::{ParametrizeData, ParametrizeInfo, TestCase},
     rstest::{RsTestAttributes, RsTestInfo},
 };
-use crate::refident::{MaybeIdent, RefIdent};
+use crate::refident::MaybeIdent;
 use crate::resolver::{arg_2_fixture, Resolver};
 
 // Test utility module
@@ -586,12 +586,13 @@ fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
 
 type Errors<'a> = Box<dyn Iterator<Item=syn::Error> + 'a>;
 
-fn missed_arguments_errors<'a, I: RefIdent + Spanned + 'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
+fn missed_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
     Box::new(
         args
-            .filter(move |&p| !fn_args_has_ident(test, p.ident()))
-            .map(|missed| syn::Error::new(missed.span(),
-                                          &format!("Missed argument: '{}' should be a test function argument.", missed.ident()),
+            .filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
+            .filter(move |(_, ident)| !fn_args_has_ident(test, ident))
+            .map(|(missed, ident)| syn::Error::new(missed.span(),
+                                          &format!("Missed argument: '{}' should be a test function argument.", ident),
             ))
     )
 }

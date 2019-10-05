@@ -8,6 +8,33 @@ mod framework;
 /// Single's integration tests
 mod single;
 
+/// Single's integration tests
+mod rstest {
+    use std::path::Path;
+    use crate::utils::*;
+
+    fn prj(res: &str) -> crate::prj::Project {
+        let path = Path::new("rstest").join(res);
+        crate::prj().set_code_file(resources(path))
+    }
+
+    fn run_test(res: &str) -> (std::process::Output, String) {
+        let prj = prj(res);
+        (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
+    }
+
+
+    #[test]
+    fn happy_path_cases() {
+        let (output, _) = run_test("happy_path_cases.rs");
+
+        TestResults::new()
+            .ok("strlen_test::case_1")
+            .ok("strlen_test::case_2")
+            .assert(output);
+    }
+}
+
 /// Parametrize's integration tests
 mod parametrize;
 
