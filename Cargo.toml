@@ -1,10 +1,10 @@
 [package]
 name = "rstest"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
-A simple `pytest` clone for Rust. It use procedural macro
+Rust fixture based test framework. It use procedural macro
 to implement fixtures and table based tests.
 """
 repository = "https://github.com/la10736/rstest"

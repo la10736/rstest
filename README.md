@@ -19,8 +19,9 @@ be resolved by call a function with the same name.
 Example:
 
 ```rust
-use rstest::rstest;
+use rstest::*;
 
+#[fixture]
 pub fn fixture() -> u32 { 42 }
 
 #[rstest]
@@ -67,7 +68,7 @@ test fibonacci_test::case_5 ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-You can learn more on [Docs](https://docs.rs/rstest/0.4.0/rstest/) and 
+You can learn more on [Docs](https://docs.rs/rstest) and 
 find more examples in [`resources`](resources) directory and in 
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
 that use this module intensely.
