@@ -199,8 +199,8 @@ use quote::quote;
 
 use crate::parse::{
     fixture::FixtureInfo,
-    parametrize::{ParametrizeData, ParametrizeInfo, TestCase},
-    rstest::{RsTestAttributes, RsTestInfo},
+    testcase::TestCase,
+    rstest::{RsTestAttributes, RsTestInfo, RsTestData},
 };
 use crate::refident::MaybeIdent;
 use crate::resolver::{arg_2_fixture, Resolver};
@@ -625,8 +625,8 @@ fn duplicate_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(args: impl Itera
     )
 }
 
-fn invalid_case_errors(params: &ParametrizeData) -> Errors {
-    let n_args = params.args().count();
+fn invalid_case_errors(params: &RsTestData) -> Errors {
+    let n_args = params.case_args().count();
     Box::new(
         params.cases()
             .filter(move |case| case.args.len() != n_args)
@@ -636,10 +636,10 @@ fn invalid_case_errors(params: &ParametrizeData) -> Errors {
     )
 }
 
-fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> TokenStream {
-    missed_arguments_errors(test, info.data.args())
+fn errors_in_parametrize(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
+    missed_arguments_errors(test, info.data.case_args())
         .chain(missed_arguments_errors(test, info.data.fixtures()))
-        .chain(duplicate_arguments_errors(info.data.data.iter()))
+        .chain(duplicate_arguments_errors(info.data.items.iter()))
         .chain(invalid_case_errors(&info.data))
         .map(|e| e.to_compile_error())
         .collect()
@@ -717,8 +717,8 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
-fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
-    let ParametrizeInfo { data, attributes } = params;
+fn render_parametrize_cases(test: ItemFn, params: RsTestInfo) -> TokenStream {
+    let RsTestInfo { data, attributes } = params;
     let display_len = data.cases().count().display_len();
 
     let cases = data.cases()
@@ -729,7 +729,7 @@ fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStrea
             move |(n, case)|
                 {
                     let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
-                    let resolver_case = data.args()
+                    let resolver_case = data.case_args()
                         .map(|a| a.to_string())
                         .zip(case.args.iter())
                         .collect::<HashMap<_, _>>();
@@ -858,7 +858,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
-    let params = parse_macro_input!(args as ParametrizeInfo);
+    let params = parse_macro_input!(args as RsTestInfo);
     let test = parse_macro_input!(input as ItemFn);
 
     let errors = errors_in_parametrize(&test, &params);
@@ -1127,24 +1127,25 @@ mod render {
     mod parametrize_cases {
         use std::iter::FromIterator;
 
-        use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, ParametrizeItem, TestCase};
+        use crate::parse::rstest::{RsTestInfo, RsTestData, RsTestItem};
+        use crate::parse::testcase::TestCase;
 
         use super::{*, assert_eq};
 
-        impl<'a> From<&'a ItemFn> for ParametrizeData {
+        impl<'a> From<&'a ItemFn> for RsTestData {
             fn from(item_fn: &'a ItemFn) -> Self {
-                ParametrizeData {
-                    data: fn_args_idents(item_fn)
+                RsTestData {
+                    items: fn_args_idents(item_fn)
                         .cloned()
-                        .map(ParametrizeItem::CaseArgName)
+                        .map(RsTestItem::CaseArgName)
                         .collect(),
                 }
             }
         }
 
-        impl<'a> From<&'a ItemFn> for ParametrizeInfo {
+        impl<'a> From<&'a ItemFn> for RsTestInfo {
             fn from(item_fn: &'a ItemFn) -> Self {
-                ParametrizeInfo {
+                RsTestInfo {
                     data: item_fn.into(),
                     attributes: Default::default(),
                 }
@@ -1212,13 +1213,13 @@ mod render {
             assert_eq!(expected, output.module.attrs);
         }
 
-        impl ParametrizeInfo {
+        impl RsTestInfo {
             fn push_case(&mut self, case: TestCase) {
-                self.data.data.push(ParametrizeItem::TestCase(case));
+                self.data.items.push(RsTestItem::TestCase(case));
             }
 
             fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
-                self.data.data.extend(cases.map(ParametrizeItem::TestCase));
+                self.data.items.extend(cases.map(RsTestItem::TestCase));
             }
         }
 
@@ -1239,20 +1240,20 @@ mod render {
             }
         }
 
-        fn one_simple_case() -> (ItemFn, ParametrizeInfo) {
+        fn one_simple_case() -> (ItemFn, RsTestInfo) {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: ParametrizeInfo = (&item_fn).into();
+            let mut info: RsTestInfo = (&item_fn).into();
             info.push_case(TestCase::from(r#"String::from("3")"#));
             (item_fn, info)
         }
 
-        fn some_simple_cases(cases: i32) -> (ItemFn, ParametrizeInfo) {
+        fn some_simple_cases(cases: i32) -> (ItemFn, RsTestInfo) {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: ParametrizeInfo = (&item_fn).into();
+            let mut info: RsTestInfo = (&item_fn).into();
             info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
             (item_fn, info)
         }
@@ -1317,7 +1318,7 @@ mod render {
             let (item_fn, mut info) = one_simple_case();
             let description = "show_this_description";
 
-            if let &mut ParametrizeItem::TestCase(ref mut case) = &mut info.data.data[1] {
+            if let &mut RsTestItem::TestCase(ref mut case) = &mut info.data.items[1] {
                 case.description = Some(parse_str::<Ident>(description).unwrap());
             } else {
                 panic!("Test case should be the second one");
@@ -1336,7 +1337,7 @@ mod render {
 
         use crate::parse::matrix::{MatrixData, MatrixInfo, ValueList};
 
-        /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo
+        /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
                         /// transformation
 
         use super::{*, assert_eq};

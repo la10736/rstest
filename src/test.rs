@@ -15,6 +15,7 @@ use crate::parse::{
     fixture::{FixtureItem, FixtureData},
     rstest::{RsTestItem, RsTestData},
     matrix::ValueList,
+    testcase::TestCase,
 };
 use syn::parse::Parse;
 

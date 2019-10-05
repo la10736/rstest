@@ -3,7 +3,7 @@ use syn::{Ident, Token,
           };
 
 use super::{Fixture, Attribute, Attributes, parse_vector_trailing_till_double_comma};
-use super::parametrize::TestCase;
+use super::testcase::TestCase;
 use crate::refident::{RefIdent, MaybeIdent};
 use quote::ToTokens;
 use proc_macro2::{TokenStream, Span};
