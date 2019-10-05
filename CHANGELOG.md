@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
-## [0.4.0] 2019-09-10
+## [0.4.1] 2019-10-05
+
+### Changed
+
+- Fixed README, crate description, changelog dates
+
+## [0.4.0] 2019-10-04
 
 ### Added
 
