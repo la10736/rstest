@@ -569,10 +569,10 @@ pub fn rstest(args: proc_macro::TokenStream,
     let errors = errors_in_rstest(&test, &info);
 
     if errors.is_empty() {
-        if info.data.cases().next().is_none() {
-            render_single_case(test, info)
-        } else {
+        if info.data.has_cases() {
             render_parametrize_cases(test, info)
+        } else {
+            render_single_case(test, info)
         }
     } else {
         errors
@@ -640,6 +640,17 @@ fn invalid_case_errors(params: &RsTestData) -> Errors {
     )
 }
 
+fn case_args_without_cases(params: &RsTestData) -> Errors {
+    if !params.has_cases() {
+        return Box::new(params.case_args().map(|a|
+                syn::Error::new(a.span(), "No cases for this argument."))
+        );
+    }
+    Box::new(
+        std::iter::empty()
+    )
+}
+
 fn errors_in_parametrize(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
     missed_arguments_errors(test, info.data.case_args())
         .chain(missed_arguments_errors(test, info.data.fixtures()))
@@ -661,6 +672,7 @@ fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStr
     missed_arguments_errors(test, info.data.items.iter())
         .chain(duplicate_arguments_errors(info.data.items.iter()))
         .chain(invalid_case_errors(&info.data))
+        .chain(case_args_without_cases(&info.data))
         .map(|e| e.to_compile_error())
         .collect()
 }

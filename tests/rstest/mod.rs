@@ -232,6 +232,48 @@ mod cases {
         }
     }
 
+    mod not_compile_if_args_but_no_cases {
+        use super::*;
+
+        use lazy_static::lazy_static;
+        use std::process::Output;
+
+        //noinspection RsTypeCheck
+        fn execute() -> &'static (Output, String) {
+            lazy_static! {
+                static ref OUTPUT: (Output, String) =
+                    run_test("args_with_no_cases.rs");
+            }
+            assert_ne!(Some(0), OUTPUT.0.status.code(), "Should not compile");
+            &OUTPUT
+        }
+
+        #[test]
+        fn report_error() {
+            let (output, name) = execute();
+            let stderr = output.stderr.str();
+
+            assert_in!(stderr, format!("
+                error: No cases for this argument.
+                 --> {}/src/lib.rs:3:10
+                  |
+                3 | #[rstest(one, two, three)]
+                  |          ^^^
+                ", name).unindent());
+
+        }
+
+        #[test]
+        fn and_reports_all_errors() {
+            let (output, _) = execute();
+            let stderr = output.stderr.str();
+
+            // Exactly 3 cases are wrong
+            assert_eq!(3, stderr.count("No cases for this argument."),
+                       "Should contain message exactly 3 occurrences in error message:\n{}", stderr);
+        }
+    }
+
     mod dump_input_values {
         use super::*;
 

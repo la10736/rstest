@@ -47,6 +47,11 @@ impl RsTestData {
             )
     }
 
+    #[allow(dead_code)]
+    pub(crate) fn has_case_args(&self) -> bool {
+        self.case_args().next().is_some()
+    }
+
     pub(crate) fn cases(&self) -> impl Iterator<Item=&TestCase> {
         self.items.iter()
             .filter_map(|it|
@@ -57,6 +62,10 @@ impl RsTestData {
             )
     }
 
+    pub(crate) fn has_cases(&self) -> bool {
+        self.cases().next().is_some()
+    }
+
     pub(crate) fn fixtures(&self) -> impl Iterator<Item=&Fixture> {
         self.items.iter().filter_map(|it|
             match it {
@@ -64,6 +73,11 @@ impl RsTestData {
                 _ => None
             }
         )
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn has_fixtures(&self) -> bool {
+        self.fixtures().next().is_some()
     }
 }
 
