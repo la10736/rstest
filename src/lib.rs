@@ -660,6 +660,7 @@ fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> TokenStr
 fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream{
     missed_arguments_errors(test, info.data.items.iter())
         .chain(duplicate_arguments_errors(info.data.items.iter()))
+        .chain(invalid_case_errors(&info.data))
         .map(|e| e.to_compile_error())
         .collect()
 }

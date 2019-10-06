@@ -67,7 +67,7 @@ mod should {
     }
 
     #[test]
-    fn raw_code() {
+    fn accept_arbitrary_rust_code() {
         let test_case = parse_test_case(r#"case(vec![1,2,3])"#);
         let args = test_case.args();
 
@@ -76,12 +76,12 @@ mod should {
 
     #[test]
     #[should_panic]
-    fn raw_code_with_parsing_error() {
+    fn raise_error_on_invalid_rust_code() {
         parse_test_case(r#"case(some:<>(1,2,3))"#);
     }
 
     #[test]
-    fn should_read_test_description_if_any() {
+    fn get_description_if_any() {
         let test_case = parse_test_case(r#"case::this_test_description(42)"#);
         let args = test_case.args();
 
@@ -90,7 +90,7 @@ mod should {
     }
 
     #[test]
-    fn should_read_test_description_also_with_more_args() {
+    fn get_description_also_with_more_args() {
         let test_case = parse_test_case(r#"case :: this_test_description (42, 24)"#);
         let args = test_case.args();
 
@@ -99,7 +99,7 @@ mod should {
     }
 
     #[test]
-    fn should_parse_arbitrary_rust_code_as_expression() {
+    fn parse_arbitrary_rust_code_as_expression() {
         let test_case = parse_test_case(r##"
             case(42, -42,
             pippo("pluto"),
