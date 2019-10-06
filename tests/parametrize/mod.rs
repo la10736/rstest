@@ -33,6 +33,14 @@ fn happy_path() {
 }
 
 #[test]
+fn should_be_deprecated() {
+    let (output, _) = run_test("simple.rs");
+    let stderr = output.stderr.str();
+
+    assert_in!(stderr, "Warning: use of deprecated item 'rstest_parametrize': Please use just rstest instead")
+}
+
+#[test]
 fn mut_input() {
     let (output, _) = run_test("mut.rs");
 
@@ -203,6 +211,7 @@ mod not_compile_if_a_case_has_a_wrong_signature {
     use lazy_static::lazy_static;
     use std::process::Output;
 
+    //noinspection RsTypeCheck
     fn execute() -> &'static (Output, String) {
         lazy_static! {
             static ref OUTPUT: (Output, String) =
@@ -333,6 +342,7 @@ mod should_show_correct_errors {
     use lazy_static::lazy_static;
     use std::process::Output;
 
+    //noinspection RsTypeCheck
     fn execute() -> &'static (Output, String) {
         lazy_static! {
             static ref OUTPUT: (Output, String) =
