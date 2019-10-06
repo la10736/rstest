@@ -295,6 +295,7 @@ fn where_predicate_bounded_type(wp: &syn::WherePredicate) -> Option<&syn::Type> 
     }
 }
 
+//noinspection RsTypeCheck
 fn generics_clean_up<'a>(original: &Generics, inputs: impl Iterator<Item=&'a FnArg>, output: &ReturnType) -> syn::Generics {
     use syn::visit::Visit;
     #[derive(Default, Debug)]
@@ -1119,6 +1120,7 @@ mod render {
     }
 
     impl<'ast> Visit<'ast> for TestFunctions {
+        //noinspection RsTypeCheck
         fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
             if Self::is_test_fn(item_fn) {
                 self.0.push(item_fn.clone())
