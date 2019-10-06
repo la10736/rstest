@@ -652,15 +652,6 @@ fn case_args_without_cases(params: &RsTestData) -> Errors {
     )
 }
 
-fn errors_in_parametrize(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
-    missed_arguments_errors(test, info.data.case_args())
-        .chain(missed_arguments_errors(test, info.data.fixtures()))
-        .chain(duplicate_arguments_errors(info.data.items.iter()))
-        .chain(invalid_case_errors(&info.data))
-        .map(|e| e.to_compile_error())
-        .collect()
-}
-
 fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> TokenStream {
     missed_arguments_errors(test, info.args.list_values())
         .chain(missed_arguments_errors(test, info.args.fixtures()))
@@ -876,16 +867,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
-    let params = parse_macro_input!(args as RsTestInfo);
-    let test = parse_macro_input!(input as ItemFn);
-
-    let errors = errors_in_parametrize(&test, &params);
-
-    if errors.is_empty() {
-        render_parametrize_cases(test, params)
-    } else {
-        errors
-    }.into()
+    rstest(args, input)
 }
 
 /// Write matrix-based tests: you must indicate arguments and values list that you want to test and
