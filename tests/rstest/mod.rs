@@ -36,15 +36,6 @@ mod cases {
     }
 
     #[test]
-    fn should_not_show_deprecation() {
-        let (output, _) = run_test("simple.rs");
-        let stderr = output.stderr.str();
-
-        assert!(!stderr.contains("use of deprecated item 'rstest_parametrize'"),
-                "Contains deprecation message: '{}'", stderr);
-    }
-
-    #[test]
     fn mut_input() {
         let (output, _) = run_test("mut.rs");
 

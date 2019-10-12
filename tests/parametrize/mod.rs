@@ -33,14 +33,6 @@ fn happy_path() {
 }
 
 #[test]
-fn should_be_deprecated() {
-    let (output, _) = run_test("simple.rs");
-    let stderr = output.stderr.str();
-
-    assert_in!(stderr, "Warning: use of deprecated item 'rstest_parametrize': Please use just rstest instead")
-}
-
-#[test]
 fn mut_input() {
     let (output, _) = run_test("mut.rs");
 

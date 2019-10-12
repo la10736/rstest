@@ -863,10 +863,6 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
 ///     assert_eq!(expected, input.as_ref().len())
 /// }
 /// ```
-#[deprecated(
-    since = "0.5.0",
-    note = "Please use just rstest instead (rstest_parametrize will be removed soon).")
-]
 #[proc_macro_attribute]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
