@@ -1,24 +1,242 @@
 use std::path::Path;
+
 use unindent::Unindent;
 
 use crate::utils::*;
 
-fn prj(res: &str) -> crate::prj::Project {
-    let path = Path::new("rstest").join(res);
+fn prj(res: impl AsRef<Path>) -> crate::prj::Project {
+    let path = Path::new("rstest").join(res.as_ref());
     crate::prj().set_code_file(resources(path))
 }
 
-fn run_test(res: &str) -> (std::process::Output, String) {
+fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
     let prj = prj(res);
     (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
+}
+
+#[test]
+fn mutable_input() {
+    let (output, _) = run_test("mut.rs");
+
+    TestResults::new()
+        .ok("should_success")
+        .fail("should_fail")
+        .ok("add_test::case_1")
+        .ok("add_test::case_2")
+        .fail("add_test::case_3")
+        .assert(output);
+}
+
+#[test]
+fn test_with_return_type() {
+    let (output, _) = run_test("return_result.rs");
+
+    TestResults::new()
+        .ok("should_success")
+        .fail("should_fail")
+        .ok("return_type::case_1_should_success")
+        .fail("return_type::case_2_should_fail")
+        .assert(output);
+}
+
+#[test]
+fn should_panic() {
+    let (output, _) = run_test("panic.rs");
+
+    TestResults::new()
+        .ok("should_success")
+        .fail("should_fail")
+        .ok("fail::case_1")
+        .ok("fail::case_2")
+        .fail("fail::case_3")
+        .assert(output);
+}
+
+#[test]
+fn generic_input() {
+    let (output, _) = run_test("generic.rs");
+
+    TestResults::new()
+        .ok("simple")
+        .ok("strlen_test::case_1")
+        .ok("strlen_test::case_2")
+        .assert(output);
+}
+
+#[test]
+fn impl_input() {
+    let (output, _) = run_test("impl_param.rs");
+
+    TestResults::new()
+        .ok("simple")
+        .ok("strlen_test::case_1")
+        .ok("strlen_test::case_2")
+        .assert(output);
+}
+
+mod dump_input_values {
+    use super::*;
+
+    #[test]
+    fn if_implements_debug() {
+        let (output, _) = run_test("dump_debug.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("single_fail")
+            .fail("should_fail::case_1")
+            .fail("should_fail::case_2")
+            .assert(output);
+
+        assert_in!(out, "fu32 = 42");
+        assert_in!(out, r#"fstring = "A String""#);
+        assert_in!(out, r#"ftuple = (A, "A String", -12"#);
+
+        assert_in!(out, "u = 42");
+        assert_in!(out, r#"s = "str""#);
+        assert_in!(out, r#"t = ("ss", -12)"#);
+
+        assert_in!(out, "u = 24");
+        assert_in!(out, r#"s = "trs""#);
+        assert_in!(out, r#"t = ("tt", -24)"#);
+    }
+
+    #[test]
+    fn should_not_compile_if_not_implement_debug() {
+        let (output, name) = run_test("dump_not_debug.rs");
+
+        assert_in!(output.stderr.str(),format!("
+             --> {}/src/lib.rs:9:11
+              |
+            9 | fn single(fixture: S) {{}}
+              |           ^^^^^^^ `S` cannot be formatted using `{{:?}}`", name)
+              .unindent());
+
+        assert_in!(output.stderr.str(), format!("
+              --> {}/src/lib.rs:15:10
+               |
+            15 | fn cases(s: S) {{}}
+               |          ^ `S` cannot be formatted using `{{:?}}`", name)
+               .unindent());
+    }
+
+    #[test]
+    fn can_exclude_some_inputs() {
+        let (output, _) = run_test("dump_exclude_some_fixtures.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("single_fail")
+            .fail("should_fail::case_1")
+            .assert(output);
+
+        assert_in!(out, "fu32 = 42");
+        assert_in!(out, "d = D");
+        assert_in!(out, "fd = D");
+    }
+
+    #[test]
+    fn should_be_enclosed_in_an_explicit_session() {
+        let (output, _) = run_test(Path::new("single").join("dump_debug.rs"));
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("should_fail")
+            .assert(output);
+
+        let lines = out.lines()
+            .skip_while(|l|
+                !l.contains("TEST ARGUMENTS"))
+            .take_while(|l|
+                !l.contains("TEST START"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(4, lines.len(),
+                   "Not contains 3 lines but {}: '{}'",
+                   lines.len(), lines.join("\n")
+        );
+    }
+}
+
+#[test]
+fn should_reject_no_item_function() {
+    let (output, name) = run_test("reject_no_item_function.rs");
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+         --> {}/src/lib.rs:4:1
+          |
+        4 | struct Foo;
+          | ^^^^^^
+        ", name).unindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+         --> {}/src/lib.rs:7:1
+          |
+        7 | impl Foo {{}}
+          | ^^^^
+        ", name).unindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+          --> {}/src/lib.rs:10:1
+           |
+        10 | mod mod_baz {{}}
+           | ^^^
+        ", name).unindent());
+}
+
+mod single {
+    use super::*;
+
+    fn res(name: impl AsRef<Path>) -> impl AsRef<Path> {
+        Path::new("single").join(name.as_ref())
+    }
+
+    #[test]
+    fn one_success_and_one_fail() {
+        let (output, _) = run_test(res("simple.rs"));
+
+        TestResults::new()
+            .ok("should_success")
+            .fail("should_fail")
+            .assert(output);
+    }
+
+    #[test]
+    fn should_resolve_generics_fixture_outputs() {
+        let (output, _) = run_test(res("resolve.rs"));
+
+        TestResults::new()
+            .ok("generics_u32")
+            .ok("generics_i32")
+            .assert(output);
+    }
+
+    #[test]
+    fn should_apply_partial_fixture() {
+        let (output, _) = run_test(res("partial.rs"));
+
+        TestResults::new()
+            .ok("default")
+            .ok("partial_1")
+            .ok("partial_2")
+            .ok("complete")
+            .assert(output);
+    }
 }
 
 mod cases {
     use super::*;
 
+    fn res(name: impl AsRef<Path>) -> impl AsRef<Path> {
+        Path::new("cases").join(name.as_ref())
+    }
+
     #[test]
     fn should_compile() {
-        let output = prj("happy_path_cases.rs")
+        let output = prj(res("happy_path.rs"))
             .compile()
             .unwrap();
 
@@ -27,68 +245,17 @@ mod cases {
 
     #[test]
     fn happy_path() {
-        let (output, _) = run_test("happy_path_cases.rs");
+        let (output, _) = run_test(res("happy_path.rs"));
 
         TestResults::new()
             .ok("strlen_test::case_1")
             .ok("strlen_test::case_2")
-            .assert(output);
-    }
-
-    #[test]
-    fn mut_input() {
-        let (output, _) = run_test("mut.rs");
-
-        TestResults::new()
-            .ok("add_test::case_1")
-            .ok("add_test::case_2")
-            .assert(output);
-    }
-
-    #[test]
-    fn generic_input() {
-        let (output, _) = run_test("generic.rs");
-
-        TestResults::new()
-            .ok("strlen_test::case_1")
-            .ok("strlen_test::case_2")
-            .assert(output);
-    }
-
-    #[test]
-    fn impl_input() {
-        let (output, _) = run_test("impl_param.rs");
-
-        TestResults::new()
-            .ok("strlen_test::case_1")
-            .ok("strlen_test::case_2")
-            .assert(output);
-    }
-
-    #[test]
-    fn should_panic() {
-        let (output, _) = run_test("panic.rs");
-
-        TestResults::new()
-            .ok("fail::case_1")
-            .ok("fail::case_2")
-            .fail("fail::case_3")
-            .assert(output);
-    }
-
-    #[test]
-    fn test_with_return_type() {
-        let (output, _) = run_test("return_result.rs");
-
-        TestResults::new()
-            .ok("return_type::case_1_should_success")
-            .fail("return_type::case_2_should_fail")
             .assert(output);
     }
 
     #[test]
     fn case_description() {
-        let (output, _) = run_test("description.rs");
+        let (output, _) = run_test(res("description.rs"));
 
         TestResults::new()
             .ok("description::case_1_user_test_description")
@@ -99,7 +266,7 @@ mod cases {
 
     #[test]
     fn should_apply_partial_fixture() {
-        let (output, _) = run_test("partial.rs");
+        let (output, _) = run_test(res("partial.rs"));
 
         TestResults::new()
             .ok("default::case_1")
@@ -118,7 +285,7 @@ mod cases {
 
         #[test]
         fn happy_path() {
-            let (output, _) = run_test("missed_argument.rs");
+            let (output, _) = run_test(res("missed_argument.rs"));
             let stderr = output.stderr.str();
 
             assert_ne!(Some(0), output.status.code());
@@ -132,7 +299,7 @@ mod cases {
 
         #[test]
         fn should_reports_all() {
-            let (output, _) = run_test("missed_some_arguments.rs");
+            let (output, _) = run_test(res("missed_some_arguments.rs"));
             let stderr = output.stderr.str();
 
             assert_in!(stderr, "
@@ -148,12 +315,11 @@ mod cases {
 
             assert_eq!(2, stderr.count("Missed argument"),
                        "Should contain message exactly 2 occurrences in error message:\n{}", stderr)
-
         }
 
         #[test]
         fn should_report_just_one_error_message_for_all_test_cases() {
-            let (output, _) = run_test("missed_argument.rs");
+            let (output, _) = run_test(res("missed_argument.rs"));
             let stderr = output.stderr.str();
 
             assert_eq!(1, stderr.count("Missed argument"),
@@ -162,7 +328,7 @@ mod cases {
 
         #[test]
         fn should_not_report_error_in_macro_syntax() {
-            let (output, _) = run_test("missed_argument.rs");
+            let (output, _) = run_test(res("missed_argument.rs"));
             let stderr = output.stderr.str();
 
             assert!(!stderr.contains("macros that expand to items"));
@@ -170,16 +336,17 @@ mod cases {
     }
 
     mod not_compile_if_a_case_has_a_wrong_signature {
-        use super::*;
+        use std::process::Output;
 
         use lazy_static::lazy_static;
-        use std::process::Output;
+
+        use super::*;
 
         //noinspection RsTypeCheck
         fn execute() -> &'static (Output, String) {
             lazy_static! {
                 static ref OUTPUT: (Output, String) =
-                    run_test("case_with_wrong_args.rs");
+                    run_test(res("case_with_wrong_args.rs"));
             }
             assert_ne!(Some(0), OUTPUT.0.status.code(), "Should not compile");
             &OUTPUT
@@ -233,16 +400,17 @@ mod cases {
     }
 
     mod not_compile_if_args_but_no_cases {
-        use super::*;
+        use std::process::Output;
 
         use lazy_static::lazy_static;
-        use std::process::Output;
+
+        use super::*;
 
         //noinspection RsTypeCheck
         fn execute() -> &'static (Output, String) {
             lazy_static! {
                 static ref OUTPUT: (Output, String) =
-                    run_test("args_with_no_cases.rs");
+                    run_test(res("args_with_no_cases.rs"));
             }
             assert_ne!(Some(0), OUTPUT.0.status.code(), "Should not compile");
             &OUTPUT
@@ -260,7 +428,6 @@ mod cases {
                 3 | #[rstest(one, two, three)]
                   |          ^^^
                 ", name).unindent());
-
         }
 
         #[test]
@@ -273,119 +440,53 @@ mod cases {
                        "Should contain message exactly 3 occurrences in error message:\n{}", stderr);
         }
     }
+}
 
-    mod dump_input_values {
-        use super::*;
+mod should_show_correct_errors {
+    use std::process::Output;
 
-        #[test]
-        fn if_implement_debug() {
-            let (output, _) = run_test("dump_debug.rs");
-            let out = output.stdout.str().to_string();
+    use lazy_static::lazy_static;
 
-            TestResults::new()
-                .fail("should_fail::case_1")
-                .fail("should_fail::case_2")
-                .assert(output);
+    use super::*;
 
-            assert_in!(out, "u = 42");
-            assert_in!(out, r#"s = "str""#);
-            assert_in!(out, r#"t = ("ss", -12)"#);
-
-            assert_in!(out, "u = 24");
-            assert_in!(out, r#"s = "trs""#);
-            assert_in!(out, r#"t = ("tt", -24)"#);
-        }
-
-        #[test]
-        fn should_not_compile_if_not_implement_debug() {
-            let (output, name) = run_test("dump_not_debug.rs");
-
-            assert_in!(output.stderr.str().to_string(), format!("
-                error[E0277]: `S` doesn't implement `std::fmt::Debug`
-                 --> {}/src/lib.rs:9:18
-                  |
-                9 | fn test_function(s: S) {{}}
-                  |                  ^ `S` cannot be formatted using `{{:?}}`", name).unindent());
-            }
-
-        #[test]
-        fn can_exclude_some_inputs() {
-            let (output, _) = run_test("dump_exclude_some_fixtures.rs");
-            let out = output.stdout.str().to_string();
-
-            TestResults::new()
-                .fail("should_fail::case_1")
-                .assert(output);
-
-            assert_in!(out, "u = 42");
-            assert_in!(out, "d = D");
-        }
-
-        #[test]
-        fn should_be_enclosed_in_an_explicit_session() {
-            let (output, _) = run_test("dump_exclude_some_fixtures.rs");
-            let out = output.stdout.str().to_string();
-
-            TestResults::new()
-                .fail("should_fail::case_1")
-                .assert(output);
-
-            let lines = out.lines()
-                .skip_while(|l|
-                    !l.contains("TEST ARGUMENTS"))
-                .take_while(|l|
-                    !l.contains("TEST START"))
-                .collect::<Vec<_>>();
-
-            assert_eq!(3, lines.len(),
-                       "Not contains 3 lines but {}: '{}'",
-                       lines.len(), lines.join("\n"));
-        }
-    }
-
-    mod should_show_correct_errors {
-        use super::*;
-        use lazy_static::lazy_static;
-        use std::process::Output;
-
-        //noinspection RsTypeCheck
-        fn execute() -> &'static (Output, String) {
-            lazy_static! {
+    //noinspection RsTypeCheck
+    fn execute() -> &'static (Output, String) {
+        lazy_static! {
                 static ref OUTPUT: (Output, String) =
                     run_test("errors.rs");
             }
-            &OUTPUT
-        }
+        &OUTPUT
+    }
 
-        #[test]
-        fn if_no_fixture() {
-            let (output, name) = execute();
+    #[test]
+    fn if_no_fixture() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
                   --> {}/src/lib.rs:11:33
                    |
                 11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_inject_wrong_fixture() {
-            let (output, name) = execute();
+    #[test]
+    fn if_inject_wrong_fixture() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error: Missed argument: 'not_a_fixture' should be a test function argument.
                   --> {}/src/lib.rs:26:23
                    |
                 26 | #[rstest(f, case(42), not_a_fixture(24))]
                    |                       ^^^^^^^^^^^^^
                 ", name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_wrong_type() {
-            let (output, name) = execute();
+    #[test]
+    fn if_wrong_type() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!(r#"
+        assert_in!(output.stderr.str(), format!(r#"
                 error[E0308]: mismatched types
                  --> {}/src/lib.rs:7:18
                   |
@@ -395,13 +496,13 @@ mod cases {
                   = note: expected type `u32`
                              found type `&'static str`
                 "#, name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_wrong_type_fixture() {
-            let (output, name) = execute();
+    #[test]
+    fn if_wrong_type_fixture() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error[E0308]: mismatched types
                   --> {}/src/lib.rs:14:29
                    |
@@ -414,24 +515,24 @@ mod cases {
                    = note: expected type `std::string::String`
                               found type `u32`
                 ", name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_wrong_type_param() {
-            let (output, name) = execute();
+    #[test]
+    fn if_wrong_type_param() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error[E0308]: mismatched types
                   --> {}/src/lib.rs:17:27
                    |
                 17 | fn error_param_wrong_type(f: &str) {{}}", name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_arbitrary_rust_code_has_some_errors() {
-            let (output, name) = execute();
+    #[test]
+    fn if_arbitrary_rust_code_has_some_errors() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error[E0308]: mismatched types
                   --> {}/src/lib.rs:20:31
                    |
@@ -439,45 +540,44 @@ mod cases {
                    |                               ^
                    |                               |",
                    name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_inject_a_fixture_that_is_already_a_case() {
-            let (output, name) = execute();
+    #[test]
+    fn if_inject_a_fixture_that_is_already_a_case() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error: Duplicate argument: 'f' is already defined.
                   --> {}/src/lib.rs:40:13
                    |
                 40 | #[rstest(f, f(42), case(12))]
                    |             ^",
                    name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_define_case_that_is_already_an_injected_fixture() {
-            let (output, name) = execute();
+    #[test]
+    fn if_define_case_that_is_already_an_injected_fixture() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error: Duplicate argument: 'f' is already defined.
                   --> {}/src/lib.rs:44:17
                    |
                 44 | #[rstest(f(42), f, case(12))]
                    |                 ^",
                    name).unindent());
-        }
+    }
 
-        #[test]
-        fn if_inject_a_fixture_more_than_once() {
-            let (output, name) = execute();
+    #[test]
+    fn if_inject_a_fixture_more_than_once() {
+        let (output, name) = execute();
 
-            assert_in!(output.stderr.str(), format!("
+        assert_in!(output.stderr.str(), format!("
                 error: Duplicate argument: 'f' is already defined.
                   --> {}/src/lib.rs:48:20
                    |
                 48 | #[rstest(v, f(42), f(42), case(12))]
                    |                    ^",
                    name).unindent());
-        }
     }
 }

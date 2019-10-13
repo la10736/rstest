@@ -1,4 +1,12 @@
-use rstest::rstest;
+use rstest::*;
+
+#[fixture]
+fn fixture() -> String { "str".to_owned() }
+
+#[rstest]
+fn simple<S: AsRef<str>>(fixture: S) {
+    assert_eq!(3, fixture.as_ref().len());
+}
 
 #[rstest(
     expected, input,

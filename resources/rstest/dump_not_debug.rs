@@ -1,9 +1,15 @@
-use rstest::rstest;
+use rstest::*;
 
 struct S;
 
+#[fixture]
+fn fixture() -> S { S {} }
+
+#[rstest(::trace)]
+fn single(fixture: S) {}
+
 #[rstest(s,
-    case(Unwrap("S{}"))
+    case(S{})
     ::trace
 )]
-fn test_function(s: S) {}
+fn cases(s: S) {}
