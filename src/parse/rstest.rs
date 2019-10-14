@@ -1,12 +1,13 @@
 use syn::{Ident, Token,
           parse::{Parse, ParseStream, Result},
-          };
+};
 
 use super::{Fixture, Attribute, Attributes, parse_vector_trailing_till_double_comma};
 use super::testcase::TestCase;
 use crate::refident::{RefIdent, MaybeIdent};
 use quote::ToTokens;
 use proc_macro2::{TokenStream, Span};
+use crate::parse::matrix::ValueList;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -79,6 +80,15 @@ impl RsTestData {
     pub(crate) fn has_fixtures(&self) -> bool {
         self.fixtures().next().is_some()
     }
+
+    pub(crate) fn list_values(&self) -> impl Iterator<Item=&ValueList> {
+        self.items.iter().filter_map(|mv|
+            match mv {
+                RsTestItem::ValueList(ref value_list) => Some(value_list),
+                _ => None
+            }
+        )
+    }
 }
 
 impl Parse for RsTestData {
@@ -96,6 +106,7 @@ pub(crate) enum RsTestItem {
     Fixture(Fixture),
     CaseArgName(Ident),
     TestCase(TestCase),
+    ValueList(ValueList),
 }
 
 impl From<Fixture> for RsTestItem {
@@ -108,6 +119,8 @@ impl Parse for RsTestItem {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.fork().parse::<TestCase>().is_ok() {
             input.parse::<TestCase>().map(RsTestItem::TestCase)
+        } else if input.peek2(Token![=>]) {
+            input.parse::<ValueList>().map(RsTestItem::ValueList)
         } else if input.fork().parse::<Fixture>().is_ok() {
             input.parse::<Fixture>().map(RsTestItem::Fixture)
         } else if input.fork().parse::<Ident>().is_ok() {
@@ -135,7 +148,8 @@ impl ToTokens for RsTestItem {
         match self {
             Fixture(ref fixture) => fixture.to_tokens(tokens),
             CaseArgName(ref case_arg) => case_arg.to_tokens(tokens),
-            TestCase(ref case) => case.to_tokens(tokens)
+            TestCase(ref case) => case.to_tokens(tokens),
+            ValueList(ref list) => list.to_tokens(tokens)
         }
     }
 }
@@ -211,7 +225,7 @@ mod should {
         }
     }
 
-    mod parse_rstest {
+    mod simple_case {
         use super::{*, assert_eq};
 
         fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
@@ -381,7 +395,7 @@ mod should {
                     case::should_success(Ok(())),
                     case::should_fail(Err("Return Error"))
                 "#);
-                }
+            }
 
             #[test]
             fn should_accept_any_order() {
@@ -422,6 +436,63 @@ mod should {
 
                 assert_eq!(1, cases.len());
                 assert_eq!(to_args!(["42"]), cases[0].args());
+            }
+        }
+
+        mod matrix_cases {
+            use itertools::Itertools;
+
+            use crate::parse::Attribute;
+
+            use super::{*, assert_eq};
+
+            #[test]
+            fn happy_path() {
+                let info = parse_rstest(r#"
+                        expected => [12, 34 * 2],
+                        input => [format!("aa_{}", 2), "other"],
+                    "#);
+
+                let value_ranges = info.data.list_values().collect_vec();
+                assert_eq!(2, value_ranges.len());
+                assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
+                assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), value_ranges[1].args());
+                assert_eq!(info.attributes, Default::default());
+            }
+
+            #[test]
+            fn should_parse_attributes_too() {
+                let info = parse_rstest(r#"
+                                            a => [12, 24, 42]
+                                            ::trace
+                                        "#);
+
+                assert_eq!(info.attributes,
+                           Attributes { attributes: vec![Attribute::attr("trace")] }.into());
+            }
+
+            #[test]
+            fn should_parse_injected_fixtures_too() {
+                let info = parse_rstest(
+                    r#"
+                    a => [12, 24, 42],
+                    fixture_1(42, "foo"),
+                    fixture_2("bar")
+                    "#);
+
+                let fixtures = info.data.fixtures().cloned().collect_vec();
+
+                assert_eq!(vec![fixture("fixture_1", vec!["42", r#""foo""#]),
+                                fixture("fixture_2", vec![r#""bar""#])],
+                           fixtures);
+            }
+
+            #[test]
+            #[should_panic(expected = "should not be empty")]
+            fn should_not_compile_if_empty_expression_slice() {
+                parse_rstest(r#"
+                    invalid => []
+                    "#);
             }
         }
     }

@@ -93,6 +93,7 @@ impl ToTokens for MatrixItem {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct ValueList {
     pub(crate) arg: Ident,
     pub(crate) values: Vec<Expr>,
