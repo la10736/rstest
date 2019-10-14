@@ -74,6 +74,35 @@ fn impl_input() {
         .assert(output);
 }
 
+#[test]
+fn should_reject_no_item_function() {
+    let (output, name) = run_test("reject_no_item_function.rs");
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+         --> {}/src/lib.rs:4:1
+          |
+        4 | struct Foo;
+          | ^^^^^^
+        ", name).unindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+         --> {}/src/lib.rs:7:1
+          |
+        7 | impl Foo {{}}
+          | ^^^^
+        ", name).unindent());
+
+    assert_in!(output.stderr.str(), format!("
+        error: expected `fn`
+          --> {}/src/lib.rs:10:1
+           |
+        10 | mod mod_baz {{}}
+           | ^^^
+        ", name).unindent());
+}
+
 mod dump_input_values {
     use super::*;
 
@@ -156,35 +185,6 @@ mod dump_input_values {
                    lines.len(), lines.join("\n")
         );
     }
-}
-
-#[test]
-fn should_reject_no_item_function() {
-    let (output, name) = run_test("reject_no_item_function.rs");
-
-    assert_in!(output.stderr.str(), format!("
-        error: expected `fn`
-         --> {}/src/lib.rs:4:1
-          |
-        4 | struct Foo;
-          | ^^^^^^
-        ", name).unindent());
-
-    assert_in!(output.stderr.str(), format!("
-        error: expected `fn`
-         --> {}/src/lib.rs:7:1
-          |
-        7 | impl Foo {{}}
-          | ^^^^
-        ", name).unindent());
-
-    assert_in!(output.stderr.str(), format!("
-        error: expected `fn`
-          --> {}/src/lib.rs:10:1
-           |
-        10 | mod mod_baz {{}}
-           | ^^^
-        ", name).unindent());
 }
 
 mod single {
@@ -580,4 +580,34 @@ mod should_show_correct_errors {
                    |                    ^",
                    name).unindent());
     }
+}
+
+mod matrix {
+    use super::*;
+
+    fn res(name: impl AsRef<Path>) -> impl AsRef<Path> {
+        Path::new("matrix").join(name.as_ref())
+    }
+
+    #[test]
+    fn should_compile() {
+        let output = prj(res("simple.rs"))
+            .compile()
+            .unwrap();
+
+        assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
+    }
+
+    #[test]
+    fn happy_path() {
+        let (output, _) = run_test(res("simple.rs"));
+
+        TestResults::new()
+            .ok("strlen_test::case_1_1")
+            .ok("strlen_test::case_1_2")
+            .ok("strlen_test::case_2_1")
+            .ok("strlen_test::case_2_2")
+            .assert(output);
+    }
+
 }
