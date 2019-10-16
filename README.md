@@ -4,7 +4,7 @@
 [![MIT Licensed][license-mit-image]][license-mit-link]
 ![Rust 1.32+][rustc-image]
 
-# Rust fixture based test framework
+# Fixture-based test framework for Rust
 
 `rstest` uses procedural macros to implement simple fixtures and table-based tests.
 To use it, add the following lines to your `Cargo.toml` file:
