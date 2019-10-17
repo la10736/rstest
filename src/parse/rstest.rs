@@ -7,7 +7,7 @@ use super::testcase::TestCase;
 use crate::refident::{RefIdent, MaybeIdent};
 use quote::ToTokens;
 use proc_macro2::{TokenStream, Span};
-use crate::parse::matrix::ValueList;
+use crate::parse::vlist::ValueList;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -89,6 +89,10 @@ impl RsTestData {
             }
         )
     }
+
+    pub(crate) fn has_list_values(&self) -> bool {
+        self.list_values().next().is_some()
+    }
 }
 
 impl Parse for RsTestData {
@@ -115,6 +119,24 @@ impl From<Fixture> for RsTestItem {
     }
 }
 
+impl From<Ident> for RsTestItem {
+    fn from(ident: Ident) -> Self {
+        RsTestItem::CaseArgName(ident)
+    }
+}
+
+impl From<TestCase> for RsTestItem {
+    fn from(case: TestCase) -> Self {
+        RsTestItem::TestCase(case)
+    }
+}
+
+impl From<ValueList> for RsTestItem {
+    fn from(value_list: ValueList) -> Self {
+        RsTestItem::ValueList(value_list)
+    }
+}
+
 impl Parse for RsTestItem {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.fork().parse::<TestCase>().is_ok() {
@@ -137,7 +159,8 @@ impl MaybeIdent for RsTestItem {
         match self {
             Fixture(ref fixture) => Some(fixture.ident()),
             CaseArgName(ref case_arg) => Some(case_arg),
-            _ => None
+            ValueList(ref value_list) => Some(value_list.ident()),
+            TestCase(_) => None
         }
     }
 }
@@ -200,6 +223,8 @@ impl Parse for RsTestAttributes {
 
 #[cfg(test)]
 mod should {
+    use itertools::Itertools;
+
     use crate::test::*;
     use super::*;
 
@@ -349,43 +374,6 @@ mod should {
                 assert_eq!(to_args!(["42"]), cases[0].args())
             }
 
-            #[test]
-            fn integrated_1() {
-                let data = parse_rstest(r#"
-                    u,a,d,
-                    case(42, A{}, D{})
-                "#).data;
-
-                assert_eq!(to_strs!(vec!["u", "a", "d"]), data.case_args()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>());
-
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(1, cases.len());
-                assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
-            }
-
-            #[test]
-            fn integrated_2() {
-                let data = parse_rstest(r#"
-                    ret,
-                    case::should_success(Ok(())),
-                    case::should_fail(Err("Return Error"))
-                "#).data;
-
-                assert_eq!(to_strs!(vec!["ret"]), data.case_args()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>());
-
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(2, cases.len());
-                assert_eq!(to_args!(["Ok(())"]), cases[0].args());
-                assert_eq!("should_success", &cases[0].description.as_ref().unwrap().to_string());
-                assert_eq!(to_args!([r#"Err("Return Error")"#]), cases[1].args());
-                assert_eq!("should_fail", &cases[1].description.as_ref().unwrap().to_string());
-            }
 
             #[test]
             #[should_panic]
@@ -395,32 +383,6 @@ mod should {
                     case::should_success(Ok(())),
                     case::should_fail(Err("Return Error"))
                 "#);
-            }
-
-            #[test]
-            fn should_accept_any_order() {
-                let data = parse_rstest(r#"
-                    u,
-                    case(42, A{}, D{}),
-                    a,
-                    case(43, A{}, D{}),
-                    the_fixture(42),
-                    d
-                "#).data;
-
-                assert_eq!(to_strs!(vec!["u", "a", "d"]), data.case_args()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>());
-
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(2, cases.len());
-                assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
-                assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
-
-                let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
-
-                assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
             }
 
             #[test]
@@ -440,8 +402,6 @@ mod should {
         }
 
         mod matrix_cases {
-            use itertools::Itertools;
-
             use crate::parse::Attribute;
 
             use super::{*, assert_eq};
@@ -493,6 +453,42 @@ mod should {
                 parse_rstest(r#"
                     invalid => []
                     "#);
+            }
+        }
+
+        mod integrated {
+            use super::{*, assert_eq};
+
+            #[test]
+            fn should_parse_fixture_cases_and_matrix_in_any_order() {
+                let data = parse_rstest(r#"
+                    u,
+                    m => [1, 2],
+                    case(42, A{}, D{}),
+                    a,
+                    case(43, A{}, D{}),
+                    the_fixture(42),
+                    mm => ["f", "oo", "BAR"],
+                    d
+                "#).data;
+
+                let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
+                assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
+
+
+                assert_eq!(to_strs!(vec!["u", "a", "d"]), data.case_args()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>());
+
+                let cases = data.cases().collect::<Vec<_>>();
+                assert_eq!(2, cases.len());
+                assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
+                assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
+
+                let value_ranges = data.list_values().collect_vec();
+                assert_eq!(2, value_ranges.len());
+                assert_eq!(to_args!(["1", "2"]), value_ranges[0].args());
+                assert_eq!(to_args!([r#""f""#, r#""oo""#, r#""BAR""#]), value_ranges[1].args());
             }
         }
     }

@@ -572,6 +572,8 @@ pub fn rstest(args: proc_macro::TokenStream,
     if errors.is_empty() {
         if info.data.has_cases() {
             render_parametrize_cases(test, info)
+        } else if info.data.has_list_values() {
+            render_matrix_cases(test, info)
         } else {
             render_single_case(test, info)
         }
@@ -602,7 +604,7 @@ fn missed_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(test: &'a ItemFn, a
             .filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
             .filter(move |(_, ident)| !fn_args_has_ident(test, ident))
             .map(|(missed, ident)| syn::Error::new(missed.span(),
-                                          &format!("Missed argument: '{}' should be a test function argument.", ident),
+                                                   &format!("Missed argument: '{}' should be a test function argument.", ident),
             ))
     )
 }
@@ -644,20 +646,12 @@ fn invalid_case_errors(params: &RsTestData) -> Errors {
 fn case_args_without_cases(params: &RsTestData) -> Errors {
     if !params.has_cases() {
         return Box::new(params.case_args().map(|a|
-                syn::Error::new(a.span(), "No cases for this argument."))
+            syn::Error::new(a.span(), "No cases for this argument."))
         );
     }
     Box::new(
         std::iter::empty()
     )
-}
-
-fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> TokenStream {
-    missed_arguments_errors(test, info.args.list_values())
-        .chain(missed_arguments_errors(test, info.args.fixtures()))
-        .chain(duplicate_arguments_errors(info.args.items.iter()))
-        .map(|e| e.to_compile_error())
-        .collect()
 }
 
 fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream{
@@ -751,15 +745,15 @@ fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
     render_cases(test, cases, attributes.into())
 }
 
-fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> TokenStream {
-    let parse::matrix::MatrixInfo { args, attributes, .. } = params;
+fn render_matrix_cases(test: ItemFn, info: parse::rstest::RsTestInfo) -> TokenStream {
+    let parse::rstest::RsTestInfo { data, attributes, .. } = info;
     let span = test.sig.ident.span();
 
     // Steps:
     // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
     // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
     // 3. format case by packed data vector
-    let cases = args.list_values()
+    let cases = data.list_values()
         .map(|group|
             group.values.iter()
                 .enumerate()
@@ -774,7 +768,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
-            let resolver_fixture = resolver::fixture_resolver(args.fixtures());
+            let resolver_fixture = resolver::fixture_resolver(data.fixtures());
             let resolver_case = c.into_iter()
                 .map(|(a, e, _)| (a.to_string(), e))
                 .collect::<HashMap<_, _>>();
@@ -783,7 +777,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
         }
         );
 
-    render_cases(test, cases, attributes.into())
+    render_cases(test, cases, attributes)
 }
 
 /// Write table-based tests: you must indicate the arguments that you want use in your cases
@@ -944,16 +938,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {
-    let info = parse_macro_input!(args as parse::matrix::MatrixInfo);
-    let test = parse_macro_input!(input as ItemFn);
-
-    let errors = errors_in_matrix(&test, &info);
-
-    if errors.is_empty() {
-        render_matrix_cases(test, info).into()
-    } else {
-        errors
-    }.into()
+    rstest(args, input)
 }
 
 #[cfg(test)]
@@ -1130,35 +1115,31 @@ mod render {
 
         use crate::parse::{
             rstest::{RsTestInfo, RsTestData, RsTestItem},
-            testcase::TestCase
+            testcase::TestCase,
         };
 
         use super::{*, assert_eq};
 
-        impl<'a> From<&'a ItemFn> for RsTestData {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                RsTestData {
-                    items: fn_args_idents(item_fn)
-                        .cloned()
-                        .map(RsTestItem::CaseArgName)
-                        .collect(),
-                }
+        fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
+            RsTestData {
+                items: fn_args_idents(item_fn)
+                    .cloned()
+                    .map(RsTestItem::CaseArgName)
+                    .collect(),
             }
         }
 
-        impl<'a> From<&'a ItemFn> for RsTestInfo {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                RsTestInfo {
-                    data: item_fn.into(),
-                    attributes: Default::default(),
-                }
+        fn into_rstest_info(item_fn: &ItemFn) -> RsTestInfo {
+            RsTestInfo {
+                data: into_rstest_data(item_fn),
+                attributes: Default::default(),
             }
         }
 
         #[test]
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
@@ -1171,7 +1152,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let mut output = TestsGroup::from(tokens);
@@ -1185,7 +1166,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
@@ -1203,7 +1184,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_parametrize_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
@@ -1247,7 +1228,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: RsTestInfo = (&item_fn).into();
+            let mut info: RsTestInfo = into_rstest_info(&item_fn);
             info.push_case(TestCase::from(r#"String::from("3")"#));
             (item_fn, info)
         }
@@ -1256,7 +1237,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: RsTestInfo = (&item_fn).into();
+            let mut info: RsTestInfo = into_rstest_info(&item_fn);
             info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
             (item_fn, info)
         }
@@ -1338,39 +1319,34 @@ mod render {
     mod matrix_cases {
         use unindent::Unindent;
 
-        use crate::parse::matrix::{MatrixData, MatrixInfo, ValueList};
-
         /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
-                        /// transformation
+        /// transformation
 
         use super::{*, assert_eq};
+        use crate::parse::vlist::ValueList;
 
-        impl<'a> From<&'a ItemFn> for MatrixData {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                MatrixData {
-                    items: fn_args_idents(item_fn)
-                        .cloned()
-                        .map(|it|
-                            ValueList { arg: it, values: vec![] }.into()
-                        )
-                        .collect()
-                }
+        fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
+            RsTestData {
+                items: fn_args_idents(item_fn)
+                    .cloned()
+                    .map(|it|
+                        ValueList { arg: it, values: vec![] }.into()
+                    )
+                    .collect(),
             }
         }
 
-        impl<'a> From<&'a ItemFn> for MatrixInfo {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                MatrixInfo {
-                    args: item_fn.into(),
-                    attributes: Default::default(),
-                }
+        fn into_rstest_info(item_fn: &ItemFn) -> RsTestInfo {
+            RsTestInfo {
+                data: into_rstest_data(item_fn),
+                attributes: Default::default(),
             }
         }
 
         #[test]
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
@@ -1383,7 +1359,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let mut output = TestsGroup::from(tokens);
@@ -1397,7 +1373,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
@@ -1415,7 +1391,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
+            let info = into_rstest_info(&item_fn);
             let tokens = render_matrix_cases(item_fn.clone(), info);
 
             let output = TestsGroup::from(tokens);
@@ -1428,12 +1404,12 @@ mod render {
             assert_eq!(expected, output.module.attrs);
         }
 
-        fn one_simple_case() -> (ItemFn, MatrixInfo) {
+        fn one_simple_case() -> (ItemFn, RsTestInfo) {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = MatrixInfo {
-                args: MatrixData {
+            let info = RsTestInfo {
+                data: RsTestData {
                     items: vec![
                         ValueList { arg: ident("fix"), values: vec![expr(r#""value""#)] }.into()
                     ]
@@ -1460,8 +1436,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
-            let info = MatrixInfo {
-                args: MatrixData {
+            let info = RsTestInfo {
+                data: RsTestData {
                     items: vec![
                         values_list("first", ["1", "2"].as_ref()).into(),
                         values_list("second", ["3", "4"].as_ref()).into(),
@@ -1498,8 +1474,8 @@ mod render {
                 r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
             ).unwrap();
             let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
-            let info = MatrixInfo {
-                args: MatrixData {
+            let info = RsTestInfo {
+                data: RsTestData {
                     items: vec![
                         values_list("first", values.as_ref()).into(),
                         values_list("second", values[..10].as_ref()).into(),
