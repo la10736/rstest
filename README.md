@@ -4,10 +4,10 @@
 [![MIT Licensed][license-mit-image]][license-mit-link]
 ![Rust 1.32+][rustc-image]
 
-# Rust fixture based test framework
+# Fixture-based test framework for Rust
 
-`rstest` use procedural macro to implement simple fixtures and table
-based tests. To use it add follow lines to your `Cargo.toml` file:
+`rstest` uses procedural macros to implement simple fixtures and table-based tests.
+To use it, add the following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
@@ -35,9 +35,8 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-Moreover you can use `rstest_parametrize` macro to implement table
-based tests: you must indicate the arguments tha you want use in your cases
-and provide them for each case you want to test.
+Moreover you can use `rstest_parametrize` to implement table-based tests.
+You must indicate the arguments that you want use in your cases and provide them for each case you want to test.
 
 `rstest_parametrize` generates an independent test for each case.
 
@@ -68,10 +67,9 @@ test fibonacci_test::case_5 ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-You can learn more on [Docs](https://docs.rs/rstest) and 
-find more examples in [`resources`](resources) directory and in 
+You can learn more on [Docs](https://docs.rs/rstest) and find more examples in [`resources`](resources) directory and in 
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
-that use this module intensely.
+which uses this module in-depth.
 
 ## License
 
