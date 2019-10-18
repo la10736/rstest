@@ -13,3 +13,9 @@ fn single(fixture: S) {}
     ::trace
 )]
 fn cases(s: S) {}
+
+#[rstest(
+    s => [S{}]
+    ::trace
+)]
+fn matrix(s: S) {}

@@ -18,7 +18,7 @@ fn fa() -> A { A {} }
 #[rstest(
 ::trace::notrace(fa,fb))
 ]
-fn single_fail(fu32: u32, fa: A, fb: B, fd: D) {
+fn simple(fu32: u32, fa: A, fb: B, fd: D) {
     assert!(false);
 }
 
@@ -26,6 +26,16 @@ fn single_fail(fu32: u32, fa: A, fb: B, fd: D) {
     case(A{}, B{}, D{})
     ::trace::notrace(a,b))
 ]
-fn should_fail(fu32: u32, a: A, b: B, d: D) {
+fn cases(fu32: u32, a: A, b: B, d: D) {
+    assert!(false);
+}
+
+#[rstest(
+    a => [A{}],
+    b => [B{}],
+    dd => [D{}],
+    ::trace::notrace(a,b))
+]
+fn matrix(fu32: u32, a: A, b: B, dd: D) {
     assert!(false);
 }

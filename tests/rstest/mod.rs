@@ -113,8 +113,16 @@ mod dump_input_values {
 
         TestResults::new()
             .fail("single_fail")
-            .fail("should_fail::case_1")
-            .fail("should_fail::case_2")
+            .fail("cases_fail::case_1")
+            .fail("cases_fail::case_2")
+            .fail("matrix_fail::case_1_1_1")
+            .fail("matrix_fail::case_1_1_2")
+            .fail("matrix_fail::case_1_2_1")
+            .fail("matrix_fail::case_1_2_2")
+            .fail("matrix_fail::case_2_1_1")
+            .fail("matrix_fail::case_2_1_2")
+            .fail("matrix_fail::case_1_2_1")
+            .fail("matrix_fail::case_2_2_2")
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
@@ -128,6 +136,14 @@ mod dump_input_values {
         assert_in!(out, "u = 24");
         assert_in!(out, r#"s = "trs""#);
         assert_in!(out, r#"t = ("tt", -24)"#);
+
+        assert_in!(out, "u = 1");
+        assert_in!(out, r#"s = "rst""#);
+        assert_in!(out, r#"t = ("SS", -12)"#);
+
+        assert_in!(out, "u = 2");
+        assert_in!(out, r#"s = "srt""#);
+        assert_in!(out, r#"t = ("TT", -24)"#);
     }
 
     #[test]
@@ -147,21 +163,29 @@ mod dump_input_values {
             15 | fn cases(s: S) {{}}
                |          ^ `S` cannot be formatted using `{{:?}}`", name)
                .unindent());
+
+        assert_in!(output.stderr.str().to_string(), format!("
+              --> {}/src/lib.rs:21:11
+               |
+            21 | fn matrix(s: S) {{}}
+               |           ^ `S` cannot be formatted using `{{:?}}`", name).unindent());
     }
 
     #[test]
     fn can_exclude_some_inputs() {
-        let (output, _) = run_test("dump_exclude_some_fixtures.rs");
+        let (output, _) = run_test("dump_exclude_some_inputs.rs");
         let out = output.stdout.str().to_string();
 
         TestResults::new()
-            .fail("single_fail")
-            .fail("should_fail::case_1")
+            .fail("simple")
+            .fail("cases::case_1")
+            .fail("matrix::case_1_1_1")
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
         assert_in!(out, "d = D");
         assert_in!(out, "fd = D");
+        assert_in!(out, "dd = D");
     }
 
     #[test]
@@ -442,6 +466,59 @@ mod cases {
     }
 }
 
+mod matrix {
+    use super::*;
+
+    fn res(name: impl AsRef<Path>) -> impl AsRef<Path> {
+        Path::new("matrix").join(name.as_ref())
+    }
+
+    #[test]
+    fn should_compile() {
+        let output = prj(res("simple.rs"))
+            .compile()
+            .unwrap();
+
+        assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
+    }
+
+    #[test]
+    fn happy_path() {
+        let (output, _) = run_test(res("simple.rs"));
+
+        TestResults::new()
+            .ok("strlen_test::case_1_1")
+            .ok("strlen_test::case_1_2")
+            .ok("strlen_test::case_2_1")
+            .ok("strlen_test::case_2_2")
+            .assert(output);
+    }
+
+    #[test]
+    fn should_apply_partial_fixture() {
+        let (output, _) = run_test(res("partial.rs"));
+
+        TestResults::new()
+            .ok("default::case_1_1")
+            .ok("default::case_1_2")
+            .ok("default::case_2_1")
+            .ok("partial_2::case_2_2")
+            .ok("complete::case_2_2")
+            .fail("default::case_2_2")
+            .fail("partial_1::case_1_1")
+            .fail("partial_1::case_1_2")
+            .fail("partial_1::case_2_1")
+            .fail("partial_1::case_2_2")
+            .fail("partial_2::case_1_1")
+            .fail("partial_2::case_1_2")
+            .fail("partial_2::case_2_1")
+            .fail("complete::case_1_1")
+            .fail("complete::case_1_2")
+            .fail("complete::case_2_1")
+            .assert(output);
+    }
+}
+
 mod should_show_correct_errors {
     use std::process::Output;
 
@@ -518,14 +595,25 @@ mod should_show_correct_errors {
     }
 
     #[test]
-    fn if_wrong_type_param() {
+    fn if_wrong_type_case_param() {
         let (output, name) = execute();
 
         assert_in!(output.stderr.str(), format!("
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:17:27
+                  --> {}/src/lib.rs:17:26
                    |
-                17 | fn error_param_wrong_type(f: &str) {{}}", name).unindent());
+                17 | fn error_case_wrong_type(f: &str) {{}}", name).unindent());
+    }
+
+    #[test]
+    fn if_wrong_type_matrix_param() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+                error[E0308]: mismatched types
+                  --> {}/src/lib.rs:53:28
+                   |
+                53 | fn error_matrix_wrong_type(f: &str) {{}}", name).unindent());
     }
 
     #[test]
@@ -540,6 +628,16 @@ mod should_show_correct_errors {
                    |                               ^
                    |                               |",
                    name).unindent());
+
+        assert_in!(output.stderr.str(), format!("
+                error[E0308]: mismatched types
+                  --> {}/src/lib.rs:55:45
+                   |
+                55 | #[rstest(condition => [vec![1,2,3].contains(2)] )]
+                   |                                             ^
+                   |                                             |",
+                   name).unindent());
+
     }
 
     #[test]
@@ -580,34 +678,65 @@ mod should_show_correct_errors {
                    |                    ^",
                    name).unindent());
     }
-}
 
-mod matrix {
-    use super::*;
+    #[test]
+    fn if_list_argument_dont_match_function_signature() {
+        let (output, name) = execute();
 
-    fn res(name: impl AsRef<Path>) -> impl AsRef<Path> {
-        Path::new("matrix").join(name.as_ref())
+        assert_in!(output.stderr.str(), format!("
+                error: Missed argument: 'not_exist_1' should be a test function argument.
+                  --> {}/src/lib.rs:63:10
+                   |
+                63 | #[rstest(not_exist_1 => [42],
+                   |          ^^^^^^^^^^^",
+                   name).unindent());
+
+        assert_in!(output.stderr.str(), format!("
+                error: Missed argument: 'not_exist_2' should be a test function argument.
+                  --> {}/src/lib.rs:64:10
+                   |
+                64 |          not_exist_2 => [42])]
+                   |          ^^^^^^^^^^^",
+                   name).unindent());
+
     }
 
     #[test]
-    fn should_compile() {
-        let output = prj(res("simple.rs"))
-            .compile()
-            .unwrap();
+    fn if_inject_a_fixture_that_is_already_a_value_list() {
+        let (output, name) = execute();
 
-        assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
+        assert_in!(output.stderr.str(), format!("
+                error: Duplicate argument: 'f' is already defined.
+                  --> {}/src/lib.rs:67:25
+                   |
+                67 | #[rstest(f => [41, 42], f(42))]
+                   |                         ^",
+                   name).unindent());
     }
 
     #[test]
-    fn happy_path() {
-        let (output, _) = run_test(res("simple.rs"));
+    fn if_define_value_list_that_is_already_an_injected_fixture() {
+        let (output, name) = execute();
 
-        TestResults::new()
-            .ok("strlen_test::case_1_1")
-            .ok("strlen_test::case_1_2")
-            .ok("strlen_test::case_2_1")
-            .ok("strlen_test::case_2_2")
-            .assert(output);
+        assert_in!(output.stderr.str(), format!("
+                error: Duplicate argument: 'f' is already defined.
+                  --> {}/src/lib.rs:71:17
+                   |
+                71 | #[rstest(f(42), f => [41, 42])]
+                   |                 ^",
+                   name).unindent());
     }
 
+    #[test]
+    fn if_a_value_contains_empty_list() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+                error: Values list should not be empty
+                  --> {}/src/lib.rs:60:19
+                   |
+                60 | #[rstest(empty => [])]
+                   |                   ^^",
+                   name).unindent());
+    }
 }
