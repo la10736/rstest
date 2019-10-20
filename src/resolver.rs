@@ -11,7 +11,7 @@ use proc_macro2::{Ident, Span};
 
 use crate::parse::Fixture;
 
-pub(crate)  fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) -> impl Resolver + 'a {
+pub(crate) fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) -> impl Resolver + 'a {
     fixtures.map(|f|
         ( f.name.to_string(), extract_resolve_expression(f).into() )
     ).collect::<HashMap<_, Expr>>()
@@ -51,6 +51,12 @@ impl<'a> Resolver for HashMap<String, Expr> {
 impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
         self.0.resolve(ident).or_else(|| self.1.resolve(ident))
+    }
+}
+
+impl<R: Resolver> Resolver for &R {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+        (*self).resolve(ident)
     }
 }
 

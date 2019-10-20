@@ -570,10 +570,10 @@ pub fn rstest(args: proc_macro::TokenStream,
     let errors = errors_in_rstest(&test, &info);
 
     if errors.is_empty() {
-        if info.data.has_cases() {
-            render_parametrize_cases(test, info)
-        } else if info.data.has_list_values() {
+        if info.data.has_list_values() {
             render_matrix_cases(test, info)
+        } else if info.data.has_list_values() {
+            render_parametrize_cases(test, info)
         } else {
             render_single_case(test, info)
         }
@@ -670,14 +670,14 @@ fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> Token
         .collect()
 }
 
-struct CaseRender<R: Resolver> {
+struct TestCaseRender<R: Resolver> {
     name: Ident,
     resolver: R,
 }
 
-impl<R: Resolver> CaseRender<R> {
+impl<R: Resolver> TestCaseRender<R> {
     pub fn new(name: Ident, resolver: R) -> Self {
-        CaseRender { name, resolver }
+        TestCaseRender { name, resolver }
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
@@ -685,7 +685,7 @@ impl<R: Resolver> CaseRender<R> {
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, attributes: RsTestAttributes) -> TokenStream {
+fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=TestCaseRender<R>>, attributes: RsTestAttributes) -> TokenStream {
     let fname = &test.sig.ident;
     let cases = cases.map(|case| case.render(&test, &attributes));
 
@@ -736,8 +736,8 @@ fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
                         .map(|a| a.to_string())
                         .zip(case.args.iter())
                         .collect::<HashMap<_, _>>();
-                    CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
-                                    (resolver_case, resolver_fixtures))
+                    TestCaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
+                                        (resolver_case, resolver_fixtures))
                 }
         }
         );
@@ -748,36 +748,117 @@ fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
 fn render_matrix_cases(test: ItemFn, info: parse::rstest::RsTestInfo) -> TokenStream {
     let parse::rstest::RsTestInfo { data, attributes, .. } = info;
     let span = test.sig.ident.span();
+    let fname = &test.sig.ident;
 
-    // Steps:
-    // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
-    // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
-    // 3. format case by packed data vector
-    let cases = data.list_values()
-        .map(|group|
-            group.values.iter()
-                .enumerate()
-                .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
-        )
-        .multi_cartesian_product()
-        .map(|c| {
-            let args_indexes = c.iter()
-                .map(|(_, _, (index, max))|
-                    format!("{:0len$}", index + 1, len = max.display_len())
-                )
-                .collect::<Vec<_>>()
-                .join("_");
-            let name = format!("case_{}", args_indexes);
-            let resolver_fixture = resolver::fixture_resolver(data.fixtures());
-            let resolver_case = c.into_iter()
-                .map(|(a, e, _)| (a.to_string(), e))
-                .collect::<HashMap<_, _>>();
-            CaseRender::new(Ident::new(&name, span),
-                            (resolver_case, resolver_fixture))
+    let display_len = data.cases().count().display_len();
+    let cases: Vec<(_, _)> = data.cases()
+        .enumerate()
+        .map({
+            let data = &data;
+            move |(n, case)|
+                {
+                    let resolver_case = data.case_args()
+                        .map(|a| a.to_string())
+                        .zip(case.args.iter())
+                        .collect::<HashMap<_, _>>();
+                    (resolver_case, Ident::new(&format_case_name(case, n + 1, display_len), span))
+                }
         }
+        ).collect();
+
+    let base_resolver = resolver::fixture_resolver(data.fixtures());
+    if cases.is_empty() {
+        // Steps:
+        // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
+        // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
+        // 3. format case by packed data vector
+        let test_cases = data.list_values()
+            .map(|group|
+                group.values.iter()
+                    .enumerate()
+                    .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
+            )
+            .multi_cartesian_product()
+            .map(|c| {
+                let args_indexes = c.iter()
+                    .map(|(_, _, (index, max))|
+                        format!("{:0len$}", index + 1, len = max.display_len())
+                    )
+                    .collect::<Vec<_>>()
+                    .join("_");
+                let name = format!("case_{}", args_indexes);
+                let resolver_case = c.into_iter()
+                    .map(|(a, e, _)| (a.to_string(), e))
+                    .collect::<HashMap<_, _>>();
+                TestCaseRender::new(Ident::new(&name, span),
+                                    (resolver_case, &base_resolver))
+            }
+            );
+
+        let test_cases = test_cases.map(|test_case| test_case.render(&test, &attributes));
+
+        quote! {
+        #[cfg(test)]
+        #test
+
+        #[cfg(test)]
+        mod #fname {
+                use super::*;
+
+                #(#test_cases)*
+            }
+        }
+    } else {
+
+        let  test_cases = cases.into_iter().map(
+            |(resolver, case_name)| {
+                let resolver = (resolver, &base_resolver);
+                let test_cases = data.list_values()
+                    .map(|group|
+                        group.values.iter()
+                            .enumerate()
+                            .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
+                    )
+                    .multi_cartesian_product()
+                    .map(|c| {
+                        let args_indexes = c.iter()
+                            .map(|(_, _, (index, max))|
+                                format!("{:0len$}", index + 1, len = max.display_len())
+                            )
+                            .collect::<Vec<_>>()
+                            .join("_");
+                        let name = format!("case_{}", args_indexes);
+                        let resolver_case = c.into_iter()
+                            .map(|(a, e, _)| (a.to_string(), e))
+                            .collect::<HashMap<_, _>>();
+                        TestCaseRender::new(Ident::new(&name, span),
+                                            (resolver_case, &resolver)
+                        )
+                    }
+                    )
+                    .map(|test_case| test_case.render(&test, &attributes));
+                quote! {
+                    mod #case_name {
+                        use super::*;
+
+                        #(#test_cases)*
+                    }
+                }
+            }
         );
 
-    render_cases(test, cases, attributes)
+        quote! {
+        #[cfg(test)]
+        #test
+
+        #[cfg(test)]
+        mod #fname {
+                use super::*;
+
+                #(#test_cases)*
+            }
+        }
+    }
 }
 
 /// Write table-based tests: you must indicate the arguments that you want use in your cases
@@ -943,14 +1024,13 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
 
 #[cfg(test)]
 mod render {
-    use pretty_assertions::assert_eq;
     use syn::{
         ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
     };
 
     use crate::resolver::*;
-    use crate::test::*;
+    use crate::test::{*, fixture, assert_eq};
 
     use super::*;
 
@@ -1095,11 +1175,28 @@ mod render {
         }
     }
 
+    /// To extract all submodules
+    struct SubModules(Vec<ItemMod>);
+
+    impl<'ast> Visit<'ast> for SubModules {
+        //noinspection RsTypeCheck
+        fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
+            self.0.push(item_mod.clone())
+        }
+    }
+
     impl TestsGroup {
         pub fn get_test_functions(&self) -> Vec<ItemFn> {
             let mut f = TestFunctions(vec![]);
 
             f.visit_item_mod(&self.module);
+            f.0
+        }
+
+        pub fn get_submodules(&self) -> Vec<ItemMod> {
+            let mut f = SubModules(vec![]);
+
+            self.module.content.as_ref().map(|(_, items)| items.iter().for_each(|it| f.visit_item(it)));
             f.0
         }
     }
@@ -1111,8 +1208,6 @@ mod render {
     }
 
     mod cases {
-        use std::iter::FromIterator;
-
         use crate::parse::{
             rstest::{RsTestInfo, RsTestData, RsTestItem},
             testcase::TestCase,
@@ -1129,18 +1224,11 @@ mod render {
             }
         }
 
-        fn into_rstest_info(item_fn: &ItemFn) -> RsTestInfo {
-            RsTestInfo {
-                data: into_rstest_data(item_fn),
-                attributes: Default::default(),
-            }
-        }
-
         #[test]
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1152,8 +1240,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let mut output = TestsGroup::from(tokens);
 
@@ -1166,8 +1254,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1184,8 +1272,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1197,38 +1285,12 @@ mod render {
             assert_eq!(expected, output.module.attrs);
         }
 
-        impl RsTestInfo {
-            fn push_case(&mut self, case: TestCase) {
-                self.data.items.push(RsTestItem::TestCase(case));
-            }
-
-            fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
-                self.data.items.extend(cases.map(RsTestItem::TestCase));
-            }
-        }
-
-        impl<'a> FromIterator<&'a str> for TestCase {
-            fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
-                TestCase {
-                    args: iter.into_iter()
-                        .map(expr)
-                        .collect(),
-                    description: None,
-                }
-            }
-        }
-
-        impl<'a> From<&'a str> for TestCase {
-            fn from(argument: &'a str) -> Self {
-                std::iter::once(argument).collect()
-            }
-        }
 
         fn one_simple_case() -> (ItemFn, RsTestInfo) {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: RsTestInfo = into_rstest_info(&item_fn);
+            let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
             info.push_case(TestCase::from(r#"String::from("3")"#));
             (item_fn, info)
         }
@@ -1237,7 +1299,7 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn test(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let mut info: RsTestInfo = into_rstest_info(&item_fn);
+            let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
             info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
             (item_fn, info)
         }
@@ -1336,18 +1398,11 @@ mod render {
             }
         }
 
-        fn into_rstest_info(item_fn: &ItemFn) -> RsTestInfo {
-            RsTestInfo {
-                data: into_rstest_data(item_fn),
-                attributes: Default::default(),
-            }
-        }
-
         #[test]
         fn should_create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1359,8 +1414,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
             let mut output = TestsGroup::from(tokens);
 
@@ -1373,8 +1428,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1391,8 +1446,8 @@ mod render {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = into_rstest_info(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1491,6 +1546,34 @@ mod render {
 
             assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
             assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
+        }
+    }
+
+    mod cases_and_values_lists {
+        use super::{*, assert_eq};
+
+        #[test]
+        fn should_module_for_each_cases() {
+            let item_fn = parse_str::<ItemFn>(r#"
+                fn should_be_the_outer_module_name(
+                    fix: u32,
+                    a: f64, b: f32,
+                    x: i32, y: i32) {}"#).unwrap();
+            let data = RsTestData {
+                items: vec![fixture("fix", vec!["2"]).into(),
+                            ident("a").into(), ident("b").into(),
+                            vec!["1f64", "2f32"].into_iter().collect::<TestCase>().into(),
+                            vec!["3f64", "4f32"].into_iter().collect::<TestCase>().into(),
+                            values_list("x", &["12", "-2"]).into(),
+                            values_list("y", &["-3", "42"]).into(),
+                ],
+            };
+            let tokens = render_matrix_cases(item_fn.clone(), data.into());
+
+            let output = TestsGroup::from(tokens);
+
+            assert_eq!(output.module.ident, "should_be_the_outer_module_name");
+            assert_eq!(2, output.get_submodules().len());
         }
     }
 

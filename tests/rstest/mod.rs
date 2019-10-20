@@ -519,6 +519,22 @@ mod matrix {
     }
 }
 
+#[test]
+fn happay_path() {
+    let (output, _) = run_test("happy_path.rs");
+
+    TestResults::new()
+        .ok("happy::case_1::case_1_1")
+        .ok("happy::case_1::case_1_2")
+        .ok("happy::case_1::case_2_1")
+        .ok("happy::case_1::case_2_2")
+        .ok("happy::case_2_second::case_1_1")
+        .ok("happy::case_2_second::case_1_2")
+        .ok("happy::case_2_second::case_2_1")
+        .ok("happy::case_2_second::case_2_2")
+        .assert(output);
+}
+
 mod should_show_correct_errors {
     use std::process::Output;
 

@@ -18,6 +18,7 @@ use crate::parse::{
     testcase::TestCase,
 };
 use syn::parse::Parse;
+use std::iter::FromIterator;
 
 macro_rules! to_args {
     ($e:expr) => {
@@ -133,9 +134,42 @@ impl Attribute {
     }
 }
 
+impl RsTestInfo {
+    pub fn push_case(&mut self, case: TestCase) {
+        self.data.items.push(RsTestItem::TestCase(case));
+    }
+
+    pub fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
+        self.data.items.extend(cases.map(RsTestItem::TestCase));
+    }
+}
+
+impl<'a> FromIterator<&'a str> for TestCase {
+    fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
+        TestCase {
+            args: iter.into_iter()
+                .map(expr)
+                .collect(),
+            description: None,
+        }
+    }
+}
+
+impl<'a> From<&'a str> for TestCase {
+    fn from(argument: &'a str) -> Self {
+        std::iter::once(argument).collect()
+    }
+}
+
 impl From<Vec<RsTestItem>> for RsTestData {
-    fn from(fixtures: Vec<RsTestItem>) -> Self {
-        Self { items: fixtures }
+    fn from(items: Vec<RsTestItem>) -> Self {
+        Self { items }
+    }
+}
+
+impl From<RsTestData> for RsTestInfo {
+    fn from(data: RsTestData) -> Self {
+        Self { data, attributes: Default::default() }
     }
 }
 
