@@ -192,15 +192,15 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
-use syn::{FnArg, Ident, ItemFn, parse_macro_input, parse_quote, Stmt, ReturnType, Generics};
+use syn::{FnArg, Generics, Ident, ItemFn, parse_macro_input, parse_quote, ReturnType, Stmt};
 use syn::spanned::Spanned;
 
 use quote::quote;
 
 use crate::parse::{
     fixture::FixtureInfo,
+    rstest::{RsTestAttributes, RsTestData, RsTestInfo},
     testcase::TestCase,
-    rstest::{RsTestAttributes, RsTestInfo, RsTestData},
 };
 use crate::refident::MaybeIdent;
 use crate::resolver::{arg_2_fixture, Resolver};
@@ -572,7 +572,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     if errors.is_empty() {
         if info.data.has_list_values() {
             render_matrix_cases(test, info)
-        } else if info.data.has_list_values() {
+        } else if info.data.has_cases() {
             render_parametrize_cases(test, info)
         } else {
             render_single_case(test, info)
@@ -654,7 +654,7 @@ fn case_args_without_cases(params: &RsTestData) -> Errors {
     )
 }
 
-fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream{
+fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream {
     missed_arguments_errors(test, info.data.items.iter())
         .chain(duplicate_arguments_errors(info.data.items.iter()))
         .chain(invalid_case_errors(&info.data))
@@ -745,6 +745,57 @@ fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
     render_cases(test, cases, attributes.into())
 }
 
+fn render_inner_matrix_cases<'a>(test: &ItemFn, attributes: &RsTestAttributes, resolver: &impl Resolver,
+                                 list_values: impl Iterator<Item=&'a crate::parse::vlist::ValueList>) -> TokenStream {
+    let test_function_span = test.sig.ident.span();
+    // Steps:
+    // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
+    // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
+    // 3. format case by packed data vector
+    let test_cases = list_values
+        .map(|group|
+            group.values.iter()
+                .enumerate()
+                .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
+        )
+        .multi_cartesian_product()
+        .map(|c| {
+            let args_indexes = c.iter()
+                .map(|(_, _, (index, max))|
+                    format!("{:0len$}", index + 1, len = max.display_len())
+                )
+                .collect::<Vec<_>>()
+                .join("_");
+            let name = format!("case_{}", args_indexes);
+            let resolver_case = c.into_iter()
+                .map(|(a, e, _)| (a.to_string(), e))
+                .collect::<HashMap<_, _>>();
+            TestCaseRender::new(Ident::new(&name, test_function_span),
+                                (resolver_case, resolver))
+        }
+        );
+
+    let test_cases = test_cases.map(|test_case| test_case.render(test, attributes));
+
+    quote! { #(#test_cases)* }
+}
+
+trait WrapByModule {
+    fn wrap_by_mod(&self, mod_name: &Ident) -> TokenStream;
+}
+
+impl<T: quote::ToTokens> WrapByModule for T {
+    fn wrap_by_mod(&self, mod_name: &Ident) -> TokenStream {
+        quote! {
+            mod #mod_name {
+                    use super::*;
+
+                    #self
+                }
+            }
+    }
+}
+
 fn render_matrix_cases(test: ItemFn, info: parse::rstest::RsTestInfo) -> TokenStream {
     let parse::rstest::RsTestInfo { data, attributes, .. } = info;
     let span = test.sig.ident.span();
@@ -766,93 +817,34 @@ fn render_matrix_cases(test: ItemFn, info: parse::rstest::RsTestInfo) -> TokenSt
         }
         ).collect();
 
-    let base_resolver = resolver::fixture_resolver(data.fixtures());
+    let resolver = resolver::fixture_resolver(data.fixtures());
     if cases.is_empty() {
-        // Steps:
-        // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
-        // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
-        // 3. format case by packed data vector
-        let test_cases = data.list_values()
-            .map(|group|
-                group.values.iter()
-                    .enumerate()
-                    .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
-            )
-            .multi_cartesian_product()
-            .map(|c| {
-                let args_indexes = c.iter()
-                    .map(|(_, _, (index, max))|
-                        format!("{:0len$}", index + 1, len = max.display_len())
-                    )
-                    .collect::<Vec<_>>()
-                    .join("_");
-                let name = format!("case_{}", args_indexes);
-                let resolver_case = c.into_iter()
-                    .map(|(a, e, _)| (a.to_string(), e))
-                    .collect::<HashMap<_, _>>();
-                TestCaseRender::new(Ident::new(&name, span),
-                                    (resolver_case, &base_resolver))
-            }
-            );
-
-        let test_cases = test_cases.map(|test_case| test_case.render(&test, &attributes));
+        let wrapped_cases = render_inner_matrix_cases(&test, &attributes, &resolver, data.list_values());
 
         quote! {
-        #[cfg(test)]
-        #test
+            #[cfg(test)]
+            #test
 
-        #[cfg(test)]
-        mod #fname {
+            #[cfg(test)]
+            mod #fname {
                 use super::*;
 
-                #(#test_cases)*
+                #wrapped_cases
             }
         }
     } else {
-
-        let  test_cases = cases.into_iter().map(
-            |(resolver, case_name)| {
-                let resolver = (resolver, &base_resolver);
-                let test_cases = data.list_values()
-                    .map(|group|
-                        group.values.iter()
-                            .enumerate()
-                            .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
-                    )
-                    .multi_cartesian_product()
-                    .map(|c| {
-                        let args_indexes = c.iter()
-                            .map(|(_, _, (index, max))|
-                                format!("{:0len$}", index + 1, len = max.display_len())
-                            )
-                            .collect::<Vec<_>>()
-                            .join("_");
-                        let name = format!("case_{}", args_indexes);
-                        let resolver_case = c.into_iter()
-                            .map(|(a, e, _)| (a.to_string(), e))
-                            .collect::<HashMap<_, _>>();
-                        TestCaseRender::new(Ident::new(&name, span),
-                                            (resolver_case, &resolver)
-                        )
-                    }
-                    )
-                    .map(|test_case| test_case.render(&test, &attributes));
-                quote! {
-                    mod #case_name {
-                        use super::*;
-
-                        #(#test_cases)*
-                    }
-                }
-            }
+        let test_cases = cases.into_iter().map(
+            |(case_resolver, case_name)|
+                render_inner_matrix_cases(&test, &attributes, &(case_resolver, &resolver), data.list_values())
+                    .wrap_by_mod(&case_name)
         );
 
         quote! {
-        #[cfg(test)]
-        #test
+            #[cfg(test)]
+            #test
 
-        #[cfg(test)]
-        mod #fname {
+            #[cfg(test)]
+            mod #fname {
                 use super::*;
 
                 #(#test_cases)*
@@ -1030,7 +1022,7 @@ mod render {
     };
 
     use crate::resolver::*;
-    use crate::test::{*, fixture, assert_eq};
+    use crate::test::{*, assert_eq, fixture};
 
     use super::*;
 
@@ -1209,7 +1201,7 @@ mod render {
 
     mod cases {
         use crate::parse::{
-            rstest::{RsTestInfo, RsTestData, RsTestItem},
+            rstest::{RsTestData, RsTestInfo, RsTestItem},
             testcase::TestCase,
         };
 
@@ -1381,11 +1373,12 @@ mod render {
     mod matrix_cases {
         use unindent::Unindent;
 
+        use crate::parse::vlist::ValueList;
+
         /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
-        /// transformation
+                        /// transformation
 
         use super::{*, assert_eq};
-        use crate::parse::vlist::ValueList;
 
         fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
             RsTestData {
