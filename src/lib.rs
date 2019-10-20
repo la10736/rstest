@@ -685,9 +685,8 @@ impl<R: Resolver> TestCaseRender<R> {
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=TestCaseRender<R>>, attributes: RsTestAttributes) -> TokenStream {
+fn render_test_group(test: ItemFn, rendered_cases: TokenStream) -> TokenStream {
     let fname = &test.sig.ident;
-    let cases = cases.map(|case| case.render(&test, &attributes));
 
     quote! {
         #[cfg(test)]
@@ -697,7 +696,7 @@ fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=TestCaseRen
         mod #fname {
             use super::*;
 
-            #(#cases)*
+            #rendered_cases
         }
     }
 }
@@ -720,29 +719,35 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
-fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
-    let RsTestInfo { data, attributes } = info;
+fn cases_data(data: &RsTestData, name_span: Span) -> impl Iterator<Item=(Ident, HashMap<String, &syn::Expr>)> {
     let display_len = data.cases().count().display_len();
-
-    let cases = data.cases()
+    data.cases()
         .enumerate()
         .map({
-            let span = test.sig.ident.span();
-            let data = &data;
             move |(n, case)|
                 {
-                    let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
                     let resolver_case = data.case_args()
                         .map(|a| a.to_string())
                         .zip(case.args.iter())
                         .collect::<HashMap<_, _>>();
-                    TestCaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
-                                        (resolver_case, resolver_fixtures))
+                    (Ident::new(&format_case_name(case, n + 1, display_len), name_span), resolver_case)
                 }
         }
-        );
+        )
+}
 
-    render_cases(test, cases, attributes.into())
+fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let RsTestInfo { data, attributes } = info;
+    let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
+
+    let rendered_cases = cases_data(&data, test.sig.ident.span())
+        .map(|(name, resolver)|
+                    TestCaseRender::new(name,(resolver, &resolver_fixtures))
+        )
+        .map(|case| case.render(&test, &attributes))
+        .collect();
+
+    render_test_group(test, rendered_cases)
 }
 
 fn render_inner_matrix_cases<'a>(test: &ItemFn, attributes: &RsTestAttributes, resolver: &impl Resolver,
@@ -799,58 +804,22 @@ impl<T: quote::ToTokens> WrapByModule for T {
 fn render_matrix_cases(test: ItemFn, info: parse::rstest::RsTestInfo) -> TokenStream {
     let parse::rstest::RsTestInfo { data, attributes, .. } = info;
     let span = test.sig.ident.span();
-    let fname = &test.sig.ident;
 
-    let display_len = data.cases().count().display_len();
-    let cases: Vec<(_, _)> = data.cases()
-        .enumerate()
-        .map({
-            let data = &data;
-            move |(n, case)|
-                {
-                    let resolver_case = data.case_args()
-                        .map(|a| a.to_string())
-                        .zip(case.args.iter())
-                        .collect::<HashMap<_, _>>();
-                    (resolver_case, Ident::new(&format_case_name(case, n + 1, display_len), span))
-                }
-        }
-        ).collect();
+    let cases = cases_data(&data, span)
+        .collect::<Vec<_>>();
 
     let resolver = resolver::fixture_resolver(data.fixtures());
-    if cases.is_empty() {
-        let wrapped_cases = render_inner_matrix_cases(&test, &attributes, &resolver, data.list_values());
-
-        quote! {
-            #[cfg(test)]
-            #test
-
-            #[cfg(test)]
-            mod #fname {
-                use super::*;
-
-                #wrapped_cases
-            }
-        }
+    let rendered_cases = if cases.is_empty() {
+        render_inner_matrix_cases(&test, &attributes, &resolver, data.list_values())
     } else {
-        let test_cases = cases.into_iter().map(
-            |(case_resolver, case_name)|
+        cases.into_iter().map(
+            |(case_name, case_resolver)|
                 render_inner_matrix_cases(&test, &attributes, &(case_resolver, &resolver), data.list_values())
                     .wrap_by_mod(&case_name)
-        );
+        ).collect()
+    };
 
-        quote! {
-            #[cfg(test)]
-            #test
-
-            #[cfg(test)]
-            mod #fname {
-                use super::*;
-
-                #(#test_cases)*
-            }
-        }
-    }
+    render_test_group(test, rendered_cases)
 }
 
 /// Write table-based tests: you must indicate the arguments that you want use in your cases
