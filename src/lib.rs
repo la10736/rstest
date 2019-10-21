@@ -1146,19 +1146,58 @@ mod render {
         }
     }
 
-    impl TestsGroup {
-        pub fn get_test_functions(&self) -> Vec<ItemFn> {
-            let mut f = TestFunctions(vec![]);
+    trait ModuleInspector {
+        fn get_test_functions(&self) -> Vec<ItemFn>;
+        fn get_submodules(&self) -> Vec<ItemMod>;
+    }
 
-            f.visit_item_mod(&self.module);
+    impl ModuleInspector for ItemMod {
+        fn get_test_functions(&self) -> Vec<ItemFn> {
+            let mut f = TestFunctions(vec![]);
+            f.visit_item_mod(&self);
             f.0
         }
 
-        pub fn get_submodules(&self) -> Vec<ItemMod> {
+        fn get_submodules(&self) -> Vec<ItemMod> {
             let mut f = SubModules(vec![]);
 
-            self.module.content.as_ref().map(|(_, items)| items.iter().for_each(|it| f.visit_item(it)));
+            self.content.as_ref().map(|(_, items)|
+                items.iter().for_each(|it| f.visit_item(it))
+            );
             f.0
+        }
+    }
+
+    impl ModuleInspector for TestsGroup {
+        fn get_test_functions(&self) -> Vec<ItemFn> {
+            self.module.get_test_functions()
+        }
+
+        fn get_submodules(&self) -> Vec<ItemMod> {
+            self.module.get_submodules()
+        }
+    }
+
+    #[derive(Default, Debug)]
+    struct Assignments(HashMap<String, syn::Expr>);
+
+    impl <'ast> Visit<'ast> for  Assignments {
+        //noinspection RsTypeCheck
+        fn visit_local(&mut self, assign: &syn::Local) {
+            match &assign {
+                syn::Local { pat: syn::Pat::Ident(pat), init: Some((_, expr)), .. } => {
+                    self.0.insert(pat.ident.to_string(), expr.as_ref().clone());
+                },
+                _ => {}
+            }
+        }
+    }
+
+    impl Assignments {
+        pub fn collect_assignments(item_fn: &ItemFn) -> Self {
+            let mut collect = Self::default();
+            collect.visit_item_fn(item_fn);
+            collect
         }
     }
 
@@ -1525,7 +1564,10 @@ mod render {
                 items: vec![fixture("fix", vec!["2"]).into(),
                             ident("a").into(), ident("b").into(),
                             vec!["1f64", "2f32"].into_iter().collect::<TestCase>().into(),
-                            vec!["3f64", "4f32"].into_iter().collect::<TestCase>().into(),
+                            TestCase {
+                                description: Some(ident("description")),
+                                ..vec!["3f64", "4f32"].into_iter().collect::<TestCase>()
+                            }.into(),
                             values_list("x", &["12", "-2"]).into(),
                             values_list("y", &["-3", "42"]).into(),
                 ],
@@ -1535,7 +1577,22 @@ mod render {
             let output = TestsGroup::from(tokens);
 
             assert_eq!(output.module.ident, "should_be_the_outer_module_name");
-            assert_eq!(2, output.get_submodules().len());
+
+            let sub_modules = output.get_submodules();
+            assert_eq!(2, sub_modules.len());
+
+            assert_eq!(sub_modules[0].ident, "case_1");
+            assert_eq!(sub_modules[1].ident, "case_2_description");
+
+            // 4 foreach modules
+            assert_eq!(4, sub_modules[0].get_test_functions().len());
+            assert_eq!(4, sub_modules[1].get_test_functions().len());
+
+            // No more
+            assert_eq!(8, output.get_test_functions().len());
+
+            dbg!(Assignments::collect_assignments(&sub_modules[0].get_test_functions()[0]));
+            assert!(false);
         }
     }
 
