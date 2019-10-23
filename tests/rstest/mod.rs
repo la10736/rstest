@@ -670,7 +670,7 @@ mod should_show_correct_errors {
     }
 
     #[test]
-    fn if_define_case_that_is_already_an_injected_fixture() {
+    fn if_define_a_case_arg_that_is_already_an_injected_fixture() {
         let (output, name) = execute();
 
         assert_in!(output.stderr.str(), format!("
@@ -740,6 +740,32 @@ mod should_show_correct_errors {
                    |
                 71 | #[rstest(f(42), f => [41, 42])]
                    |                 ^",
+                   name).unindent());
+    }
+
+    #[test]
+    fn if_define_value_list_that_is_already_a_case_arg() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+                error: Duplicate argument: 'a' is already defined.
+                  --> {}/src/lib.rs:75:23
+                   |
+                75 | #[rstest(a, case(42), a => [42])]
+                   |                       ^",
+                   name).unindent());
+    }
+
+    #[test]
+    fn if_define_a_case_arg_that_is_already_a_value_list() {
+        let (output, name) = execute();
+
+        assert_in!(output.stderr.str(), format!("
+                error: Duplicate argument: 'a' is already defined.
+                  --> {}/src/lib.rs:78:21
+                   |
+                78 | #[rstest(a => [42], a, case(42))]
+                   |                     ^",
                    name).unindent());
     }
 

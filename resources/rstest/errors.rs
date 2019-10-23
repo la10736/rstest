@@ -71,3 +71,9 @@ fn error_inject_a_fixture_that_is_already_a_value_list(f: u32) {
 #[rstest(f(42), f => [41, 42])]
 fn error_define_a_value_list_that_is_already_an_injected_fixture(f: u32) {
 }
+
+#[rstest(a, case(42), a => [42])]
+fn error_define_a_value_list_that_is_already_a_case_arg(a: u32) {}
+
+#[rstest(a => [42], a, case(42))]
+fn error_define_a_case_arg_that_is_already_a_value_list(a: u32) {}
