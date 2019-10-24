@@ -18,12 +18,15 @@
 //!
 //! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](attr.rstest.html): A normal Rust test that may additionally take fixtures.
-//! - [`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
-//! added ability to also generate new test cases based on input tables.
-//! - [`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
-//! added ability to also generate new test cases for every combination of given values.
+//! - [`[rstest]`](attr.rstest.html): Declare that a test or a group of tests that may take fixtures,
+//! input table or list of values.
 //! - [`[fixture]`](attr.fixture.html): To mark a function as a fixture.
+//! - ~[`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases based on input tables~. Now the `rstest`'s syntax
+//! include these features too.
+//! - ~[`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases for every combination of given values~. Now the
+//! `rstest`'s syntax include these features too.
 //!
 //! ## Why
 //!
@@ -155,13 +158,13 @@
 //!
 //! ## Creating parametrized tests
 //!
-//! You can use use [`[rstest_parametrize]`](attr.rstest_parametrize.html) to create simple
-//! table-based tests. Let's see the classic Fibonacci exmple:
+//! You can use also [`[rstest]`](attr.rstest.html) to create simple table-based tests. Let's see
+//! the classic Fibonacci exmple:
 //!
 //! ```
-//! use rstest::rstest_parametrize;
+//! use rstest::rstest;
 //!
-//! #[rstest_parametrize(input, expected,
+//! #[rstest(input, expected,
 //!     case(0, 0),
 //!     case(1, 1),
 //!     case(2, 1),
@@ -183,6 +186,37 @@
 //! }
 //! ```
 //! This will generate a bunch of tests, one for every `case()`.
+//!
+//! ## Creating a test for each combinations of given values
+//!
+//! In some cases you need to test your code for each cominations of some input values. In this
+//! cases [`[rstest]`](attr.rstest.html) give you the ability to define a list
+//! of values (rust expressions) to use for an arguments.
+//!
+//! ```
+//! # use rstest::rstest;
+//! # #[derive(PartialEq, Debug)]
+//! # enum State { Init, Start, Processing, Terminated }
+//! # #[derive(PartialEq, Debug)]
+//! # enum Event { Error, Fatal }
+//! # impl State { process(self, event: Event) -> Self { self } }
+//!
+//! #[rstest(
+//!     state => [State::Iint, State::Start, State::Processing],
+//!     event => [Event::Error, Event::Fatal]
+//! )]
+//! fn should_terminate(state: State, event: Event) {
+//!     assert_eq!(State::Terminated, state.process(event))
+//! }
+//! ```
+//!
+//! This will generate a test for each combination of `state` and `event`.
+//!
+//! ## Putting all togheder
+//!
+//! All these features can be used togheder: take some fixture, define some fixed case and, for each
+//! case, tests all combinations of gine values.
+//!
 
 
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
