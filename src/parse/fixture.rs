@@ -156,6 +156,15 @@ mod should {
         }
 
         #[test]
+        fn some_literals() {
+            let args_expressions = literal_expressions_str();
+            let fixture = parse_fixture(&format!("my_fixture({})", args_expressions.join(", ")));
+            let args = fixture.data.fixtures().next().unwrap().positional.clone();
+
+            assert_eq!(to_args!(args_expressions), args);
+        }
+
+        #[test]
         fn empty_fixtures() {
             let data = parse_fixture(r#"::trace::no_trace(some)"#);
 
