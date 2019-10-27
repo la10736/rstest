@@ -168,7 +168,7 @@ impl Project {
     }
 
     fn add_dependency(&self) {
-        if 0 != Command::new("cargo")
+        let execution = Command::new("cargo")
             .current_dir(&self.path())
             .arg("add")
             .arg("rstest")
@@ -176,11 +176,10 @@ impl Project {
                           std::env::current_dir().unwrap().as_os_str().to_str().unwrap()))
             .spawn()
             .unwrap()
-            .wait()
-            .unwrap()
-            .code()
-            .unwrap() {
-            panic!("cargo add return an error code");
+            .wait_with_output()
+            .unwrap();
+        if Some(0) != execution.status.code() {
+            panic!("cargo add return an error code = {:?}: {:?}", execution.status, execution);
         }
     }
 
