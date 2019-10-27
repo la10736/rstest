@@ -53,6 +53,8 @@ pub struct Project {
 }
 
 impl Project {
+    const GLOBAL_TEST_ATTR: &'static str = "#![cfg(test)]";
+
     pub fn new<P: AsRef<Path>>(root: P) -> Self {
         Self {
             root: root.as_ref().to_owned(),
@@ -88,6 +90,9 @@ impl Project {
 
     pub fn run_tests(&self) -> Result<std::process::Output, std::io::Error> {
         let _guard = self.ws.read().expect("Cannot lock workspace resource");
+        if !self.has_test_global_attribute(self.code_path()) {
+            self.add_test_global_attribute(self.code_path())
+        }
         Command::new("cargo")
             .current_dir(&self.path())
             .arg(&self.cargo_channel_arg())
@@ -127,11 +132,15 @@ impl Project {
         }
     }
 
-    fn add_test_global_attribute<P: AsRef<Path>>(&self, path: P) {
+    fn has_test_global_attribute(&self, path: impl AsRef<Path>) -> bool{
+        return read_to_string(&path).unwrap().starts_with(Self::GLOBAL_TEST_ATTR);
+    }
+
+    fn add_test_global_attribute(&self, path: impl AsRef<Path>) {
         let body = read_to_string(&path).unwrap();
         let mut out = std::fs::File::create(&path).unwrap();
 
-        write!(out, "#![cfg(test)]").unwrap();
+        write!(out, "{}", Self::GLOBAL_TEST_ATTR).unwrap();
         write!(out, "{}", body).unwrap();
     }
 
@@ -140,7 +149,6 @@ impl Project {
             src,
             self.code_path(),
         ).unwrap();
-        self.add_test_global_attribute(self.code_path());
         self
     }
 

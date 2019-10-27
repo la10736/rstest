@@ -15,8 +15,8 @@ pub(crate) mod macros;
 
 pub(crate) mod fixture;
 pub(crate) mod rstest;
-pub(crate) mod parametrize;
-pub(crate) mod matrix;
+pub(crate) mod vlist;
+pub(crate) mod testcase;
 
 #[derive(Default, Debug, PartialEq)]
 pub(crate) struct Attributes {

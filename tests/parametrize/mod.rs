@@ -203,6 +203,7 @@ mod not_compile_if_a_case_has_a_wrong_signature {
     use lazy_static::lazy_static;
     use std::process::Output;
 
+    //noinspection RsTypeCheck
     fn execute() -> &'static (Output, String) {
         lazy_static! {
             static ref OUTPUT: (Output, String) =
@@ -333,6 +334,7 @@ mod should_show_correct_errors {
     use lazy_static::lazy_static;
     use std::process::Output;
 
+    //noinspection RsTypeCheck
     fn execute() -> &'static (Output, String) {
         lazy_static! {
             static ref OUTPUT: (Output, String) =

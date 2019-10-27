@@ -18,12 +18,15 @@
 //!
 //! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](attr.rstest.html): A normal Rust test that may additionally take fixtures.
-//! - [`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
-//! added ability to also generate new test cases based on input tables.
-//! - [`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
-//! added ability to also generate new test cases for every combination of given values.
+//! - [`[rstest]`](attr.rstest.html): Declare that a test or a group of tests that may take fixtures,
+//! input table or list of values.
 //! - [`[fixture]`](attr.fixture.html): To mark a function as a fixture.
+//! - ~[`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases based on input tables~. Now the `rstest`'s syntax
+//! include these features too.
+//! - ~[`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases for every combination of given values~. Now the
+//! `rstest`'s syntax include these features too.
 //!
 //! ## Why
 //!
@@ -155,13 +158,13 @@
 //!
 //! ## Creating parametrized tests
 //!
-//! You can use use [`[rstest_parametrize]`](attr.rstest_parametrize.html) to create simple
-//! table-based tests. Let's see the classic Fibonacci exmple:
+//! You can use also [`[rstest]`](attr.rstest.html) to create simple table-based tests. Let's see
+//! the classic Fibonacci exmple:
 //!
 //! ```
-//! use rstest::rstest_parametrize;
+//! use rstest::rstest;
 //!
-//! #[rstest_parametrize(input, expected,
+//! #[rstest(input, expected,
 //!     case(0, 0),
 //!     case(1, 1),
 //!     case(2, 1),
@@ -183,6 +186,37 @@
 //! }
 //! ```
 //! This will generate a bunch of tests, one for every `case()`.
+//!
+//! ## Creating a test for each combinations of given values
+//!
+//! In some cases you need to test your code for each cominations of some input values. In this
+//! cases [`[rstest]`](attr.rstest.html) give you the ability to define a list
+//! of values (rust expressions) to use for an arguments.
+//!
+//! ```
+//! # use rstest::rstest;
+//! # #[derive(PartialEq, Debug)]
+//! # enum State { Init, Start, Processing, Terminated }
+//! # #[derive(PartialEq, Debug)]
+//! # enum Event { Error, Fatal }
+//! # impl State { process(self, event: Event) -> Self { self } }
+//!
+//! #[rstest(
+//!     state => [State::Iint, State::Start, State::Processing],
+//!     event => [Event::Error, Event::Fatal]
+//! )]
+//! fn should_terminate(state: State, event: Event) {
+//!     assert_eq!(State::Terminated, state.process(event))
+//! }
+//! ```
+//!
+//! This will generate a test for each combination of `state` and `event`.
+//!
+//! ## Putting all togheder
+//!
+//! All these features can be used togheder: take some fixtures, define some fixed cases and, for
+//! each case, tests all combinations of gine values.
+//!
 
 
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
@@ -192,17 +226,17 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
-use syn::{FnArg, Ident, ItemFn, parse_macro_input, parse_quote, Stmt, ReturnType, Generics};
+use syn::{FnArg, Generics, Ident, ItemFn, parse_macro_input, parse_quote, ReturnType, Stmt};
 use syn::spanned::Spanned;
 
 use quote::quote;
 
 use crate::parse::{
     fixture::FixtureInfo,
-    parametrize::{ParametrizeData, ParametrizeInfo, TestCase},
-    rstest::{RsTestAttributes, RsTestInfo},
+    rstest::{RsTestAttributes, RsTestData, RsTestInfo},
+    testcase::TestCase,
 };
-use crate::refident::{MaybeIdent, RefIdent};
+use crate::refident::MaybeIdent;
 use crate::resolver::{arg_2_fixture, Resolver};
 
 // Test utility module
@@ -295,6 +329,7 @@ fn where_predicate_bounded_type(wp: &syn::WherePredicate) -> Option<&syn::Type> 
     }
 }
 
+//noinspection RsTypeCheck
 fn generics_clean_up<'a>(original: &Generics, inputs: impl Iterator<Item=&'a FnArg>, output: &ReturnType) -> syn::Generics {
     use syn::visit::Visit;
     #[derive(Default, Debug)]
@@ -564,17 +599,28 @@ pub fn rstest(args: proc_macro::TokenStream,
               input: proc_macro::TokenStream)
               -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
-    let info: RsTestInfo = parse_macro_input!(args as RsTestInfo);
-    let name = &test.sig.ident;
-    let resolver = resolver::fixture_resolver(info.data.fixtures());
+    let info = parse_macro_input!(args as RsTestInfo);
 
     let errors = errors_in_rstest(&test, &info);
 
     if errors.is_empty() {
-        render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
+        if info.data.has_list_values() {
+            render_matrix_cases(test, info)
+        } else if info.data.has_cases() {
+            render_parametrize_cases(test, info)
+        } else {
+            render_single_case(test, info)
+        }
     } else {
         errors
     }.into()
+}
+
+fn render_single_case(test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let name = &test.sig.ident;
+    let resolver = resolver::fixture_resolver(info.data.fixtures());
+
+    render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
 }
 
 fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
@@ -586,12 +632,13 @@ fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
 
 type Errors<'a> = Box<dyn Iterator<Item=syn::Error> + 'a>;
 
-fn missed_arguments_errors<'a, I: RefIdent + Spanned + 'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
+fn missed_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
     Box::new(
         args
-            .filter(move |&p| !fn_args_has_ident(test, p.ident()))
-            .map(|missed| syn::Error::new(missed.span(),
-                                          &format!("Missed argument: '{}' should be a test function argument.", missed.ident()),
+            .filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
+            .filter(move |(_, ident)| !fn_args_has_ident(test, ident))
+            .map(|(missed, ident)| syn::Error::new(missed.span(),
+                                                   &format!("Missed argument: '{}' should be a test function argument.", ident),
             ))
     )
 }
@@ -619,8 +666,8 @@ fn duplicate_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(args: impl Itera
     )
 }
 
-fn invalid_case_errors(params: &ParametrizeData) -> Errors {
-    let n_args = params.args().count();
+fn invalid_case_errors(params: &RsTestData) -> Errors {
+    let n_args = params.case_args().count();
     Box::new(
         params.cases()
             .filter(move |case| case.args.len() != n_args)
@@ -630,26 +677,22 @@ fn invalid_case_errors(params: &ParametrizeData) -> Errors {
     )
 }
 
-fn errors_in_parametrize(test: &ItemFn, info: &ParametrizeInfo) -> TokenStream {
-    missed_arguments_errors(test, info.data.args())
-        .chain(missed_arguments_errors(test, info.data.fixtures()))
-        .chain(duplicate_arguments_errors(info.data.data.iter()))
-        .chain(invalid_case_errors(&info.data))
-        .map(|e| e.to_compile_error())
-        .collect()
+fn case_args_without_cases(params: &RsTestData) -> Errors {
+    if !params.has_cases() {
+        return Box::new(params.case_args().map(|a|
+            syn::Error::new(a.span(), "No cases for this argument."))
+        );
+    }
+    Box::new(
+        std::iter::empty()
+    )
 }
 
-fn errors_in_matrix(test: &ItemFn, info: &parse::matrix::MatrixInfo) -> TokenStream {
-    missed_arguments_errors(test, info.args.list_values())
-        .chain(missed_arguments_errors(test, info.args.fixtures()))
-        .chain(duplicate_arguments_errors(info.args.items.iter()))
-        .map(|e| e.to_compile_error())
-        .collect()
-}
-
-fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream{
+fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream {
     missed_arguments_errors(test, info.data.items.iter())
         .chain(duplicate_arguments_errors(info.data.items.iter()))
+        .chain(invalid_case_errors(&info.data))
+        .chain(case_args_without_cases(&info.data))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -661,14 +704,14 @@ fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> Token
         .collect()
 }
 
-struct CaseRender<R: Resolver> {
+struct TestCaseRender<R: Resolver> {
     name: Ident,
     resolver: R,
 }
 
-impl<R: Resolver> CaseRender<R> {
+impl<R: Resolver> TestCaseRender<R> {
     pub fn new(name: Ident, resolver: R) -> Self {
-        CaseRender { name, resolver }
+        TestCaseRender { name, resolver }
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
@@ -676,9 +719,8 @@ impl<R: Resolver> CaseRender<R> {
     }
 }
 
-fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<R>>, attributes: RsTestAttributes) -> TokenStream {
+fn render_test_group(test: ItemFn, rendered_cases: TokenStream) -> TokenStream {
     let fname = &test.sig.ident;
-    let cases = cases.map(|case| case.render(&test, &attributes));
 
     quote! {
         #[cfg(test)]
@@ -688,7 +730,7 @@ fn render_cases<R: Resolver>(test: ItemFn, cases: impl Iterator<Item=CaseRender<
         mod #fname {
             use super::*;
 
-            #(#cases)*
+            #rendered_cases
         }
     }
 }
@@ -711,40 +753,45 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
     format!("case_{:0len$}{d}", index, len = display_len, d = description)
 }
 
-fn render_parametrize_cases(test: ItemFn, params: ParametrizeInfo) -> TokenStream {
-    let ParametrizeInfo { data, attributes } = params;
+fn cases_data(data: &RsTestData, name_span: Span) -> impl Iterator<Item=(Ident, HashMap<String, &syn::Expr>)> {
     let display_len = data.cases().count().display_len();
-
-    let cases = data.cases()
+    data.cases()
         .enumerate()
         .map({
-            let span = test.sig.ident.span();
-            let data = &data;
             move |(n, case)|
                 {
-                    let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
-                    let resolver_case = data.args()
+                    let resolver_case = data.case_args()
                         .map(|a| a.to_string())
                         .zip(case.args.iter())
                         .collect::<HashMap<_, _>>();
-                    CaseRender::new(Ident::new(&format_case_name(case, n + 1, display_len), span),
-                                    (resolver_case, resolver_fixtures))
+                    (Ident::new(&format_case_name(case, n + 1, display_len), name_span), resolver_case)
                 }
         }
-        );
-
-    render_cases(test, cases, attributes.into())
+        )
 }
 
-fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> TokenStream {
-    let parse::matrix::MatrixInfo { args, attributes, .. } = params;
-    let span = test.sig.ident.span();
+fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let RsTestInfo { data, attributes } = info;
+    let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
 
+    let rendered_cases = cases_data(&data, test.sig.ident.span())
+        .map(|(name, resolver)|
+            TestCaseRender::new(name, (resolver, &resolver_fixtures))
+        )
+        .map(|case| case.render(&test, &attributes))
+        .collect();
+
+    render_test_group(test, rendered_cases)
+}
+
+fn render_inner_matrix_cases<'a>(test: &ItemFn, attributes: &RsTestAttributes, resolver: &impl Resolver,
+                                 list_values: impl Iterator<Item=&'a crate::parse::vlist::ValueList>) -> TokenStream {
+    let test_function_span = test.sig.ident.span();
     // Steps:
     // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
     // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
     // 3. format case by packed data vector
-    let cases = args.list_values()
+    let test_cases = list_values
         .map(|group|
             group.values.iter()
                 .enumerate()
@@ -759,16 +806,54 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
                 .collect::<Vec<_>>()
                 .join("_");
             let name = format!("case_{}", args_indexes);
-            let resolver_fixture = resolver::fixture_resolver(args.fixtures());
             let resolver_case = c.into_iter()
                 .map(|(a, e, _)| (a.to_string(), e))
                 .collect::<HashMap<_, _>>();
-            CaseRender::new(Ident::new(&name, span),
-                            (resolver_case, resolver_fixture))
+            TestCaseRender::new(Ident::new(&name, test_function_span),
+                                (resolver_case, resolver))
         }
         );
 
-    render_cases(test, cases, attributes.into())
+    let test_cases = test_cases.map(|test_case| test_case.render(test, attributes));
+
+    quote! { #(#test_cases)* }
+}
+
+trait WrapByModule {
+    fn wrap_by_mod(&self, mod_name: &Ident) -> TokenStream;
+}
+
+impl<T: quote::ToTokens> WrapByModule for T {
+    fn wrap_by_mod(&self, mod_name: &Ident) -> TokenStream {
+        quote! {
+            mod #mod_name {
+                    use super::*;
+
+                    #self
+                }
+            }
+    }
+}
+
+fn render_matrix_cases(test: ItemFn, info: parse::rstest::RsTestInfo) -> TokenStream {
+    let parse::rstest::RsTestInfo { data, attributes, .. } = info;
+    let span = test.sig.ident.span();
+
+    let cases = cases_data(&data, span)
+        .collect::<Vec<_>>();
+
+    let resolver = resolver::fixture_resolver(data.fixtures());
+    let rendered_cases = if cases.is_empty() {
+        render_inner_matrix_cases(&test, &attributes, &resolver, data.list_values())
+    } else {
+        cases.into_iter().map(
+            |(case_name, case_resolver)|
+                render_inner_matrix_cases(&test, &attributes, &(case_resolver, &resolver), data.list_values())
+                    .wrap_by_mod(&case_name)
+        ).collect()
+    };
+
+    render_test_group(test, rendered_cases)
 }
 
 /// Write table-based tests: you must indicate the arguments that you want use in your cases
@@ -852,16 +937,7 @@ fn render_matrix_cases(test: ItemFn, params: parse::matrix::MatrixInfo) -> Token
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
-    let params = parse_macro_input!(args as ParametrizeInfo);
-    let test = parse_macro_input!(input as ItemFn);
-
-    let errors = errors_in_parametrize(&test, &params);
-
-    if errors.is_empty() {
-        render_parametrize_cases(test, params)
-    } else {
-        errors
-    }.into()
+    rstest(args, input)
 }
 
 /// Write matrix-based tests: you must indicate arguments and values list that you want to test and
@@ -938,28 +1014,18 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {
-    let info = parse_macro_input!(args as parse::matrix::MatrixInfo);
-    let test = parse_macro_input!(input as ItemFn);
-
-    let errors = errors_in_matrix(&test, &info);
-
-    if errors.is_empty() {
-        render_matrix_cases(test, info).into()
-    } else {
-        errors
-    }.into()
+    rstest(args, input)
 }
 
 #[cfg(test)]
 mod render {
-    use pretty_assertions::assert_eq;
     use syn::{
         ItemFn, ItemMod, parse::{Parse, ParseStream, Result}, parse2,
         parse_str, punctuated, visit::Visit,
     };
 
     use crate::resolver::*;
-    use crate::test::*;
+    use crate::test::{*, assert_eq, fixture};
 
     use super::*;
 
@@ -973,57 +1039,65 @@ mod render {
             .maybe_ident().unwrap()
     }
 
-    #[test]
-    fn extract_fixture_call_arg() {
-        let ast = "fn foo(fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
+    mod arg_2_fixture_should {
+        use super::{*, assert_eq};
 
-        let line = arg_2_fixture(arg, &EmptyResolver);
+        #[test]
+        fn call_arg() {
+            let ast = "fn foo(fix: String) {}".ast();
+            let arg = first_arg_ident(&ast);
 
-        assert_eq!(line, "let fix = fix::default();".ast());
+            let line = arg_2_fixture(arg, &EmptyResolver);
+
+            assert_eq!(line, "let fix = fix::default();".ast());
+        }
+
+        #[test]
+        fn not_add_mut() {
+            let ast = "fn foo(mut fix: String) {}".ast();
+            let arg = first_arg_ident(&ast);
+
+            let line = arg_2_fixture(arg, &EmptyResolver);
+
+            assert_eq!(line, "let fix = fix::default();".ast());
+        }
+
+        #[test]
+        fn use_passed_fixture_if_any() {
+            let ast = "fn foo(mut fix: String) {}".ast();
+            let arg = first_arg_ident(&ast);
+            let call = expr("bar()");
+            let mut resolver = HashMap::new();
+            resolver.insert("fix".to_string(), &call);
+
+            let line = arg_2_fixture(arg, &resolver);
+
+            assert_eq!(line, "let fix = bar();".ast());
+        }
     }
 
-    #[test]
-    fn extract_fixture_should_not_add_mut() {
-        let ast = "fn foo(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
+    mod resolver_should {
+        use super::{*, assert_eq};
 
-        let line = arg_2_fixture(arg, &EmptyResolver);
+        #[test]
+        fn return_the_given_expression() {
+            let ast = parse_str("fn function(mut foo: String) {}").unwrap();
+            let arg = first_arg_ident(&ast);
+            let expected = expr("bar()");
+            let mut resolver = HashMap::new();
 
-        assert_eq!(line, "let fix = fix::default();".ast());
-    }
+            resolver.insert("foo".to_string(), &expected);
 
-    #[test]
-    fn arg_2_fixture_str_should_use_passed_fixture_if_any() {
-        let ast = "fn foo(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
-        let call = expr("bar()");
-        let mut resolver = HashMap::new();
-        resolver.insert("fix".to_string(), &call);
+            assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+        }
 
-        let line = arg_2_fixture(arg, &resolver);
+        #[test]
+        fn return_none_for_unknown_argument() {
+            let ast = "fn function(mut fix: String) {}".ast();
+            let arg = first_arg_ident(&ast);
 
-        assert_eq!(line, "let fix = bar();".ast());
-    }
-
-    #[test]
-    fn resolver_should_return_the_given_expression() {
-        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
-        let arg = first_arg_ident(&ast);
-        let expected = expr("bar()");
-        let mut resolver = HashMap::new();
-
-        resolver.insert("foo".to_string(), &expected);
-
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
-    }
-
-    #[test]
-    fn resolver_should_return_none_for_unknown_argument() {
-        let ast = "fn function(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
-
-        assert!(EmptyResolver.resolve(&arg).is_none())
+            assert!(EmptyResolver.resolve(&arg).is_none())
+        }
     }
 
     mod fn_test_should {
@@ -1046,7 +1120,7 @@ mod render {
         }
 
         #[test]
-        fn should_include_given_function() {
+        fn include_given_function() {
             let input_fn: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                         where B: Borrow<u32>
@@ -1096,6 +1170,7 @@ mod render {
     }
 
     impl<'ast> Visit<'ast> for TestFunctions {
+        //noinspection RsTypeCheck
         fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
             if Self::is_test_fn(item_fn) {
                 self.0.push(item_fn.clone())
@@ -1103,12 +1178,68 @@ mod render {
         }
     }
 
-    impl TestsGroup {
-        pub fn get_test_functions(&self) -> Vec<ItemFn> {
-            let mut f = TestFunctions(vec![]);
+    /// To extract all submodules
+    struct SubModules(Vec<ItemMod>);
 
-            f.visit_item_mod(&self.module);
+    impl<'ast> Visit<'ast> for SubModules {
+        //noinspection RsTypeCheck
+        fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
+            self.0.push(item_mod.clone())
+        }
+    }
+
+    trait ModuleInspector {
+        fn get_test_functions(&self) -> Vec<ItemFn>;
+        fn get_submodules(&self) -> Vec<ItemMod>;
+    }
+
+    impl ModuleInspector for ItemMod {
+        fn get_test_functions(&self) -> Vec<ItemFn> {
+            let mut f = TestFunctions(vec![]);
+            f.visit_item_mod(&self);
             f.0
+        }
+
+        fn get_submodules(&self) -> Vec<ItemMod> {
+            let mut f = SubModules(vec![]);
+
+            self.content.as_ref().map(|(_, items)|
+                items.iter().for_each(|it| f.visit_item(it))
+            );
+            f.0
+        }
+    }
+
+    impl ModuleInspector for TestsGroup {
+        fn get_test_functions(&self) -> Vec<ItemFn> {
+            self.module.get_test_functions()
+        }
+
+        fn get_submodules(&self) -> Vec<ItemMod> {
+            self.module.get_submodules()
+        }
+    }
+
+    #[derive(Default, Debug)]
+    struct Assignments(HashMap<String, syn::Expr>);
+
+    impl<'ast> Visit<'ast> for Assignments {
+        //noinspection RsTypeCheck
+        fn visit_local(&mut self, assign: &syn::Local) {
+            match &assign {
+                syn::Local { pat: syn::Pat::Ident(pat), init: Some((_, expr)), .. } => {
+                    self.0.insert(pat.ident.to_string(), expr.as_ref().clone());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    impl Assignments {
+        pub fn collect_assignments(item_fn: &ItemFn) -> Self {
+            let mut collect = Self::default();
+            collect.visit_item_fn(item_fn);
+            collect
         }
     }
 
@@ -1118,38 +1249,46 @@ mod render {
         }
     }
 
-    mod parametrize_cases {
-        use std::iter::FromIterator;
-
-        use crate::parse::parametrize::{ParametrizeData, ParametrizeInfo, ParametrizeItem, TestCase};
+    mod cases_should {
+        use crate::parse::{
+            rstest::{RsTestData, RsTestInfo, RsTestItem},
+            testcase::TestCase,
+        };
 
         use super::{*, assert_eq};
 
-        impl<'a> From<&'a ItemFn> for ParametrizeData {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                ParametrizeData {
-                    data: fn_args_idents(item_fn)
-                        .cloned()
-                        .map(ParametrizeItem::CaseArgName)
-                        .collect(),
-                }
+        fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
+            RsTestData {
+                items: fn_args_idents(item_fn)
+                    .cloned()
+                    .map(RsTestItem::CaseArgName)
+                    .collect(),
             }
         }
 
-        impl<'a> From<&'a ItemFn> for ParametrizeInfo {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                ParametrizeInfo {
-                    data: item_fn.into(),
-                    attributes: Default::default(),
-                }
-            }
+        fn one_simple_case() -> (ItemFn, RsTestInfo) {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
+            info.push_case(TestCase::from(r#"String::from("3")"#));
+            (item_fn, info)
+        }
+
+        fn some_simple_cases(cases: i32) -> (ItemFn, RsTestInfo) {
+            let item_fn = parse_str::<ItemFn>(
+                r#"fn test(mut fix: String) { println!("user code") }"#
+            ).unwrap();
+            let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
+            info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
+            (item_fn, info)
         }
 
         #[test]
-        fn should_create_a_module_named_as_test_function() {
+        fn create_a_module_named_as_test_function() {
             let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1157,12 +1296,12 @@ mod render {
         }
 
         #[test]
-        fn should_copy_user_function() {
+        fn copy_user_function() {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let mut output = TestsGroup::from(tokens);
 
@@ -1171,12 +1310,12 @@ mod render {
         }
 
         #[test]
-        fn should_mark_user_function_as_test() {
+        fn mark_user_function_as_test() {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1189,12 +1328,12 @@ mod render {
         }
 
         #[test]
-        fn should_mark_module_as_test() {
+        fn mark_module_as_test() {
             let item_fn = parse_str::<ItemFn>(
                 r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
             ).unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_parametrize_cases(item_fn.clone(), info);
+            let data = into_rstest_data(&item_fn);
+            let tokens = render_parametrize_cases(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -1206,53 +1345,8 @@ mod render {
             assert_eq!(expected, output.module.attrs);
         }
 
-        impl ParametrizeInfo {
-            fn push_case(&mut self, case: TestCase) {
-                self.data.data.push(ParametrizeItem::TestCase(case));
-            }
-
-            fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
-                self.data.data.extend(cases.map(ParametrizeItem::TestCase));
-            }
-        }
-
-        impl<'a> FromIterator<&'a str> for TestCase {
-            fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
-                TestCase {
-                    args: iter.into_iter()
-                        .map(expr)
-                        .collect(),
-                    description: None,
-                }
-            }
-        }
-
-        impl<'a> From<&'a str> for TestCase {
-            fn from(argument: &'a str) -> Self {
-                std::iter::once(argument).collect()
-            }
-        }
-
-        fn one_simple_case() -> (ItemFn, ParametrizeInfo) {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-            let mut info: ParametrizeInfo = (&item_fn).into();
-            info.push_case(TestCase::from(r#"String::from("3")"#));
-            (item_fn, info)
-        }
-
-        fn some_simple_cases(cases: i32) -> (ItemFn, ParametrizeInfo) {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-            let mut info: ParametrizeInfo = (&item_fn).into();
-            info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
-            (item_fn, info)
-        }
-
         #[test]
-        fn should_add_a_test_case() {
+        fn add_a_test_case() {
             let (item_fn, info) = one_simple_case();
 
             let tokens = render_parametrize_cases(item_fn.clone(), info);
@@ -1264,7 +1358,7 @@ mod render {
         }
 
         #[test]
-        fn case_number_should_starts_from_1() {
+        fn starts_case_number_from_1() {
             let (item_fn, info) = one_simple_case();
 
             let tokens = render_parametrize_cases(item_fn.clone(), info);
@@ -1275,7 +1369,7 @@ mod render {
         }
 
         #[test]
-        fn should_add_all_test_cases() {
+        fn add_all_test_cases() {
             let (item_fn, info) = some_simple_cases(5);
 
             let tokens = render_parametrize_cases(item_fn.clone(), info);
@@ -1288,7 +1382,7 @@ mod render {
         }
 
         #[test]
-        fn should_left_pad_case_number_by_zeros() {
+        fn left_pad_case_number_by_zeros() {
             let (item_fn, info) = some_simple_cases(1000);
 
             let tokens = render_parametrize_cases(item_fn.clone(), info);
@@ -1307,11 +1401,11 @@ mod render {
         }
 
         #[test]
-        fn should_use_description_if_any() {
+        fn use_description_if_any() {
             let (item_fn, mut info) = one_simple_case();
             let description = "show_this_description";
 
-            if let &mut ParametrizeItem::TestCase(ref mut case) = &mut info.data.data[1] {
+            if let &mut RsTestItem::TestCase(ref mut case) = &mut info.data.items[1] {
                 case.description = Some(parse_str::<Ident>(description).unwrap());
             } else {
                 panic!("Test case should be the second one");
@@ -1323,154 +1417,144 @@ mod render {
 
             assert!(tests[0].sig.ident.to_string().ends_with(&format!("_{}", description)));
         }
-    }
 
-    mod matrix_cases {
-        use unindent::Unindent;
+        mod matrix_cases_should {
+            use unindent::Unindent;
 
-        use crate::parse::matrix::{MatrixData, MatrixInfo, ValueList};
+            use crate::parse::vlist::ValueList;
 
-        /// Should test matrix tests render without take in account MatrixInfo to ParametrizeInfo
-                        /// transformation
+            /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
+            /// transformation
 
-        use super::{*, assert_eq};
+            use super::{*, assert_eq};
 
-        impl<'a> From<&'a ItemFn> for MatrixData {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                MatrixData {
+            fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
+                RsTestData {
                     items: fn_args_idents(item_fn)
                         .cloned()
                         .map(|it|
                             ValueList { arg: it, values: vec![] }.into()
                         )
-                        .collect()
+                        .collect(),
                 }
             }
-        }
 
-        impl<'a> From<&'a ItemFn> for MatrixInfo {
-            fn from(item_fn: &'a ItemFn) -> Self {
-                MatrixInfo {
-                    args: item_fn.into(),
-                    attributes: Default::default(),
-                }
+            fn one_simple_case() -> (ItemFn, RsTestInfo) {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"fn test(mut fix: String) { println!("user code") }"#
+                ).unwrap();
+                let info = RsTestInfo {
+                    data: RsTestData {
+                        items: vec![
+                            ValueList { arg: ident("fix"), values: vec![expr(r#""value""#)] }.into()
+                        ]
+                    },
+                    ..Default::default()
+                };
+                (item_fn, info)
             }
-        }
 
-        #[test]
-        fn should_create_a_module_named_as_test_function() {
-            let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            #[test]
+            fn create_a_module_named_as_test_function() {
+                let item_fn = parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
+                let data = into_rstest_data(&item_fn);
+                let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
-            let output = TestsGroup::from(tokens);
+                let output = TestsGroup::from(tokens);
 
-            assert_eq!(output.module.ident, "should_be_the_module_name");
-        }
+                assert_eq!(output.module.ident, "should_be_the_module_name");
+            }
 
-        #[test]
-        fn should_copy_user_function() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            #[test]
+            fn copy_user_function() {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+                ).unwrap();
+                let data = into_rstest_data(&item_fn);
+                let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
-            let mut output = TestsGroup::from(tokens);
+                let mut output = TestsGroup::from(tokens);
 
-            output.requested_test.attrs = vec![];
-            assert_eq!(output.requested_test, item_fn);
-        }
+                output.requested_test.attrs = vec![];
+                assert_eq!(output.requested_test, item_fn);
+            }
 
-        #[test]
-        fn should_mark_user_function_as_test() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            #[test]
+            fn mark_user_function_as_test() {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+                ).unwrap();
+                let data = into_rstest_data(&item_fn);
+                let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
-            let output = TestsGroup::from(tokens);
+                let output = TestsGroup::from(tokens);
 
-            let expected = parse2::<ItemFn>(quote! {
-                #[cfg(test)]
-                fn some() {}
-            }).unwrap().attrs;
+                let expected = parse2::<ItemFn>(quote! {
+                    #[cfg(test)]
+                    fn some() {}
+                    }
+                ).unwrap().attrs;
 
-            assert_eq!(expected, output.requested_test.attrs);
-        }
+                assert_eq!(expected, output.requested_test.attrs);
+            }
 
-        #[test]
-        fn should_mark_module_as_test() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-            let info = (&item_fn).into();
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            #[test]
+            fn mark_module_as_test() {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#
+                ).unwrap();
+                let data = into_rstest_data(&item_fn);
+                let tokens = render_matrix_cases(item_fn.clone(), data.into());
 
-            let output = TestsGroup::from(tokens);
+                let output = TestsGroup::from(tokens);
 
-            let expected = parse2::<ItemMod>(quote! {
-                #[cfg(test)]
-                mod some {}
-            }).unwrap().attrs;
+                let expected = parse2::<ItemMod>(quote! {
+                    #[cfg(test)]
+                    mod some {}
+                    }
+                ).unwrap().attrs;
 
-            assert_eq!(expected, output.module.attrs);
-        }
+                assert_eq!(expected, output.module.attrs);
+            }
 
-        fn one_simple_case() -> (ItemFn, MatrixInfo) {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(mut fix: String) { println!("user code") }"#
-            ).unwrap();
-            let info = MatrixInfo {
-                args: MatrixData {
-                    items: vec![
-                        ValueList { arg: ident("fix"), values: vec![expr(r#""value""#)] }.into()
-                    ]
-                },
-                ..Default::default()
-            };
-            (item_fn, info)
-        }
+            #[test]
+            fn add_a_test_case() {
+                let (item_fn, info) = one_simple_case();
 
-        #[test]
-        fn should_add_a_test_case() {
-            let (item_fn, info) = one_simple_case();
+                let tokens = render_matrix_cases(item_fn.clone(), info);
 
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+                let tests = TestsGroup::from(tokens).get_test_functions();
 
-            let tests = TestsGroup::from(tokens).get_test_functions();
+                assert_eq!(1, tests.len());
+                assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
+            }
 
-            assert_eq!(1, tests.len());
-            assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
-        }
+            #[test]
+            fn add_a_test_cases_from_all_combinations() {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
+                ).unwrap();
+                let info = RsTestInfo {
+                    data: RsTestData {
+                        items: vec![
+                            values_list("first", ["1", "2"].as_ref()).into(),
+                            values_list("second", ["3", "4"].as_ref()).into(),
+                            values_list("third", ["5", "6"].as_ref()).into(),
+                        ]
+                    },
+                    ..Default::default()
+                };
 
-        #[test]
-        fn should_add_a_test_cases_from_all_combinations() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
-            ).unwrap();
-            let info = MatrixInfo {
-                args: MatrixData {
-                    items: vec![
-                        values_list("first", ["1", "2"].as_ref()).into(),
-                        values_list("second", ["3", "4"].as_ref()).into(),
-                        values_list("third", ["5", "6"].as_ref()).into(),
-                    ]
-                },
-                ..Default::default()
-            };
+                let tokens = render_matrix_cases(item_fn.clone(), info);
 
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+                let tests = TestsGroup::from(tokens).get_test_functions();
 
-            let tests = TestsGroup::from(tokens).get_test_functions();
+                let tests = tests.into_iter()
+                    .map(|t| t.sig.ident.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
 
-            let tests = tests.into_iter()
-                .map(|t| t.sig.ident.to_string())
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            assert_eq!(tests, "
+                assert_eq!(tests, "
                     case_1_1_1
                     case_1_1_2
                     case_1_2_1
@@ -1479,40 +1563,136 @@ mod render {
                     case_2_1_2
                     case_2_2_1
                     case_2_2_2".unindent()
-            )
+                )
+            }
+
+            #[test]
+            fn pad_case_index() {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
+                ).unwrap();
+                let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
+                let info = RsTestInfo {
+                    data: RsTestData {
+                        items: vec![
+                            values_list("first", values.as_ref()).into(),
+                            values_list("second", values[..10].as_ref()).into(),
+                            values_list("third", values[..2].as_ref()).into(),
+                        ]
+                    },
+                    ..Default::default()
+                };
+
+                let tokens = render_matrix_cases(item_fn.clone(), info);
+
+                let tests = TestsGroup::from(tokens).get_test_functions();
+
+                assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
+                assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
+            }
         }
 
-        #[test]
-        fn should_pad_case_index() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#
-            ).unwrap();
-            let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
-            let info = MatrixInfo {
-                args: MatrixData {
-                    items: vec![
-                        values_list("first", values.as_ref()).into(),
-                        values_list("second", values[..10].as_ref()).into(),
-                        values_list("third", values[..2].as_ref()).into(),
-                    ]
-                },
-                ..Default::default()
-            };
+        mod complete_should {
+            use super::{*, assert_eq};
 
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            fn rendered_case(fn_name: &str) -> TestsGroup {
+                let item_fn = parse_str::<ItemFn>(&format!(r#"
+                fn {}(
+                    fix: u32,
+                    a: f64, b: f32,
+                    x: i32, y: i32) {{}}"#, fn_name)
+                ).unwrap();
+                let data = RsTestData {
+                    items: vec![fixture("fix", vec!["2"]).into(),
+                                ident("a").into(), ident("b").into(),
+                                vec!["1f64", "2f32"].into_iter().collect::<TestCase>().into(),
+                                TestCase {
+                                    description: Some(ident("description")),
+                                    ..vec!["3f64", "4f32"].into_iter().collect::<TestCase>()
+                                }.into(),
+                                values_list("x", &["12", "-2"]).into(),
+                                values_list("y", &["-3", "42"]).into(),
+                    ],
+                };
 
-            let tests = TestsGroup::from(tokens).get_test_functions();
+                render_matrix_cases(item_fn.clone(), data.into()).into()
+            }
 
-            assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
-            assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
+            fn test_case() -> TestsGroup {
+                rendered_case("test_function")
+            }
+
+            #[test]
+            fn use_function_name_as_outer_module() {
+                let rendered = rendered_case("should_be_the_outer_module_name");
+
+                assert_eq!(rendered.module.ident, "should_be_the_outer_module_name")
+            }
+
+            #[test]
+            fn have_one_module_for_each_parametrized_case() {
+                let rendered = test_case();
+
+                assert_eq!(vec!["case_1", "case_2_description"],
+                           rendered.get_submodules()
+                               .iter()
+                               .map(|m| m.ident.to_string())
+                               .collect::<Vec<_>>());
+            }
+
+            #[test]
+            fn implement_exactly_8_tests() {
+                let rendered = test_case();
+
+                assert_eq!(8, rendered.get_test_functions().len());
+            }
+
+            #[test]
+            fn implement_exactly_4_tests_in_each_module() {
+                let modules = test_case().module.get_submodules();
+
+                assert_eq!(4, modules[0].get_test_functions().len());
+                assert_eq!(4, modules[1].get_test_functions().len());
+            }
+
+            #[test]
+            fn assign_same_case_value_for_each_test() {
+                let modules = test_case().module.get_submodules();
+
+                for f in modules[0].get_test_functions() {
+                    let assignments = Assignments::collect_assignments(&f);
+                    assert_eq!(assignments.0["a"], expr("1f64"));
+                    assert_eq!(assignments.0["b"], expr("2f32"));
+                }
+
+                for f in modules[1].get_test_functions() {
+                    let assignments = Assignments::collect_assignments(&f);
+                    assert_eq!(assignments.0["a"], expr("3f64"));
+                    assert_eq!(assignments.0["b"], expr("4f32"));
+                }
+            }
+
+            #[test]
+            fn assign_all_case_combination_in_tests() {
+                let modules = test_case().module.get_submodules();
+
+                let cases = vec![("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
+                for module in modules {
+                    for ((x, y), f) in cases.iter().zip(module.get_test_functions().iter()) {
+                        let assignments = Assignments::collect_assignments(f);
+                        assert_eq!(assignments.0["x"], expr(x));
+                        assert_eq!(assignments.0["y"], expr(y));
+                    }
+                }
+            }
         }
     }
 
-    mod generics_clean_up {
+    mod generics_clean_up_should {
         use super::{*, assert_eq};
 
         #[test]
-        fn should_remove_generics_not_in_output() {
+        fn remove_generics_not_in_output() {
             // Should remove all generics parameters that are not present in output
             let item_fn = parse_str::<ItemFn>(
                 r#"
@@ -1538,7 +1718,7 @@ mod render {
         }
 
         #[test]
-        fn should_not_remove_generics_used_in_arguments() {
+        fn not_remove_generics_used_in_arguments() {
             // Should remove all generics parameters that are not present in output
             let item_fn = parse_str::<ItemFn>(
                 r#"
@@ -1566,259 +1746,258 @@ mod render {
 
             assert_eq!(expected.sig.generics, cleaned);
         }
-    }
 
-    mod fixture {
-        use syn::{ItemImpl, ItemStruct};
+        mod fixture_should {
+            use syn::{ItemImpl, ItemStruct};
 
-        use crate::parse::{Attribute, Attributes};
+            use crate::parse::{Attribute, Attributes};
 
-        use super::{*, assert_eq};
+            use super::{*, assert_eq};
 
-        #[derive(Clone)]
-        struct FixtureOutput {
-            orig: ItemFn,
-            fixture: ItemStruct,
-            core_impl: ItemImpl,
-        }
-
-        impl Parse for FixtureOutput {
-            fn parse(input: ParseStream) -> Result<Self> {
-                Ok(FixtureOutput {
-                    fixture: input.parse()?,
-                    core_impl: input.parse()?,
-                    orig: input.parse()?,
-                })
+            #[derive(Clone)]
+            struct FixtureOutput {
+                orig: ItemFn,
+                fixture: ItemStruct,
+                core_impl: ItemImpl,
             }
-        }
 
-        fn parse_fixture<S: AsRef<str>>(code: S) -> (ItemFn, FixtureOutput) {
-            let item_fn = parse_str::<ItemFn>(
-                code.as_ref()
-            ).unwrap();
+            impl Parse for FixtureOutput {
+                fn parse(input: ParseStream) -> Result<Self> {
+                    Ok(FixtureOutput {
+                        fixture: input.parse()?,
+                        core_impl: input.parse()?,
+                        orig: input.parse()?,
+                    })
+                }
+            }
 
-            let tokens = render_fixture(item_fn.clone(), Default::default());
-            (item_fn, parse2(tokens).unwrap())
-        }
+            fn parse_fixture<S: AsRef<str>>(code: S) -> (ItemFn, FixtureOutput) {
+                let item_fn = parse_str::<ItemFn>(
+                    code.as_ref()
+                ).unwrap();
 
-        fn test_maintains_function_visibility(code: &str) {
-            let (item_fn, out) = parse_fixture(code);
+                let tokens = render_fixture(item_fn.clone(), Default::default());
+                (item_fn, parse2(tokens).unwrap())
+            }
 
-            assert_eq!(item_fn.vis, out.fixture.vis);
-            assert_eq!(item_fn.vis, out.orig.vis);
-        }
+            fn test_maintains_function_visibility(code: &str) {
+                let (item_fn, out) = parse_fixture(code);
 
-        #[test]
-        fn should_maintains_pub_visibility() {
-            test_maintains_function_visibility(
-                r#"pub fn test() { }"#
-            );
-        }
+                assert_eq!(item_fn.vis, out.fixture.vis);
+                assert_eq!(item_fn.vis, out.orig.vis);
+            }
 
-        #[test]
-        fn should_maintains_no_pub_visibility() {
-            test_maintains_function_visibility(
-                r#"fn test() { }"#
-            );
-        }
+            fn select_method<S: AsRef<str>>(impl_code: ItemImpl, name: S) -> Option<syn::ImplItemMethod> {
+                impl_code.items.into_iter()
+                    .filter_map(|ii| match ii {
+                        syn::ImplItem::Method(f) => Some(f),
+                        _ => None
+                    })
+                    .find(|f| f.sig.ident == name.as_ref())
+            }
 
-        fn select_method<S: AsRef<str>>(impl_code: ItemImpl, name: S) -> Option<syn::ImplItemMethod> {
-            impl_code.items.into_iter()
-                .filter_map(|ii| match ii {
-                    syn::ImplItem::Method(f) => Some(f),
-                    _ => None
-                })
-                .find(|f| f.sig.ident == name.as_ref())
-        }
+            #[test]
+            fn maintains_pub_visibility() {
+                test_maintains_function_visibility(
+                    r#"pub fn test() { }"#
+                );
+            }
 
-        #[test]
-        fn should_implement_a_get_method_with_input_fixture_signature() {
-            let (item_fn, out) = parse_fixture(
-                r#"
-                pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
-                        where B: Borrow<u32>
-                { }
-                "#);
+            #[test]
+            fn maintains_no_pub_visibility() {
+                test_maintains_function_visibility(
+                    r#"fn test() { }"#
+                );
+            }
 
-
-            let mut signature = select_method(out.core_impl, "get")
-                .unwrap()
-                .sig;
-
-            signature.ident = item_fn.sig.ident.clone();
-
-            assert_eq!(item_fn.sig, signature);
-        }
-
-        #[test]
-        fn should_implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args() {
-            let (item_fn, out) = parse_fixture(
-                r#"
-                pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (H, B, String, &str)
-                        where F: ToString,
-                        B: Borrow<u32>
-
-                { }
-                "#);
-
-            let default_decl = select_method(out.core_impl, "default")
-                .unwrap()
-                .sig;
-
-            let expected = parse_str::<ItemFn>(
-                r#"
-                pub fn default<B, H: Iterator<Item=u32>>() -> (H, B, String, &str)
-                        where B: Borrow<u32>
-                { }
-                "#
-            ).unwrap();
+            #[test]
+            fn implement_a_get_method_with_input_fixture_signature() {
+                let (item_fn, out) = parse_fixture(
+                    r#"
+                            pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
+                                    where B: Borrow<u32>
+                            { }
+                            "#);
 
 
-            assert_eq!(expected.sig.generics, default_decl.generics);
-            assert_eq!(item_fn.sig.output, default_decl.output);
-            assert!(default_decl.inputs.is_empty());
-        }
+                let mut signature = select_method(out.core_impl, "get")
+                    .unwrap()
+                    .sig;
 
-        #[test]
-        fn should_use_default_return_type_if_any() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"
-                pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B)
-                        where F: ToString,
-                        B: Borrow<u32>
-                { }
-                "#
-            ).unwrap();
+                signature.ident = item_fn.sig.ident.clone();
 
-            let tokens = render_fixture(item_fn.clone(),
-                                        FixtureInfo {
-                                            attributes: Attributes {
-                                                attributes: vec![
-                                                    Attribute::Type(
-                                                        parse_str("default").unwrap(),
-                                                        parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
-                                                    )
-                                                ]
-                                            }.into(),
-                                            ..Default::default()
-                                        });
-            let out: FixtureOutput = parse2(tokens).unwrap();
+                assert_eq!(item_fn.sig, signature);
+            }
 
-            let expected = parse_str::<syn::ItemFn>(
-                r#"
-                pub fn default<B>() -> (impl Iterator<Item=u32>, B)
-                        where B: Borrow<u32>
-                { }
-                "#
-            ).unwrap();
+            #[test]
+            fn implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args() {
+                let (item_fn, out) = parse_fixture(
+                    r#"
+                            pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (H, B, String, &str)
+                                    where F: ToString,
+                                    B: Borrow<u32>
 
-            let default_decl = select_method(out.core_impl, "default")
-                .unwrap()
-                .sig;
+                            { }
+                            "#);
 
-            assert_eq!(expected.sig, default_decl);
-        }
+                let default_decl = select_method(out.core_impl, "default")
+                    .unwrap()
+                    .sig;
 
-        #[test]
-        fn should_implement_partial_methods() {
-            let (item_fn, out) = parse_fixture(
-                r#"
+                let expected = parse_str::<ItemFn>(
+                    r#"
+                        pub fn default<B, H: Iterator<Item=u32>>() -> (H, B, String, &str)
+                                where B: Borrow<u32>
+                        { }
+                        "#
+                ).unwrap();
+
+
+                assert_eq!(expected.sig.generics, default_decl.generics);
+                assert_eq!(item_fn.sig.output, default_decl.output);
+                assert!(default_decl.inputs.is_empty());
+            }
+
+            #[test]
+            fn use_default_return_type_if_any() {
+                let item_fn = parse_str::<ItemFn>(
+                    r#"
+                        pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B)
+                                where F: ToString,
+                                B: Borrow<u32>
+                        { }
+                        "#
+                ).unwrap();
+
+                let tokens = render_fixture(item_fn.clone(),
+                                            FixtureInfo {
+                                                attributes: Attributes {
+                                                    attributes: vec![
+                                                        Attribute::Type(
+                                                            parse_str("default").unwrap(),
+                                                            parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
+                                                        )
+                                                    ]
+                                                }.into(),
+                                                ..Default::default()
+                                            });
+                let out: FixtureOutput = parse2(tokens).unwrap();
+
+                let expected = parse_str::<syn::ItemFn>(
+                    r#"
+                        pub fn default<B>() -> (impl Iterator<Item=u32>, B)
+                                where B: Borrow<u32>
+                        { }
+                        "#
+                ).unwrap();
+
+                let default_decl = select_method(out.core_impl, "default")
+                    .unwrap()
+                    .sig;
+
+                assert_eq!(expected.sig, default_decl);
+            }
+
+            #[test]
+            fn implement_partial_methods() {
+                let (item_fn, out) = parse_fixture(
+                    r#"
                 pub fn test(mut s: String, v: &u32, a: &mut [i32]) -> usize
                 { }
                 "#);
 
-            let partials = (1..=3).map(|n|
-                select_method(out.core_impl.clone(), format!("partial_{}", n))
-                    .unwrap()
-                    .sig)
-                .collect::<Vec<_>>();
+                let partials = (1..=3).map(|n|
+                    select_method(out.core_impl.clone(), format!("partial_{}", n))
+                        .unwrap()
+                        .sig)
+                    .collect::<Vec<_>>();
 
-            // All 3 methods found
+                // All 3 methods found
 
-            assert!(select_method(out.core_impl, "partial_4").is_none());
+                assert!(select_method(out.core_impl, "partial_4").is_none());
 
-            let expected_1 = parse_str::<ItemFn>(
-                r#"
-                pub fn partial_1(mut s: String) -> usize
-                { }
-                "#
-            ).unwrap();
+                let expected_1 = parse_str::<ItemFn>(
+                    r#"
+                        pub fn partial_1(mut s: String) -> usize
+                        { }
+                        "#
+                ).unwrap();
 
 
-            assert_eq!(expected_1.sig, partials[0]);
-            for p in partials {
-                assert_eq!(item_fn.sig.output, p.output);
+                assert_eq!(expected_1.sig, partials[0]);
+                for p in partials {
+                    assert_eq!(item_fn.sig.output, p.output);
+                }
             }
-        }
 
-        #[test]
-        fn should_clean_generics_in_partial_methods() {
-            let (_, out) = parse_fixture(
-                r#"
-                pub fn test<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
-                { }
-                "#);
-
-            let partials = (1..=2).map(|n|
-                select_method(out.core_impl.clone(), format!("partial_{}", n))
-                    .unwrap()
-                    .sig)
-                .collect::<Vec<_>>();
-
-            let expected = vec![
-                parse_str::<ItemFn>(
+            #[test]
+            fn clean_generics_in_partial_methods() {
+                let (_, out) = parse_fixture(
                     r#"
-                    pub fn partial_1<S: AsRef<str>, F: ToString>(mut s: S) -> F
-                    { }
-                    "#
-                ).unwrap().sig,
-                parse_str::<ItemFn>(
+                            pub fn test<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
+                            { }
+                            "#);
+
+                let partials = (1..=2).map(|n|
+                    select_method(out.core_impl.clone(), format!("partial_{}", n))
+                        .unwrap()
+                        .sig)
+                    .collect::<Vec<_>>();
+
+                let expected = vec![
+                    parse_str::<ItemFn>(
+                        r#"
+                            pub fn partial_1<S: AsRef<str>, F: ToString>(mut s: S) -> F
+                            { }
+                            "#
+                    ).unwrap().sig,
+                    parse_str::<ItemFn>(
+                        r#"
+                            pub fn partial_2<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
+                            { }
+                            "#
+                    ).unwrap().sig];
+
+                assert_eq!(expected, partials);
+            }
+
+            #[test]
+            fn use_partial_return_type_if_any() {
+                let item_fn = parse_str::<ItemFn>(
                     r#"
-                    pub fn partial_2<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
-                    { }
-                    "#
-                ).unwrap().sig];
+                        pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(h: H, b: B) -> (H, B)
+                                where F: ToString,
+                                B: Borrow<u32>
+                        { }
+                         "#
+                ).unwrap();
 
-            assert_eq!(expected, partials);
-        }
+                let tokens = render_fixture(item_fn.clone(),
+                                            FixtureInfo {
+                                                attributes: Attributes {
+                                                    attributes: vec![
+                                                        Attribute::Type(
+                                                            parse_str("partial_1").unwrap(),
+                                                            parse_str("(H, impl Iterator<Item=u32>)").unwrap(),
+                                                        )
+                                                    ]
+                                                }.into(),
+                                                ..Default::default()
+                                            });
+                let out: FixtureOutput = parse2(tokens).unwrap();
 
-        #[test]
-        fn should_use_partial_return_type_if_any() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"
-                pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(h: H, b: B) -> (H, B)
-                        where F: ToString,
-                        B: Borrow<u32>
-                { }
-                "#
-            ).unwrap();
+                let expected = parse_str::<syn::ItemFn>(
+                    r#"
+                        pub fn partial_1<H: Iterator<Item=u32>>(h: H) -> (H, impl Iterator<Item=u32>)
+                        { }
+                        "#
+                ).unwrap();
 
-            let tokens = render_fixture(item_fn.clone(),
-                                        FixtureInfo {
-                                            attributes: Attributes {
-                                                attributes: vec![
-                                                    Attribute::Type(
-                                                        parse_str("partial_1").unwrap(),
-                                                        parse_str("(H, impl Iterator<Item=u32>)").unwrap(),
-                                                    )
-                                                ]
-                                            }.into(),
-                                            ..Default::default()
-                                        });
-            let out: FixtureOutput = parse2(tokens).unwrap();
+                let partial = select_method(out.core_impl, "partial_1")
+                    .unwrap();
 
-            let expected = parse_str::<syn::ItemFn>(
-                r#"
-                pub fn partial_1<H: Iterator<Item=u32>>(h: H) -> (H, impl Iterator<Item=u32>)
-                { }
-                "#
-            ).unwrap();
-
-            let partial = select_method(out.core_impl, "partial_1")
-                .unwrap();
-
-            assert_eq!(expected.sig, partial.sig);
+                assert_eq!(expected.sig, partial.sig);
+            }
         }
     }
 }
-

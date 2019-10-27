@@ -5,8 +5,8 @@ pub mod utils;
 /// Test Framework
 mod framework;
 
-/// Single's integration tests
-mod single;
+/// Rstest integration tests
+mod rstest;
 
 /// Parametrize's integration tests
 mod parametrize;
