@@ -214,8 +214,8 @@
 //!
 //! ## Putting all togheder
 //!
-//! All these features can be used togheder: take some fixture, define some fixed case and, for each
-//! case, tests all combinations of gine values.
+//! All these features can be used togheder: take some fixtures, define some fixed cases and, for
+//! each case, tests all combinations of gine values.
 //!
 
 
