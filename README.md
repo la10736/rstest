@@ -71,6 +71,10 @@ You can learn more on [Docs](https://docs.rs/rstest) and find more examples in [
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
 which uses this module in-depth.
 
+## Changelog
+
+See [Changelog][CHANGELOG.md]
+
 ## License
 
 Licensed under either of
