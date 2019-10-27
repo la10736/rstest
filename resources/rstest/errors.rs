@@ -77,3 +77,10 @@ fn error_define_a_value_list_that_is_already_a_case_arg(a: u32) {}
 
 #[rstest(a => [42], a, case(42))]
 fn error_define_a_case_arg_that_is_already_a_value_list(a: u32) {}
+
+#[rstest(a => [42, 24], a => [24, 42])]
+fn error_define_a_value_list_that_is_already_a_value_list(f: u32) {
+}
+
+#[rstest(a, a, case(42))]
+fn error_define_a_case_arg_that_is_already_a_case_arg(a: u32) {}
