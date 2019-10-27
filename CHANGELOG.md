@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] [Unreleased]
+
+### Added
+
+- Use just `rstest` for implementing all kind of tests (See #42)
 
 ## [0.4.1] 2019-10-05
 

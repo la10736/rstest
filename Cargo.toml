@@ -1,6 +1,6 @@
 [package]
 name = "rstest"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
