@@ -199,7 +199,7 @@
 //! # enum State { Init, Start, Processing, Terminated }
 //! # #[derive(PartialEq, Debug)]
 //! # enum Event { Error, Fatal }
-//! # impl State { process(self, event: Event) -> Self { self } }
+//! # impl State { fn process(self, event: Event) -> Self { self } }
 //!
 //! #[rstest(
 //!     state => [State::Iint, State::Start, State::Processing],
