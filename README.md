@@ -11,7 +11,7 @@ To use it, add the following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.4"
+rstest = "0.5"
 ```
 
 The core idea is that every input arguments of your test function will
@@ -35,14 +35,16 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-Moreover you can use `rstest_parametrize` to implement table-based tests.
-You must indicate the arguments that you want use in your cases and provide them for each case you want to test.
+Moreover you can use `rstest` to implement table-based tests.
+You must indicate the arguments that you want use in your cases and 
+provide them for each case you want to test.
 
-`rstest_parametrize` generates an independent test for each case.
+`rstest` generates an independent test for each case.
 
 ```rust
-# use rstest::rstest_parametrize;
-#[rstest_parametrize(input, expected,
+use rstest::rstest;
+
+#[rstest(input, expected,
     case(0, 0),
     case(1, 1),
     case(2, 1),
@@ -67,7 +69,8 @@ test fibonacci_test::case_5 ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-You can learn more on [Docs](https://docs.rs/rstest) and find more examples in [`resources`](resources) directory and in 
+You can learn more on [Docs](docs-link) and find more 
+examples in [`resources`](resources) directory and in 
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
 which uses this module in-depth.
 
