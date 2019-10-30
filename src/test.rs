@@ -3,9 +3,10 @@
 ///
 
 use std::borrow::Cow;
+use std::iter::FromIterator;
 
 use proc_macro2::TokenTree;
-use syn::{ItemFn, parse2, parse_str, Expr};
+use syn::{ItemFn, parse2, parse_str, Expr, parse::Parse};
 use quote::quote;
 pub(crate) use pretty_assertions::assert_eq;
 
@@ -17,8 +18,7 @@ use crate::parse::{
     vlist::ValueList,
     testcase::TestCase,
 };
-use syn::parse::Parse;
-use std::iter::FromIterator;
+use crate::resolver::Resolver;
 
 macro_rules! to_args {
     ($e:expr) => {
