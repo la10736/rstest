@@ -15,36 +15,26 @@ use crate::parse::{
 };
 use crate::fn_args;
 
-trait IntoOption: Sized {
-    fn into_option(self, predicate: fn(&mut Self) -> bool) -> Option<Self>;
-}
-
-impl<T: Sized> IntoOption for T {
-    fn into_option(mut self, predicate: fn(&mut Self) -> bool) -> Option<Self> {
-        match predicate(&mut self) {
-            true => Some(self),
-            false => None
-        }
-    }
-}
-
 fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, attributes: &RsTestAttributes) -> Option<proc_macro2::TokenStream> {
-    args.filter(|&arg| attributes.trace_me(arg))
+    let mut statements = args
+        .filter(|&arg| attributes.trace_me(arg))
         .map(|arg|
             parse_quote! {
                 println!("{} = {:?}", stringify!(#arg), #arg);
             }
         )
         .map(|stmt: Stmt| stmt)
-        .peekable()
-        .into_option(|it| it.peek().is_some())
-        .map(
-            |it|
-                quote! {
-                    println!("{:-^40}", " TEST ARGUMENTS ");
-                    #(#it)*
-                }
+        .peekable();
+    if statements.peek().is_some() {
+        Some(
+            quote! {
+                println!("{:-^40}", " TEST ARGUMENTS ");
+                #(#arguments)*
+            }
         )
+    } else {
+        None
+    }
 }
 
 fn resolve_args<'a>(args: impl Iterator<Item=&'a Ident>, resolver: &impl Resolver) -> TokenStream {
