@@ -29,7 +29,7 @@ fn trace_arguments<'a>(args: impl Iterator<Item=&'a Ident>, attributes: &RsTestA
         Some(
             quote! {
                 println!("{:-^40}", " TEST ARGUMENTS ");
-                #(#arguments)*
+                #(#statements)*
             }
         )
     } else {
