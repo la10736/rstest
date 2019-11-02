@@ -1,3 +1,6 @@
+#![cfg(test)]
+#![macro_use]
+
 /// Unit testing utility module. Collect a bounch of functions&macro and impls to simplify unit
 /// testing bolilerplate.
 ///

@@ -222,6 +222,16 @@
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
 
+// Test utility module
+pub(crate) mod test;
+
+mod parse;
+mod render;
+mod utils;
+mod resolver;
+mod refident;
+mod error;
+
 use syn::{
     ItemFn, parse_macro_input
 };
@@ -233,18 +243,6 @@ use crate::parse::{
 use crate::render::{
     render_fixture, render_single_case, render_matrix_cases, render_parametrize_cases
 };
-
-// Test utility module
-#[cfg(test)]
-#[macro_use]
-pub(crate) mod test;
-
-mod parse;
-mod render;
-mod utils;
-mod resolver;
-mod refident;
-mod error;
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `[fixture]` and then use it as a test's argument. Fixture functions can also

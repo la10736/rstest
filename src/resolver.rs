@@ -6,7 +6,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use syn::{parse_quote, Stmt, Expr};
+use syn::{parse_quote, Expr};
 use proc_macro2::{Ident, Span};
 
 use crate::parse::Fixture;
@@ -20,16 +20,6 @@ pub(crate) fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) ->
 /// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>>;
-}
-
-pub(crate) fn arg_2_fixture(ident: &Ident, resolver: &impl Resolver) -> Stmt {
-    let fixture = resolver
-        .resolve(ident)
-        .map(|e| e.clone())
-        .unwrap_or_else(|| default_fixture_resolve(ident));
-    parse_quote! {
-        let #ident = #fixture;
-    }
 }
 
 impl<'a> Resolver for HashMap<String, &'a Expr> {
@@ -58,10 +48,6 @@ impl<R: Resolver> Resolver for &R {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
         (*self).resolve(ident)
     }
-}
-
-fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
-    Cow::Owned(parse_quote! { #ident::default() } )
 }
 
 fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
