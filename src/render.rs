@@ -6,7 +6,7 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, ReturnType, Stmt};
 
 use quote::quote;
 
-use crate::utils::fn_args;
+use crate::utils::fn_args_idents;
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestAttributes, RsTestData, RsTestInfo},
@@ -48,13 +48,6 @@ fn resolve_args<'a>(
     }
 }
 
-fn resolve_fn_args<'a>(
-    args: impl Iterator<Item = &'a FnArg>,
-    resolver: &impl Resolver,
-) -> TokenStream {
-    resolve_args(args.filter_map(MaybeIdent::maybe_ident), resolver)
-}
-
 fn render_fn_test<'a>(
     name: Ident,
     testfn: &ItemFn,
@@ -66,7 +59,7 @@ fn render_fn_test<'a>(
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
     let attrs = &testfn.attrs;
     let output = &testfn.sig.output;
-    let inject = resolve_fn_args(fn_args(&testfn), &resolver);
+    let inject = resolve_args(fn_args_idents(&testfn), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
     quote! {
         #[test]
@@ -190,7 +183,7 @@ pub(crate) fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStr
     let output = &fixture.sig.output;
     let visibility = &fixture.vis;
     let resolver = resolver::fixture_resolver(info.data.fixtures());
-    let inject = resolve_fn_args(fn_args(&fixture), &resolver);
+    let inject = resolve_args(fn_args_idents(&fixture), &resolver);
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
     quote! {
@@ -214,10 +207,6 @@ pub(crate) fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStr
         #[allow(dead_code)]
         #fixture
     }
-}
-
-fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item = &Ident> {
-    fn_args(&test).filter_map(MaybeIdent::maybe_ident)
 }
 
 pub(crate) fn render_single_case(test: ItemFn, info: RsTestInfo) -> TokenStream {
@@ -416,7 +405,7 @@ mod test {
     use super::*;
 
     fn first_arg_ident(ast: &ItemFn) -> &Ident {
-        fn_args(&ast).next().unwrap().maybe_ident().unwrap()
+        fn_args_idents(&ast).next().unwrap()
     }
 
     mod arg_2_fixture_should {
