@@ -222,20 +222,17 @@
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
 
-use std::collections::HashMap;
-
-use proc_macro2::TokenStream;
-use syn::{FnArg, Ident, ItemFn, parse_macro_input};
-use syn::spanned::Spanned;
+use syn::{
+    ItemFn, parse_macro_input
+};
 
 use crate::parse::{
     fixture::FixtureInfo,
-    rstest::{RsTestData, RsTestInfo},
+    rstest::RsTestInfo,
 };
 use crate::render::{
     render_fixture, render_single_case, render_matrix_cases, render_parametrize_cases
 };
-use crate::refident::MaybeIdent;
 
 // Test utility module
 #[cfg(test)]
@@ -244,8 +241,10 @@ pub(crate) mod test;
 
 mod parse;
 mod render;
+mod utils;
 mod resolver;
 mod refident;
+mod error;
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
@@ -336,7 +335,7 @@ pub fn fixture(args: proc_macro::TokenStream,
     let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let fixture = parse_macro_input!(input as ItemFn);
 
-    let errors = errors_in_fixture(&fixture, &info);
+    let errors = error::fixture(&fixture, &info);
     if errors.is_empty() {
         render_fixture(fixture, info).into()
     } else {
@@ -414,7 +413,7 @@ pub fn rstest(args: proc_macro::TokenStream,
     let test = parse_macro_input!(input as ItemFn);
     let info = parse_macro_input!(args as RsTestInfo);
 
-    let errors = errors_in_rstest(&test, &info);
+    let errors = error::rstest(&test, &info);
 
     if errors.is_empty() {
         if info.data.has_list_values() {
@@ -588,92 +587,4 @@ pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStre
                      -> proc_macro::TokenStream
 {
     rstest(args, input)
-}
-
-// TODO: move in utils module (with other stuffs)
-fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item=&FnArg> {
-    item_fn.sig.inputs.iter()
-}
-
-fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
-    fn_args(fn_decl)
-        .filter_map(MaybeIdent::maybe_ident)
-        .find(|&id| id == ident)
-        .is_some()
-}
-
-
-//TODO: Move to error module
-type Errors<'a> = Box<dyn Iterator<Item=syn::Error> + 'a>;
-
-fn missed_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(test: &'a ItemFn, args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
-    Box::new(
-        args
-            .filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
-            .filter(move |(_, ident)| !fn_args_has_ident(test, ident))
-            .map(|(missed, ident)| syn::Error::new(missed.span(),
-                                                   &format!("Missed argument: '{}' should be a test function argument.", ident),
-            ))
-    )
-}
-
-fn duplicate_arguments_errors<'a, I: MaybeIdent + Spanned + 'a>(args: impl Iterator<Item=&'a I> + 'a) -> Errors<'a> {
-    let mut used = HashMap::new();
-    Box::new(
-        args
-            .filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
-            .filter_map(move |(it, ident)|
-                {
-                    let name = ident.to_string();
-                    let is_duplicate = used.contains_key(&name);
-                    used.insert(name, it);
-                    match is_duplicate {
-                        true => Some((it, ident)),
-                        false => None
-                    }
-                })
-            .map(|(duplicate, ident)|
-                syn::Error::new(duplicate.span(),
-                                &format!("Duplicate argument: '{}' is already defined.", ident),
-                )
-            )
-    )
-}
-
-fn invalid_case_errors(params: &RsTestData) -> Errors {
-    let n_args = params.case_args().count();
-    Box::new(
-        params.cases()
-            .filter(move |case| case.args.len() != n_args)
-            .map(|case|
-                syn::Error::new_spanned(&case, "Wrong case signature: should match the given parameters list.")
-            )
-    )
-}
-
-fn case_args_without_cases(params: &RsTestData) -> Errors {
-    if !params.has_cases() {
-        return Box::new(params.case_args().map(|a|
-            syn::Error::new(a.span(), "No cases for this argument."))
-        );
-    }
-    Box::new(
-        std::iter::empty()
-    )
-}
-
-fn errors_in_rstest(test: &ItemFn, info: &parse::rstest::RsTestInfo) -> TokenStream {
-    missed_arguments_errors(test, info.data.items.iter())
-        .chain(duplicate_arguments_errors(info.data.items.iter()))
-        .chain(invalid_case_errors(&info.data))
-        .chain(case_args_without_cases(&info.data))
-        .map(|e| e.to_compile_error())
-        .collect()
-}
-
-fn errors_in_fixture(test: &ItemFn, info: &parse::fixture::FixtureInfo) -> TokenStream {
-    missed_arguments_errors(test, info.data.items.iter())
-        .chain(duplicate_arguments_errors(info.data.items.iter()))
-        .map(|e| e.to_compile_error())
-        .collect()
 }

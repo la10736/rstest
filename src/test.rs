@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::iter::FromIterator;
 
 use proc_macro2::TokenTree;
-use syn::{ItemFn, parse2, parse_str, Expr, parse::Parse};
+use syn::{Expr, Ident, ItemFn, parse2, parse_str, parse::Parse};
 use quote::quote;
 pub(crate) use pretty_assertions::assert_eq;
 

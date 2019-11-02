@@ -6,7 +6,7 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, ReturnType, Stmt};
 
 use quote::quote;
 
-use crate::fn_args;
+use crate::utils::fn_args;
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestAttributes, RsTestData, RsTestInfo},
