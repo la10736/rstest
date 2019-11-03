@@ -1,5 +1,6 @@
 mod test;
 mod wrapper;
+pub(crate) mod fixture; 
 
 use std::{borrow::Cow, collections::HashMap};
 
@@ -12,23 +13,24 @@ use syn::{
 use quote::quote;
 
 use crate::parse::{
-    fixture::FixtureInfo,
     rstest::{RsTestAttributes, RsTestData, RsTestInfo},
     testcase::TestCase,
 };
 use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
-use crate::utils::{fn_args, fn_args_idents};
+use crate::utils::fn_args_idents;
 use wrapper::WrapByModule;
 
-pub(crate) fn render_single_case(test: ItemFn, info: RsTestInfo) -> TokenStream {
+pub(crate) use fixture::render as fixture;
+
+pub(crate) fn single(test: ItemFn, info: RsTestInfo) -> TokenStream {
     let name = &test.sig.ident;
     let resolver = resolver::fixture_resolver(info.data.fixtures());
 
-    render_fn_test(name.clone(), &test, Some(&test), resolver, &info.attributes)
+    single_test_case(name.clone(), &test, Some(&test), resolver, &info.attributes)
 }
 
-pub(crate) fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
+pub(crate) fn parametrize(test: ItemFn, info: RsTestInfo) -> TokenStream {
     let RsTestInfo { data, attributes } = info;
     let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
 
@@ -37,10 +39,10 @@ pub(crate) fn render_parametrize_cases(test: ItemFn, info: RsTestInfo) -> TokenS
         .map(|case| case.render(&test, &attributes))
         .collect();
 
-    render_test_group(test, rendered_cases)
+    test_group(test, rendered_cases)
 }
 
-pub(crate) fn render_matrix_cases(test: ItemFn, info: RsTestInfo) -> TokenStream {
+pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
     let RsTestInfo {
         data, attributes, ..
     } = info;
@@ -50,12 +52,12 @@ pub(crate) fn render_matrix_cases(test: ItemFn, info: RsTestInfo) -> TokenStream
 
     let resolver = resolver::fixture_resolver(data.fixtures());
     let rendered_cases = if cases.is_empty() {
-        render_inner_matrix_cases(&test, &attributes, &resolver, data.list_values())
+        inner_matrix_cases(&test, &attributes, &resolver, data.list_values())
     } else {
         cases
             .into_iter()
             .map(|(case_name, case_resolver)| {
-                render_inner_matrix_cases(
+                inner_matrix_cases(
                     &test,
                     &attributes,
                     &(case_resolver, &resolver),
@@ -66,55 +68,10 @@ pub(crate) fn render_matrix_cases(test: ItemFn, info: RsTestInfo) -> TokenStream
             .collect()
     };
 
-    render_test_group(test, rendered_cases)
+    test_group(test, rendered_cases)
 }
 
-pub(crate) fn render_fixture<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
-    let name = &fixture.sig.ident;
-    let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
-    let args = &vargs;
-    let orig_args = &fixture.sig.inputs;
-    let orig_attrs = &fixture.attrs;
-    let generics = &fixture.sig.generics;
-    let default_output = info
-        .attributes
-        .extract_default_type()
-        .unwrap_or(fixture.sig.output.clone());
-    let default_generics =
-        generics_clean_up(&fixture.sig.generics, std::iter::empty(), &default_output);
-    let default_where_clause = &default_generics.where_clause;
-    let body = &fixture.block;
-    let where_clause = &fixture.sig.generics.where_clause;
-    let output = &fixture.sig.output;
-    let visibility = &fixture.vis;
-    let resolver = resolver::fixture_resolver(info.data.fixtures());
-    let inject = resolve_args(fn_args_idents(&fixture), &resolver);
-    let partials =
-        (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
-    quote! {
-        #[allow(non_camel_case_types)]
-        #visibility struct #name {}
-
-        impl #name {
-            #(#orig_attrs)*
-            pub fn get #generics (#orig_args) #output #where_clause {
-                #body
-            }
-
-            pub fn default #default_generics () #default_output #default_where_clause {
-                #inject
-                Self::get(#(#args),*)
-            }
-
-            #(#partials)*
-        }
-
-        #[allow(dead_code)]
-        #fixture
-    }
-}
-
-fn render_fn_test<'a>(
+fn single_test_case<'a>(
     name: Ident,
     testfn: &ItemFn,
     test_impl: Option<&ItemFn>,
@@ -140,7 +97,7 @@ fn render_fn_test<'a>(
     }
 }
 
-fn render_inner_matrix_cases<'a>(
+fn inner_matrix_cases<'a>(
     test: &ItemFn,
     attributes: &RsTestAttributes,
     resolver: &impl Resolver,
@@ -205,33 +162,6 @@ fn trace_arguments<'a>(
     }
 }
 
-fn render_partial_impl(
-    fixture: &ItemFn,
-    n: usize,
-    resolver: &impl Resolver,
-    info: &FixtureInfo,
-) -> TokenStream {
-    let output = info
-        .attributes
-        .extract_partial_type(n)
-        .unwrap_or(fixture.sig.output.clone());
-
-    let generics = generics_clean_up(&fixture.sig.generics, fn_args(fixture).take(n), &output);
-    let where_clause = &generics.where_clause;
-
-    let inject = resolve_args(fn_args_idents(fixture).skip(n), resolver);
-
-    let sign_args = fn_args(fixture).take(n);
-    let fixture_args = fn_args_idents(fixture);
-    let name = Ident::new(&format!("partial_{}", n), Span::call_site());
-
-    quote! {
-        pub fn #name #generics (#(#sign_args),*) #output #where_clause {
-            #inject
-            Self::get(#(#fixture_args),*)
-        }
-    }
-}
 
 fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
     Cow::Owned(parse_quote! { #ident::default() })
@@ -320,11 +250,11 @@ impl<R: Resolver> TestCaseRender<R> {
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
-        render_fn_test(self.name, testfn, None, self.resolver, attributes)
+        single_test_case(self.name, testfn, None, self.resolver, attributes)
     }
 }
 
-fn render_test_group(test: ItemFn, rendered_cases: TokenStream) -> TokenStream {
+fn test_group(test: ItemFn, rendered_cases: TokenStream) -> TokenStream {
     let fname = &test.sig.ident;
 
     quote! {

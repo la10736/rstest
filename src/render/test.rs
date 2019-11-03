@@ -88,7 +88,7 @@ mod fn_test_should {
     fn add_return_type_if_any() {
         let ast: ItemFn = "fn function(mut fix: String) -> Result<i32, String> { Ok(42) }".ast();
 
-        let tokens = render_fn_test(
+        let tokens = single_test_case(
             Ident::new("new_name", Span::call_site()),
             &ast,
             None,
@@ -113,7 +113,7 @@ mod fn_test_should {
                 }
                 "#.ast();
 
-        let tokens = render_fn_test(
+        let tokens = single_test_case(
             Ident::new("new_name", Span::call_site()),
             &input_fn,
             Some(&input_fn),
@@ -282,7 +282,7 @@ mod cases_should {
         let item_fn =
             parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
         let data = into_rstest_data(&item_fn);
-        let tokens = render_parametrize_cases(item_fn.clone(), data.into());
+        let tokens = parametrize(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
 
@@ -296,7 +296,7 @@ mod cases_should {
         )
         .unwrap();
         let data = into_rstest_data(&item_fn);
-        let tokens = render_parametrize_cases(item_fn.clone(), data.into());
+        let tokens = parametrize(item_fn.clone(), data.into());
 
         let mut output = TestsGroup::from(tokens);
 
@@ -311,7 +311,7 @@ mod cases_should {
         )
         .unwrap();
         let data = into_rstest_data(&item_fn);
-        let tokens = render_parametrize_cases(item_fn.clone(), data.into());
+        let tokens = parametrize(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
 
@@ -332,7 +332,7 @@ mod cases_should {
         )
         .unwrap();
         let data = into_rstest_data(&item_fn);
-        let tokens = render_parametrize_cases(item_fn.clone(), data.into());
+        let tokens = parametrize(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
 
@@ -350,7 +350,7 @@ mod cases_should {
     fn add_a_test_case() {
         let (item_fn, info) = one_simple_case();
 
-        let tokens = render_parametrize_cases(item_fn.clone(), info);
+        let tokens = parametrize(item_fn.clone(), info);
 
         let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -362,7 +362,7 @@ mod cases_should {
     fn starts_case_number_from_1() {
         let (item_fn, info) = one_simple_case();
 
-        let tokens = render_parametrize_cases(item_fn.clone(), info);
+        let tokens = parametrize(item_fn.clone(), info);
 
         let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -377,7 +377,7 @@ mod cases_should {
     fn add_all_test_cases() {
         let (item_fn, info) = some_simple_cases(5);
 
-        let tokens = render_parametrize_cases(item_fn.clone(), info);
+        let tokens = parametrize(item_fn.clone(), info);
 
         let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -391,7 +391,7 @@ mod cases_should {
     fn left_pad_case_number_by_zeros() {
         let (item_fn, info) = some_simple_cases(1000);
 
-        let tokens = render_parametrize_cases(item_fn.clone(), info);
+        let tokens = parametrize(item_fn.clone(), info);
 
         let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -426,7 +426,7 @@ mod cases_should {
             panic!("Test case should be the second one");
         }
 
-        let tokens = render_parametrize_cases(item_fn.clone(), info);
+        let tokens = parametrize(item_fn.clone(), info);
 
         let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -483,7 +483,7 @@ mod cases_should {
             let item_fn =
                 parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
             let data = into_rstest_data(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), data.into());
+            let tokens = matrix(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -497,7 +497,7 @@ mod cases_should {
             )
             .unwrap();
             let data = into_rstest_data(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), data.into());
+            let tokens = matrix(item_fn.clone(), data.into());
 
             let mut output = TestsGroup::from(tokens);
 
@@ -512,7 +512,7 @@ mod cases_should {
             )
             .unwrap();
             let data = into_rstest_data(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), data.into());
+            let tokens = matrix(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -533,7 +533,7 @@ mod cases_should {
             )
             .unwrap();
             let data = into_rstest_data(&item_fn);
-            let tokens = render_matrix_cases(item_fn.clone(), data.into());
+            let tokens = matrix(item_fn.clone(), data.into());
 
             let output = TestsGroup::from(tokens);
 
@@ -551,7 +551,7 @@ mod cases_should {
         fn add_a_test_case() {
             let (item_fn, info) = one_simple_case();
 
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let tokens = matrix(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -576,7 +576,7 @@ mod cases_should {
                 ..Default::default()
             };
 
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let tokens = matrix(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -619,7 +619,7 @@ mod cases_should {
                 ..Default::default()
             };
 
-            let tokens = render_matrix_cases(item_fn.clone(), info);
+            let tokens = matrix(item_fn.clone(), info);
 
             let tests = TestsGroup::from(tokens).get_test_functions();
 
@@ -660,7 +660,7 @@ mod cases_should {
                 ],
             };
 
-            render_matrix_cases(item_fn.clone(), data.into()).into()
+            matrix(item_fn.clone(), data.into()).into()
         }
 
         fn test_case() -> TestsGroup {
@@ -805,261 +805,5 @@ mod generics_clean_up_should {
         dbg!(item_fn.sig.inputs);
 
         assert_eq!(expected.sig.generics, cleaned);
-    }
-
-    mod fixture_should {
-        use syn::{ItemImpl, ItemStruct};
-
-        use crate::parse::{Attribute, Attributes};
-
-        use super::{assert_eq, *};
-
-        #[derive(Clone)]
-        struct FixtureOutput {
-            orig: ItemFn,
-            fixture: ItemStruct,
-            core_impl: ItemImpl,
-        }
-
-        impl Parse for FixtureOutput {
-            fn parse(input: ParseStream) -> Result<Self> {
-                Ok(FixtureOutput {
-                    fixture: input.parse()?,
-                    core_impl: input.parse()?,
-                    orig: input.parse()?,
-                })
-            }
-        }
-
-        fn parse_fixture<S: AsRef<str>>(code: S) -> (ItemFn, FixtureOutput) {
-            let item_fn = parse_str::<ItemFn>(code.as_ref()).unwrap();
-
-            let tokens = render_fixture(item_fn.clone(), Default::default());
-            (item_fn, parse2(tokens).unwrap())
-        }
-
-        fn test_maintains_function_visibility(code: &str) {
-            let (item_fn, out) = parse_fixture(code);
-
-            assert_eq!(item_fn.vis, out.fixture.vis);
-            assert_eq!(item_fn.vis, out.orig.vis);
-        }
-
-        fn select_method<S: AsRef<str>>(
-            impl_code: ItemImpl,
-            name: S,
-        ) -> Option<syn::ImplItemMethod> {
-            impl_code
-                .items
-                .into_iter()
-                .filter_map(|ii| match ii {
-                    syn::ImplItem::Method(f) => Some(f),
-                    _ => None,
-                })
-                .find(|f| f.sig.ident == name.as_ref())
-        }
-
-        #[test]
-        fn maintains_pub_visibility() {
-            test_maintains_function_visibility(r#"pub fn test() { }"#);
-        }
-
-        #[test]
-        fn maintains_no_pub_visibility() {
-            test_maintains_function_visibility(r#"fn test() { }"#);
-        }
-
-        #[test]
-        fn implement_a_get_method_with_input_fixture_signature() {
-            let (item_fn, out) = parse_fixture(
-                    r#"
-                    pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
-                            where B: Borrow<u32>
-                    { }
-                    "#);
-
-            let mut signature = select_method(out.core_impl, "get").unwrap().sig;
-
-            signature.ident = item_fn.sig.ident.clone();
-
-            assert_eq!(item_fn.sig, signature);
-        }
-
-        #[test]
-        fn implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args() {
-            let (item_fn, out) = parse_fixture(
-                    r#"
-                    pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (H, B, String, &str)
-                        where F: ToString,
-                        B: Borrow<u32>
-
-                    { }
-                    "#);
-
-            let default_decl = select_method(out.core_impl, "default").unwrap().sig;
-
-            let expected = parse_str::<ItemFn>(
-                r#"
-                    pub fn default<B, H: Iterator<Item=u32>>() -> (H, B, String, &str)
-                            where B: Borrow<u32>
-                    { }
-                    "#,
-            )
-            .unwrap();
-
-            assert_eq!(expected.sig.generics, default_decl.generics);
-            assert_eq!(item_fn.sig.output, default_decl.output);
-            assert!(default_decl.inputs.is_empty());
-        }
-
-        #[test]
-        fn use_default_return_type_if_any() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"
-                    pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B)
-                            where F: ToString,
-                            B: Borrow<u32>
-                    { }
-                    "#,
-            )
-            .unwrap();
-
-            let tokens = render_fixture(
-                item_fn.clone(),
-                FixtureInfo {
-                    attributes: Attributes {
-                        attributes: vec![Attribute::Type(
-                            parse_str("default").unwrap(),
-                            parse_str("(impl Iterator<Item=u32>, B)").unwrap(),
-                        )],
-                    }
-                    .into(),
-                    ..Default::default()
-                },
-            );
-            let out: FixtureOutput = parse2(tokens).unwrap();
-
-            let expected = parse_str::<syn::ItemFn>(
-                r#"
-                    pub fn default<B>() -> (impl Iterator<Item=u32>, B)
-                            where B: Borrow<u32>
-                    { }
-                    "#,
-            )
-            .unwrap();
-
-            let default_decl = select_method(out.core_impl, "default").unwrap().sig;
-
-            assert_eq!(expected.sig, default_decl);
-        }
-
-        #[test]
-        fn implement_partial_methods() {
-            let (item_fn, out) = parse_fixture(
-                r#"
-                    pub fn test(mut s: String, v: &u32, a: &mut [i32]) -> usize
-                    { }
-                    "#,
-            );
-
-            let partials = (1..=3)
-                .map(|n| {
-                    select_method(out.core_impl.clone(), format!("partial_{}", n))
-                        .unwrap()
-                        .sig
-                })
-                .collect::<Vec<_>>();
-
-            // All 3 methods found
-
-            assert!(select_method(out.core_impl, "partial_4").is_none());
-
-            let expected_1 = parse_str::<ItemFn>(
-                r#"
-                    pub fn partial_1(mut s: String) -> usize
-                    { }
-                    "#,
-            )
-            .unwrap();
-
-            assert_eq!(expected_1.sig, partials[0]);
-            for p in partials {
-                assert_eq!(item_fn.sig.output, p.output);
-            }
-        }
-
-        #[test]
-        fn clean_generics_in_partial_methods() {
-            let (_, out) = parse_fixture(
-                r#"
-                    pub fn test<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
-                    { }
-                    "#,
-            );
-
-            let partials = (1..=2)
-                .map(|n| {
-                    select_method(out.core_impl.clone(), format!("partial_{}", n))
-                        .unwrap()
-                        .sig
-                })
-                .collect::<Vec<_>>();
-
-            let expected = vec![
-                    parse_str::<ItemFn>(
-                        r#"
-                        pub fn partial_1<S: AsRef<str>, F: ToString>(mut s: S) -> F
-                        { }
-                        "#
-                    ).unwrap().sig,
-                    parse_str::<ItemFn>(
-                        r#"
-                        pub fn partial_2<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
-                        { }
-                        "#
-                    ).unwrap().sig];
-
-            assert_eq!(expected, partials);
-        }
-
-        #[test]
-        fn use_partial_return_type_if_any() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"
-                    pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(h: H, b: B) -> (H, B)
-                            where F: ToString,
-                            B: Borrow<u32>
-                    { }
-                     "#,
-            )
-            .unwrap();
-
-            let tokens = render_fixture(
-                item_fn.clone(),
-                FixtureInfo {
-                    attributes: Attributes {
-                        attributes: vec![Attribute::Type(
-                            parse_str("partial_1").unwrap(),
-                            parse_str("(H, impl Iterator<Item=u32>)").unwrap(),
-                        )],
-                    }
-                    .into(),
-                    ..Default::default()
-                },
-            );
-            let out: FixtureOutput = parse2(tokens).unwrap();
-
-            let expected = parse_str::<syn::ItemFn>(
-                r#"
-                    pub fn partial_1<H: Iterator<Item=u32>>(h: H) -> (H, impl Iterator<Item=u32>)
-                    { }
-                    "#,
-            )
-            .unwrap();
-
-            let partial = select_method(out.core_impl, "partial_1").unwrap();
-
-            assert_eq!(expected.sig, partial.sig);
-        }
     }
 }

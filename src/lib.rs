@@ -240,9 +240,6 @@ use crate::parse::{
     fixture::FixtureInfo,
     rstest::RsTestInfo,
 };
-use crate::render::{
-    render_fixture, render_single_case, render_matrix_cases, render_parametrize_cases
-};
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
@@ -335,7 +332,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 
     let errors = error::fixture(&fixture, &info);
     if errors.is_empty() {
-        render_fixture(fixture, info).into()
+        render::fixture(fixture, info).into()
     } else {
         errors
     }.into()
@@ -415,11 +412,11 @@ pub fn rstest(args: proc_macro::TokenStream,
 
     if errors.is_empty() {
         if info.data.has_list_values() {
-            render_matrix_cases(test, info)
+            render::matrix(test, info)
         } else if info.data.has_cases() {
-            render_parametrize_cases(test, info)
+            render::parametrize(test, info)
         } else {
-            render_single_case(test, info)
+            render::single(test, info)
         }
     } else {
         errors
