@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-
 use syn::{
     parse::{Parse, ParseStream, Result},
     parse2, parse_str,
@@ -436,159 +435,159 @@ mod cases_should {
             .to_string()
             .ends_with(&format!("_{}", description)));
     }
+}
 
-    mod matrix_cases_should {
-        use unindent::Unindent;
+mod matrix_cases_should {
+    use unindent::Unindent;
 
-        use crate::parse::vlist::ValueList;
+    use crate::parse::vlist::ValueList;
 
-        /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
-        /// transformation
-        use super::{assert_eq, *};
+    /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
+    /// transformation
+    use super::{assert_eq, *};
 
-        fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
-            RsTestData {
-                items: fn_args_idents(item_fn)
-                    .cloned()
-                    .map(|it| {
-                        ValueList {
-                            arg: it,
-                            values: vec![],
-                        }
-                        .into()
-                    })
-                    .collect(),
-            }
-        }
-
-        fn one_simple_case() -> (ItemFn, RsTestInfo) {
-            let item_fn =
-                parse_str::<ItemFn>(r#"fn test(mut fix: String) { println!("user code") }"#)
-                    .unwrap();
-            let info = RsTestInfo {
-                data: RsTestData {
-                    items: vec![ValueList {
-                        arg: ident("fix"),
-                        values: vec![expr(r#""value""#)],
+    fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
+        RsTestData {
+            items: fn_args_idents(item_fn)
+                .cloned()
+                .map(|it| {
+                    ValueList {
+                        arg: it,
+                        values: vec![],
                     }
-                    .into()],
-                },
-                ..Default::default()
-            };
-            (item_fn, info)
+                    .into()
+                })
+                .collect(),
         }
+    }
 
-        #[test]
-        fn create_a_module_named_as_test_function() {
-            let item_fn =
-                parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
-            let data = into_rstest_data(&item_fn);
-            let tokens = matrix(item_fn.clone(), data.into());
+    fn one_simple_case() -> (ItemFn, RsTestInfo) {
+        let item_fn =
+            parse_str::<ItemFn>(r#"fn test(mut fix: String) { println!("user code") }"#).unwrap();
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![ValueList {
+                    arg: ident("fix"),
+                    values: vec![expr(r#""value""#)],
+                }
+                .into()],
+            },
+            ..Default::default()
+        };
+        (item_fn, info)
+    }
 
-            let output = TestsGroup::from(tokens);
+    #[test]
+    fn create_a_module_named_as_test_function() {
+        let item_fn =
+            parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
+        let data = into_rstest_data(&item_fn);
+        let tokens = matrix(item_fn.clone(), data.into());
 
-            assert_eq!(output.module.ident, "should_be_the_module_name");
-        }
+        let output = TestsGroup::from(tokens);
 
-        #[test]
-        fn copy_user_function() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-            )
-            .unwrap();
-            let data = into_rstest_data(&item_fn);
-            let tokens = matrix(item_fn.clone(), data.into());
+        assert_eq!(output.module.ident, "should_be_the_module_name");
+    }
 
-            let mut output = TestsGroup::from(tokens);
+    #[test]
+    fn copy_user_function() {
+        let item_fn = parse_str::<ItemFn>(
+            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
+        )
+        .unwrap();
+        let data = into_rstest_data(&item_fn);
+        let tokens = matrix(item_fn.clone(), data.into());
 
-            output.requested_test.attrs = vec![];
-            assert_eq!(output.requested_test, item_fn);
-        }
+        let mut output = TestsGroup::from(tokens);
 
-        #[test]
-        fn mark_user_function_as_test() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-            )
-            .unwrap();
-            let data = into_rstest_data(&item_fn);
-            let tokens = matrix(item_fn.clone(), data.into());
+        output.requested_test.attrs = vec![];
+        assert_eq!(output.requested_test, item_fn);
+    }
 
-            let output = TestsGroup::from(tokens);
+    #[test]
+    fn mark_user_function_as_test() {
+        let item_fn = parse_str::<ItemFn>(
+            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
+        )
+        .unwrap();
+        let data = into_rstest_data(&item_fn);
+        let tokens = matrix(item_fn.clone(), data.into());
 
-            let expected = parse2::<ItemFn>(quote! {
-                #[cfg(test)]
-                fn some() {}
-            })
-            .unwrap()
-            .attrs;
+        let output = TestsGroup::from(tokens);
 
-            assert_eq!(expected, output.requested_test.attrs);
-        }
-
-        #[test]
-        fn mark_module_as_test() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-            )
-            .unwrap();
-            let data = into_rstest_data(&item_fn);
-            let tokens = matrix(item_fn.clone(), data.into());
-
-            let output = TestsGroup::from(tokens);
-
-            let expected = parse2::<ItemMod>(quote! {
+        let expected = parse2::<ItemFn>(quote! {
             #[cfg(test)]
-            mod some {}
-            })
-            .unwrap()
-            .attrs;
+            fn some() {}
+        })
+        .unwrap()
+        .attrs;
 
-            assert_eq!(expected, output.module.attrs);
-        }
+        assert_eq!(expected, output.requested_test.attrs);
+    }
 
-        #[test]
-        fn add_a_test_case() {
-            let (item_fn, info) = one_simple_case();
+    #[test]
+    fn mark_module_as_test() {
+        let item_fn = parse_str::<ItemFn>(
+            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
+        )
+        .unwrap();
+        let data = into_rstest_data(&item_fn);
+        let tokens = matrix(item_fn.clone(), data.into());
 
-            let tokens = matrix(item_fn.clone(), info);
+        let output = TestsGroup::from(tokens);
 
-            let tests = TestsGroup::from(tokens).get_test_functions();
+        let expected = parse2::<ItemMod>(quote! {
+        #[cfg(test)]
+        mod some {}
+        })
+        .unwrap()
+        .attrs;
 
-            assert_eq!(1, tests.len());
-            assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
-        }
+        assert_eq!(expected, output.module.attrs);
+    }
 
-        #[test]
-        fn add_a_test_cases_from_all_combinations() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#,
-            )
-            .unwrap();
-            let info = RsTestInfo {
-                data: RsTestData {
-                    items: vec![
-                        values_list("first", ["1", "2"].as_ref()).into(),
-                        values_list("second", ["3", "4"].as_ref()).into(),
-                        values_list("third", ["5", "6"].as_ref()).into(),
-                    ],
-                },
-                ..Default::default()
-            };
+    #[test]
+    fn add_a_test_case() {
+        let (item_fn, info) = one_simple_case();
 
-            let tokens = matrix(item_fn.clone(), info);
+        let tokens = matrix(item_fn.clone(), info);
 
-            let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_test_functions();
 
-            let tests = tests
-                .into_iter()
-                .map(|t| t.sig.ident.to_string())
-                .collect::<Vec<_>>()
-                .join("\n");
+        assert_eq!(1, tests.len());
+        assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
+    }
 
-            assert_eq!(
-                tests,
-                "
+    #[test]
+    fn add_a_test_cases_from_all_combinations() {
+        let item_fn = parse_str::<ItemFn>(
+            r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#,
+        )
+        .unwrap();
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![
+                    values_list("first", ["1", "2"].as_ref()).into(),
+                    values_list("second", ["3", "4"].as_ref()).into(),
+                    values_list("third", ["5", "6"].as_ref()).into(),
+                ],
+            },
+            ..Default::default()
+        };
+
+        let tokens = matrix(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_test_functions();
+
+        let tests = tests
+            .into_iter()
+            .map(|t| t.sig.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert_eq!(
+            tests,
+            "
                     case_1_1_1
                     case_1_1_2
                     case_1_2_1
@@ -597,140 +596,139 @@ mod cases_should {
                     case_2_1_2
                     case_2_2_1
                     case_2_2_2"
-                    .unindent()
-            )
-        }
-
-        #[test]
-        fn pad_case_index() {
-            let item_fn = parse_str::<ItemFn>(
-                r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#,
-            )
-            .unwrap();
-            let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
-            let info = RsTestInfo {
-                data: RsTestData {
-                    items: vec![
-                        values_list("first", values.as_ref()).into(),
-                        values_list("second", values[..10].as_ref()).into(),
-                        values_list("third", values[..2].as_ref()).into(),
-                    ],
-                },
-                ..Default::default()
-            };
-
-            let tokens = matrix(item_fn.clone(), info);
-
-            let tests = TestsGroup::from(tokens).get_test_functions();
-
-            assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
-            assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
-        }
+                .unindent()
+        )
     }
 
-    mod complete_should {
-        use super::{assert_eq, *};
+    #[test]
+    fn pad_case_index() {
+        let item_fn = parse_str::<ItemFn>(
+            r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#,
+        )
+        .unwrap();
+        let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![
+                    values_list("first", values.as_ref()).into(),
+                    values_list("second", values[..10].as_ref()).into(),
+                    values_list("third", values[..2].as_ref()).into(),
+                ],
+            },
+            ..Default::default()
+        };
 
-        fn rendered_case(fn_name: &str) -> TestsGroup {
-            let item_fn = parse_str::<ItemFn>(&format!(
-                r#"
+        let tokens = matrix(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_test_functions();
+
+        assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
+        assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
+    }
+}
+
+mod complete_should {
+    use super::{assert_eq, *};
+
+    fn rendered_case(fn_name: &str) -> TestsGroup {
+        let item_fn = parse_str::<ItemFn>(&format!(
+            r#"
                         fn {}(
                             fix: u32,
                             a: f64, b: f32,
                             x: i32, y: i32) {{}}"#,
-                fn_name
-            ))
-            .unwrap();
-            let data = RsTestData {
-                items: vec![
-                    fixture("fix", vec!["2"]).into(),
-                    ident("a").into(),
-                    ident("b").into(),
-                    vec!["1f64", "2f32"]
-                        .into_iter()
-                        .collect::<TestCase>()
-                        .into(),
-                    TestCase {
-                        description: Some(ident("description")),
-                        ..vec!["3f64", "4f32"].into_iter().collect::<TestCase>()
-                    }
+            fn_name
+        ))
+        .unwrap();
+        let data = RsTestData {
+            items: vec![
+                fixture("fix", vec!["2"]).into(),
+                ident("a").into(),
+                ident("b").into(),
+                vec!["1f64", "2f32"]
+                    .into_iter()
+                    .collect::<TestCase>()
                     .into(),
-                    values_list("x", &["12", "-2"]).into(),
-                    values_list("y", &["-3", "42"]).into(),
-                ],
-            };
-
-            matrix(item_fn.clone(), data.into()).into()
-        }
-
-        fn test_case() -> TestsGroup {
-            rendered_case("test_function")
-        }
-
-        #[test]
-        fn use_function_name_as_outer_module() {
-            let rendered = rendered_case("should_be_the_outer_module_name");
-
-            assert_eq!(rendered.module.ident, "should_be_the_outer_module_name")
-        }
-
-        #[test]
-        fn have_one_module_for_each_parametrized_case() {
-            let rendered = test_case();
-
-            assert_eq!(
-                vec!["case_1", "case_2_description"],
-                rendered
-                    .get_submodules()
-                    .iter()
-                    .map(|m| m.ident.to_string())
-                    .collect::<Vec<_>>()
-            );
-        }
-
-        #[test]
-        fn implement_exactly_8_tests() {
-            let rendered = test_case();
-
-            assert_eq!(8, rendered.get_test_functions().len());
-        }
-
-        #[test]
-        fn implement_exactly_4_tests_in_each_module() {
-            let modules = test_case().module.get_submodules();
-
-            assert_eq!(4, modules[0].get_test_functions().len());
-            assert_eq!(4, modules[1].get_test_functions().len());
-        }
-
-        #[test]
-        fn assign_same_case_value_for_each_test() {
-            let modules = test_case().module.get_submodules();
-
-            for f in modules[0].get_test_functions() {
-                let assignments = Assignments::collect_assignments(&f);
-                assert_eq!(assignments.0["a"], expr("1f64"));
-                assert_eq!(assignments.0["b"], expr("2f32"));
-            }
-
-            for f in modules[1].get_test_functions() {
-                let assignments = Assignments::collect_assignments(&f);
-                assert_eq!(assignments.0["a"], expr("3f64"));
-                assert_eq!(assignments.0["b"], expr("4f32"));
-            }
-        }
-
-        #[test]
-        fn assign_all_case_combination_in_tests() {
-            let modules = test_case().module.get_submodules();
-
-            let cases = vec![("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
-            for module in modules {
-                for ((x, y), f) in cases.iter().zip(module.get_test_functions().iter()) {
-                    let assignments = Assignments::collect_assignments(f);
-                    assert_eq!(assignments.0["x"], expr(x));
-                    assert_eq!(assignments.0["y"], expr(y));
+                TestCase {
+                    description: Some(ident("description")),
+                    ..vec!["3f64", "4f32"].into_iter().collect::<TestCase>()
                 }
+                .into(),
+                values_list("x", &["12", "-2"]).into(),
+                values_list("y", &["-3", "42"]).into(),
+            ],
+        };
+
+        matrix(item_fn.clone(), data.into()).into()
+    }
+
+    fn test_case() -> TestsGroup {
+        rendered_case("test_function")
+    }
+
+    #[test]
+    fn use_function_name_as_outer_module() {
+        let rendered = rendered_case("should_be_the_outer_module_name");
+
+        assert_eq!(rendered.module.ident, "should_be_the_outer_module_name")
+    }
+
+    #[test]
+    fn have_one_module_for_each_parametrized_case() {
+        let rendered = test_case();
+
+        assert_eq!(
+            vec!["case_1", "case_2_description"],
+            rendered
+                .get_submodules()
+                .iter()
+                .map(|m| m.ident.to_string())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn implement_exactly_8_tests() {
+        let rendered = test_case();
+
+        assert_eq!(8, rendered.get_test_functions().len());
+    }
+
+    #[test]
+    fn implement_exactly_4_tests_in_each_module() {
+        let modules = test_case().module.get_submodules();
+
+        assert_eq!(4, modules[0].get_test_functions().len());
+        assert_eq!(4, modules[1].get_test_functions().len());
+    }
+
+    #[test]
+    fn assign_same_case_value_for_each_test() {
+        let modules = test_case().module.get_submodules();
+
+        for f in modules[0].get_test_functions() {
+            let assignments = Assignments::collect_assignments(&f);
+            assert_eq!(assignments.0["a"], expr("1f64"));
+            assert_eq!(assignments.0["b"], expr("2f32"));
+        }
+
+        for f in modules[1].get_test_functions() {
+            let assignments = Assignments::collect_assignments(&f);
+            assert_eq!(assignments.0["a"], expr("3f64"));
+            assert_eq!(assignments.0["b"], expr("4f32"));
+        }
+    }
+
+    #[test]
+    fn assign_all_case_combination_in_tests() {
+        let modules = test_case().module.get_submodules();
+
+        let cases = vec![("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
+        for module in modules {
+            for ((x, y), f) in cases.iter().zip(module.get_test_functions().iter()) {
+                let assignments = Assignments::collect_assignments(f);
+                assert_eq!(assignments.0["x"], expr(x));
+                assert_eq!(assignments.0["y"], expr(y));
             }
         }
     }
