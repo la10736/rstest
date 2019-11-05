@@ -261,16 +261,14 @@ mod cases_should {
     }
 
     fn one_simple_case() -> (ItemFn, RsTestInfo) {
-        let item_fn =
-            parse_str::<ItemFn>(r#"fn test(mut fix: String) { println!("user code") }"#).unwrap();
+        let item_fn = r#"fn test(mut fix: String) { println!("user code") }"#.ast();
         let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
         info.push_case(TestCase::from(r#"String::from("3")"#));
         (item_fn, info)
     }
 
     fn some_simple_cases(cases: i32) -> (ItemFn, RsTestInfo) {
-        let item_fn =
-            parse_str::<ItemFn>(r#"fn test(mut fix: String) { println!("user code") }"#).unwrap();
+        let item_fn = r#"fn test(mut fix: String) { println!("user code") }"#.ast();
         let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
         info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
         (item_fn, info)
@@ -278,8 +276,7 @@ mod cases_should {
 
     #[test]
     fn create_a_module_named_as_test_function() {
-        let item_fn =
-            parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
+        let item_fn = "fn should_be_the_module_name(mut fix: String) {}".ast();
         let data = into_rstest_data(&item_fn);
         let tokens = parametrize(item_fn.clone(), data.into());
 
@@ -290,10 +287,7 @@ mod cases_should {
 
     #[test]
     fn copy_user_function() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn = r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
         let tokens = parametrize(item_fn.clone(), data.into());
 
@@ -305,10 +299,7 @@ mod cases_should {
 
     #[test]
     fn mark_user_function_as_test() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn = r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
         let tokens = parametrize(item_fn.clone(), data.into());
 
@@ -326,10 +317,7 @@ mod cases_should {
 
     #[test]
     fn mark_module_as_test() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn = r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
         let tokens = parametrize(item_fn.clone(), data.into());
 
@@ -462,8 +450,7 @@ mod matrix_cases_should {
     }
 
     fn one_simple_case() -> (ItemFn, RsTestInfo) {
-        let item_fn =
-            parse_str::<ItemFn>(r#"fn test(mut fix: String) { println!("user code") }"#).unwrap();
+        let item_fn = r#"fn test(mut fix: String) { println!("user code") }"#.ast();
         let info = RsTestInfo {
             data: RsTestData {
                 items: vec![ValueList {
@@ -479,8 +466,7 @@ mod matrix_cases_should {
 
     #[test]
     fn create_a_module_named_as_test_function() {
-        let item_fn =
-            parse_str::<ItemFn>("fn should_be_the_module_name(mut fix: String) {}").unwrap();
+        let item_fn = "fn should_be_the_module_name(mut fix: String) {}".ast();
         let data = into_rstest_data(&item_fn);
         let tokens = matrix(item_fn.clone(), data.into());
 
@@ -491,10 +477,7 @@ mod matrix_cases_should {
 
     #[test]
     fn copy_user_function() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn = r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
         let tokens = matrix(item_fn.clone(), data.into());
 
@@ -506,10 +489,7 @@ mod matrix_cases_should {
 
     #[test]
     fn mark_user_function_as_test() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn = r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
         let tokens = matrix(item_fn.clone(), data.into());
 
@@ -527,10 +507,7 @@ mod matrix_cases_should {
 
     #[test]
     fn mark_module_as_test() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn = r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
         let tokens = matrix(item_fn.clone(), data.into());
 
@@ -560,10 +537,7 @@ mod matrix_cases_should {
 
     #[test]
     fn add_a_test_cases_from_all_combinations() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn: ItemFn = r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#.ast();
         let info = RsTestInfo {
             data: RsTestData {
                 items: vec![
@@ -602,10 +576,7 @@ mod matrix_cases_should {
 
     #[test]
     fn pad_case_index() {
-        let item_fn = parse_str::<ItemFn>(
-            r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#,
-        )
-        .unwrap();
+        let item_fn: ItemFn = r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#.ast();
         let values = (1..=100).map(|i| i.to_string()).collect::<Vec<_>>();
         let info = RsTestInfo {
             data: RsTestData {
@@ -631,15 +602,14 @@ mod complete_should {
     use super::{assert_eq, *};
 
     fn rendered_case(fn_name: &str) -> TestsGroup {
-        let item_fn = parse_str::<ItemFn>(&format!(
+        let item_fn: ItemFn = format!(
             r#"
                         fn {}(
                             fix: u32,
                             a: f64, b: f32,
                             x: i32, y: i32) {{}}"#,
             fn_name
-        ))
-        .unwrap();
+        ).ast();
         let data = RsTestData {
             items: vec![
                 fixture("fix", vec!["2"]).into(),
@@ -740,25 +710,19 @@ mod generics_clean_up_should {
     #[test]
     fn remove_generics_not_in_output() {
         // Should remove all generics parameters that are not present in output
-        let item_fn = parse_str::<ItemFn>(
-            r#"
+        let item_fn: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>() -> (H, B, String, &str)
                         where F: ToString,
                         B: Borrow<u32>
 
                 { }
-                "#,
-        )
-        .unwrap();
+                "#.ast();
 
-        let expected = parse_str::<ItemFn>(
-            r#"
+        let expected: ItemFn = r#"
                 pub fn test<B, H: Iterator<Item=u32>>() -> (H, B, String, &str)
                         where B: Borrow<u32>
                 { }
-                "#,
-        )
-        .unwrap();
+                "#.ast();
 
         let cleaned = generics_clean_up(
             &item_fn.sig.generics,
@@ -772,27 +736,21 @@ mod generics_clean_up_should {
     #[test]
     fn not_remove_generics_used_in_arguments() {
         // Should remove all generics parameters that are not present in output
-        let item_fn = parse_str::<ItemFn>(
-            r#"
+        let item_fn: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>
                     (h: H, it: impl Iterator<Item=R>, j: &[B])
                     where F: ToString,
                     B: Borrow<u32>
                 { }
-                "#,
-        )
-        .unwrap();
+                "#.ast();
 
-        let expected = parse_str::<ItemFn>(
-            r#"
+        let expected: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B, H: Iterator<Item=u32>>
                     (h: H, it: impl Iterator<Item=R>, j: &[B])
                     where
                     B: Borrow<u32>
                 { }
-                "#,
-        )
-        .unwrap();
+                "#.ast();
 
         let cleaned = generics_clean_up(
             &item_fn.sig.generics,
