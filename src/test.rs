@@ -69,17 +69,17 @@ pub(crate) trait ToAst {
     fn ast<T: Parse>(&self) -> T;
 }
 
-impl<'a> ToAst for str {
+impl<S: AsRef<str>> ToAst for S {
     fn ast<T: Parse>(&self) -> T {
-        parse_str(self).unwrap()
+        parse_str(self.as_ref()).unwrap()
     }
 }
 
-pub(crate) fn ident<S: AsRef<str>>(s: S) -> syn::Ident {
+pub(crate) fn ident(s: impl AsRef<str>) -> syn::Ident {
     s.as_ref().ast()
 }
 
-pub(crate) fn expr<S: AsRef<str>>(s: S) -> syn::Expr {
+pub(crate) fn expr(s: impl AsRef<str>) -> syn::Expr {
     s.as_ref().ast()
 }
 

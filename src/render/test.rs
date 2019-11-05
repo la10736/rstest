@@ -449,13 +449,13 @@ mod matrix_cases_should {
         }
     }
 
-    fn one_simple_case() -> (ItemFn, RsTestInfo) {
-        let item_fn = r#"fn test(mut fix: String) { println!("user code") }"#.ast();
+    fn one_simple_case(arg_name: impl AsRef<str>) -> (ItemFn, RsTestInfo) {
+        let item_fn = format!(r#"fn test(mut {}: String) {{ println!("user code") }}"#, arg_name.as_ref()).ast();
         let info = RsTestInfo {
             data: RsTestData {
                 items: vec![ValueList {
-                    arg: ident("fix"),
-                    values: vec![expr(r#""value""#)],
+                    arg: arg_name.ast(),
+                    values: vec![r#""value""#.ast()],
                 }
                 .into()],
             },
@@ -525,7 +525,7 @@ mod matrix_cases_should {
 
     #[test]
     fn add_a_test_case() {
-        let (item_fn, info) = one_simple_case();
+        let (item_fn, info) = one_simple_case("fix");
 
         let tokens = matrix(item_fn.clone(), info);
 
