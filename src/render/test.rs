@@ -542,7 +542,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_test_functions();
 
         assert_eq!(1, tests.len());
-        assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
+        assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
     }
 
     #[test]
@@ -573,14 +573,14 @@ mod matrix_cases_should {
         assert_eq!(
             tests,
             "
-                    case_1_1_1
-                    case_1_1_2
-                    case_1_2_1
-                    case_1_2_2
-                    case_2_1_1
-                    case_2_1_2
-                    case_2_2_1
-                    case_2_2_2"
+                    first_1_second_1_third_1
+                    first_1_second_1_third_2
+                    first_1_second_2_third_1
+                    first_1_second_2_third_2
+                    first_2_second_1_third_1
+                    first_2_second_1_third_2
+                    first_2_second_2_third_1
+                    first_2_second_2_third_2"
                 .unindent()
         )
     }
@@ -605,8 +605,8 @@ mod matrix_cases_should {
 
         let tests = TestsGroup::from(tokens).get_test_functions();
 
-        assert_eq!(tests[0].sig.ident.to_string(), "case_001_01_1");
-        assert_eq!(tests.last().unwrap().sig.ident.to_string(), "case_100_10_2");
+        assert_eq!(tests[0].sig.ident.to_string(), "first_001_second_01_third_1");
+        assert_eq!(tests.last().unwrap().sig.ident.to_string(), "first_100_second_10_third_2");
     }
 }
 

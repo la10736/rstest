@@ -120,10 +120,10 @@ fn inner_matrix_cases<'a>(
         .map(|c| {
             let args_indexes = c
                 .iter()
-                .map(|(_, _, (index, max))| format!("{:0len$}", index + 1, len = max.display_len()))
+                .map(|(ident, _, (index, max))| format!("{}_{:0len$}", ident, index + 1, len = max.display_len()))
                 .collect::<Vec<_>>()
                 .join("_");
-            let name = format!("case_{}", args_indexes);
+            let name = args_indexes;
             let resolver_case = c
                 .into_iter()
                 .map(|(a, e, _)| (a.to_string(), e))

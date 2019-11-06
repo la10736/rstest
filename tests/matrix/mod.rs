@@ -27,10 +27,10 @@ fn happy_path() {
     let (output, _) = run_test("simple.rs");
 
     TestResults::new()
-        .ok("strlen_test::case_1_1")
-        .ok("strlen_test::case_1_2")
-        .ok("strlen_test::case_2_1")
-        .ok("strlen_test::case_2_2")
+        .ok("strlen_test::expected_1_input_1")
+        .ok("strlen_test::expected_1_input_2")
+        .ok("strlen_test::expected_2_input_1")
+        .ok("strlen_test::expected_2_input_2")
         .assert(output);
 }
 
@@ -39,22 +39,22 @@ fn should_apply_partial_fixture() {
     let (output, _) = run_test("partial.rs");
 
     TestResults::new()
-        .ok("default::case_1_1")
-        .ok("default::case_1_2")
-        .ok("default::case_2_1")
-        .ok("partial_2::case_2_2")
-        .ok("complete::case_2_2")
-        .fail("default::case_2_2")
-        .fail("partial_1::case_1_1")
-        .fail("partial_1::case_1_2")
-        .fail("partial_1::case_2_1")
-        .fail("partial_1::case_2_2")
-        .fail("partial_2::case_1_1")
-        .fail("partial_2::case_1_2")
-        .fail("partial_2::case_2_1")
-        .fail("complete::case_1_1")
-        .fail("complete::case_1_2")
-        .fail("complete::case_2_1")
+        .ok("default::a_1_b_1")
+        .ok("default::a_1_b_2")
+        .ok("default::a_2_b_1")
+        .ok("partial_2::a_2_b_2")
+        .ok("complete::a_2_b_2")
+        .fail("default::a_2_b_2")
+        .fail("partial_1::a_1_b_1")
+        .fail("partial_1::a_1_b_2")
+        .fail("partial_1::a_2_b_1")
+        .fail("partial_1::a_2_b_2")
+        .fail("partial_2::a_1_b_1")
+        .fail("partial_2::a_1_b_2")
+        .fail("partial_2::a_2_b_1")
+        .fail("complete::a_1_b_1")
+        .fail("complete::a_1_b_2")
+        .fail("complete::a_2_b_1")
         .assert(output);
 }
 
@@ -68,14 +68,14 @@ mod dump_input_values {
         let out = output.stdout.str().to_string();
 
         TestResults::new()
-            .fail("should_fail::case_1_1_1")
-            .fail("should_fail::case_1_1_2")
-            .fail("should_fail::case_1_2_1")
-            .fail("should_fail::case_1_2_2")
-            .fail("should_fail::case_2_1_1")
-            .fail("should_fail::case_2_1_2")
-            .fail("should_fail::case_1_2_1")
-            .fail("should_fail::case_2_2_2")
+            .fail("should_fail::u_1_s_1_t_1")
+            .fail("should_fail::u_1_s_1_t_2")
+            .fail("should_fail::u_1_s_2_t_1")
+            .fail("should_fail::u_1_s_2_t_2")
+            .fail("should_fail::u_2_s_1_t_1")
+            .fail("should_fail::u_2_s_1_t_2")
+            .fail("should_fail::u_1_s_2_t_1")
+            .fail("should_fail::u_2_s_2_t_2")
             .assert(output);
 
         assert_in!(out, "u = 42");
