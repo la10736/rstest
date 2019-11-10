@@ -14,7 +14,7 @@ use quote::quote;
 
 use crate::parse::{
     rstest::{RsTestAttributes, RsTestData, RsTestInfo},
-    testcase::TestCase,
+    testcase::TestCase, vlist::ValueList,
 };
 use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
@@ -40,6 +40,79 @@ pub(crate) fn parametrize(test: ItemFn, info: RsTestInfo) -> TokenStream {
         .collect();
 
     test_group(test, rendered_cases)
+}
+
+fn render_test_functions<'a>(
+    test: &ItemFn, 
+    arg: &'a Ident, 
+    values: &'a Vec<Expr>, 
+    resolver: HashMap<String, Expr>, 
+    attributes: &RsTestAttributes) -> TokenStream
+{
+    let span = test.sig.ident.span();
+    let max_len = values.len();
+    let arg_name = arg.to_string();
+    let test_cases = values.iter()
+        .enumerate()
+        .map(|(index, expr)| {
+            let name = format!("{}_{:0len$}", arg_name, index + 1, len = max_len.display_len());
+            let mut resolver = resolver.clone();
+            resolver.insert(arg_name.clone(), expr.clone());
+            TestCaseRender::new(
+                Ident::new(&name, span),
+                resolver,
+            )
+        })
+        .map(|test_case| test_case.render(&test, &attributes));
+
+    quote! { #(#test_cases)* }
+}
+
+#[allow(dead_code)]
+pub(crate) fn _matrix_rec<'a>(
+    test: &ItemFn, 
+    vlist: &'a ValueList, 
+    mut list_values: impl Iterator<Item=&'a ValueList>, 
+    resolver: HashMap<String, Expr>, 
+    attributes: &RsTestAttributes
+    ) -> TokenStream {
+
+    let ValueList { arg, values } = vlist;
+
+    match list_values.next() {
+        None => {
+            render_test_functions(test, arg, values, resolver, attributes)
+        },
+        Some(inner_vlist) => {
+            let span = test.sig.ident.span();
+            let max_len = values.len();
+            let ident_name = arg.to_string();
+            let lv = list_values.map(|v| v.clone()).collect::<Vec<_>>(); 
+            let modules = values.into_iter()
+                .enumerate()
+                .map(|(index, expr)| {
+                    let name = format!("{}_{:0len$}", ident_name, index + 1, len = max_len.display_len());
+                    let mut resolver = resolver.clone();
+                    resolver.insert(ident_name.clone(), expr.clone());
+                    (name, resolver)
+                })
+                .map(move |(name, resolver)| 
+                    _matrix_rec(test, inner_vlist, lv.iter(), resolver, attributes)
+                        .wrap_by_mod(&Ident::new(&name, span))
+                );
+
+            quote! { #(#modules)* }
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn matrix_rec<'a>(test: ItemFn, mut list_values: impl Iterator<Item=&'a ValueList>, 
+        resolver: HashMap<String, Expr>, attributes: &RsTestAttributes) -> TokenStream {
+    
+    let first = list_values.next().unwrap();
+    let inner = _matrix_rec(&test, &first, list_values.map(|v| v), resolver, attributes);
+    test_group(test, inner)
 }
 
 pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {

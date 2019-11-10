@@ -4,7 +4,7 @@ use syn::{Ident, parse::{Parse, ParseStream, Result}, Token, Expr};
 
 use crate::refident::RefIdent;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ValueList {
     pub(crate) arg: Ident,
     pub(crate) values: Vec<Expr>,

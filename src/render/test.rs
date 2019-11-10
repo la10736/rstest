@@ -534,6 +534,52 @@ mod matrix_cases_should {
     }
 
     #[test]
+    fn with_just_one_arg() {
+        let arg_name = "fix";
+        let values = vec!["1".ast(), "2".ast(), "3".ast()];
+        let list_values = vec![
+                ValueList {
+                    arg: arg_name.ast(),
+                    values: values,
+                }];
+
+        let item_fn = format!(r#"fn test({}: u32) {{ println!("user code") }}"#, arg_name).ast();
+
+        let tokens = matrix_rec(item_fn, list_values.iter(), HashMap::new(), &Default::default());
+
+        let tests = TestsGroup::from(tokens).get_test_functions();
+
+        assert_eq!(3, tests.len());
+        assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
+    }
+
+    #[test]
+    fn two_args_should_contain_a_module_for_each_first_arg() {
+        let (first, second) = ("first", "second");
+        let (values_first, values_second) = (
+            vec!["1".ast(), "2".ast(), "3".ast()], 
+            vec!["1".ast(), "2".ast()]
+        );
+        let list_values = vec![
+                ValueList {
+                    arg: first.ast(),
+                    values: values_first,
+                },
+                ValueList {
+                    arg: second.ast(),
+                    values: values_second,
+                }];
+        
+        let item_fn = format!(r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#, first, second).ast();
+
+        let tokens = matrix_rec(item_fn, list_values.iter(), HashMap::new(), &Default::default());
+
+        let modules = TestsGroup::from(tokens).module.get_submodules();
+
+        assert_eq!(3, modules.len());
+   }
+
+    #[test]
     fn add_a_test_case() {
         let (item_fn, info) = one_simple_case("fix");
 

@@ -50,6 +50,17 @@ impl<R: Resolver> Resolver for &R {
     }
 }
 
+impl Resolver for (String, Expr) {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> { 
+        if self.0 == ident.to_string() {
+            Some(Cow::Borrowed(&self.1))
+        } else {
+            None
+        }
+    }
+    
+}
+
 fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
     let name = &fixture.name;
     let positional= &fixture.positional;
