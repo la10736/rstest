@@ -148,6 +148,15 @@ impl Parse for TestsGroup {
 /// To extract all test functions
 struct TestFunctions(Vec<ItemFn>);
 
+fn is_test_fn(item_fn: &ItemFn) -> bool {
+    item_fn
+        .attrs
+        .iter()
+        .filter(|&a| a.path == parse_str::<syn::Path>("test").unwrap())
+        .next()
+        .is_some()
+}
+
 impl TestFunctions {
     fn is_test_fn(item_fn: &ItemFn) -> bool {
         item_fn
@@ -168,45 +177,93 @@ impl<'ast> Visit<'ast> for TestFunctions {
     }
 }
 
-/// To extract all submodules
-struct SubModules(Vec<ItemMod>);
+trait Named {
+    fn name(&self) -> String;
+}
 
-impl<'ast> Visit<'ast> for SubModules {
-    //noinspection RsTypeCheck
-    fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
-        self.0.push(item_mod.clone())
+impl Named for Ident {
+    fn name(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl Named for ItemFn {
+    fn name(&self) -> String {
+        self.sig.ident.name()
+    }
+}
+
+impl Named for ItemMod {
+    fn name(&self) -> String {
+        self.ident.name()
+    }
+}
+
+trait Names {
+    fn names(&self) -> Vec<String>;
+}
+
+impl<T: Named> Names for Vec<T> {
+    fn names(&self) -> Vec<String> {
+        self.iter().map(Named::name).collect()
     }
 }
 
 trait ModuleInspector {
-    fn get_test_functions(&self) -> Vec<ItemFn>;
-    fn get_submodules(&self) -> Vec<ItemMod>;
+    fn get_all_tests(&self) -> Vec<ItemFn>;
+    fn get_tests(&self) -> Vec<ItemFn>;
+    fn get_modules(&self) -> Vec<ItemMod>;
 }
 
 impl ModuleInspector for ItemMod {
-    fn get_test_functions(&self) -> Vec<ItemFn> {
+    fn get_tests(&self) -> Vec<ItemFn> {
+        self.content
+            .as_ref()
+            .map(|(_, items)| {
+                items
+                    .iter()
+                    .filter_map(|it| match it {
+                        syn::Item::Fn(item_fn) if is_test_fn(item_fn) => Some(item_fn.clone()),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn get_all_tests(&self) -> Vec<ItemFn> {
         let mut f = TestFunctions(vec![]);
         f.visit_item_mod(&self);
         f.0
     }
 
-    fn get_submodules(&self) -> Vec<ItemMod> {
-        let mut f = SubModules(vec![]);
-
+    fn get_modules(&self) -> Vec<ItemMod> {
         self.content
             .as_ref()
-            .map(|(_, items)| items.iter().for_each(|it| f.visit_item(it)));
-        f.0
+            .map(|(_, items)| {
+                items
+                    .iter()
+                    .filter_map(|it| match it {
+                        syn::Item::Mod(item_mod) => Some(item_mod.clone()),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
 impl ModuleInspector for TestsGroup {
-    fn get_test_functions(&self) -> Vec<ItemFn> {
-        self.module.get_test_functions()
+    fn get_all_tests(&self) -> Vec<ItemFn> {
+        self.module.get_all_tests()
     }
 
-    fn get_submodules(&self) -> Vec<ItemMod> {
-        self.module.get_submodules()
+    fn get_tests(&self) -> Vec<ItemFn> {
+        self.module.get_tests()
+    }
+
+    fn get_modules(&self) -> Vec<ItemMod> {
+        self.module.get_modules()
     }
 }
 
@@ -342,7 +399,7 @@ mod cases_should {
 
         let tokens = parametrize(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         assert_eq!(1, tests.len());
         assert!(&tests[0].sig.ident.to_string().starts_with("case_"))
@@ -354,7 +411,7 @@ mod cases_should {
 
         let tokens = parametrize(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         assert!(
             &tests[0].sig.ident.to_string().starts_with("case_1"),
@@ -369,7 +426,7 @@ mod cases_should {
 
         let tokens = parametrize(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         let valid_names = tests
             .iter()
@@ -383,7 +440,7 @@ mod cases_should {
 
         let tokens = parametrize(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         let first_name = tests[0].sig.ident.to_string();
         let last_name = tests[999].sig.ident.to_string();
@@ -418,7 +475,7 @@ mod cases_should {
 
         let tokens = parametrize(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         assert!(tests[0]
             .sig
@@ -537,17 +594,21 @@ mod matrix_cases_should {
     fn with_just_one_arg() {
         let arg_name = "fix";
         let values = vec!["1".ast(), "2".ast(), "3".ast()];
-        let list_values = vec![
-                ValueList {
-                    arg: arg_name.ast(),
-                    values: values,
-                }];
+        let list_values = vec![ValueList {
+            arg: arg_name.ast(),
+            values: values,
+        }];
 
         let item_fn = format!(r#"fn test({}: u32) {{ println!("user code") }}"#, arg_name).ast();
 
-        let tokens = matrix_rec(item_fn, list_values.iter(), HashMap::new(), &Default::default());
+        let tokens = matrix_rec(
+            item_fn,
+            list_values.iter(),
+            HashMap::new(),
+            &Default::default(),
+        );
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_tests();
 
         assert_eq!(3, tests.len());
         assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
@@ -556,35 +617,132 @@ mod matrix_cases_should {
     #[test]
     fn two_args_should_contain_a_module_for_each_first_arg() {
         let (first, second) = ("first", "second");
-        let (values_first, values_second) = (
-            vec!["1".ast(), "2".ast(), "3".ast()], 
-            vec!["1".ast(), "2".ast()]
-        );
         let list_values = vec![
-                ValueList {
-                    arg: first.ast(),
-                    values: values_first,
-                },
-                ValueList {
-                    arg: second.ast(),
-                    values: values_second,
-                }];
-        
-        let item_fn = format!(r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#, first, second).ast();
+            values_list(first, &["1", "2", "3"]),
+            values_list(second, &["1", "2"]),
+        ];
 
-        let tokens = matrix_rec(item_fn, list_values.iter(), HashMap::new(), &Default::default());
+        let item_fn = format!(
+            r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
+            first, second
+        )
+        .ast();
 
-        let modules = TestsGroup::from(tokens).module.get_submodules()
-                        .iter()
-                        .map(|m| m.ident.to_string())
-                        .collect::<Vec<_>>();
+        let tokens = matrix_rec(
+            item_fn,
+            list_values.iter(),
+            HashMap::new(),
+            &Default::default(),
+        );
 
-        assert_eq!(vec![
-            "first_1".to_owned(),
-            "first_2".to_owned(),
-            "first_3".to_owned(),
-        ], modules);
-   }
+        let modules = TestsGroup::from(tokens).module.get_modules().names();
+
+        assert_eq!(
+            vec![
+                "first_1".to_owned(),
+                "first_2".to_owned(),
+                "first_3".to_owned(),
+            ],
+            modules
+        );
+    }
+
+    #[test]
+    fn two_args_should_create_all_tests() {
+        let (first, second) = ("first", "second");
+        let list_values = vec![
+            values_list(first, &["1", "2", "3"]),
+            values_list(second, &["1", "2"]),
+        ];
+        let item_fn = format!(
+            r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
+            first, second
+        )
+        .ast();
+
+        let tokens = matrix_rec(
+            item_fn,
+            list_values.iter(),
+            HashMap::new(),
+            &Default::default(),
+        );
+
+        let tests = TestsGroup::from(tokens).module.get_all_tests().names();
+
+        assert_eq!(6, tests.len());
+    }
+
+    #[test]
+    fn two_args_should_create_all_modules_with_the_same_functions() {
+        let (first, second) = ("first", "second");
+        let list_values = vec![
+            values_list(first, &["1", "2", "3"]),
+            values_list(second, &["1", "2"]),
+        ];
+        let item_fn = format!(
+            r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
+            first, second
+        )
+        .ast();
+
+        let tokens = matrix_rec(
+            item_fn,
+            list_values.iter(),
+            HashMap::new(),
+            &Default::default(),
+        );
+
+        let tests = TestsGroup::from(tokens)
+            .module
+            .get_modules()
+            .into_iter()
+            .map(|m| m.get_tests().names())
+            .collect::<Vec<_>>();
+
+        assert_eq!(tests[0], tests[1]);
+        assert_eq!(tests[1], tests[2]);
+    }
+
+    #[test]
+    fn three_args_should_create_all_function_4_mods_at_the_first_level_and_3_at_the_second() {
+        let (first, second, third) = ("first", "second", "third");
+        let list_values = vec![
+            values_list(first, &["1", "2", "3", "4"]),
+            values_list(second, &["1", "2", "3"]),
+            values_list(third, &["1", "2"]),
+        ];
+        let item_fn = format!(
+            r#"fn test({}: u32, {}: u32, {}: u32) {{ println!("user code") }}"#,
+            first, second, third
+        )
+        .ast();
+
+        let tokens = matrix_rec(
+            item_fn,
+            list_values.iter(),
+            HashMap::new(),
+            &Default::default(),
+        );
+
+        let tg = TestsGroup::from(tokens);
+
+        assert_eq!(24, tg.module.get_all_tests().len());
+        assert_eq!(4, tg.module.get_modules().len());
+        assert_eq!(3, tg.module.get_modules()[0].get_modules().len());
+        assert_eq!(3, tg.module.get_modules()[3].get_modules().len());
+        assert_eq!(
+            2,
+            tg.module.get_modules()[0].get_modules()[0]
+                .get_tests()
+                .len()
+        );
+        assert_eq!(
+            2,
+            tg.module.get_modules()[3].get_modules()[1]
+                .get_tests()
+                .len()
+        );
+    }
 
     #[test]
     fn add_a_test_case() {
@@ -592,7 +750,7 @@ mod matrix_cases_should {
 
         let tokens = matrix(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         assert_eq!(1, tests.len());
         assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
@@ -615,7 +773,7 @@ mod matrix_cases_should {
 
         let tokens = matrix(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
         let tests = tests
             .into_iter()
@@ -656,10 +814,16 @@ mod matrix_cases_should {
 
         let tokens = matrix(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_test_functions();
+        let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert_eq!(tests[0].sig.ident.to_string(), "first_001_second_01_third_1");
-        assert_eq!(tests.last().unwrap().sig.ident.to_string(), "first_100_second_10_third_2");
+        assert_eq!(
+            tests[0].sig.ident.to_string(),
+            "first_001_second_01_third_1"
+        );
+        assert_eq!(
+            tests.last().unwrap().sig.ident.to_string(),
+            "first_100_second_10_third_2"
+        );
     }
 }
 
@@ -716,7 +880,7 @@ mod complete_should {
         assert_eq!(
             vec!["case_1", "case_2_description"],
             rendered
-                .get_submodules()
+                .get_modules()
                 .iter()
                 .map(|m| m.ident.to_string())
                 .collect::<Vec<_>>()
@@ -727,28 +891,28 @@ mod complete_should {
     fn implement_exactly_8_tests() {
         let rendered = test_case();
 
-        assert_eq!(8, rendered.get_test_functions().len());
+        assert_eq!(8, rendered.get_all_tests().len());
     }
 
     #[test]
     fn implement_exactly_4_tests_in_each_module() {
-        let modules = test_case().module.get_submodules();
+        let modules = test_case().module.get_modules();
 
-        assert_eq!(4, modules[0].get_test_functions().len());
-        assert_eq!(4, modules[1].get_test_functions().len());
+        assert_eq!(4, modules[0].get_all_tests().len());
+        assert_eq!(4, modules[1].get_all_tests().len());
     }
 
     #[test]
     fn assign_same_case_value_for_each_test() {
-        let modules = test_case().module.get_submodules();
+        let modules = test_case().module.get_modules();
 
-        for f in modules[0].get_test_functions() {
+        for f in modules[0].get_all_tests() {
             let assignments = Assignments::collect_assignments(&f);
             assert_eq!(assignments.0["a"], expr("1f64"));
             assert_eq!(assignments.0["b"], expr("2f32"));
         }
 
-        for f in modules[1].get_test_functions() {
+        for f in modules[1].get_all_tests() {
             let assignments = Assignments::collect_assignments(&f);
             assert_eq!(assignments.0["a"], expr("3f64"));
             assert_eq!(assignments.0["b"], expr("4f32"));
@@ -757,11 +921,11 @@ mod complete_should {
 
     #[test]
     fn assign_all_case_combination_in_tests() {
-        let modules = test_case().module.get_submodules();
+        let modules = test_case().module.get_modules();
 
         let cases = vec![("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
         for module in modules {
-            for ((x, y), f) in cases.iter().zip(module.get_test_functions().iter()) {
+            for ((x, y), f) in cases.iter().zip(module.get_all_tests().iter()) {
                 let assignments = Assignments::collect_assignments(f);
                 assert_eq!(assignments.0["x"], expr(x));
                 assert_eq!(assignments.0["y"], expr(y));
