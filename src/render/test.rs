@@ -574,9 +574,16 @@ mod matrix_cases_should {
 
         let tokens = matrix_rec(item_fn, list_values.iter(), HashMap::new(), &Default::default());
 
-        let modules = TestsGroup::from(tokens).module.get_submodules();
+        let modules = TestsGroup::from(tokens).module.get_submodules()
+                        .iter()
+                        .map(|m| m.ident.to_string())
+                        .collect::<Vec<_>>();
 
-        assert_eq!(3, modules.len());
+        assert_eq!(vec![
+            "first_1".to_owned(),
+            "first_2".to_owned(),
+            "first_3".to_owned(),
+        ], modules);
    }
 
     #[test]
