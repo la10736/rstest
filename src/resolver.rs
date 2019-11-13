@@ -44,9 +44,15 @@ impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
     }
 }
 
-impl<R: Resolver> Resolver for &R {
+impl<R: Resolver + ?Sized> Resolver for &R {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
         (*self).resolve(ident)
+    }
+}
+
+impl<R: Resolver + ?Sized> Resolver for Box<R> {
+    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+        (**self).resolve(ident)
     }
 }
 

@@ -47,13 +47,13 @@ impl ValueList {
     fn render(
         &self,
         test: &ItemFn,
-        resolver: HashMap<String, Expr>,
+        resolver: &dyn Resolver,
         attributes: &RsTestAttributes,
     ) -> TokenStream {
         let span = test.sig.ident.span();
         let test_cases = self
             .argument_data(resolver)
-            .map(|(name, resolver)| TestCaseRender::new(Ident::new(&name, span), resolver))
+            .map(|(name, r)| TestCaseRender::new(Ident::new(&name, span), r))
             .map(|test_case| test_case.render(&test, &attributes));
 
         quote! { #(#test_cases)* }
@@ -61,8 +61,8 @@ impl ValueList {
 
     fn argument_data<'a>(
         &'a self,
-        resolver: HashMap<String, Expr>,
-    ) -> impl Iterator<Item = (String, HashMap<String, Expr>)> + 'a {
+        resolver: &'a dyn Resolver,
+    ) -> impl Iterator<Item = (String, Box<(&'a dyn Resolver, (String, Expr))>)> + 'a {
         let max_len = self.values.len();
         self.values.iter().enumerate().map(move |(index, expr)| {
             let name = format!(
@@ -71,9 +71,8 @@ impl ValueList {
                 index + 1,
                 len = max_len.display_len()
             );
-            let mut resolver = resolver.clone();
-            resolver.insert(self.arg.to_string(), expr.clone());
-            (name, resolver)
+            let resolver_this = (self.arg.to_string(), expr.clone());
+            (name, Box::new((resolver, resolver_this)))
         })
     }
 }
@@ -81,7 +80,7 @@ impl ValueList {
 fn _matrix_rec<'a>(
     test: &ItemFn,
     list_values: &'a [&'a ValueList],
-    resolver: HashMap<String, Expr>,
+    resolver: &dyn Resolver,
     attributes: &RsTestAttributes,
 ) -> TokenStream {
     if list_values.len() == 0 {
@@ -95,7 +94,7 @@ fn _matrix_rec<'a>(
     } else {
         let span = test.sig.ident.span();
         let modules = vlist.argument_data(resolver).map(move |(name, resolver)| {
-            _matrix_rec(test, list_values, resolver, attributes)
+            _matrix_rec(test, list_values, &resolver, attributes)
                 .wrap_by_mod(&Ident::new(&name, span))
         });
 
@@ -107,7 +106,7 @@ fn _matrix_rec<'a>(
 pub(crate) fn matrix_rec<'a>(
     test: ItemFn,
     list_values: impl Iterator<Item = &'a ValueList>,
-    resolver: HashMap<String, Expr>,
+    resolver: &dyn Resolver,
     attributes: &RsTestAttributes,
 ) -> TokenStream {
     let list_values = list_values.collect::<Vec<_>>();
@@ -313,14 +312,14 @@ fn generics_clean_up<'a>(
     result
 }
 
-struct TestCaseRender<R: Resolver> {
+struct TestCaseRender<'a> {
     name: Ident,
-    resolver: R,
+    resolver: Box<dyn Resolver + 'a>,
 }
 
-impl<R: Resolver> TestCaseRender<R> {
-    pub fn new(name: Ident, resolver: R) -> Self {
-        TestCaseRender { name, resolver }
+impl<'a> TestCaseRender<'a> {
+    pub fn new<R: Resolver + 'a>(name: Ident, resolver: R) -> Self {
+        TestCaseRender { name, resolver: Box::new(resolver) }
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {

@@ -604,7 +604,7 @@ mod matrix_cases_should {
         let tokens = matrix_rec(
             item_fn,
             list_values.iter(),
-            HashMap::new(),
+            &EmptyResolver,
             &Default::default(),
         );
 
@@ -631,7 +631,7 @@ mod matrix_cases_should {
         let tokens = matrix_rec(
             item_fn,
             list_values.iter(),
-            HashMap::new(),
+            &EmptyResolver,
             &Default::default(),
         );
 
@@ -663,7 +663,7 @@ mod matrix_cases_should {
         let tokens = matrix_rec(
             item_fn,
             list_values.iter(),
-            HashMap::new(),
+            &EmptyResolver,
             &Default::default(),
         );
 
@@ -688,7 +688,7 @@ mod matrix_cases_should {
         let tokens = matrix_rec(
             item_fn,
             list_values.iter(),
-            HashMap::new(),
+            &EmptyResolver,
             &Default::default(),
         );
 
@@ -720,7 +720,7 @@ mod matrix_cases_should {
         let tokens = matrix_rec(
             item_fn,
             list_values.iter(),
-            HashMap::new(),
+            &EmptyResolver,
             &Default::default(),
         );
 
