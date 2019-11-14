@@ -103,15 +103,30 @@ fn _matrix_rec<'a>(
 }
 
 #[allow(dead_code)]
-pub(crate) fn matrix_rec<'a>(
-    test: ItemFn,
-    list_values: impl Iterator<Item = &'a ValueList>,
-    resolver: &dyn Resolver,
-    attributes: &RsTestAttributes,
-) -> TokenStream {
-    let list_values = list_values.collect::<Vec<_>>();
-    let inner = _matrix_rec(&test, &list_values, resolver, attributes);
-    test_group(test, inner)
+pub(crate) fn matrix_rec(test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let RsTestInfo {
+        data, attributes, ..
+    } = info;
+    let span = test.sig.ident.span();
+
+    let cases = cases_data(&data, span).collect::<Vec<_>>();
+
+    let resolver = resolver::fixture_resolver(data.fixtures());
+    let rendered_cases = if cases.is_empty() {
+        let list_values = data.list_values().collect::<Vec<_>>();
+        _matrix_rec(&test, &list_values, &resolver, &attributes)
+    } else {
+        cases
+            .into_iter()
+            .map(|(case_name, case_resolver)| {
+                let list_values = data.list_values().collect::<Vec<_>>();
+                _matrix_rec(&test, &list_values, &(case_resolver, &resolver), &attributes)
+                .wrap_by_mod(&case_name)
+            })
+            .collect()
+    };
+
+    test_group(test, rendered_cases)
 }
 
 pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {

@@ -593,20 +593,16 @@ mod matrix_cases_should {
     #[test]
     fn with_just_one_arg() {
         let arg_name = "fix";
-        let values = vec!["1".ast(), "2".ast(), "3".ast()];
-        let list_values = vec![ValueList {
-            arg: arg_name.ast(),
-            values: values,
-        }];
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![values_list(arg_name, &["1", "2", "3"]).into()].into(),
+            },
+            ..Default::default()
+        };
 
         let item_fn = format!(r#"fn test({}: u32) {{ println!("user code") }}"#, arg_name).ast();
 
-        let tokens = matrix_rec(
-            item_fn,
-            list_values.iter(),
-            &EmptyResolver,
-            &Default::default(),
-        );
+        let tokens = matrix_rec(item_fn, info);
 
         let tests = TestsGroup::from(tokens).get_tests();
 
@@ -619,7 +615,7 @@ mod matrix_cases_should {
         /// transformation
         use super::{assert_eq, *};
 
-        fn fixture<'a>() -> (Vec<&'a str>, ItemFn, Vec<ValueList>) {
+        fn fixture<'a>() -> (Vec<&'a str>, ItemFn, RsTestInfo) {
             let names = vec!["first", "second"];
             (
                 names.clone(),
@@ -628,23 +624,23 @@ mod matrix_cases_should {
                     names[0], names[1]
                 )
                 .ast(),
-                vec![
-                    values_list(names[0], &["1", "2", "3"]),
-                    values_list(names[1], &["1", "2"]),
-                ],
+                RsTestInfo {
+                    data: RsTestData {
+                        items: vec![
+                            values_list(names[0], &["1", "2", "3"]).into(),
+                            values_list(names[1], &["1", "2"]).into(),
+                        ],
+                    },
+                    ..Default::default()
+                },
             )
         }
 
         #[test]
         fn contain_a_module_for_each_first_arg() {
-            let (names, item_fn, list_values) = fixture();
+            let (names, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(
-                item_fn,
-                list_values.iter(),
-                &EmptyResolver,
-                &Default::default(),
-            );
+            let tokens = matrix_rec(item_fn, info);
 
             let modules = TestsGroup::from(tokens).module.get_modules().names();
 
@@ -657,14 +653,9 @@ mod matrix_cases_should {
 
         #[test]
         fn create_all_tests() {
-            let (_, item_fn, list_values) = fixture();
+            let (_, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(
-                item_fn,
-                list_values.iter(),
-                &EmptyResolver,
-                &Default::default(),
-            );
+            let tokens = matrix_rec(item_fn, info);
 
             let tests = TestsGroup::from(tokens).module.get_all_tests().names();
 
@@ -673,14 +664,9 @@ mod matrix_cases_should {
 
         #[test]
         fn create_all_modules_with_the_same_functions() {
-            let (_, item_fn, list_values) = fixture();
+            let (_, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(
-                item_fn,
-                list_values.iter(),
-                &EmptyResolver,
-                &Default::default(),
-            );
+            let tokens = matrix_rec(item_fn, info);
 
             let tests = TestsGroup::from(tokens)
                 .module
@@ -695,14 +681,9 @@ mod matrix_cases_should {
 
         #[test]
         fn test_name_should_contain_argument_name() {
-            let (names, item_fn, list_values) = fixture();
+            let (names, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(
-                item_fn,
-                list_values.iter(),
-                &EmptyResolver,
-                &Default::default(),
-            );
+            let tokens = matrix_rec(item_fn, info);
 
             let tests = TestsGroup::from(tokens).module.get_modules()[0]
                 .get_tests()
@@ -719,11 +700,16 @@ mod matrix_cases_should {
     #[test]
     fn three_args_should_create_all_function_4_mods_at_the_first_level_and_3_at_the_second() {
         let (first, second, third) = ("first", "second", "third");
-        let list_values = vec![
-            values_list(first, &["1", "2", "3", "4"]),
-            values_list(second, &["1", "2", "3"]),
-            values_list(third, &["1", "2"]),
-        ];
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![
+                    values_list(first, &["1", "2", "3", "4"]).into(),
+                    values_list(second, &["1", "2", "3"]).into(),
+                    values_list(third, &["1", "2"]).into(),
+                ],
+            },
+            ..Default::default()
+        };
         let item_fn = format!(
             r#"fn test({}: u32, {}: u32, {}: u32) {{ println!("user code") }}"#,
             first, second, third
@@ -732,9 +718,7 @@ mod matrix_cases_should {
 
         let tokens = matrix_rec(
             item_fn,
-            list_values.iter(),
-            &EmptyResolver,
-            &Default::default(),
+            info
         );
 
         let tg = TestsGroup::from(tokens);
