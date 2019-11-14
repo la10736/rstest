@@ -614,93 +614,106 @@ mod matrix_cases_should {
         assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
     }
 
-    #[test]
-    fn two_args_should_contain_a_module_for_each_first_arg() {
-        let (first, second) = ("first", "second");
-        let list_values = vec![
-            values_list(first, &["1", "2", "3"]),
-            values_list(second, &["1", "2"]),
-        ];
+    mod two_args_should {
+        /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
+        /// transformation
+        use super::{assert_eq, *};
 
-        let item_fn = format!(
-            r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
-            first, second
-        )
-        .ast();
+        fn fixture<'a>() -> (Vec<&'a str>, ItemFn, Vec<ValueList>) {
+            let names = vec!["first", "second"];
+            (
+                names.clone(),
+                format!(
+                    r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
+                    names[0], names[1]
+                )
+                .ast(),
+                vec![
+                    values_list(names[0], &["1", "2", "3"]),
+                    values_list(names[1], &["1", "2"]),
+                ],
+            )
+        }
 
-        let tokens = matrix_rec(
-            item_fn,
-            list_values.iter(),
-            &EmptyResolver,
-            &Default::default(),
-        );
+        #[test]
+        fn contain_a_module_for_each_first_arg() {
+            let (names, item_fn, list_values) = fixture();
 
-        let modules = TestsGroup::from(tokens).module.get_modules().names();
+            let tokens = matrix_rec(
+                item_fn,
+                list_values.iter(),
+                &EmptyResolver,
+                &Default::default(),
+            );
 
-        assert_eq!(
-            vec![
-                "first_1".to_owned(),
-                "first_2".to_owned(),
-                "first_3".to_owned(),
-            ],
-            modules
-        );
-    }
+            let modules = TestsGroup::from(tokens).module.get_modules().names();
 
-    #[test]
-    fn two_args_should_create_all_tests() {
-        let (first, second) = ("first", "second");
-        let list_values = vec![
-            values_list(first, &["1", "2", "3"]),
-            values_list(second, &["1", "2"]),
-        ];
-        let item_fn = format!(
-            r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
-            first, second
-        )
-        .ast();
+            let expected = (1..=3)
+                .map(|i| format!("{}_{}", names[0], i))
+                .collect::<Vec<_>>();
 
-        let tokens = matrix_rec(
-            item_fn,
-            list_values.iter(),
-            &EmptyResolver,
-            &Default::default(),
-        );
+            assert_eq!(expected, modules);
+        }
 
-        let tests = TestsGroup::from(tokens).module.get_all_tests().names();
+        #[test]
+        fn create_all_tests() {
+            let (_, item_fn, list_values) = fixture();
 
-        assert_eq!(6, tests.len());
-    }
+            let tokens = matrix_rec(
+                item_fn,
+                list_values.iter(),
+                &EmptyResolver,
+                &Default::default(),
+            );
 
-    #[test]
-    fn two_args_should_create_all_modules_with_the_same_functions() {
-        let (first, second) = ("first", "second");
-        let list_values = vec![
-            values_list(first, &["1", "2", "3"]),
-            values_list(second, &["1", "2"]),
-        ];
-        let item_fn = format!(
-            r#"fn test({}: u32, {}: u32) {{ println!("user code") }}"#,
-            first, second
-        )
-        .ast();
+            let tests = TestsGroup::from(tokens).module.get_all_tests().names();
 
-        let tokens = matrix_rec(
-            item_fn,
-            list_values.iter(),
-            &EmptyResolver,
-            &Default::default(),
-        );
+            assert_eq!(6, tests.len());
+        }
 
-        let tests = TestsGroup::from(tokens)
-            .module
-            .get_modules()
-            .into_iter()
-            .map(|m| m.get_tests().names())
-            .collect::<Vec<_>>();
+        #[test]
+        fn create_all_modules_with_the_same_functions() {
+            let (_, item_fn, list_values) = fixture();
 
-        assert_eq!(tests[0], tests[1]);
-        assert_eq!(tests[1], tests[2]);
+            let tokens = matrix_rec(
+                item_fn,
+                list_values.iter(),
+                &EmptyResolver,
+                &Default::default(),
+            );
+
+            let tests = TestsGroup::from(tokens)
+                .module
+                .get_modules()
+                .into_iter()
+                .map(|m| m.get_tests().names())
+                .collect::<Vec<_>>();
+
+            assert_eq!(tests[0], tests[1]);
+            assert_eq!(tests[1], tests[2]);
+        }
+
+        #[test]
+        fn test_name_should_contain_argument_name() {
+            let (names, item_fn, list_values) = fixture();
+
+            let tokens = matrix_rec(
+                item_fn,
+                list_values.iter(),
+                &EmptyResolver,
+                &Default::default(),
+            );
+
+            let tests = TestsGroup::from(tokens).module.get_modules()[0]
+                .get_tests()
+                .names();
+
+            let expected = (1..=2)
+                .map(|i| format!("{}_{}", names[1], i))
+                .collect::<Vec<_>>();
+
+            assert_eq!(expected, tests);
+        }
     }
 
     #[test]
