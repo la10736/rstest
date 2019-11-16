@@ -4,7 +4,6 @@ mod wrapper;
 
 use std::{borrow::Cow, collections::HashMap};
 
-use itertools::Itertools;
 use proc_macro2::{Span, TokenStream};
 use syn::{
     parse_quote, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Stmt, Type, WherePredicate,
@@ -112,6 +111,8 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
 
     let resolver = resolver::fixture_resolver(data.fixtures());
     let rendered_cases = if cases.is_empty() {
+
+
         let list_values = data.list_values().collect::<Vec<_>>();
         _matrix_recursive(&test, &list_values, &resolver, &attributes)
     } else {
@@ -152,50 +153,6 @@ fn single_test_case<'a>(
             #testfn_name(#(#args),*)
         }
     }
-}
-
-fn inner_matrix_cases<'a>(
-    test: &ItemFn,
-    attributes: &RsTestAttributes,
-    resolver: &impl Resolver,
-    list_values: impl Iterator<Item = &'a crate::parse::vlist::ValueList>,
-) -> TokenStream {
-    let test_function_span = test.sig.ident.span();
-    // Steps:
-    // 1. pack data P=(ident, expr, (pos, max_len)) in one iterator for each variable
-    // 2. do a cartesian product of iterators to build all cases (every case is a vector of P)
-    // 3. format case by packed data vector
-    let test_cases = list_values
-        .map(|group| {
-            group
-                .values
-                .iter()
-                .enumerate()
-                .map(move |(pos, expr)| (&group.arg, expr, (pos, group.values.len())))
-        })
-        .multi_cartesian_product()
-        .map(|c| {
-            let args_indexes = c
-                .iter()
-                .map(|(ident, _, (index, max))| {
-                    format!("{}_{:0len$}", ident, index + 1, len = max.display_len())
-                })
-                .collect::<Vec<_>>()
-                .join("_");
-            let name = args_indexes;
-            let resolver_case = c
-                .into_iter()
-                .map(|(a, e, _)| (a.to_string(), e))
-                .collect::<HashMap<_, _>>();
-            TestCaseRender::new(
-                Ident::new(&name, test_function_span),
-                (resolver_case, resolver),
-            )
-        });
-
-    let test_cases = test_cases.map(|test_case| test_case.render(test, attributes));
-
-    quote! { #(#test_cases)* }
 }
 
 fn trace_arguments<'a>(

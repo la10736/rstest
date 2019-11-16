@@ -26,11 +26,10 @@ use crate::resolver::Resolver;
 macro_rules! to_args {
     ($e:expr) => {
                    {
-                   use itertools::Itertools;
                    $e.iter()
                    .map(|s| s as & dyn AsRef<str>)
                    .map(expr)
-                   .collect_vec()
+                   .collect::<Vec<_>>()
                    }
                  };
 }

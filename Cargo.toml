@@ -26,7 +26,6 @@ syn = { version = "1.0", features = ["full", "parsing", "extra-traits", "visit"]
 proc-macro2 = { version = "1.0" }
 quote = "1.0"
 cfg-if = "0.1"
-itertools = "0.8"
 
 [dev-dependencies]
 temp_testdir = "0.2"

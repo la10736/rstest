@@ -223,8 +223,6 @@ impl Parse for RsTestAttributes {
 
 #[cfg(test)]
 mod should {
-    use itertools::Itertools;
-
     use crate::test::*;
     use super::*;
 
@@ -413,7 +411,7 @@ mod should {
                         input => [format!("aa_{}", 2), "other"],
                     "#);
 
-                let value_ranges = info.data.list_values().collect_vec();
+                let value_ranges = info.data.list_values().collect::<Vec<_>>();
                 assert_eq!(2, value_ranges.len());
                 assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
                 assert_eq!(to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]), value_ranges[1].args());
@@ -440,7 +438,7 @@ mod should {
                     fixture_2("bar")
                     "#);
 
-                let fixtures = info.data.fixtures().cloned().collect_vec();
+                let fixtures = info.data.fixtures().cloned().collect::<Vec<_>>();
 
                 assert_eq!(vec![fixture("fixture_1", vec!["42", r#""foo""#]),
                                 fixture("fixture_2", vec![r#""bar""#])],
@@ -485,7 +483,7 @@ mod should {
                 assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
                 assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
 
-                let value_ranges = data.list_values().collect_vec();
+                let value_ranges = data.list_values().collect::<Vec<_>>();
                 assert_eq!(2, value_ranges.len());
                 assert_eq!(to_args!(["1", "2"]), value_ranges[0].args());
                 assert_eq!(to_args!([r#""f""#, r#""oo""#, r#""BAR""#]), value_ranges[1].args());
