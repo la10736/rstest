@@ -77,7 +77,7 @@ impl ValueList {
     }
 }
 
-fn _matrix_rec<'a>(
+fn _matrix_recursive<'a>(
     test: &ItemFn,
     list_values: &'a [&'a ValueList],
     resolver: &dyn Resolver,
@@ -94,39 +94,12 @@ fn _matrix_rec<'a>(
     } else {
         let span = test.sig.ident.span();
         let modules = vlist.argument_data(resolver).map(move |(name, resolver)| {
-            _matrix_rec(test, list_values, &resolver, attributes)
+            _matrix_recursive(test, list_values, &resolver, attributes)
                 .wrap_by_mod(&Ident::new(&name, span))
         });
 
         quote! { #(#modules)* }
     }
-}
-
-#[allow(dead_code)]
-pub(crate) fn matrix_rec(test: ItemFn, info: RsTestInfo) -> TokenStream {
-    let RsTestInfo {
-        data, attributes, ..
-    } = info;
-    let span = test.sig.ident.span();
-
-    let cases = cases_data(&data, span).collect::<Vec<_>>();
-
-    let resolver = resolver::fixture_resolver(data.fixtures());
-    let rendered_cases = if cases.is_empty() {
-        let list_values = data.list_values().collect::<Vec<_>>();
-        _matrix_rec(&test, &list_values, &resolver, &attributes)
-    } else {
-        cases
-            .into_iter()
-            .map(|(case_name, case_resolver)| {
-                let list_values = data.list_values().collect::<Vec<_>>();
-                _matrix_rec(&test, &list_values, &(case_resolver, &resolver), &attributes)
-                .wrap_by_mod(&case_name)
-            })
-            .collect()
-    };
-
-    test_group(test, rendered_cases)
 }
 
 pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
@@ -139,17 +112,14 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
 
     let resolver = resolver::fixture_resolver(data.fixtures());
     let rendered_cases = if cases.is_empty() {
-        inner_matrix_cases(&test, &attributes, &resolver, data.list_values())
+        let list_values = data.list_values().collect::<Vec<_>>();
+        _matrix_recursive(&test, &list_values, &resolver, &attributes)
     } else {
         cases
             .into_iter()
             .map(|(case_name, case_resolver)| {
-                inner_matrix_cases(
-                    &test,
-                    &attributes,
-                    &(case_resolver, &resolver),
-                    data.list_values(),
-                )
+                let list_values = data.list_values().collect::<Vec<_>>();
+                _matrix_recursive(&test, &list_values, &(case_resolver, &resolver), &attributes)
                 .wrap_by_mod(&case_name)
             })
             .collect()

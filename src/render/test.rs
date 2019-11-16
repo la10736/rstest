@@ -486,8 +486,6 @@ mod cases_should {
 }
 
 mod matrix_cases_should {
-    use unindent::Unindent;
-
     use crate::parse::vlist::ValueList;
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
@@ -509,29 +507,11 @@ mod matrix_cases_should {
         }
     }
 
-    fn one_simple_case(arg_name: impl AsRef<str>) -> (ItemFn, RsTestInfo) {
-        let item_fn = format!(
-            r#"fn test(mut {}: String) {{ println!("user code") }}"#,
-            arg_name.as_ref()
-        )
-        .ast();
-        let info = RsTestInfo {
-            data: RsTestData {
-                items: vec![ValueList {
-                    arg: arg_name.ast(),
-                    values: vec![r#""value""#.ast()],
-                }
-                .into()],
-            },
-            ..Default::default()
-        };
-        (item_fn, info)
-    }
-
     #[test]
     fn create_a_module_named_as_test_function() {
         let item_fn = "fn should_be_the_module_name(mut fix: String) {}".ast();
         let data = into_rstest_data(&item_fn);
+        
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -544,6 +524,7 @@ mod matrix_cases_should {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
+        
         let tokens = matrix(item_fn.clone(), data.into());
 
         let mut output = TestsGroup::from(tokens);
@@ -557,6 +538,7 @@ mod matrix_cases_should {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
+        
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -576,6 +558,7 @@ mod matrix_cases_should {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
+        
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -602,7 +585,7 @@ mod matrix_cases_should {
 
         let item_fn = format!(r#"fn test({}: u32) {{ println!("user code") }}"#, arg_name).ast();
 
-        let tokens = matrix_rec(item_fn, info);
+        let tokens = matrix(item_fn, info);
 
         let tests = TestsGroup::from(tokens).get_tests();
 
@@ -640,7 +623,7 @@ mod matrix_cases_should {
         fn contain_a_module_for_each_first_arg() {
             let (names, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(item_fn, info);
+            let tokens = matrix(item_fn, info);
 
             let modules = TestsGroup::from(tokens).module.get_modules().names();
 
@@ -655,7 +638,7 @@ mod matrix_cases_should {
         fn create_all_tests() {
             let (_, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(item_fn, info);
+            let tokens = matrix(item_fn, info);
 
             let tests = TestsGroup::from(tokens).module.get_all_tests().names();
 
@@ -666,7 +649,7 @@ mod matrix_cases_should {
         fn create_all_modules_with_the_same_functions() {
             let (_, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(item_fn, info);
+            let tokens = matrix(item_fn, info);
 
             let tests = TestsGroup::from(tokens)
                 .module
@@ -683,7 +666,7 @@ mod matrix_cases_should {
         fn test_name_should_contain_argument_name() {
             let (names, item_fn, info) = fixture();
 
-            let tokens = matrix_rec(item_fn, info);
+            let tokens = matrix(item_fn, info);
 
             let tests = TestsGroup::from(tokens).module.get_modules()[0]
                 .get_tests()
@@ -716,7 +699,7 @@ mod matrix_cases_should {
         )
         .ast();
 
-        let tokens = matrix_rec(
+        let tokens = matrix(
             item_fn,
             info
         );
@@ -742,58 +725,6 @@ mod matrix_cases_should {
     }
 
     #[test]
-    fn add_a_test_case() {
-        let (item_fn, info) = one_simple_case("fix");
-
-        let tokens = matrix(item_fn.clone(), info);
-
-        let tests = TestsGroup::from(tokens).get_all_tests();
-
-        assert_eq!(1, tests.len());
-        assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
-    }
-
-    #[test]
-    fn add_a_test_cases_from_all_combinations() {
-        let item_fn: ItemFn =
-            r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#.ast();
-        let info = RsTestInfo {
-            data: RsTestData {
-                items: vec![
-                    values_list("first", ["1", "2"].as_ref()).into(),
-                    values_list("second", ["3", "4"].as_ref()).into(),
-                    values_list("third", ["5", "6"].as_ref()).into(),
-                ],
-            },
-            ..Default::default()
-        };
-
-        let tokens = matrix(item_fn.clone(), info);
-
-        let tests = TestsGroup::from(tokens).get_all_tests();
-
-        let tests = tests
-            .into_iter()
-            .map(|t| t.sig.ident.to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        assert_eq!(
-            tests,
-            "
-                    first_1_second_1_third_1
-                    first_1_second_1_third_2
-                    first_1_second_2_third_1
-                    first_1_second_2_third_2
-                    first_2_second_1_third_1
-                    first_2_second_1_third_2
-                    first_2_second_2_third_1
-                    first_2_second_2_third_2"
-                .unindent()
-        )
-    }
-
-    #[test]
     fn pad_case_index() {
         let item_fn: ItemFn =
             r#"fn test(first: u32, second: u32, third: u32) { println!("user code") }"#.ast();
@@ -811,16 +742,22 @@ mod matrix_cases_should {
 
         let tokens = matrix(item_fn.clone(), info);
 
-        let tests = TestsGroup::from(tokens).get_all_tests();
+        let tg = TestsGroup::from(tokens);
 
-        assert_eq!(
-            tests[0].sig.ident.to_string(),
-            "first_001_second_01_third_1"
-        );
-        assert_eq!(
-            tests.last().unwrap().sig.ident.to_string(),
-            "first_100_second_10_third_2"
-        );
+        let mods = tg.get_modules().names();
+
+        assert_eq!(mods[0], "first_001");
+        assert_eq!(mods[99], "first_100");
+
+        let mods = tg.get_modules()[0].get_modules().names();
+
+        assert_eq!(mods[0], "second_01");
+        assert_eq!(mods[9], "second_10");
+
+        let functions = tg.get_modules()[0].get_modules()[1].get_tests().names();
+
+        assert_eq!(functions[0], "third_1");
+        assert_eq!(functions[1], "third_2");
     }
 }
 

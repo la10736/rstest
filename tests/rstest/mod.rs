@@ -115,14 +115,14 @@ mod dump_input_values {
             .fail("single_fail")
             .fail("cases_fail::case_1")
             .fail("cases_fail::case_2")
-            .fail("matrix_fail::u_1_s_1_t_1")
-            .fail("matrix_fail::u_1_s_1_t_2")
-            .fail("matrix_fail::u_1_s_2_t_1")
-            .fail("matrix_fail::u_1_s_2_t_2")
-            .fail("matrix_fail::u_2_s_1_t_1")
-            .fail("matrix_fail::u_2_s_1_t_2")
-            .fail("matrix_fail::u_1_s_2_t_1")
-            .fail("matrix_fail::u_2_s_2_t_2")
+            .fail("matrix_fail::u_1::s_1::t_1")
+            .fail("matrix_fail::u_1::s_1::t_2")
+            .fail("matrix_fail::u_1::s_2::t_1")
+            .fail("matrix_fail::u_1::s_2::t_2")
+            .fail("matrix_fail::u_2::s_1::t_1")
+            .fail("matrix_fail::u_2::s_1::t_2")
+            .fail("matrix_fail::u_1::s_2::t_1")
+            .fail("matrix_fail::u_2::s_2::t_2")
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
@@ -179,7 +179,7 @@ mod dump_input_values {
         TestResults::new()
             .fail("simple")
             .fail("cases::case_1")
-            .fail("matrix::a_1_b_1_dd_1")
+            .fail("matrix::a_1::b_1::dd_1")
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
@@ -487,10 +487,10 @@ mod matrix {
         let (output, _) = run_test(res("simple.rs"));
 
         TestResults::new()
-            .ok("strlen_test::expected_1_input_1")
-            .ok("strlen_test::expected_1_input_2")
-            .ok("strlen_test::expected_2_input_1")
-            .ok("strlen_test::expected_2_input_2")
+            .ok("strlen_test::expected_1::input_1")
+            .ok("strlen_test::expected_1::input_2")
+            .ok("strlen_test::expected_2::input_1")
+            .ok("strlen_test::expected_2::input_2")
             .assert(output);
     }
 
@@ -499,22 +499,22 @@ mod matrix {
         let (output, _) = run_test(res("partial.rs"));
 
         TestResults::new()
-            .ok("default::a_1_b_1")
-            .ok("default::a_1_b_2")
-            .ok("default::a_2_b_1")
-            .ok("partial_2::a_2_b_2")
-            .ok("complete::a_2_b_2")
-            .fail("default::a_2_b_2")
-            .fail("partial_1::a_1_b_1")
-            .fail("partial_1::a_1_b_2")
-            .fail("partial_1::a_2_b_1")
-            .fail("partial_1::a_2_b_2")
-            .fail("partial_2::a_1_b_1")
-            .fail("partial_2::a_1_b_2")
-            .fail("partial_2::a_2_b_1")
-            .fail("complete::a_1_b_1")
-            .fail("complete::a_1_b_2")
-            .fail("complete::a_2_b_1")
+            .ok("default::a_1::b_1")
+            .ok("default::a_1::b_2")
+            .ok("default::a_2::b_1")
+            .ok("partial_2::a_2::b_2")
+            .ok("complete::a_2::b_2")
+            .fail("default::a_2::b_2")
+            .fail("partial_1::a_1::b_1")
+            .fail("partial_1::a_1::b_2")
+            .fail("partial_1::a_2::b_1")
+            .fail("partial_1::a_2::b_2")
+            .fail("partial_2::a_1::b_1")
+            .fail("partial_2::a_1::b_2")
+            .fail("partial_2::a_2::b_1")
+            .fail("complete::a_1::b_1")
+            .fail("complete::a_1::b_2")
+            .fail("complete::a_2::b_1")
             .assert(output);
     }
 }
@@ -524,14 +524,14 @@ fn happy_path() {
     let (output, _) = run_test("happy_path.rs");
 
     TestResults::new()
-        .ok("happy::case_1::expected_1_input_1")
-        .ok("happy::case_1::expected_1_input_2")
-        .ok("happy::case_1::expected_2_input_1")
-        .ok("happy::case_1::expected_2_input_2")
-        .ok("happy::case_2_second::expected_1_input_1")
-        .ok("happy::case_2_second::expected_1_input_2")
-        .ok("happy::case_2_second::expected_2_input_1")
-        .ok("happy::case_2_second::expected_2_input_2")
+        .ok("happy::case_1::expected_1::input_1")
+        .ok("happy::case_1::expected_1::input_2")
+        .ok("happy::case_1::expected_2::input_1")
+        .ok("happy::case_1::expected_2::input_2")
+        .ok("happy::case_2_second::expected_1::input_1")
+        .ok("happy::case_2_second::expected_1::input_2")
+        .ok("happy::case_2_second::expected_2::input_1")
+        .ok("happy::case_2_second::expected_2::input_2")
         .assert(output);
 }
 
