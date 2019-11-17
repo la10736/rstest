@@ -5,6 +5,8 @@
 ### Added
 
 - Use just `rstest` for implementing all kind of tests (See #42)
+- New matrix tests reder: indicate argument name and nest groups
+in modules (See #68 for details)
 
 ## [0.4.1] 2019-10-05
 
