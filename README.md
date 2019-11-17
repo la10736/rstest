@@ -76,7 +76,7 @@ which uses this module in-depth.
 
 ## Changelog
 
-See [Changelog][CHANGELOG.md]
+See [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
