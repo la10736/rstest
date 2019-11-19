@@ -7,7 +7,7 @@
 
 # Fixture-based test framework for Rust
 
-`rstest` uses procedural macros to implement simple fixtures and table-based tests.
+`rstest` uses procedural macros to help you on writing fixtures and table-based tests.
 To use it, add the following lines to your `Cargo.toml` file:
 
 ```
@@ -15,9 +15,10 @@ To use it, add the following lines to your `Cargo.toml` file:
 rstest = "0.5"
 ```
 
-The core idea is that every input arguments of your test function will
-be resolved by call a function with the same name.
-Example:
+The core idea is that you can inject your test dependency by pass them
+as your test arguments. 
+
+In follow example you define a `fixture` and then use it in two tests:
 
 ```rust
 use rstest::*;
@@ -95,8 +96,8 @@ at your option.
 [crate-link]: https://crates.io/crates/rstest
 [docs-image]: https://docs.rs/rstest/badge.svg
 [docs-link]: https://docs.rs/rstest/
-[test-action-image]: https://github.com/la10736/rstest/workflows/rstest/badge.svg
-[test-action-link]: https://github.com/la10736/rstest/actions?query=workflow:rstest
+[test-action-image]: https://github.com/la10736/rstest/workflows/Test/badge.svg
+[test-action-link]: https://github.com/la10736/rstest/actions?query=workflow:Test
 [license-apache-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0

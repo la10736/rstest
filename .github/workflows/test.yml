@@ -1,4 +1,4 @@
-name: rstest
+name: Test
 
 on: [push]
 
