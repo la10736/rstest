@@ -7,18 +7,19 @@
 
 # Fixture-based test framework for Rust
 
-`rstest` uses procedural macros to help you on writing fixtures and table-based tests.
-To use it, add the following lines to your `Cargo.toml` file:
+`rstest` uses procedural macros to help you on writing 
+fixtures and table-based tests. To use it, add the 
+following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
 rstest = "0.5"
 ```
 
-The core idea is that you can inject your test dependency by pass them
-as your test arguments. 
-
-In follow example you define a `fixture` and then use it in two tests:
+The core idea is that you can inject your test dependency
+by pass them as your test arguments. In follow example
+you define a `fixture` and then use it in two tests by
+simply indicate it as argument:
 
 ```rust
 use rstest::*;
@@ -37,11 +38,9 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-Moreover you can use `rstest` to implement table-based tests.
-You must indicate the arguments that you want use in your cases and 
-provide them for each case you want to test.
-
-`rstest` generates an independent test for each case.
+You can also inject values in some other way. For instance you can
+create a set of test by simply indicate the injected values for each
+case: `rstest` will generate a test for each case.
 
 ```rust
 use rstest::rstest;
