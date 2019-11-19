@@ -95,7 +95,7 @@ at your option.
 [crate-link]: https://crates.io/crates/rstest
 [docs-image]: https://docs.rs/rstest/badge.svg
 [docs-link]: https://docs.rs/rstest/
-[test-action]: https://github.com/la10736/rstest/workflows/rstest/badge.svg
+[test-action-image]: https://github.com/la10736/rstest/workflows/rstest/badge.svg
 [test-action-link]: https://github.com/la10736/rstest/actions?query=workflow:rstest
 [license-apache-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
