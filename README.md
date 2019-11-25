@@ -38,9 +38,9 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-You can also inject values in some other way. For instance you can
+You can also inject values in some other ways. For instance you can
 create a set of test by simply indicate the injected values for each
-case: `rstest` will generate a test for each case.
+case: `rstest` will generate an indipendent test for each case.
 
 ```rust
 use rstest::rstest;
@@ -69,6 +69,32 @@ test fibonacci_test::case_5 ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
+
+If you need to just indicate a bounch of values for which you
+need to run your test you can use `var => [list, of, values]`
+syntax:
+
+```rust
+use rstest::rstest;
+
+#[rstest(
+    value => [None, Some(""), Some("    ")]
+)]
+fn should_be_invalid(value: Option<&str>) {
+    assert!(!valid(value))
+}
+```
+
+Or create a _matrix_ test by use _list of values_ for some
+variables that will generate a cartesian products of all
+values.
+
+All these features can be used together by mix fixture variables,
+some fixed cases and a bounch of values. For istance you need to
+tests that given your repository in cases of loged in or guest 
+access should 
+
+
 
 You can learn more on [Docs](docs-link) and find more 
 examples in [`resources`](resources) directory and in 
