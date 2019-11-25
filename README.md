@@ -1,22 +1,25 @@
 [![Crate][crate-image]][crate-link]
 [![Docs][docs-image]][docs-link]
+[![Status][test-action-image]][test-action-link]
 [![Apache 2.0 Licensed][license-apache-image]][license-apache-link]
 [![MIT Licensed][license-mit-image]][license-mit-link]
 ![Rust 1.32+][rustc-image]
 
 # Fixture-based test framework for Rust
 
-`rstest` uses procedural macros to implement simple fixtures and table-based tests.
-To use it, add the following lines to your `Cargo.toml` file:
+`rstest` uses procedural macros to help you on writing 
+fixtures and table-based tests. To use it, add the 
+following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
 rstest = "0.5"
 ```
 
-The core idea is that every input arguments of your test function will
-be resolved by call a function with the same name.
-Example:
+The core idea is that you can inject your test dependency
+by pass them as your test arguments. In follow example
+you define a `fixture` and then use it in two tests by
+simply indicate it as argument:
 
 ```rust
 use rstest::*;
@@ -35,11 +38,9 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-Moreover you can use `rstest` to implement table-based tests.
-You must indicate the arguments that you want use in your cases and 
-provide them for each case you want to test.
-
-`rstest` generates an independent test for each case.
+You can also inject values in some other way. For instance you can
+create a set of test by simply indicate the injected values for each
+case: `rstest` will generate a test for each case.
 
 ```rust
 use rstest::rstest;
@@ -94,6 +95,8 @@ at your option.
 [crate-link]: https://crates.io/crates/rstest
 [docs-image]: https://docs.rs/rstest/badge.svg
 [docs-link]: https://docs.rs/rstest/
+[test-action-image]: https://github.com/la10736/rstest/workflows/Test/badge.svg
+[test-action-link]: https://github.com/la10736/rstest/actions?query=workflow:Test
 [license-apache-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0
