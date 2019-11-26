@@ -92,8 +92,90 @@ values.
 All these features can be used together by mix fixture variables,
 some fixed cases and a bounch of values. For istance you need to
 tests that given your repository in cases of loged in or guest 
-access should 
+access should return an invalid query error.
 
+```rust
+use rstest::*;
+
+#[fixture]
+fn repository() -> InMemoryRepository {
+    let mut r = InMemoryRepository::default();
+    // fill repo by some date
+    r
+}
+
+#[fixture]
+fn alice() -> User {
+    User::Logged("Alice", "2001-10-04".into(), "London", "UK")
+}
+
+#[rstest(user,
+    case::logged_user(alice()), // We can use `fixture` also as standard function
+    case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
+    query => ["     ", "^%$#@!", "...." ]
+)]
+#[should_panic(expected = "Invalid query error")]
+fn should_be_invalid_query_error(repository: impl Repository, user: impl User, query: &str) {
+    repository.find_items(user, query).unwrap()
+}
+```
+
+This example'll generate exactly 6 tests grupped by 2 different cases:
+
+```
+should_be_invalid_query_error::case_1_logged_user::query_1
+should_be_invalid_query_error::case_1_logged_user::query_2
+should_be_invalid_query_error::case_1_logged_user::query_3
+should_be_invalid_query_error::case_2_guest::query_1
+should_be_invalid_query_error::case_2_guest::query_2
+should_be_invalid_query_error::case_2_guest::query_3
+```
+
+Is it all? Not yet!
+
+Fixture can be injected by other fixture and you can call
+them by just some of it's arguments.
+
+```rust
+#[fixture]
+fn name() -> &'static str {
+    "Alice"
+}
+
+#[fixture]
+fn age() -> u8 {
+    22
+}
+
+#[fixture]
+fn user(name: &str, age: u8) -> User {
+    User::new(name, age)
+}
+
+#[rstest]
+fn is_alice(user: User) {
+    assert_eq!(user.name(), "Alice")
+}
+
+#[rstest]
+fn is_22(user: User) {
+    assert_eq!(user.age(), 22)
+}
+
+#[rstest(user("Bob"))]
+fn is_bob(user: User) {
+    assert_eq!(user.name(), "Bob")
+}
+
+#[rstest(user("", 42))]
+fn is_42(user: User) {
+    assert_eq!(user.age(), 42)
+}
+```
+
+Now you should use fixture also to just provide _default
+value_ but it will change soon by introduce a syntax
+for dafault values without need the fixture. 
 
 
 You can learn more on [Docs](docs-link) and find more 
