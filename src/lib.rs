@@ -21,11 +21,11 @@
 //! - [`[rstest]`](attr.rstest.html): Declare that a test or a group of tests that may take fixtures,
 //! input table or list of values.
 //! - [`[fixture]`](attr.fixture.html): To mark a function as a fixture.
-//! - ~[`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
-//! added ability to also generate new test cases based on input tables~. Now the `rstest`'s syntax
+//! - (*Deprecated* [`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases based on input tables.) Now the `rstest`'s syntax
 //! include these features too.
-//! - ~[`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
-//! added ability to also generate new test cases for every combination of given values~. Now the
+//! - (*Deprecated* [`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
+//! added ability to also generate new test cases for every combination of given values.) Now the
 //! `rstest`'s syntax include these features too.
 //!
 //! ## Why
