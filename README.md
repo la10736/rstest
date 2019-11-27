@@ -100,7 +100,7 @@ use rstest::*;
 #[fixture]
 fn repository() -> InMemoryRepository {
     let mut r = InMemoryRepository::default();
-    // fill repo by some date
+    // fill repository by some data
     r
 }
 
