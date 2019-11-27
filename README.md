@@ -90,9 +90,9 @@ variables that will generate a cartesian products of all
 values.
 
 All these features can be used together by mix fixture variables,
-some fixed cases and a bounch of values. For istance you need to
+fixed cases and bounch of values. For istance you need to
 tests that given your repository in cases of loged in or guest 
-access should return an invalid query error.
+user should return an invalid query error.
 
 ```rust
 use rstest::*;
@@ -114,7 +114,7 @@ fn alice() -> User {
     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
     query => ["     ", "^%$#@!", "...." ]
 )]
-#[should_panic(expected = "Invalid query error")]
+#[should_panic(expected = "Invalid query error")] // We whould test a panic
 fn should_be_invalid_query_error(repository: impl Repository, user: impl User, query: &str) {
     repository.find_items(user, query).unwrap()
 }
@@ -174,9 +174,60 @@ fn is_42(user: User) {
 ```
 
 Now you should use fixture also to just provide _default
-value_ but it will change soon by introduce a syntax
-for dafault values without need the fixture. 
+value_ but it'll change soon by introduce a syntax
+for dafault values without the need of the fixture function
+definition. 
 
+Finally if you need traceing the input values you can just
+add `trace` attribute to your test to enable the dump of all input
+variables. 
+
+```rust
+#[rstest_parametrize(number, name, tuple,
+    case(42, "FortyTwo", ("minus twelve", -12)),
+    case(24, "TwentyFour", ("minus twentyfour", -24))
+    ::trace //This attribute enable traceing
+)]
+fn should_fail(number: u32, name: &str, tuple: (&str, i32)) {
+    assert!(false); // <- stdout come out just for failed tests
+}
+```
+
+```
+running 2 tests
+test should_fail::case_1 ... FAILED
+test should_fail::case_2 ... FAILED
+
+failures:
+
+---- should_fail::case_1 stdout ----
+------------ TEST ARGUMENTS ------------
+number = 42
+name = "FortyTwo"
+tuple = ("minus twelve", -12)
+-------------- TEST START --------------
+thread 'should_fail::case_1' panicked at 'assertion failed: false', src/main.rs:64:5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace.
+
+---- should_fail::case_2 stdout ----
+------------ TEST ARGUMENTS ------------
+number = 24
+name = "TwentyFour"
+tuple = ("minus twentyfour", -24)
+-------------- TEST START --------------
+thread 'should_fail::case_2' panicked at 'assertion failed: false', src/main.rs:64:5
+
+
+failures:
+    should_fail::case_1
+    should_fail::case_2
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+In case some variables don't implement `Debug` trait you have an error
+but you can also exclude a variable by use 
+`notrace(var,list,that,not,implement,Debug)` attribute.
 
 You can learn more on [Docs](docs-link) and find more 
 examples in [`resources`](resources) directory and in 
