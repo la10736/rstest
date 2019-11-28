@@ -183,7 +183,8 @@ add `trace` attribute to your test to enable the dump of all input
 variables. 
 
 ```rust
-#[rstest_parametrize(number, name, tuple,
+#[rstest(
+    number, name, tuple,
     case(42, "FortyTwo", ("minus twelve", -12)),
     case(24, "TwentyFour", ("minus twentyfour", -24))
     ::trace //This attribute enable traceing
