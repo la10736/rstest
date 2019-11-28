@@ -18,13 +18,13 @@
 //!
 //! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](attr.rstest.html): Declare that a test or a group of tests that may take fixtures,
+//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take fixtures,
 //! input table or list of values.
-//! - [`[fixture]`](attr.fixture.html): To mark a function as a fixture.
-//! - (*Deprecated* [`[rstest_parametrize]`](attr.rstest_parametrize.html): Like `[rstest]` above but with the
+//! - [`[fixture]`](fixture): To mark a function as a fixture.
+//! - (*Deprecated* [`[rstest_parametrize]`](rstest_parametrize): Like `[rstest]` above but with the
 //! added ability to also generate new test cases based on input tables.) Now the `rstest`'s syntax
 //! include these features too.
-//! - (*Deprecated* [`[rstest_matrix]`](attr.rstest_matrix.html): Like `[rstest]` above but with the
+//! - (*Deprecated* [`[rstest_matrix]`](rstest_matrix): Like `[rstest]` above but with the
 //! added ability to also generate new test cases for every combination of given values.) Now the
 //! `rstest`'s syntax include these features too.
 //!
@@ -48,7 +48,7 @@
 //! }
 //! ```
 //!
-//! By making use of [`[rstest]`](attr.rstest.html) we can isolate the dependencies `empty_repository` and
+//! By making use of [`[rstest]`](rstest) we can isolate the dependencies `empty_repository` and
 //! `string_processor` by passing them as fixtures:
 //!
 //! ```
@@ -100,8 +100,8 @@
 //! ## Injecting fixtures as function arguments
 //!
 //! `rstest` functions can receive fixtures by using them as an input argument. A function decorated
-//! with [`[rstest]`](attr.rstest.html) will resolve each argument name by call the fixture
-//! function. Fixtures should be annotated with the [`[fixture]`](attr.fixture.html) attribute.
+//! with [`[rstest]`](rstest) will resolve each argument name by call the fixture
+//! function. Fixtures should be annotated with the [`[fixture]`](fixture) attribute.
 //!
 //! Fixtures will be resolved like function calls by following the standard resolution rules.
 //! Therefore, an identically named fixture can be use in different context.
@@ -158,7 +158,7 @@
 //!
 //! ## Creating parametrized tests
 //!
-//! You can use also [`[rstest]`](attr.rstest.html) to create simple table-based tests. Let's see
+//! You can use also [`[rstest]`](rstest) to create simple table-based tests. Let's see
 //! the classic Fibonacci exmple:
 //!
 //! ```
@@ -190,7 +190,7 @@
 //! ## Creating a test for each combinations of given values
 //!
 //! In some cases you need to test your code for each cominations of some input values. In this
-//! cases [`[rstest]`](attr.rstest.html) give you the ability to define a list
+//! cases [`[rstest]`](rstest) give you the ability to define a list
 //! of values (rust expressions) to use for an arguments.
 //!
 //! ```
@@ -337,7 +337,7 @@ pub fn fixture(args: proc_macro::TokenStream,
     }.into()
 }
 
-/// Write a test that can be injected with [`[fixture]`](attr.fixture.html)s. You can declare all used fixtures
+/// Write a test that can be injected with [`[fixture]`](fixture)s. You can declare all used fixtures
 /// by passing them as a function's arguments.
 /// ```
 /// use rstest::*;
@@ -351,7 +351,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 ///
-/// [`[rstest]`](attr.rstest.html) macro will desugar it to something that is not so far from
+/// [`[rstest]`](rstest) macro will desugar it to something that is not so far from
 ///
 /// ```
 /// #[test]
@@ -454,7 +454,7 @@ pub fn rstest(args: proc_macro::TokenStream,
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
-/// Like in [`[rstest]`](attr.rstest.html) you can inject fixture values and every parameter that
+/// Like in [`[rstest]`](rstest) you can inject fixture values and every parameter that
 /// isn't mapped in `case()`s will be resolved as default `fixture`.
 ///
 /// In general `rstest_parametrize`'s syntax is:
@@ -473,8 +473,8 @@ pub fn rstest(args: proc_macro::TokenStream,
 /// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
 /// * `description_z` when present should be a valid Rust identity
-/// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](attr.fixture.html) fixture function
-/// * attributes now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+/// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](fixture) fixture function
+/// * attributes now can be just `trace` or `notrace(args..)` (see [`[rstest]`](rstest)
 ///
 /// Function's arguments can be present just once as identity or fixture.
 ///
@@ -500,6 +500,7 @@ pub fn rstest(args: proc_macro::TokenStream,
 /// }
 /// ```
 #[proc_macro_attribute]
+#[deprecated]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
@@ -534,7 +535,7 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 ///
 /// ```
 ///
-/// Like in [`[rstest]`](attr.rstest.html) you can inject fixture values and every parameter that
+/// Like in [`[rstest]`](rstest) you can inject fixture values and every parameter that
 /// isn't mapped in `case()`s will be resolved as default `fixture`.
 ///
 /// In general `rstest_matrix`'s syntax is:
@@ -552,8 +553,8 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 /// ```
 /// * `ident_x` should be a valid function argument name
 /// * `val_x_y` should be a valid rust expression that can be assigned to `ident_x` function argument
-/// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](attr.fixture.html) fixture function
-/// * attributes now can be just `trace` or `notrace(args..)` (see [`[rstest]`](attr.rstest.html)
+/// * `fixture_v(...)` should be a valid function argument and a [`[fixture]`](fixture) fixture function
+/// * attributes now can be just `trace` or `notrace(args..)` (see [`[rstest]`](rstest)
 ///
 /// Function's arguments can be present just once as identity or fixture.
 ///
