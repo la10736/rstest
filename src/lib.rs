@@ -263,7 +263,9 @@ use crate::parse::{
 ///     assert_eq!(42, injected)
 /// }
 /// ```
-///
+/// 
+/// # Partial Injection
+/// 
 /// You can also partialy inject fixture dependency simply indicate dependency value as fixture
 /// argument:
 ///
@@ -287,7 +289,7 @@ use crate::parse::{
 ///     assert_eq!(-6, injected)
 /// }
 /// ```
-/// Note that injected value can be an arbitrary rust expression and not just a literal.
+/// Note that injected value can be an arbitrary rust expression.
 ///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
 /// need to do it, you can use the `default<type>`, `partial_n<type>` attribute syntax to define it:
@@ -337,8 +339,46 @@ pub fn fixture(args: proc_macro::TokenStream,
     }.into()
 }
 
-/// Write a test that can be injected with [`[fixture]`](fixture)s. You can declare all used fixtures
-/// by passing them as a function's arguments.
+/// `#[rstest]` is the attribute that you should use for your tests. Your 
+/// annotated function's arguments can be [injected](#injecting-fixtures) with 
+/// [`[fixture]`](fixture)s, provided by [parametrized cases](#test-parametrized-cases) 
+/// or by [value lists](#provide-values-lists).
+/// 
+/// ## General Syntax
+/// 
+/// `rstest` can be applied to _any_ function attribute and use the follow syntax
+/// 
+/// ```norun
+/// rstest(
+///     arg_1,
+///     ...,
+///     arg_n[,]
+///     [::attribute_1[:: ... [::attribute_k]]]
+/// )
+/// ```
+/// 
+/// - `arg_i` could be one of the follow
+///   - `ident` that match to one of function arguments 
+/// (see [parametrized cases](#test-parametrized-cases) for more details)
+///   - `case(v1, ..., vl)` a test case 
+/// (see [parametrized cases](#test-parametrized-cases) for more details)
+///   - `fixture(v1, ..., vl)` where fixture is one of function arguments
+/// that and `v1, ..., vl` is a partial list of fixture's arguments
+/// (see [injecting fixtures](#injecting-fixtures)] for more details)
+///   - `ident => [v1, ..., vl]` where ident is one of function arguments and
+/// `v1, ..., vl` is a list of values for ident (see [value lists](#provide-values-lists)
+/// for more details)
+/// - `attribute_j` a test [attribute](#attributes)
+///
+/// Function's arguments can be present just once as case identity, fixture or value list.
+/// 
+/// ## Injecting Fixtures
+/// 
+/// The simplest case is write a test that can be injected with 
+/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing 
+/// them as a function's arguments. This can help your test to be neat
+/// and make your dependecy clear.
+/// 
 /// ```
 /// use rstest::*;
 ///
@@ -360,9 +400,40 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     assert_eq!(42, injected)
 /// }
 /// ```
+/// 
+/// Some time is useful to have some parametes in your fixtures but your test would
+/// override the fixture's default vale in some case. Like in 
+/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some 
+/// fixture's arguments.
+/// 
+/// ```
+/// # struct User(String, u8);
+/// # impl User { fn name(&self) -> &str {&self.0} }
+/// use rstest::*;
+/// 
+/// #[fixture]
+/// fn name() -> &'static str { "Alice" }
+/// #[fixture]
+/// fn age() -> u8 { 22 }
+/// 
+/// #[fixture]
+/// fn user(name: impl AsRef<str>, age: u8) -> User { User(name.as_ref().to_owned(), age) }
+/// 
+/// #[rstest(user("Bob"))]
+/// fn check_user(user: User) {
+///     assert_eq("Bob", user.name())
+/// }
+/// ```
+/// 
+/// ## Test Parametrized Cases
 ///
-/// You can dump all input arguments of your test by using the `trace` parameter for the `[rstest]`
-/// attribute.
+/// ## Provide Values Lists
+///
+/// ## Attributes
+/// ### Trace Input Arguments
+/// 
+/// Sometimes can be very helpful to print all test's input arguments. To
+/// do it you can use the `trace` parameter.
 ///
 /// ```
 /// use rstest::*;
