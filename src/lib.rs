@@ -500,7 +500,10 @@ pub fn rstest(args: proc_macro::TokenStream,
 /// }
 /// ```
 #[proc_macro_attribute]
-#[cfg_attr(deprecate_parametrize_matrix, deprecated)]
+#[cfg_attr(deprecate_parametrize_matrix, deprecated(
+    since = "0.5.0",
+    note = "Please use #[rstest(...)] instead"
+))]
 pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                           -> proc_macro::TokenStream
 {
@@ -578,7 +581,10 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 /// }
 /// ```
 #[proc_macro_attribute]
-#[cfg_attr(deprecate_parametrize_matrix, deprecated)]
+#[cfg_attr(deprecate_parametrize_matrix, deprecated(
+    since = "0.5.0",
+    note = "Please use #[rstest(...)] instead"
+))]
 pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
                      -> proc_macro::TokenStream
 {

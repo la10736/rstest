@@ -300,3 +300,15 @@ fn should_reject_no_item_function() {
            | ^^^
         ", name).unindent());
 }
+
+#[test]
+#[cfg_attr(not(deprecate_parametrize_matrix), ignore)]
+fn should_deprecate() {
+    let output = prj("simple.rs")
+        .compile()
+        .unwrap();
+
+    assert_in!(output.stderr.str(), "deprecated");
+    assert_in!(output.stderr.str(), "rstest_matrix");
+    assert_in!(output.stderr.str(), "use #[rstest(...)] instead");
+}
