@@ -263,7 +263,9 @@ use crate::parse::{
 ///     assert_eq!(42, injected)
 /// }
 /// ```
-///
+/// 
+/// # Partial Injection
+/// 
 /// You can also partialy inject fixture dependency simply indicate dependency value as fixture
 /// argument:
 ///
@@ -287,7 +289,7 @@ use crate::parse::{
 ///     assert_eq!(-6, injected)
 /// }
 /// ```
-/// Note that injected value can be an arbitrary rust expression and not just a literal.
+/// Note that injected value can be an arbitrary rust expression.
 ///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
 /// need to do it, you can use the `default<type>`, `partial_n<type>` attribute syntax to define it:
@@ -337,8 +339,52 @@ pub fn fixture(args: proc_macro::TokenStream,
     }.into()
 }
 
-/// Write a test that can be injected with [`[fixture]`](fixture)s. You can declare all used fixtures
-/// by passing them as a function's arguments.
+/// `#[rstest]` is the attribute that you should use for your tests. Your 
+/// annotated function's arguments can be [injected](#injecting-fixtures) with 
+/// [`[fixture]`](fixture)s, provided by [parametrized cases](#test-parametrized-cases) 
+/// or by [value lists](#values-lists).
+/// 
+/// ## General Syntax
+/// 
+/// `rstest` attribute can be applied to _any_ function and you can costumize its 
+/// parameters by the follow syntax
+/// 
+/// ```norun
+/// rstest(
+///     arg_1,
+///     ...,
+///     arg_n[,]
+///     [::attribute_1[:: ... [::attribute_k]]]
+/// )
+/// ```
+/// 
+/// - `arg_i` could be one of the follow
+///   - `ident` that match to one of function arguments 
+/// (see [parametrized cases](#test-parametrized-cases) for more details)
+///   - `case[::description](v1, ..., vl)` a test case 
+/// (see [parametrized cases](#test-parametrized-cases) for more details)
+///   - `fixture(v1, ..., vl)` where fixture is one of function arguments
+/// that and `v1, ..., vl` is a partial list of fixture's arguments
+/// (see [injecting fixtures](#injecting-fixtures)] for more details)
+///   - `ident => [v1, ..., vl]` where `ident` is one of function arguments and
+/// `v1, ..., vl` is a list of values for ident (see [value lists](#values-lists)
+/// for more details)
+/// - `attribute_j` a test [attribute](#attributes)
+///
+/// Function's arguments can be present just once as case identity, fixture or value list.
+/// 
+/// Your test function can use generics, `impl` or `dyn` and like any kind of rust tests:
+/// 
+/// - return results
+/// - marked by `#[should_panic]` attribute
+/// 
+/// ## Injecting Fixtures
+/// 
+/// The simplest case is write a test that can be injected with 
+/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing 
+/// them as a function's arguments. This can help your test to be neat
+/// and make your dependecy clear.
+/// 
 /// ```
 /// use rstest::*;
 ///
@@ -360,9 +406,128 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     assert_eq!(42, injected)
 /// }
 /// ```
+/// 
+/// Sometimes is useful to have some parametes in your fixtures but your test would
+/// override the fixture's default values in some cases. Like in 
+/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some 
+/// fixture's arguments also in `rstest`.
+/// 
+/// ```
+/// # struct User(String, u8);
+/// # impl User { fn name(&self) -> &str {&self.0} }
+/// use rstest::*;
+/// 
+/// #[fixture]
+/// fn name() -> &'static str { "Alice" }
+/// #[fixture]
+/// fn age() -> u8 { 22 }
+/// 
+/// #[fixture]
+/// fn user(name: impl AsRef<str>, age: u8) -> User { User(name.as_ref().to_owned(), age) }
+/// 
+/// #[rstest(user("Bob"))]
+/// fn check_user(user: User) {
+///     assert_eq("Bob", user.name())
+/// }
+/// ```
+/// 
+/// ## Test Parametrized Cases
+/// 
+/// If you would execute your test for a set of input data cases
+/// you can define the arguments to use and the cases list. Let see
+/// the classical Fibonacci example. In this case we would give the
+/// `input` value and the `expected` result for a set of cases to test.
+/// 
+/// ```
+/// use rstest::rstest;
 ///
-/// You can dump all input arguments of your test by using the `trace` parameter for the `[rstest]`
-/// attribute.
+/// #[rstest(input, expected,
+///     case(0, 0),
+///     case(1, 1),
+///     case(2, 1),
+///     case(3, 2),
+///     case(4, 3),
+/// )]
+/// fn fibonacci_test(input: u32, expected: u32) {
+///     assert_eq!(expected, fibonacci(input))
+/// }
+///
+/// fn fibonacci(input: u32) -> u32 {
+///     match input {
+///         0 => 0,
+///         1 => 1,
+///         n => fibonacci(n - 2) + fibonacci(n - 1)
+///     }
+/// }
+/// ```
+/// 
+/// `rstest` will produce a 5 indipendent tests and not just one that
+/// check every case. Every test can fail indipendently and `cargo test`
+/// will give follow output:
+/// 
+/// ```norun
+/// running 5 tests
+/// test fibonacci_test::case_1 ... ok
+/// test fibonacci_test::case_2 ... ok
+/// test fibonacci_test::case_3 ... ok
+/// test fibonacci_test::case_4 ... ok
+/// test fibonacci_test::case_5 ... ok
+/// 
+/// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// ```
+/// 
+/// The input value in cases can be arbitrary Rust expresions that return the
+/// argument type.
+/// 
+/// ```
+/// use rstest::rstest;
+///  
+/// fn sum(a: usize, b: usize) -> usize { a + b }
+/// 
+/// #[rstest(s, len,
+///     case("foo", 3),
+///     case(String::from("foo"), 2 + 1),
+///     case(format!("foo"), sum(2, 1)),
+/// )]
+/// fn test_len(s: impl AsRef<str>, len: usize) {
+///     assert_eq!(s.as_ref().len(), len);
+/// }
+/// ```
+/// 
+/// ### Optional case description
+/// 
+/// Optionally you can give a _description_ to every case simple by follow `case`
+/// with `::my_case_description` where `my_case_description` should be a a valid
+/// Rust ident.
+/// 
+/// ```norun
+/// #[rstest(input, expected,
+///     case::zero_base_case(0, 0),
+///     case::one_base_case(1, 1),
+///     case(2, 1),
+///     case(3, 2),
+/// )]
+/// ```
+/// 
+/// Outuput will be
+/// ```norun
+/// running 4 tests
+/// test fibonacci_test::case_1_zero_base_case ... ok
+/// test fibonacci_test::case_2_one_base_case ... ok
+/// test fibonacci_test::case_3 ... ok
+/// test fibonacci_test::case_4 ... ok
+/// 
+/// test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// ```
+/// 
+/// ## Values Lists
+///
+///
+/// ## Attributes
+/// ### Trace Input Arguments
+/// 
+/// Sometimes can be very helpful to print all test's input arguments. To
+/// do it you can use the `trace` parameter.
 ///
 /// ```
 /// use rstest::*;
