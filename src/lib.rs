@@ -100,7 +100,7 @@
 //! ## Injecting fixtures as function arguments
 //!
 //! `rstest` functions can receive fixtures by using them as an input argument. A function decorated
-//! with [`[rstest]`](rstest) will resolve each argument name by call the fixture
+//! with [`[rstest]`](attr.rstest.html#injecting-fixtures) will resolve each argument name by call the fixture
 //! function. Fixtures should be annotated with the [`[fixture]`](fixture) attribute.
 //!
 //! Fixtures will be resolved like function calls by following the standard resolution rules.
@@ -158,7 +158,7 @@
 //!
 //! ## Creating parametrized tests
 //!
-//! You can use also [`[rstest]`](rstest) to create simple table-based tests. Let's see
+//! You can use also [`[rstest]`](attr.rstest.html#test-parametrized-cases) to create simple table-based tests. Let's see
 //! the classic Fibonacci exmple:
 //!
 //! ```
@@ -190,7 +190,7 @@
 //! ## Creating a test for each combinations of given values
 //!
 //! In some cases you need to test your code for each cominations of some input values. In this
-//! cases [`[rstest]`](rstest) give you the ability to define a list
+//! cases [`[rstest]`](attr.rstest.html#values-lists) give you the ability to define a list
 //! of values (rust expressions) to use for an arguments.
 //!
 //! ```
@@ -211,11 +211,6 @@
 //! ```
 //!
 //! This will generate a test for each combination of `state` and `event`.
-//!
-//! ## Putting all togheder
-//!
-//! All these features can be used togheder: take some fixtures, define some fixed cases and, for
-//! each case, tests all combinations of gine values.
 //!
 
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
@@ -397,7 +392,8 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 ///
-/// [`[rstest]`](rstest) macro will desugar it to something that is not so far from
+/// [`[rstest]`](rstest) proc_macro will desugar it to something that isn't 
+/// so far from
 ///
 /// ```
 /// #[test]
@@ -476,7 +472,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 /// 
-/// The input value in cases can be arbitrary Rust expresions that return the
+/// The cases input values can be arbitrary Rust expresions that return the
 /// argument type.
 /// 
 /// ```
@@ -521,8 +517,89 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// ```
 /// 
 /// ## Values Lists
+/// 
+/// Another useful way to write a test and execute it for some values
+/// is to use the values list syntax. This syntax can be usefull both
+/// for a plain list and for testing all combination of input arguments.
+/// 
+/// ```
+/// # use rstest::*;
+/// # fn is_valid(input: &str) -> bool { true }
+/// 
+/// #[rstest(input => ["Jhon", "alice", "My_Name", "Zigy_2001"])]
+/// fn should_be_valid(input: &str) {
+///     assert!(is_valid(input))
+/// }
+/// ```
+/// 
+/// or
+/// 
+/// ```
+/// # use rstest::*;
+/// # fn valid_user(name: &str, age: u8) -> bool { true }
 ///
-///
+/// #[rstest(
+///     name => ["J", "A", "A________________________________________21"],
+///     age => [14, 100], // Maybe more than 100 is an error or joke
+/// )]
+/// fn should_accept_all_corner_cases(name: &str, age: u8) {
+///     assert!(valid_user(name, age))
+/// }
+/// ```
+/// where `cargo test` output is
+/// 
+/// ```norun
+/// running 6 tests
+/// test should_accept_all_corner_cases::name_1::age_1 ... ok
+/// test should_accept_all_corner_cases::name_3::age_1 ... ok
+/// test should_accept_all_corner_cases::name_3::age_2 ... ok
+/// test should_accept_all_corner_cases::name_2::age_1 ... ok
+/// test should_accept_all_corner_cases::name_2::age_2 ... ok
+/// test should_accept_all_corner_cases::name_1::age_2 ... ok
+/// 
+/// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// ```
+/// 
+/// ## Putting all Together
+/// 
+/// All these features can be used together: take some fixtures, define some 
+/// fixed cases and, for each case, tests all combinations of given values.
+/// For istance you need to test that given your repository in cases of both 
+/// logged in or guest user should return an invalid query error.
+/// 
+/// ```rust
+/// # enum User { Guest, Logged, }
+/// # impl User { fn logged(_n: &str, _d: &str, _w: &str, _s: &str) -> Self { Self::Logged } }
+/// # struct Item {}
+/// # trait Repository { fn find_items(&self, user: &User, query: &str) -> Result<Vec<Item>, String> { Err("Invalid query error".to_owned()) } }
+/// # #[derive(Default)] struct InMemoryRepository {}
+/// # impl Repository for InMemoryRepository {}
+/// 
+/// use rstest::*;
+/// 
+/// #[fixture]
+/// fn repository() -> InMemoryRepository {
+///     let mut r = InMemoryRepository::default();
+///     // fill repository by some data
+///     r
+/// }
+/// 
+/// #[fixture]
+/// fn alice() -> User {
+///     User::logged("Alice", "2001-10-04", "London", "UK")
+/// }
+/// 
+/// #[rstest(user,
+///     case::logged_user(alice()), // We can use `fixture` also as standard function
+///     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
+///     query => ["     ", "^%$#@!", "...." ]
+/// )]
+/// #[should_panic(expected = "Invalid query error")] // We whould test a panic
+/// fn should_be_invalid_query_error(repository: impl Repository, user: User, query: &str) {
+///     repository.find_items(&user, query).unwrap();
+/// }
+/// ```
+/// 
 /// ## Attributes
 /// ### Trace Input Arguments
 /// 
@@ -553,8 +630,9 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// Expected :42
 /// Actual   :43
 /// ```
-/// If you want to trace input arguments but skip some of them that do not implement the `Debug`
-/// trait, you can also use the `notrace(list_of_inputs)` attribute:
+/// If you want to trace input arguments but skip some of them that don't 
+/// implement the `Debug` trait, you can also use the 
+/// `notrace(list, of, inputs)` attribute:
 ///
 /// ```
 /// # use rstest::*;

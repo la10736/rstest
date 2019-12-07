@@ -91,7 +91,7 @@ values.
 
 All these features can be used together by mix fixture variables,
 fixed cases and bounch of values. For istance you need to
-tests that given your repository in cases of loged in or guest 
+tests that given your repository in cases of both loged in or guest 
 user should return an invalid query error.
 
 ```rust
@@ -106,7 +106,7 @@ fn repository() -> InMemoryRepository {
 
 #[fixture]
 fn alice() -> User {
-    User::Logged("Alice", "2001-10-04".into(), "London", "UK")
+    User::logged("Alice", "2001-10-04", "London", "UK")
 }
 
 #[rstest(user,
@@ -115,20 +115,23 @@ fn alice() -> User {
     query => ["     ", "^%$#@!", "...." ]
 )]
 #[should_panic(expected = "Invalid query error")] // We whould test a panic
-fn should_be_invalid_query_error(repository: impl Repository, user: impl User, query: &str) {
-    repository.find_items(user, query).unwrap()
+fn should_be_invalid_query_error(repository: impl Repository, user: User, query: &str) {
+    repository.find_items(&user, query).unwrap();
 }
 ```
 
 This example'll generate exactly 6 tests grupped by 2 different cases:
 
 ```
-should_be_invalid_query_error::case_1_logged_user::query_1
-should_be_invalid_query_error::case_1_logged_user::query_2
-should_be_invalid_query_error::case_1_logged_user::query_3
-should_be_invalid_query_error::case_2_guest::query_1
-should_be_invalid_query_error::case_2_guest::query_2
-should_be_invalid_query_error::case_2_guest::query_3
+running 6 tests
+test should_be_invalid_query_error::case_1_logged_user::query_1 ... ok
+test should_be_invalid_query_error::case_2_guest::query_2 ... ok
+test should_be_invalid_query_error::case_2_guest::query_3 ... ok
+test should_be_invalid_query_error::case_1_logged_user::query_2 ... ok
+test should_be_invalid_query_error::case_1_logged_user::query_3 ... ok
+test should_be_invalid_query_error::case_2_guest::query_1 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 Is it all? Not yet!
