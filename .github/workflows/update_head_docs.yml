@@ -9,8 +9,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
     - name: Build Docs
-      run: cargo +nightly doc --no-deps
+      uses: actions-rs/cargo@v1
+      with: 
+        command: doc
+        toolchain: nightly
+        args: --no-deps
     - name: Copy docs
       run: cp -r target/doc docs/head
     - name: Commit files
