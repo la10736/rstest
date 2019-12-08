@@ -1,0 +1,17 @@
+name: Update Head Docs
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build Docs
+      run: cargo +nightly doc --no-deps
+    - name: Copy docs
+      run: cp -r target/doc docs/head
+    - name: Publish
+      run: cd docs/heads; git add .; git commit -m "Update head docs"; git push
