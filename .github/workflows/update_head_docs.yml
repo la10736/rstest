@@ -20,7 +20,7 @@ jobs:
         toolchain: nightly
         args: --no-deps
     - name: Copy docs
-      run: cp -r target/doc docs/head
+      run: cp -ra target/doc/* docs/head/
     - name: Commit files
       run: |
         git config --local user.email "action@github.com"
