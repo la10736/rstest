@@ -1,6 +1,6 @@
 name: Update Head Docs
 
-on: [push]
+on: [push, repository_dispatch]
 
 jobs:
   build:
@@ -13,5 +13,12 @@ jobs:
       run: cargo +nightly doc --no-deps
     - name: Copy docs
       run: cp -r target/doc docs/head
-    - name: Publish
-      run: cd docs/heads; git add .; git commit -m "Update head docs"; git push
+    - name: Commit files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -m "Update docs" -a docs
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
