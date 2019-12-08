@@ -202,7 +202,7 @@
 //! # impl State { fn process(self, event: Event) -> Self { self } }
 //!
 //! #[rstest(
-//!     state => [State::Iint, State::Start, State::Processing],
+//!     state => [State::Init, State::Start, State::Processing],
 //!     event => [Event::Error, Event::Fatal]
 //! )]
 //! fn should_terminate(state: State, event: Event) {
@@ -217,6 +217,7 @@
 extern crate proc_macro;
 
 // Test utility module
+#[cfg(test)]
 pub(crate) mod test;
 
 mod parse;
