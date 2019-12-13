@@ -3,8 +3,8 @@
 - [ ] Update rustup
 - [ ] Run all test
   - [ ] Stable
-  - [ ] Beta
-  - [ ] Nightly
+  - [ ] Beta use also `RSTEST_TEST_CHANNEL=beta`
+  - [ ] Nightly use also `RSTEST_TEST_CHANNEL=nightly`
 - [ ] Create docs and checks links
 - [ ] Check CHANGELOG
 - [ ] Check README
