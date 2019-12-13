@@ -838,6 +838,8 @@
 <span id="838">838</span>
 <span id="839">839</span>
 <span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This crate will help you to write simpler tests by leveraging a software testing concept called</span>
 <span class="doccomment">//! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something</span>
@@ -1180,9 +1182,11 @@
 }
 
 <span class="doccomment">/// The attribute that you should use for your tests. Your </span>
-<span class="doccomment">/// annotated function&#39;s arguments can be [injected](#injecting-fixtures) with </span>
-<span class="doccomment">/// [`[fixture]`](fixture)s, provided by [parametrized cases](#test-parametrized-cases) </span>
-<span class="doccomment">/// or by [value lists](#values-lists).</span>
+<span class="doccomment">/// annotated function&#39;s arguments can be </span>
+<span class="doccomment">/// [injected](attr.rstest.html#injecting-fixtures) with </span>
+<span class="doccomment">/// [`[fixture]`](fixture)s, provided by </span>
+<span class="doccomment">/// [parametrized cases](attr.rstest.html#test-parametrized-cases) </span>
+<span class="doccomment">/// or by [value lists](attr.rstest.html#values-lists).</span>
 <span class="doccomment">/// </span>
 <span class="doccomment">/// ## General Syntax</span>
 <span class="doccomment">/// </span>
