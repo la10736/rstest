@@ -7,8 +7,8 @@
 
 # Fixture-based test framework for Rust
 
-`rstest` uses procedural macros to help you on writing 
-fixtures and table-based tests. To use it, add the 
+`rstest` uses procedural macros to help you on writing
+fixtures and table-based tests. To use it, add the
 following lines to your `Cargo.toml` file:
 
 ```
@@ -16,10 +16,10 @@ following lines to your `Cargo.toml` file:
 rstest = "0.5"
 ```
 
-The core idea is that you can inject your test dependency
-by pass them as your test arguments. In follow example
-you define a `fixture` and then use it in two tests by
-simply indicate it as argument:
+The core idea is that you can inject your test dependencies
+by passing them as test arguments. In the following example
+a `fixture` is defined and then used in two tests,
+simply indicating it as argument:
 
 ```rust
 use rstest::*;
@@ -38,9 +38,9 @@ fn should_fail(fixture: u32) {
 }
 ```
 
-You can also inject values in some other ways. For instance you can
-create a set of test by simply indicate the injected values for each
-case: `rstest` will generate an indipendent test for each case.
+You can also inject values in some other ways. For instance, you can
+create a set of tests by simply indicating the injected values for each
+case: `rstest` will generate an independent test for each case.
 
 ```rust
 use rstest::rstest;
@@ -70,7 +70,7 @@ test fibonacci_test::case_5 ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-If you need to just indicate a bounch of values for which you
+If you need to just indicate a bunch of values for which you
 need to run your test you can use `var => [list, of, values]`
 syntax:
 
@@ -85,13 +85,13 @@ fn should_be_invalid(value: Option<&str>) {
 }
 ```
 
-Or create a _matrix_ test by use _list of values_ for some
-variables that will generate a cartesian products of all
+Or create a _matrix_ test by using _list of values_ for some
+variables that will generate the cartesian product of all the
 values.
 
-All these features can be used together by mix fixture variables,
-fixed cases and bounch of values. For istance you need to
-tests that given your repository in cases of both loged in or guest 
+All these features can be used together with mix fixture variables,
+fixed cases and bunch of values. For instance you need two
+tests that given your repository in cases of both logged in or guest 
 user should return an invalid query error.
 
 ```rust
@@ -120,7 +120,7 @@ fn should_be_invalid_query_error(repository: impl Repository, user: User, query:
 }
 ```
 
-This example'll generate exactly 6 tests grupped by 2 different cases:
+This example will generate exactly 6 tests grouped by 2 different cases:
 
 ```
 running 6 tests
@@ -134,10 +134,10 @@ test should_be_invalid_query_error::case_2_guest::query_1 ... ok
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-Is it all? Not yet!
+Is that all? Not yet!
 
-Fixture can be injected by other fixture and you can call
-them by just some of it's arguments.
+A fixture can be injected by another fixture and they can be called
+using just some of its arguments.
 
 ```rust
 #[fixture]
@@ -176,13 +176,13 @@ fn is_42(user: User) {
 }
 ```
 
-Now you should use fixture also to just provide _default
-value_ but it'll change soon by introduce a syntax
-for dafault values without the need of the fixture function
+Currently, using a fixture is required also to just provide _default
+value_, but this will change soon with the introduction of a syntax
+for default values, without the need of the fixture function
 definition. 
 
-Finally if you need traceing the input values you can just
-add `trace` attribute to your test to enable the dump of all input
+Finally if you need tracing the input values you can just
+add the `trace` attribute to your test to enable the dump of all input
 variables. 
 
 ```rust
@@ -229,8 +229,8 @@ failures:
 test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-In case some variables don't implement `Debug` trait you have an error
-but you can also exclude a variable by use 
+In case one or more variables don't implement the `Debug` trait, an error
+is raised, but it's also possible toexclude a variable using the 
 `notrace(var,list,that,not,implement,Debug)` attribute.
 
 You can learn more on [Docs](docs-link) and find more 
