@@ -1,12 +1,24 @@
 # Changelog
 
-## [0.5.0] [Unreleased]
+## [0.5.0] 2019/12/13
 
 ### Added
 
 - Use just `rstest` for implementing all kind of tests (See #42)
-- New matrix tests reder: indicate argument name and nest groups
+- New matrix tests render: indicate argument name and nest groups
 in modules (See #68 for details)
+- CI (github actions) build and tests (See #46)
+
+### Changed
+
+- Better `README.md` that introduce all features
+- (From rustc 1.40) Deprecated `rstest_parametrize` and `rstest_matrix`: 
+`rstest` now cover all features
+- Refactored
+
+### Fixed
+
+- Error message if fixture or value are used more than once
 
 ## [0.4.1] 2019-10-05
 
