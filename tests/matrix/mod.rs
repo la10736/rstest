@@ -133,10 +133,6 @@ mod should_show_correct_errors {
          --> {}/src/lib.rs:7:18
           |
         7 |     let a: u32 = "";
-          |                  ^^ expected u32, found reference
-          |
-          = note: expected type `u32`
-                     found type `&'static str`
         "#, name).unindent());
     }
 
@@ -151,11 +147,6 @@ mod should_show_correct_errors {
         14 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
            |                             ^^^^^^^
            |                             |
-           |                             expected struct `std::string::String`, found u32
-           |                             help: try using a conversion method: `fixture.to_string()`
-           |
-           = note: expected type `std::string::String`
-                      found type `u32`
         ", name).unindent());
     }
 

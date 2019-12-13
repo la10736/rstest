@@ -138,10 +138,6 @@ mod should {
          --> {}/src/lib.rs:8:18
           |
         8 |     let a: u32 = "";
-          |                  ^^ expected u32, found reference
-          |
-          = note: expected type `u32`
-                     found type `&'static str`
         "#, name).unindent());
 
         assert_in!(output.stderr.str(), format!("
@@ -151,11 +147,6 @@ mod should {
         16 | fn error_fixture_wrong_type(fixture: String) {{
            |                             ^^^^^^^
            |                             |
-           |                             expected struct `std::string::String`, found u32
-           |                             help: try using a conversion method: `fixture.to_string()`
-           |
-           = note: expected type `std::string::String`
-                      found type `u32`
         ", name).unindent());
 
         assert_in!(output.stderr.str(), format!("
