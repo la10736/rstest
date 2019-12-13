@@ -1,4 +1,4 @@
-/// Define `Resolver` trait and implement it on some hashmap and also define `Resolver` tuple
+/// Define `Resolver` trait and implement it on some hashmaps and also define the `Resolver` tuple
 /// composition. Provide also some utility functions related to how to create a `Resolver` and
 /// resolving render.
 ///
@@ -17,7 +17,7 @@ pub(crate) fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) ->
     ).collect::<HashMap<_, Expr>>()
 }
 
-/// A trait that `resolve` the given ident to expression code to assign the value.
+/// A trait that `resolves` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>>;
 }

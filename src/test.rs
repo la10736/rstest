@@ -1,6 +1,6 @@
 #![macro_use]
 
-/// Unit testing utility module. Collect a bounch of functions&macro and impls to simplify unit
+/// Unit testing utility module. Collect a bunch of functions&macro and impls to simplify unit
 /// testing bolilerplate.
 ///
 

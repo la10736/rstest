@@ -1,4 +1,4 @@
-/// Module for error rendering stuffs
+/// Module for error rendering stuff
 
 use std::collections::HashMap;
 
