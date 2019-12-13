@@ -339,9 +339,11 @@ pub fn fixture(args: proc_macro::TokenStream,
 }
 
 /// The attribute that you should use for your tests. Your 
-/// annotated function's arguments can be [injected](#injecting-fixtures) with 
-/// [`[fixture]`](fixture)s, provided by [parametrized cases](#test-parametrized-cases) 
-/// or by [value lists](#values-lists).
+/// annotated function's arguments can be 
+/// [injected](attr.rstest.html#injecting-fixtures) with 
+/// [`[fixture]`](fixture)s, provided by 
+/// [parametrized cases](attr.rstest.html#test-parametrized-cases) 
+/// or by [value lists](attr.rstest.html#values-lists).
 /// 
 /// ## General Syntax
 /// 
