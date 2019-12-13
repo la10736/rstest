@@ -18,8 +18,10 @@
 //!
 //! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take fixtures,
-//! input table or list of values.
+//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take 
+//! [fixtures](attr.rstest.html#injecting-fixtures), 
+//! [input table](attr.rstest.html#test-parametrized-cases) or 
+//! [list of values](attr.rstest.html#values-lists).
 //! - [`[fixture]`](fixture): To mark a function as a fixture.
 //! - (*Deprecated* [`[rstest_parametrize]`](rstest_parametrize): Like `[rstest]` above but with the
 //! added ability to also generate new test cases based on input tables.) Now the `rstest`'s syntax
@@ -99,9 +101,10 @@
 //!
 //! ## Injecting fixtures as function arguments
 //!
-//! `rstest` functions can receive fixtures by using them as an input argument. A function decorated
-//! with [`[rstest]`](attr.rstest.html#injecting-fixtures) will resolve each argument name by call the fixture
-//! function. Fixtures should be annotated with the [`[fixture]`](fixture) attribute.
+//! `rstest` functions can receive fixtures by using them as input arguments.
+//! A function decorated with [`[rstest]`](attr.rstest.html#injecting-fixtures)
+//! will resolve each argument name by call the fixture function.
+//! Fixtures should be annotated with the [`[fixture]`](fixture) attribute.
 //!
 //! Fixtures will be resolved like function calls by following the standard resolution rules.
 //! Therefore, an identically named fixture can be use in different context.
@@ -158,8 +161,8 @@
 //!
 //! ## Creating parametrized tests
 //!
-//! You can use also [`[rstest]`](attr.rstest.html#test-parametrized-cases) to create simple table-based tests. Let's see
-//! the classic Fibonacci exmple:
+//! You can use also [`[rstest]`](attr.rstest.html#test-parametrized-cases) to create
+//! simple table-based tests. Let's see the classic Fibonacci example:
 //!
 //! ```
 //! use rstest::rstest;
@@ -189,7 +192,7 @@
 //!
 //! ## Creating a test for each combinations of given values
 //!
-//! In some cases you need to test your code for each cominations of some input values. In this
+//! In some cases you need to test your code for each combinations of some input values. In this
 //! cases [`[rstest]`](attr.rstest.html#values-lists) give you the ability to define a list
 //! of values (rust expressions) to use for an arguments.
 //!
@@ -353,6 +356,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     [::attribute_1[:: ... [::attribute_k]]]
 /// )
 /// ```
+/// Where:
 /// 
 /// - `arg_i` could be one of the follow
 ///   - `ident` that match to one of function arguments 
