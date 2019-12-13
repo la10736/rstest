@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `rstest` crate."><meta name="keywords" content="rust, rustlang, rust-lang, rstest"><title>rstest - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../rstest/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate rstest</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all rstest's items</p></a><p class='location'></p><script>window.sidebarCurrent = {name: 'rstest', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/rstest/lib.rs.html#1-836' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>rstest</a></span></h1><div class='docblock'><p>This crate will help you to write simpler tests by leveraging a software testing concept called
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `rstest` crate."><meta name="keywords" content="rust, rustlang, rust-lang, rstest"><title>rstest - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../rstest/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate rstest</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all rstest's items</p></a><p class='location'></p><script>window.sidebarCurrent = {name: 'rstest', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/rstest/lib.rs.html#1-840' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>rstest</a></span></h1><div class='docblock'><p>This crate will help you to write simpler tests by leveraging a software testing concept called
 <a href="https://en.wikipedia.org/wiki/Test_fixture#Software">test fixtures</a>. A fixture is something
 that you can use in your tests to encapsulate a test's dependencies.</p>
 <p>The general idea is to have smaller tests that only describe the thing you're testing while you
@@ -14,8 +14,10 @@ A test can consume an arbitrary number of fixtures at the same time.</p>
 <h2 id="what" class="section-header"><a href="#what">What</a></h2>
 <p>The <code>rstest</code> crate defines the following procedural macros:</p>
 <ul>
-<li><a href="../rstest/attr.rstest.html"><code>[rstest]</code></a>: Declare that a test or a group of tests that may take fixtures,
-input table or list of values.</li>
+<li><a href="../rstest/attr.rstest.html"><code>[rstest]</code></a>: Declare that a test or a group of tests that may take 
+<a href="attr.rstest.html#injecting-fixtures">fixtures</a>, 
+<a href="attr.rstest.html#test-parametrized-cases">input table</a> or 
+<a href="attr.rstest.html#values-lists">list of values</a>.</li>
 <li><a href="../rstest/attr.fixture.html"><code>[fixture]</code></a>: To mark a function as a fixture.</li>
 <li>(<em>Deprecated</em> <a href="../rstest/attr.rstest_parametrize.html"><code>[rstest_parametrize]</code></a>: Like <code>[rstest]</code> above but with the
 added ability to also generate new test cases based on input tables.) Now the <code>rstest</code>'s syntax
@@ -78,9 +80,10 @@ and use it directly:</p>
     <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">string_processor</span>.<span class="ident">output</span>.<span class="ident">contains</span>(<span class="string">&quot;Alice&quot;</span>));
 }</pre></div>
 <h2 id="injecting-fixtures-as-function-arguments" class="section-header"><a href="#injecting-fixtures-as-function-arguments">Injecting fixtures as function arguments</a></h2>
-<p><code>rstest</code> functions can receive fixtures by using them as an input argument. A function decorated
-with <a href="attr.rstest.html#injecting-fixtures"><code>[rstest]</code></a> will resolve each argument name by call the fixture
-function. Fixtures should be annotated with the <a href="../rstest/attr.fixture.html"><code>[fixture]</code></a> attribute.</p>
+<p><code>rstest</code> functions can receive fixtures by using them as input arguments.
+A function decorated with <a href="attr.rstest.html#injecting-fixtures"><code>[rstest]</code></a>
+will resolve each argument name by call the fixture function.
+Fixtures should be annotated with the <a href="../rstest/attr.fixture.html"><code>[fixture]</code></a> attribute.</p>
 <p>Fixtures will be resolved like function calls by following the standard resolution rules.
 Therefore, an identically named fixture can be use in different context.</p>
 
@@ -117,8 +120,8 @@ Therefore, an identically named fixture can be use in different context.</p>
 </pre></div>
 <p>Last but not least, fixtures can be injected like we saw in <code>alice_and_bob</code> example.</p>
 <h2 id="creating-parametrized-tests" class="section-header"><a href="#creating-parametrized-tests">Creating parametrized tests</a></h2>
-<p>You can use also <a href="attr.rstest.html#test-parametrized-cases"><code>[rstest]</code></a> to create simple table-based tests. Let's see
-the classic Fibonacci exmple:</p>
+<p>You can use also <a href="attr.rstest.html#test-parametrized-cases"><code>[rstest]</code></a> to create
+simple table-based tests. Let's see the classic Fibonacci example:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">rstest</span>::<span class="ident">rstest</span>;
@@ -145,7 +148,7 @@ the classic Fibonacci exmple:</p>
 }</pre></div>
 <p>This will generate a bunch of tests, one for every <code>case()</code>.</p>
 <h2 id="creating-a-test-for-each-combinations-of-given-values" class="section-header"><a href="#creating-a-test-for-each-combinations-of-given-values">Creating a test for each combinations of given values</a></h2>
-<p>In some cases you need to test your code for each cominations of some input values. In this
+<p>In some cases you need to test your code for each combinations of some input values. In this
 cases <a href="attr.rstest.html#values-lists"><code>[rstest]</code></a> give you the ability to define a list
 of values (rust expressions) to use for an arguments.</p>
 

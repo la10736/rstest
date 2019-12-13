@@ -834,6 +834,10 @@
 <span id="834">834</span>
 <span id="835">835</span>
 <span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This crate will help you to write simpler tests by leveraging a software testing concept called</span>
 <span class="doccomment">//! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something</span>
@@ -855,8 +859,10 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The `rstest` crate defines the following procedural macros:</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take fixtures,</span>
-<span class="doccomment">//! input table or list of values.</span>
+<span class="doccomment">//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take </span>
+<span class="doccomment">//! [fixtures](attr.rstest.html#injecting-fixtures), </span>
+<span class="doccomment">//! [input table](attr.rstest.html#test-parametrized-cases) or </span>
+<span class="doccomment">//! [list of values](attr.rstest.html#values-lists).</span>
 <span class="doccomment">//! - [`[fixture]`](fixture): To mark a function as a fixture.</span>
 <span class="doccomment">//! - (*Deprecated* [`[rstest_parametrize]`](rstest_parametrize): Like `[rstest]` above but with the</span>
 <span class="doccomment">//! added ability to also generate new test cases based on input tables.) Now the `rstest`&#39;s syntax</span>
@@ -936,9 +942,10 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ## Injecting fixtures as function arguments</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! `rstest` functions can receive fixtures by using them as an input argument. A function decorated</span>
-<span class="doccomment">//! with [`[rstest]`](attr.rstest.html#injecting-fixtures) will resolve each argument name by call the fixture</span>
-<span class="doccomment">//! function. Fixtures should be annotated with the [`[fixture]`](fixture) attribute.</span>
+<span class="doccomment">//! `rstest` functions can receive fixtures by using them as input arguments.</span>
+<span class="doccomment">//! A function decorated with [`[rstest]`](attr.rstest.html#injecting-fixtures)</span>
+<span class="doccomment">//! will resolve each argument name by call the fixture function.</span>
+<span class="doccomment">//! Fixtures should be annotated with the [`[fixture]`](fixture) attribute.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Fixtures will be resolved like function calls by following the standard resolution rules.</span>
 <span class="doccomment">//! Therefore, an identically named fixture can be use in different context.</span>
@@ -995,8 +1002,8 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ## Creating parametrized tests</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! You can use also [`[rstest]`](attr.rstest.html#test-parametrized-cases) to create simple table-based tests. Let&#39;s see</span>
-<span class="doccomment">//! the classic Fibonacci exmple:</span>
+<span class="doccomment">//! You can use also [`[rstest]`](attr.rstest.html#test-parametrized-cases) to create</span>
+<span class="doccomment">//! simple table-based tests. Let&#39;s see the classic Fibonacci example:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//! use rstest::rstest;</span>
@@ -1026,7 +1033,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ## Creating a test for each combinations of given values</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! In some cases you need to test your code for each cominations of some input values. In this</span>
+<span class="doccomment">//! In some cases you need to test your code for each combinations of some input values. In this</span>
 <span class="doccomment">//! cases [`[rstest]`](attr.rstest.html#values-lists) give you the ability to define a list</span>
 <span class="doccomment">//! of values (rust expressions) to use for an arguments.</span>
 <span class="doccomment">//!</span>
@@ -1190,6 +1197,7 @@
 <span class="doccomment">///     [::attribute_1[:: ... [::attribute_k]]]</span>
 <span class="doccomment">/// )</span>
 <span class="doccomment">/// ```</span>
+<span class="doccomment">/// Where:</span>
 <span class="doccomment">/// </span>
 <span class="doccomment">/// - `arg_i` could be one of the follow</span>
 <span class="doccomment">///   - `ident` that match to one of function arguments </span>
