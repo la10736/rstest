@@ -17,7 +17,7 @@ pub(crate) fn fixture_resolver<'a>(fixtures: impl Iterator<Item=&'a Fixture>) ->
     ).collect::<HashMap<_, Expr>>()
 }
 
-/// A trait that `resolves` the given ident to expression code to assign the value.
+/// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>>;
 }

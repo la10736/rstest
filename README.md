@@ -230,7 +230,7 @@ test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 In case one or more variables don't implement the `Debug` trait, an error
-is raised, but it's also possible toexclude a variable using the 
+is raised, but it's also possible to exclude a variable using the 
 `notrace(var,list,that,not,implement,Debug)` attribute.
 
 You can learn more on [Docs](docs-link) and find more 
