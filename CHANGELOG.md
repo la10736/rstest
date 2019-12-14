@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1] 2019/12/14
+
+### Fixed
+
+- `README.md` links
+- License files
+
 ## [0.5.0] 2019/12/13
 
 ### Added
