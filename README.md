@@ -233,7 +233,7 @@ In case one or more variables don't implement the `Debug` trait, an error
 is raised, but it's also possible to exclude a variable using the 
 `notrace(var,list,that,not,implement,Debug)` attribute.
 
-You can learn more on [Docs](docs-link) and find more 
+You can learn more on [Docs][docs-link] and find more 
 examples in [`resources`](resources) directory and in 
 [`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
 which uses this module in-depth.
@@ -249,7 +249,7 @@ Licensed under either of
 * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or 
 [license-apache-link])
 
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or [license-MIT-link])
+* MIT license [LICENSE-MIT](LICENSE-MIT) or [license-MIT-link]
 at your option.
 
 [//]: # (links)
