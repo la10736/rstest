@@ -127,7 +127,7 @@ mod fn_test_should {
             #first_stmt
         };
 
-        assert_eq!(inner_fn, inner_fn);
+        assert_eq!(inner_fn, input_fn);
     }
 }
 
