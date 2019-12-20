@@ -42,7 +42,7 @@ fn test_with_return_type() {
 #[test]
 fn should_panic() {
     let (output, _) = run_test("panic.rs");
-
+    
     TestResults::new()
         .ok("should_success")
         .fail("should_fail")
@@ -50,6 +50,13 @@ fn should_panic() {
         .ok("fail::case_2")
         .fail("fail::case_3")
         .assert(output);
+}
+
+#[test]
+fn should_not_show_a_warning_for_should_panic_attribute() {
+    let (output, _) = run_test("panic.rs");
+    
+    assert!(!output.stderr.str().contains("unused attribute"));
 }
 
 #[test]

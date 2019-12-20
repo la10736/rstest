@@ -137,6 +137,12 @@ fn single_test_case<'a>(
     attributes: &'a RsTestAttributes,
 ) -> TokenStream {
     let testfn_name = &testfn.sig.ident;
+    let test_impl = test_impl.map(|f| {
+        let mut f = f.clone(); 
+        f.attrs = vec![];
+        f
+    }
+    ); // Remove attributes
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
     let attrs = &testfn.attrs;
     let output = &testfn.sig.output;
@@ -269,8 +275,9 @@ impl<'a> TestCaseRender<'a> {
     }
 }
 
-fn test_group(test: ItemFn, rendered_cases: TokenStream) -> TokenStream {
+fn test_group(mut test: ItemFn, rendered_cases: TokenStream) -> TokenStream {
     let fname = &test.sig.ident;
+    test.attrs = vec![];
 
     quote! {
         #[cfg(test)]

@@ -129,6 +129,28 @@ mod fn_test_should {
 
         assert_eq!(inner_fn, input_fn);
     }
+
+    #[test]
+    fn should_not_copy_should_panic_attribute() {
+        let input_fn: ItemFn = r#"#[should_panic] pub fn test(_s: String){}"#.ast();
+
+        let tokens = single_test_case(
+            Ident::new("new_name", Span::call_site()),
+            &input_fn,
+            Some(&input_fn),
+            EmptyResolver,
+            &Default::default(),
+        );
+
+        let result: ItemFn = parse2(tokens).unwrap();
+        let first_stmt = result.block.stmts.get(0).unwrap();
+
+        let inner_fn: ItemFn = parse_quote! {
+            #first_stmt
+        };
+
+        assert!(!format!("{:?}", inner_fn.attrs).contains("should_panic"));
+    }
 }
 
 struct TestsGroup {
@@ -356,6 +378,18 @@ mod cases_should {
     }
 
     #[test]
+    fn should_not_copy_should_panic_attribute() {
+        let item_fn =
+            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#.ast();
+        let data = into_rstest_data(&item_fn);
+        let tokens = parametrize(item_fn.clone(), data.into());
+
+        let output = TestsGroup::from(tokens);
+
+        assert!(!format!("{:?}", output.requested_test.attrs).contains("should_panic"));
+    }
+
+    #[test]
     fn mark_user_function_as_test() {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
@@ -531,6 +565,19 @@ mod matrix_cases_should {
 
         output.requested_test.attrs = vec![];
         assert_eq!(output.requested_test, item_fn);
+    }
+
+    #[test]
+    fn should_not_copy_should_panic_attribute() {
+        let item_fn =
+            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#.ast();
+        let data = into_rstest_data(&item_fn);
+        
+        let tokens = matrix(item_fn.clone(), data.into());
+
+        let output = TestsGroup::from(tokens);
+
+        assert!(!format!("{:?}", output.requested_test.attrs).contains("should_panic"));
     }
 
     #[test]
