@@ -197,25 +197,16 @@
 <span id="197">197</span>
 <span id="198">198</span>
 <span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>;
 <span class="kw">use</span> <span class="ident">syn</span>::{
-    <span class="ident">Ident</span>, <span class="ident">Token</span>, <span class="ident">token</span>,
     <span class="ident">parse</span>::{<span class="ident">Parse</span>, <span class="ident">ParseStream</span>, <span class="prelude-ty">Result</span>},
     <span class="ident">punctuated</span>::<span class="ident">Punctuated</span>,
+    <span class="ident">token</span>, <span class="ident">Ident</span>, <span class="ident">Token</span>,
 };
 
-<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">ToTokens</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">refident</span>::<span class="ident">RefIdent</span>;
-
+<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">ToTokens</span>;
 
 <span class="comment">// To use the macros this should be the first one module</span>
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
@@ -223,12 +214,12 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">fixture</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">rstest</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">vlist</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">testcase</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">vlist</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Attributes</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">attributes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Attribute</span><span class="op">&gt;</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">attributes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Attribute</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Parse</span> <span class="kw">for</span> <span class="ident">Attributes</span> {
@@ -274,21 +265,21 @@
 }
 
 <span class="kw">fn</span> <span class="ident">parse_vector_trailing_till_double_comma</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">P</span><span class="op">&gt;</span>(<span class="ident">input</span>: <span class="ident">ParseStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">T</span>: <span class="ident">Parse</span>,
-        <span class="ident">P</span>: <span class="ident">syn</span>::<span class="ident">token</span>::<span class="ident">Token</span> <span class="op">+</span> <span class="ident">Parse</span>
+<span class="kw">where</span>
+    <span class="ident">T</span>: <span class="ident">Parse</span>,
+    <span class="ident">P</span>: <span class="ident">syn</span>::<span class="ident">token</span>::<span class="ident">Token</span> <span class="op">+</span> <span class="ident">Parse</span>,
 {
     <span class="prelude-val">Ok</span>(
-        <span class="ident">Punctuated</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">P</span><span class="op">&gt;</span>::<span class="ident">parse_separated_nonempty_with</span>(
-            <span class="ident">input</span>, <span class="op">|</span><span class="ident">input_tokens</span><span class="op">|</span>
-                <span class="kw">if</span> <span class="ident">input_tokens</span>.<span class="ident">is_empty</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">input_tokens</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[::]) {
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-                } <span class="kw">else</span> {
-                    <span class="ident">T</span>::<span class="ident">parse</span>(<span class="ident">input_tokens</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">inner</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>))
-                },
-        )<span class="question-mark">?</span>.<span class="ident">into_iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span> <span class="ident">it</span>)
-            .<span class="ident">collect</span>()
+        <span class="ident">Punctuated</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">P</span><span class="op">&gt;</span>::<span class="ident">parse_separated_nonempty_with</span>(<span class="ident">input</span>, <span class="op">|</span><span class="ident">input_tokens</span><span class="op">|</span> {
+            <span class="kw">if</span> <span class="ident">input_tokens</span>.<span class="ident">is_empty</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">input_tokens</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[::]) {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+            } <span class="kw">else</span> {
+                <span class="ident">T</span>::<span class="ident">parse</span>(<span class="ident">input_tokens</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">inner</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">inner</span>))
+            }
+        })<span class="question-mark">?</span>
+        .<span class="ident">into_iter</span>()
+        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span> <span class="ident">it</span>)
+        .<span class="ident">collect</span>(),
     )
 }
 
@@ -299,7 +290,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rest</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">cursor</span>;
         <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="ident">next</span>)) <span class="op">=</span> <span class="ident">rest</span>.<span class="ident">token_tree</span>() {
             <span class="ident">rest</span> <span class="op">=</span> <span class="ident">next</span>
-        };
+        }
         <span class="prelude-val">Ok</span>(((), <span class="ident">rest</span>))
     });
 }
@@ -324,9 +315,7 @@
         <span class="kw">let</span> <span class="ident">positional</span> <span class="op">=</span> <span class="ident">Punctuated</span>::<span class="op">&lt;</span><span class="ident">syn</span>::<span class="ident">Expr</span>, <span class="macro">Token</span><span class="macro">!</span>[,]<span class="op">&gt;</span>::<span class="ident">parse_terminated</span>(<span class="kw-2">&amp;</span><span class="ident">content</span>)<span class="question-mark">?</span>
             .<span class="ident">into_iter</span>()
             .<span class="ident">collect</span>();
-        <span class="prelude-val">Ok</span>(
-            <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="ident">positional</span>)
-        )
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">name</span>, <span class="ident">positional</span>))
     }
 }
 
@@ -348,8 +337,8 @@
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>::<span class="kw-2">*</span>;
 
     <span class="kw">mod</span> <span class="ident">parse_attributes</span> {
-        <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
         <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">assert_eq</span>;
+        <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
         <span class="kw">fn</span> <span class="ident">parse_attributes</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">attributes</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Attributes</span> {
             <span class="ident">parse_meta</span>(<span class="ident">attributes</span>)
@@ -360,9 +349,7 @@
             <span class="kw">let</span> <span class="ident">attributes</span> <span class="op">=</span> <span class="ident">parse_attributes</span>(<span class="string">&quot;my_ident&quot;</span>);
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">Attributes</span> {
-                <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;my_ident&quot;</span>)
-                ]
+                <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;my_ident&quot;</span>)],
             };
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">attributes</span>);
@@ -373,9 +360,7 @@
             <span class="kw">let</span> <span class="ident">attributes</span> <span class="op">=</span> <span class="ident">parse_attributes</span>(<span class="string">&quot;group_tag(first, second)&quot;</span>);
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">Attributes</span> {
-                <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;group_tag&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;first&quot;</span>, <span class="string">&quot;second&quot;</span>])
-                ]
+                <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;group_tag&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;first&quot;</span>, <span class="string">&quot;second&quot;</span>])],
             };
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">attributes</span>);
@@ -386,9 +371,7 @@
             <span class="kw">let</span> <span class="ident">attributes</span> <span class="op">=</span> <span class="ident">parse_attributes</span>(<span class="string">&quot;type_tag&lt;(u32, T, (String, i32))&gt;&quot;</span>);
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">Attributes</span> {
-                <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">Attribute</span>::<span class="ident">typed</span>(<span class="string">&quot;type_tag&quot;</span>, <span class="string">&quot;(u32, T, (String, i32))&quot;</span>)
-                ]
+                <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">typed</span>(<span class="string">&quot;type_tag&quot;</span>, <span class="string">&quot;(u32, T, (String, i32))&quot;</span>)],
             };
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">attributes</span>);
@@ -396,8 +379,10 @@
 
         <span class="attribute">#[<span class="ident">test</span>]</span>
         <span class="kw">fn</span> <span class="ident">integrated</span>() {
-            <span class="kw">let</span> <span class="ident">attributes</span> <span class="op">=</span> <span class="ident">parse_attributes</span>(<span class="string">r#&quot;
-            simple :: tagged(first, second) :: type_tag&lt;(u32, T, (std::string::String, i32))&gt; :: more_tagged(a,b)&quot;#</span>);
+            <span class="kw">let</span> <span class="ident">attributes</span> <span class="op">=</span> <span class="ident">parse_attributes</span>(
+                <span class="string">r#&quot;
+            simple :: tagged(first, second) :: type_tag&lt;(u32, T, (std::string::String, i32))&gt; :: more_tagged(a,b)&quot;#</span>,
+            );
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">Attributes</span> {
                 <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
@@ -405,13 +390,12 @@
                     <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;tagged&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;first&quot;</span>, <span class="string">&quot;second&quot;</span>]),
                     <span class="ident">Attribute</span>::<span class="ident">typed</span>(<span class="string">&quot;type_tag&quot;</span>, <span class="string">&quot;(u32, T, (std::string::String, i32))&quot;</span>),
                     <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;more_tagged&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]),
-                ]
+                ],
             };
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">attributes</span>);
         }
     }
 }
-
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "rstest";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

@@ -840,6 +840,7 @@
 <span id="840">840</span>
 <span id="841">841</span>
 <span id="842">842</span>
+<span id="843">843</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This crate will help you to write simpler tests by leveraging a software testing concept called</span>
 <span class="doccomment">//! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something</span>
@@ -861,9 +862,9 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The `rstest` crate defines the following procedural macros:</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take </span>
-<span class="doccomment">//! [fixtures](attr.rstest.html#injecting-fixtures), </span>
-<span class="doccomment">//! [input table](attr.rstest.html#test-parametrized-cases) or </span>
+<span class="doccomment">//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take</span>
+<span class="doccomment">//! [fixtures](attr.rstest.html#injecting-fixtures),</span>
+<span class="doccomment">//! [input table](attr.rstest.html#test-parametrized-cases) or</span>
 <span class="doccomment">//! [list of values](attr.rstest.html#values-lists).</span>
 <span class="doccomment">//! - [`[fixture]`](fixture): To mark a function as a fixture.</span>
 <span class="doccomment">//! - (*Deprecated* [`[rstest_parametrize]`](rstest_parametrize): Like `[rstest]` above but with the</span>
@@ -1066,21 +1067,16 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">test</span>;
 
-<span class="kw">mod</span> <span class="ident">parse</span>;
-<span class="kw">mod</span> <span class="ident">render</span>;
-<span class="kw">mod</span> <span class="ident">utils</span>;
-<span class="kw">mod</span> <span class="ident">resolver</span>;
-<span class="kw">mod</span> <span class="ident">refident</span>;
 <span class="kw">mod</span> <span class="ident">error</span>;
+<span class="kw">mod</span> <span class="ident">parse</span>;
+<span class="kw">mod</span> <span class="ident">refident</span>;
+<span class="kw">mod</span> <span class="ident">render</span>;
+<span class="kw">mod</span> <span class="ident">resolver</span>;
+<span class="kw">mod</span> <span class="ident">utils</span>;
 
-<span class="kw">use</span> <span class="ident">syn</span>::{
-    <span class="ident">ItemFn</span>, <span class="ident">parse_macro_input</span>
-};
+<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">parse_macro_input</span>, <span class="ident">ItemFn</span>};
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::{
-    <span class="ident">fixture</span>::<span class="ident">FixtureInfo</span>,
-    <span class="ident">rstest</span>::<span class="ident">RsTestInfo</span>,
-};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::{<span class="ident">fixture</span>::<span class="ident">FixtureInfo</span>, <span class="ident">rstest</span>::<span class="ident">RsTestInfo</span>};
 
 <span class="doccomment">/// Define a fixture that you can use in all `rstest`&#39;s test arguments. You should just mark your</span>
 <span class="doccomment">/// function as `[fixture]` and then use it as a test&#39;s argument. Fixture functions can also</span>
@@ -1105,9 +1101,9 @@
 <span class="doccomment">///     assert_eq!(42, injected)</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// # Partial Injection</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// You can also partialy inject fixture dependency simply indicate dependency value as fixture</span>
 <span class="doccomment">/// argument:</span>
 <span class="doccomment">///</span>
@@ -1167,9 +1163,10 @@
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// `partial_i` is the fixture used when you inject the first `i` arguments in test call.</span>
 <span class="attribute">#[<span class="ident">proc_macro_attribute</span>]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fixture</span>(<span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
-               <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>)
-               <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fixture</span>(
+    <span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+    <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">info</span>: <span class="ident">FixtureInfo</span> <span class="op">=</span> <span class="macro">parse_macro_input</span><span class="macro">!</span>(<span class="ident">args</span> <span class="kw">as</span> <span class="ident">FixtureInfo</span>);
     <span class="kw">let</span> <span class="ident">fixture</span> <span class="op">=</span> <span class="macro">parse_macro_input</span><span class="macro">!</span>(<span class="ident">input</span> <span class="kw">as</span> <span class="ident">ItemFn</span>);
 
@@ -1178,21 +1175,22 @@
         <span class="ident">render</span>::<span class="ident">fixture</span>(<span class="ident">fixture</span>, <span class="ident">info</span>).<span class="ident">into</span>()
     } <span class="kw">else</span> {
         <span class="ident">errors</span>
-    }.<span class="ident">into</span>()
+    }
+    .<span class="ident">into</span>()
 }
 
-<span class="doccomment">/// The attribute that you should use for your tests. Your </span>
-<span class="doccomment">/// annotated function&#39;s arguments can be </span>
-<span class="doccomment">/// [injected](attr.rstest.html#injecting-fixtures) with </span>
-<span class="doccomment">/// [`[fixture]`](fixture)s, provided by </span>
-<span class="doccomment">/// [parametrized cases](attr.rstest.html#test-parametrized-cases) </span>
+<span class="doccomment">/// The attribute that you should use for your tests. Your</span>
+<span class="doccomment">/// annotated function&#39;s arguments can be</span>
+<span class="doccomment">/// [injected](attr.rstest.html#injecting-fixtures) with</span>
+<span class="doccomment">/// [`[fixture]`](fixture)s, provided by</span>
+<span class="doccomment">/// [parametrized cases](attr.rstest.html#test-parametrized-cases)</span>
 <span class="doccomment">/// or by [value lists](attr.rstest.html#values-lists).</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ## General Syntax</span>
-<span class="doccomment">/// </span>
-<span class="doccomment">/// `rstest` attribute can be applied to _any_ function and you can costumize its </span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// `rstest` attribute can be applied to _any_ function and you can costumize its</span>
 <span class="doccomment">/// parameters by the follow syntax</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```norun</span>
 <span class="doccomment">/// rstest(</span>
 <span class="doccomment">///     arg_1,</span>
@@ -1202,11 +1200,11 @@
 <span class="doccomment">/// )</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// Where:</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// - `arg_i` could be one of the follow</span>
-<span class="doccomment">///   - `ident` that match to one of function arguments </span>
+<span class="doccomment">///   - `ident` that match to one of function arguments</span>
 <span class="doccomment">/// (see [parametrized cases](#test-parametrized-cases) for more details)</span>
-<span class="doccomment">///   - `case[::description](v1, ..., vl)` a test case </span>
+<span class="doccomment">///   - `case[::description](v1, ..., vl)` a test case</span>
 <span class="doccomment">/// (see [parametrized cases](#test-parametrized-cases) for more details)</span>
 <span class="doccomment">///   - `fixture(v1, ..., vl)` where fixture is one of function arguments</span>
 <span class="doccomment">/// that and `v1, ..., vl` is a partial list of fixture&#39;s arguments</span>
@@ -1217,19 +1215,19 @@
 <span class="doccomment">/// - `attribute_j` a test [attribute](#attributes)</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Function&#39;s arguments can be present just once as case identity, fixture or value list.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Your test function can use generics, `impl` or `dyn` and like any kind of rust tests:</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// - return results</span>
 <span class="doccomment">/// - marked by `#[should_panic]` attribute</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ## Injecting Fixtures</span>
-<span class="doccomment">/// </span>
-<span class="doccomment">/// The simplest case is write a test that can be injected with </span>
-<span class="doccomment">/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing </span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The simplest case is write a test that can be injected with</span>
+<span class="doccomment">/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing</span>
 <span class="doccomment">/// them as a function&#39;s arguments. This can help your test to be neat</span>
 <span class="doccomment">/// and make your dependecy clear.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// use rstest::*;</span>
 <span class="doccomment">///</span>
@@ -1242,7 +1240,7 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// [`[rstest]`](rstest) proc_macro will desugar it to something that isn&#39;t </span>
+<span class="doccomment">/// [`[rstest]`](rstest) proc_macro will desugar it to something that isn&#39;t</span>
 <span class="doccomment">/// so far from</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
@@ -1252,38 +1250,38 @@
 <span class="doccomment">///     assert_eq!(42, injected)</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Sometimes is useful to have some parametes in your fixtures but your test would</span>
-<span class="doccomment">/// override the fixture&#39;s default values in some cases. Like in </span>
-<span class="doccomment">/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some </span>
+<span class="doccomment">/// override the fixture&#39;s default values in some cases. Like in</span>
+<span class="doccomment">/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some</span>
 <span class="doccomment">/// fixture&#39;s arguments also in `rstest`.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// # struct User(String, u8);</span>
 <span class="doccomment">/// # impl User { fn name(&amp;self) -&gt; &amp;str {&amp;self.0} }</span>
 <span class="doccomment">/// use rstest::*;</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[fixture]</span>
 <span class="doccomment">/// fn name() -&gt; &amp;&#39;static str { &quot;Alice&quot; }</span>
 <span class="doccomment">/// #[fixture]</span>
 <span class="doccomment">/// fn age() -&gt; u8 { 22 }</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[fixture]</span>
 <span class="doccomment">/// fn user(name: impl AsRef&lt;str&gt;, age: u8) -&gt; User { User(name.as_ref().to_owned(), age) }</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[rstest(user(&quot;Bob&quot;))]</span>
 <span class="doccomment">/// fn check_user(user: User) {</span>
 <span class="doccomment">///     assert_eq(&quot;Bob&quot;, user.name())</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ## Test Parametrized Cases</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// If you would execute your test for a set of input data cases</span>
 <span class="doccomment">/// you can define the arguments to use and the cases list. Let see</span>
 <span class="doccomment">/// the classical Fibonacci example. In this case we would give the</span>
 <span class="doccomment">/// `input` value and the `expected` result for a set of cases to test.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// use rstest::rstest;</span>
 <span class="doccomment">///</span>
@@ -1306,11 +1304,11 @@
 <span class="doccomment">///     }</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// `rstest` will produce a 5 indipendent tests and not just one that</span>
 <span class="doccomment">/// check every case. Every test can fail indipendently and `cargo test`</span>
 <span class="doccomment">/// will give follow output:</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```norun</span>
 <span class="doccomment">/// running 5 tests</span>
 <span class="doccomment">/// test fibonacci_test::case_1 ... ok</span>
@@ -1318,18 +1316,18 @@
 <span class="doccomment">/// test fibonacci_test::case_3 ... ok</span>
 <span class="doccomment">/// test fibonacci_test::case_4 ... ok</span>
 <span class="doccomment">/// test fibonacci_test::case_5 ... ok</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// The cases input values can be arbitrary Rust expresions that return the</span>
 <span class="doccomment">/// argument type.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// use rstest::rstest;</span>
 <span class="doccomment">///  </span>
 <span class="doccomment">/// fn sum(a: usize, b: usize) -&gt; usize { a + b }</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[rstest(s, len,</span>
 <span class="doccomment">///     case(&quot;foo&quot;, 3),</span>
 <span class="doccomment">///     case(String::from(&quot;foo&quot;), 2 + 1),</span>
@@ -1339,13 +1337,13 @@
 <span class="doccomment">///     assert_eq!(s.as_ref().len(), len);</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ### Optional case description</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Optionally you can give a _description_ to every case simple by follow `case`</span>
 <span class="doccomment">/// with `::my_case_description` where `my_case_description` should be a a valid</span>
 <span class="doccomment">/// Rust ident.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```norun</span>
 <span class="doccomment">/// #[rstest(input, expected,</span>
 <span class="doccomment">///     case::zero_base_case(0, 0),</span>
@@ -1354,7 +1352,7 @@
 <span class="doccomment">///     case(3, 2),</span>
 <span class="doccomment">/// )]</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Outuput will be</span>
 <span class="doccomment">/// ```norun</span>
 <span class="doccomment">/// running 4 tests</span>
@@ -1362,28 +1360,28 @@
 <span class="doccomment">/// test fibonacci_test::case_2_one_base_case ... ok</span>
 <span class="doccomment">/// test fibonacci_test::case_3 ... ok</span>
 <span class="doccomment">/// test fibonacci_test::case_4 ... ok</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ## Values Lists</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Another useful way to write a test and execute it for some values</span>
 <span class="doccomment">/// is to use the values list syntax. This syntax can be usefull both</span>
 <span class="doccomment">/// for a plain list and for testing all combination of input arguments.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// # use rstest::*;</span>
 <span class="doccomment">/// # fn is_valid(input: &amp;str) -&gt; bool { true }</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[rstest(input =&gt; [&quot;Jhon&quot;, &quot;alice&quot;, &quot;My_Name&quot;, &quot;Zigy_2001&quot;])]</span>
 <span class="doccomment">/// fn should_be_valid(input: &amp;str) {</span>
 <span class="doccomment">///     assert!(is_valid(input))</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// or</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// # use rstest::*;</span>
 <span class="doccomment">/// # fn valid_user(name: &amp;str, age: u8) -&gt; bool { true }</span>
@@ -1397,7 +1395,7 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// where `cargo test` output is</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```norun</span>
 <span class="doccomment">/// running 6 tests</span>
 <span class="doccomment">/// test should_accept_all_corner_cases::name_1::age_1 ... ok</span>
@@ -1406,17 +1404,17 @@
 <span class="doccomment">/// test should_accept_all_corner_cases::name_2::age_1 ... ok</span>
 <span class="doccomment">/// test should_accept_all_corner_cases::name_2::age_2 ... ok</span>
 <span class="doccomment">/// test should_accept_all_corner_cases::name_1::age_2 ... ok</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ## Putting all Together</span>
-<span class="doccomment">/// </span>
-<span class="doccomment">/// All these features can be used together: take some fixtures, define some </span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// All these features can be used together: take some fixtures, define some</span>
 <span class="doccomment">/// fixed cases and, for each case, tests all combinations of given values.</span>
-<span class="doccomment">/// For istance you need to test that given your repository in cases of both </span>
+<span class="doccomment">/// For istance you need to test that given your repository in cases of both</span>
 <span class="doccomment">/// logged in or guest user should return an invalid query error.</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// # enum User { Guest, Logged, }</span>
 <span class="doccomment">/// # impl User { fn logged(_n: &amp;str, _d: &amp;str, _w: &amp;str, _s: &amp;str) -&gt; Self { Self::Logged } }</span>
@@ -1424,21 +1422,21 @@
 <span class="doccomment">/// # trait Repository { fn find_items(&amp;self, user: &amp;User, query: &amp;str) -&gt; Result&lt;Vec&lt;Item&gt;, String&gt; { Err(&quot;Invalid query error&quot;.to_owned()) } }</span>
 <span class="doccomment">/// # #[derive(Default)] struct InMemoryRepository {}</span>
 <span class="doccomment">/// # impl Repository for InMemoryRepository {}</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// use rstest::*;</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[fixture]</span>
 <span class="doccomment">/// fn repository() -&gt; InMemoryRepository {</span>
 <span class="doccomment">///     let mut r = InMemoryRepository::default();</span>
 <span class="doccomment">///     // fill repository by some data</span>
 <span class="doccomment">///     r</span>
 <span class="doccomment">/// }</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[fixture]</span>
 <span class="doccomment">/// fn alice() -&gt; User {</span>
 <span class="doccomment">///     User::logged(&quot;Alice&quot;, &quot;2001-10-04&quot;, &quot;London&quot;, &quot;UK&quot;)</span>
 <span class="doccomment">/// }</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// #[rstest(user,</span>
 <span class="doccomment">///     case::logged_user(alice()), // We can use `fixture` also as standard function</span>
 <span class="doccomment">///     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case</span>
@@ -1449,10 +1447,10 @@
 <span class="doccomment">///     repository.find_items(&amp;user, query).unwrap();</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// ## Attributes</span>
 <span class="doccomment">/// ### Trace Input Arguments</span>
-<span class="doccomment">/// </span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// Sometimes can be very helpful to print all test&#39;s input arguments. To</span>
 <span class="doccomment">/// do it you can use the `trace` parameter.</span>
 <span class="doccomment">///</span>
@@ -1480,8 +1478,8 @@
 <span class="doccomment">/// Expected :42</span>
 <span class="doccomment">/// Actual   :43</span>
 <span class="doccomment">/// ```</span>
-<span class="doccomment">/// If you want to trace input arguments but skip some of them that don&#39;t </span>
-<span class="doccomment">/// implement the `Debug` trait, you can also use the </span>
+<span class="doccomment">/// If you want to trace input arguments but skip some of them that don&#39;t</span>
+<span class="doccomment">/// implement the `Debug` trait, you can also use the</span>
 <span class="doccomment">/// `notrace(list, of, inputs)` attribute:</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```</span>
@@ -1494,9 +1492,10 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">proc_macro_attribute</span>]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rstest</span>(<span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
-              <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>)
-              <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rstest</span>(
+    <span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+    <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">test</span> <span class="op">=</span> <span class="macro">parse_macro_input</span><span class="macro">!</span>(<span class="ident">input</span> <span class="kw">as</span> <span class="ident">ItemFn</span>);
     <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="macro">parse_macro_input</span><span class="macro">!</span>(<span class="ident">args</span> <span class="kw">as</span> <span class="ident">RsTestInfo</span>);
 
@@ -1512,7 +1511,8 @@
         }
     } <span class="kw">else</span> {
         <span class="ident">errors</span>
-    }.<span class="ident">into</span>()
+    }
+    .<span class="ident">into</span>()
 }
 
 <span class="doccomment">/// Write table-based tests: you must indicate the arguments that you want use in your cases</span>
@@ -1593,13 +1593,14 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">proc_macro_attribute</span>]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">deprecate_parametrize_matrix</span>, <span class="ident">deprecated</span>(
-    <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;0.5.0&quot;</span>,
-    <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use #[rstest(...)] instead&quot;</span>
-))]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rstest_parametrize</span>(<span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>, <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>)
-                          <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>
-{
+<span class="attribute">#[<span class="ident">cfg_attr</span>(
+    <span class="ident">deprecate_parametrize_matrix</span>,
+    <span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;0.5.0&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use #[rstest(...)] instead&quot;</span>)
+)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rstest_parametrize</span>(
+    <span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+    <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span> {
     <span class="ident">rstest</span>(<span class="ident">args</span>, <span class="ident">input</span>)
 }
 
@@ -1674,13 +1675,15 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">proc_macro_attribute</span>]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">deprecate_parametrize_matrix</span>, <span class="ident">deprecated</span>(
-    <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;0.5.0&quot;</span>,
-    <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use #[rstest(...)] instead&quot;</span>
-))]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rstest_matrix</span>(<span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>, <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>)
-                     <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>
-{
+<span class="attribute">#[<span class="ident">cfg_attr</span>(
+    <span class="ident">deprecate_parametrize_matrix</span>,
+    <span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;0.5.0&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use #[rstest(...)] instead&quot;</span>)
+)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rstest_matrix</span>(
+    <span class="ident">args</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+    <span class="ident">input</span>: <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">proc_macro</span>::<span class="ident">TokenStream</span> {
     <span class="ident">rstest</span>(<span class="ident">args</span>, <span class="ident">input</span>)
-}</pre></div>
+}
+</pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "rstest";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

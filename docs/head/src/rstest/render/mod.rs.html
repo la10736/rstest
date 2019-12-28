@@ -335,6 +335,11 @@
 <span id="335">335</span>
 <span id="336">336</span>
 <span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">fixture</span>;
 <span class="kw">mod</span> <span class="ident">test</span>;
@@ -449,8 +454,6 @@
 
     <span class="kw">let</span> <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">resolver</span>::<span class="ident">fixture_resolver</span>(<span class="ident">data</span>.<span class="ident">fixtures</span>());
     <span class="kw">let</span> <span class="ident">rendered_cases</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">cases</span>.<span class="ident">is_empty</span>() {
-
-
         <span class="kw">let</span> <span class="ident">list_values</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">list_values</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="ident">_matrix_recursive</span>(<span class="kw-2">&amp;</span><span class="ident">test</span>, <span class="kw-2">&amp;</span><span class="ident">list_values</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>, <span class="kw-2">&amp;</span><span class="ident">attributes</span>)
     } <span class="kw">else</span> {
@@ -458,7 +461,12 @@
             .<span class="ident">into_iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">case_name</span>, <span class="ident">case_resolver</span>)<span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">list_values</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">list_values</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-                <span class="ident">_matrix_recursive</span>(<span class="kw-2">&amp;</span><span class="ident">test</span>, <span class="kw-2">&amp;</span><span class="ident">list_values</span>, <span class="kw-2">&amp;</span>(<span class="ident">case_resolver</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>), <span class="kw-2">&amp;</span><span class="ident">attributes</span>)
+                <span class="ident">_matrix_recursive</span>(
+                    <span class="kw-2">&amp;</span><span class="ident">test</span>,
+                    <span class="kw-2">&amp;</span><span class="ident">list_values</span>,
+                    <span class="kw-2">&amp;</span>(<span class="ident">case_resolver</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>),
+                    <span class="kw-2">&amp;</span><span class="ident">attributes</span>,
+                )
                 .<span class="ident">wrap_by_mod</span>(<span class="kw-2">&amp;</span><span class="ident">case_name</span>)
             })
             .<span class="ident">collect</span>()
@@ -476,11 +484,10 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">testfn_name</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">testfn</span>.<span class="ident">sig</span>.<span class="ident">ident</span>;
     <span class="kw">let</span> <span class="ident">test_impl</span> <span class="op">=</span> <span class="ident">test_impl</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">clone</span>(); 
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">clone</span>();
         <span class="ident">f</span>.<span class="ident">attrs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
         <span class="ident">f</span>
-    }
-    ); <span class="comment">// Remove attributes</span>
+    }); <span class="comment">// Remove attributes</span>
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">fn_args_idents</span>(<span class="kw-2">&amp;</span><span class="ident">testfn</span>).<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
     <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">testfn</span>.<span class="ident">attrs</span>;
     <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">testfn</span>.<span class="ident">sig</span>.<span class="ident">output</span>;
@@ -605,7 +612,10 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">TestCaseRender</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Resolver</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">name</span>: <span class="ident">Ident</span>, <span class="ident">resolver</span>: <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">TestCaseRender</span> { <span class="ident">name</span>, <span class="ident">resolver</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">resolver</span>) }
+        <span class="ident">TestCaseRender</span> {
+            <span class="ident">name</span>,
+            <span class="ident">resolver</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">resolver</span>),
+        }
     }
 
     <span class="kw">fn</span> <span class="ident">render</span>(<span class="self">self</span>, <span class="ident">testfn</span>: <span class="kw-2">&amp;</span><span class="ident">ItemFn</span>, <span class="ident">attributes</span>: <span class="kw-2">&amp;</span><span class="ident">RsTestAttributes</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {

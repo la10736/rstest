@@ -491,17 +491,51 @@
 <span id="491">491</span>
 <span id="492">492</span>
 <span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Ident</span>, <span class="ident">Token</span>,
-          <span class="ident">parse</span>::{<span class="ident">Parse</span>, <span class="ident">ParseStream</span>, <span class="prelude-ty">Result</span>},
+<span class="kw">use</span> <span class="ident">syn</span>::{
+    <span class="ident">parse</span>::{<span class="ident">Parse</span>, <span class="ident">ParseStream</span>, <span class="prelude-ty">Result</span>},
+    <span class="ident">Ident</span>, <span class="ident">Token</span>,
 };
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Fixture</span>, <span class="ident">Attribute</span>, <span class="ident">Attributes</span>, <span class="ident">parse_vector_trailing_till_double_comma</span>};
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">testcase</span>::<span class="ident">TestCase</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">refident</span>::{<span class="ident">RefIdent</span>, <span class="ident">MaybeIdent</span>};
-<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">ToTokens</span>;
-<span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">TokenStream</span>, <span class="ident">Span</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">parse_vector_trailing_till_double_comma</span>, <span class="ident">Attribute</span>, <span class="ident">Attributes</span>, <span class="ident">Fixture</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::<span class="ident">vlist</span>::<span class="ident">ValueList</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">refident</span>::{<span class="ident">MaybeIdent</span>, <span class="ident">RefIdent</span>};
+<span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">Span</span>, <span class="ident">TokenStream</span>};
+<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">ToTokens</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">RsTestInfo</span> {
@@ -511,35 +545,31 @@
 
 <span class="kw">impl</span> <span class="ident">Parse</span> <span class="kw">for</span> <span class="ident">RsTestInfo</span> {
     <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">input</span>: <span class="ident">ParseStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(
-            <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">Default</span>::<span class="ident">default</span>()
-            } <span class="kw">else</span> {
-                <span class="self">Self</span> {
-                    <span class="ident">data</span>: <span class="ident">input</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
-                    <span class="ident">attributes</span>: <span class="ident">input</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="macro">Token</span><span class="macro">!</span>[::]<span class="op">&gt;</span>()
-                        .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>()))
-                        .<span class="ident">and_then</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">parse</span>())<span class="question-mark">?</span>,
-                }
+        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">input</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">Default</span>::<span class="ident">default</span>()
+        } <span class="kw">else</span> {
+            <span class="self">Self</span> {
+                <span class="ident">data</span>: <span class="ident">input</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
+                <span class="ident">attributes</span>: <span class="ident">input</span>
+                    .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="macro">Token</span><span class="macro">!</span>[::]<span class="op">&gt;</span>()
+                    .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>()))
+                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">parse</span>())<span class="question-mark">?</span>,
             }
-        )
+        })
     }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">RsTestData</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">items</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RsTestItem</span><span class="op">&gt;</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">items</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RsTestItem</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">RsTestData</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">case_args</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">Ident</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span>
-                <span class="kw">match</span> <span class="ident">it</span> {
-                    <span class="ident">RsTestItem</span>::<span class="ident">CaseArgName</span>(<span class="kw-2">ref</span> <span class="ident">arg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">arg</span>),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
-                }
-            )
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">case_args</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">Ident</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">it</span> {
+            <span class="ident">RsTestItem</span>::<span class="ident">CaseArgName</span>(<span class="kw-2">ref</span> <span class="ident">arg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">arg</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+        })
     }
 
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
@@ -547,27 +577,22 @@
         <span class="self">self</span>.<span class="ident">case_args</span>().<span class="ident">next</span>().<span class="ident">is_some</span>()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">cases</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">TestCase</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span>
-                <span class="kw">match</span> <span class="ident">it</span> {
-                    <span class="ident">RsTestItem</span>::<span class="ident">TestCase</span>(<span class="kw-2">ref</span> <span class="ident">case</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">case</span>),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
-                }
-            )
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">cases</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">TestCase</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">it</span> {
+            <span class="ident">RsTestItem</span>::<span class="ident">TestCase</span>(<span class="kw-2">ref</span> <span class="ident">case</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">case</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+        })
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">has_cases</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">cases</span>().<span class="ident">next</span>().<span class="ident">is_some</span>()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fixtures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">Fixture</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span>
-            <span class="kw">match</span> <span class="ident">it</span> {
-                <span class="ident">RsTestItem</span>::<span class="ident">Fixture</span>(<span class="kw-2">ref</span> <span class="ident">fixture</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">fixture</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
-            }
-        )
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fixtures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">Fixture</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">it</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">it</span> {
+            <span class="ident">RsTestItem</span>::<span class="ident">Fixture</span>(<span class="kw-2">ref</span> <span class="ident">fixture</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">fixture</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+        })
     }
 
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
@@ -575,13 +600,11 @@
         <span class="self">self</span>.<span class="ident">fixtures</span>().<span class="ident">next</span>().<span class="ident">is_some</span>()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">list_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">ValueList</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">mv</span><span class="op">|</span>
-            <span class="kw">match</span> <span class="ident">mv</span> {
-                <span class="ident">RsTestItem</span>::<span class="ident">ValueList</span>(<span class="kw-2">ref</span> <span class="ident">value_list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">value_list</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
-            }
-        )
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">list_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">ValueList</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">mv</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">mv</span> {
+            <span class="ident">RsTestItem</span>::<span class="ident">ValueList</span>(<span class="kw-2">ref</span> <span class="ident">value_list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">value_list</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+        })
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">has_list_values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -594,7 +617,9 @@
         <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[::]) {
             <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>())
         } <span class="kw">else</span> {
-            <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">items</span>: <span class="ident">parse_vector_trailing_till_double_comma</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="macro">Token</span><span class="macro">!</span>[,]<span class="op">&gt;</span>(<span class="ident">input</span>)<span class="question-mark">?</span> })
+            <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+                <span class="ident">items</span>: <span class="ident">parse_vector_trailing_till_double_comma</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="macro">Token</span><span class="macro">!</span>[,]<span class="op">&gt;</span>(<span class="ident">input</span>)<span class="question-mark">?</span>,
+            })
         }
     }
 }
@@ -654,7 +679,7 @@
             <span class="ident">Fixture</span>(<span class="kw-2">ref</span> <span class="ident">fixture</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">fixture</span>.<span class="ident">ident</span>()),
             <span class="ident">CaseArgName</span>(<span class="kw-2">ref</span> <span class="ident">case_arg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">case_arg</span>),
             <span class="ident">ValueList</span>(<span class="kw-2">ref</span> <span class="ident">value_list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">value_list</span>.<span class="ident">ident</span>()),
-            <span class="ident">TestCase</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
+            <span class="ident">TestCase</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 }
@@ -666,7 +691,7 @@
             <span class="ident">Fixture</span>(<span class="kw-2">ref</span> <span class="ident">fixture</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fixture</span>.<span class="ident">to_tokens</span>(<span class="ident">tokens</span>),
             <span class="ident">CaseArgName</span>(<span class="kw-2">ref</span> <span class="ident">case_arg</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">case_arg</span>.<span class="ident">to_tokens</span>(<span class="ident">tokens</span>),
             <span class="ident">TestCase</span>(<span class="kw-2">ref</span> <span class="ident">case</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">case</span>.<span class="ident">to_tokens</span>(<span class="ident">tokens</span>),
-            <span class="ident">ValueList</span>(<span class="kw-2">ref</span> <span class="ident">list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">list</span>.<span class="ident">to_tokens</span>(<span class="ident">tokens</span>)
+            <span class="ident">ValueList</span>(<span class="kw-2">ref</span> <span class="ident">list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">list</span>.<span class="ident">to_tokens</span>(<span class="ident">tokens</span>),
         }
     }
 }
@@ -680,31 +705,31 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">trace_me</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ident</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">should_trace</span>() {
             <span class="self">self</span>.<span class="ident">iter</span>()
-                .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">m</span><span class="op">|</span>
-                    <span class="self">Self</span>::<span class="ident">is_notrace</span>(<span class="ident">ident</span>, <span class="ident">m</span>)
-                ).<span class="ident">next</span>().<span class="ident">is_none</span>()
-        } <span class="kw">else</span> { <span class="bool-val">false</span> }
+                .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">m</span><span class="op">|</span> <span class="self">Self</span>::<span class="ident">is_notrace</span>(<span class="ident">ident</span>, <span class="ident">m</span>))
+                .<span class="ident">next</span>()
+                .<span class="ident">is_none</span>()
+        } <span class="kw">else</span> {
+            <span class="bool-val">false</span>
+        }
     }
 
     <span class="kw">fn</span> <span class="ident">is_notrace</span>(<span class="ident">ident</span>: <span class="kw-2">&amp;</span><span class="ident">Ident</span>, <span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">Attribute</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="ident">m</span> {
-            <span class="ident">Attribute</span>::<span class="ident">Tagged</span>(<span class="ident">i</span>, <span class="ident">args</span>) <span class="kw">if</span> <span class="ident">i</span> <span class="op">=</span><span class="op">=</span> <span class="self">Self</span>::<span class="ident">NOTRACE_VARIABLE_ATTR</span> <span class="op">=</span><span class="op">&gt;</span>
-                <span class="ident">args</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">ident</span>).<span class="ident">is_some</span>(),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>
+            <span class="ident">Attribute</span>::<span class="ident">Tagged</span>(<span class="ident">i</span>, <span class="ident">args</span>) <span class="kw">if</span> <span class="ident">i</span> <span class="op">=</span><span class="op">=</span> <span class="self">Self</span>::<span class="ident">NOTRACE_VARIABLE_ATTR</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">args</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">ident</span>).<span class="ident">is_some</span>()
+            }
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
         }
     }
 
     <span class="kw">fn</span> <span class="ident">should_trace</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">m</span><span class="op">|</span>
-                <span class="self">Self</span>::<span class="ident">is_trace</span>(<span class="ident">m</span>)
-            ).<span class="ident">next</span>().<span class="ident">is_some</span>()
+        <span class="self">self</span>.<span class="ident">iter</span>().<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">m</span><span class="op">|</span> <span class="self">Self</span>::<span class="ident">is_trace</span>(<span class="ident">m</span>)).<span class="ident">next</span>().<span class="ident">is_some</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">is_trace</span>(<span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">Attribute</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="kw">match</span> <span class="ident">m</span> {
             <span class="ident">Attribute</span>::<span class="ident">Attr</span>(<span class="ident">i</span>) <span class="kw">if</span> <span class="ident">i</span> <span class="op">=</span><span class="op">=</span> <span class="self">Self</span>::<span class="ident">TRACE_VARIABLE_ATTR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
         }
     }
 }
@@ -717,12 +742,12 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">should</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>::<span class="kw-2">*</span>;
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>::<span class="kw-2">*</span>;
 
     <span class="kw">mod</span> <span class="ident">parse_rstest_data</span> {
-        <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
         <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">assert_eq</span>;
+        <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
         <span class="kw">fn</span> <span class="ident">parse_rstest_data</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">fixtures</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RsTestData</span> {
             <span class="ident">parse_meta</span>(<span class="ident">fixtures</span>)
@@ -733,9 +758,7 @@
             <span class="kw">let</span> <span class="ident">fixtures</span> <span class="op">=</span> <span class="ident">parse_rstest_data</span>(<span class="string">&quot;my_fixture(42)&quot;</span>);
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">RsTestData</span> {
-                <span class="ident">items</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">Fixture</span>::<span class="ident">new</span>(<span class="ident">ident</span>(<span class="string">&quot;my_fixture&quot;</span>), <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">expr</span>(<span class="string">&quot;42&quot;</span>)]).<span class="ident">into</span>()
-                ]
+                <span class="ident">items</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Fixture</span>::<span class="ident">new</span>(<span class="ident">ident</span>(<span class="string">&quot;my_fixture&quot;</span>), <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">expr</span>(<span class="string">&quot;42&quot;</span>)]).<span class="ident">into</span>()],
             };
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">fixtures</span>);
@@ -743,32 +766,36 @@
     }
 
     <span class="kw">mod</span> <span class="ident">simple_case</span> {
-        <span class="kw">use</span> <span class="kw">super</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
+        <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
 
         <span class="kw">fn</span> <span class="ident">parse_rstest</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">rstest_data</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RsTestInfo</span> {
             <span class="ident">parse_meta</span>(<span class="ident">rstest_data</span>)
         }
 
         <span class="kw">mod</span> <span class="ident">no_cases</span> {
-            <span class="kw">use</span> <span class="kw">super</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
-            <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::{<span class="ident">Attributes</span>, <span class="ident">Attribute</span>};
+            <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
+            <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::{<span class="ident">Attribute</span>, <span class="ident">Attributes</span>};
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">happy_path</span>() {
-                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;my_fixture(42, &quot;other&quot;), other(vec![42])
-                :: trace :: no_trace(some)&quot;#</span>);
+                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;my_fixture(42, &quot;other&quot;), other(vec![42])
+                :: trace :: no_trace(some)&quot;#</span>,
+                );
 
                 <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">RsTestInfo</span> {
                     <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[
                         <span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]).<span class="ident">into</span>(),
                         <span class="ident">fixture</span>(<span class="string">&quot;other&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;vec![42]&quot;</span>]).<span class="ident">into</span>(),
-                    ].<span class="ident">into</span>(),
+                    ]
+                    .<span class="ident">into</span>(),
                     <span class="ident">attributes</span>: <span class="ident">Attributes</span> {
                         <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
                             <span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;trace&quot;</span>),
-                            <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>])
-                        ]
-                    }.<span class="ident">into</span>(),
+                            <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>]),
+                        ],
+                    }
+                    .<span class="ident">into</span>(),
                 };
 
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">data</span>);
@@ -782,9 +809,10 @@
                     <span class="ident">attributes</span>: <span class="ident">Attributes</span> {
                         <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
                             <span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;trace&quot;</span>),
-                            <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>])
-                        ]
-                    }.<span class="ident">into</span>(),
+                            <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>]),
+                        ],
+                    }
+                    .<span class="ident">into</span>(),
                     ..<span class="ident">Default</span>::<span class="ident">default</span>()
                 };
 
@@ -796,9 +824,7 @@
                 <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;my_fixture(42, &quot;other&quot;)&quot;#</span>);
 
                 <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">RsTestInfo</span> {
-                    <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                        <span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]).<span class="ident">into</span>(),
-                    ].<span class="ident">into</span>(),
+                    <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]).<span class="ident">into</span>()].<span class="ident">into</span>(),
                     ..<span class="ident">Default</span>::<span class="ident">default</span>()
                 };
 
@@ -807,7 +833,7 @@
         }
 
         <span class="kw">mod</span> <span class="ident">parametrize_cases</span> {
-            <span class="kw">use</span> <span class="kw">super</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
+            <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">one_simple_case_one_arg</span>() {
@@ -824,23 +850,29 @@
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">happy_path</span>() {
-                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                     my_fixture(42,&quot;foo&quot;),
                     arg1, arg2, arg3,
                     case(1,2,3),
                     case(11,12,13),
                     case(21,22,23)
-                &quot;#</span>);
+                &quot;#</span>,
+                );
 
                 <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">data</span>;
-                <span class="kw">let</span> <span class="ident">fixtures</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">fixtures</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+                <span class="kw">let</span> <span class="ident">fixtures</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">fixtures</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;foo&quot;&quot;#</span>])], <span class="ident">fixtures</span>);
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_strs</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;arg1&quot;</span>, <span class="string">&quot;arg2&quot;</span>, <span class="string">&quot;arg3&quot;</span>]), <span class="ident">data</span>.<span class="ident">case_args</span>()
-                    .<span class="ident">map</span>(<span class="ident">ToString</span>::<span class="ident">to_string</span>)
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>());
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;foo&quot;&quot;#</span>])],
+                    <span class="ident">fixtures</span>
+                );
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="macro">to_strs</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;arg1&quot;</span>, <span class="string">&quot;arg2&quot;</span>, <span class="string">&quot;arg3&quot;</span>]),
+                    <span class="ident">data</span>.<span class="ident">case_args</span>()
+                        .<span class="ident">map</span>(<span class="ident">ToString</span>::<span class="ident">to_string</span>)
+                        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+                );
 
                 <span class="kw">let</span> <span class="ident">cases</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">cases</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
@@ -852,10 +884,13 @@
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">should_accept_comma_at_the_end_of_cases</span>() {
-                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                     arg,
                     case(42),
-                &quot;#</span>).<span class="ident">data</span>;
+                &quot;#</span>,
+                )
+                .<span class="ident">data</span>;
 
                 <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">case_args</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
                 <span class="kw">let</span> <span class="ident">cases</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">cases</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
@@ -866,23 +901,27 @@
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_args</span><span class="macro">!</span>([<span class="string">&quot;42&quot;</span>]), <span class="ident">cases</span>[<span class="number">0</span>].<span class="ident">args</span>())
             }
 
-
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="attribute">#[<span class="ident">should_panic</span>]</span>
             <span class="kw">fn</span> <span class="ident">should_not_accept_invalid_separator_from_args_and_cases</span>() {
-                <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                     ret
                     case::should_success(Ok(())),
                     case::should_fail(Err(&quot;Return Error&quot;))
-                &quot;#</span>);
+                &quot;#</span>,
+                );
             }
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">case_could_be_arg_name</span>() {
-                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                     case,
                     case(42)
-                &quot;#</span>).<span class="ident">data</span>;
+                &quot;#</span>,
+                )
+                .<span class="ident">data</span>;
 
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="string">&quot;case&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">data</span>.<span class="ident">case_args</span>().<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="ident">to_string</span>());
 
@@ -896,31 +935,43 @@
         <span class="kw">mod</span> <span class="ident">matrix_cases</span> {
             <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::<span class="ident">Attribute</span>;
 
-            <span class="kw">use</span> <span class="kw">super</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
+            <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">happy_path</span>() {
-                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                         expected =&gt; [12, 34 * 2],
                         input =&gt; [format!(&quot;aa_{}&quot;, 2), &quot;other&quot;],
-                    &quot;#</span>);
+                    &quot;#</span>,
+                );
 
                 <span class="kw">let</span> <span class="ident">value_ranges</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">list_values</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">2</span>, <span class="ident">value_ranges</span>.<span class="ident">len</span>());
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_args</span><span class="macro">!</span>([<span class="string">&quot;12&quot;</span>, <span class="string">&quot;34 * 2&quot;</span>]), <span class="ident">value_ranges</span>[<span class="number">0</span>].<span class="ident">args</span>());
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_args</span><span class="macro">!</span>([<span class="string">r#&quot;format!(&quot;aa_{}&quot;, 2)&quot;#</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]), <span class="ident">value_ranges</span>[<span class="number">1</span>].<span class="ident">args</span>());
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="macro">to_args</span><span class="macro">!</span>([<span class="string">r#&quot;format!(&quot;aa_{}&quot;, 2)&quot;#</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]),
+                    <span class="ident">value_ranges</span>[<span class="number">1</span>].<span class="ident">args</span>()
+                );
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">info</span>.<span class="ident">attributes</span>, <span class="ident">Default</span>::<span class="ident">default</span>());
             }
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">should_parse_attributes_too</span>() {
-                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                                             a =&gt; [12, 24, 42]
                                             ::trace
-                                        &quot;#</span>);
+                                        &quot;#</span>,
+                );
 
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">info</span>.<span class="ident">attributes</span>,
-                           <span class="ident">Attributes</span> { <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;trace&quot;</span>)] }.<span class="ident">into</span>());
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="ident">info</span>.<span class="ident">attributes</span>,
+                    <span class="ident">Attributes</span> {
+                        <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;trace&quot;</span>)]
+                    }
+                    .<span class="ident">into</span>()
+                );
             }
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -930,30 +981,38 @@
                     a =&gt; [12, 24, 42],
                     fixture_1(42, &quot;foo&quot;),
                     fixture_2(&quot;bar&quot;)
-                    &quot;#</span>);
+                    &quot;#</span>,
+                );
 
                 <span class="kw">let</span> <span class="ident">fixtures</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">fixtures</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">fixture</span>(<span class="string">&quot;fixture_1&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;foo&quot;&quot;#</span>]),
-                                <span class="ident">fixture</span>(<span class="string">&quot;fixture_2&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;bar&quot;&quot;#</span>])],
-                           <span class="ident">fixtures</span>);
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="macro">vec</span><span class="macro">!</span>[
+                        <span class="ident">fixture</span>(<span class="string">&quot;fixture_1&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;foo&quot;&quot;#</span>]),
+                        <span class="ident">fixture</span>(<span class="string">&quot;fixture_2&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">r#&quot;&quot;bar&quot;&quot;#</span>])
+                    ],
+                    <span class="ident">fixtures</span>
+                );
             }
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="attribute">#[<span class="ident">should_panic</span>(<span class="ident">expected</span> <span class="op">=</span> <span class="string">&quot;should not be empty&quot;</span>)]</span>
             <span class="kw">fn</span> <span class="ident">should_not_compile_if_empty_expression_slice</span>() {
-                <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                     invalid =&gt; []
-                    &quot;#</span>);
+                    &quot;#</span>,
+                );
             }
         }
 
         <span class="kw">mod</span> <span class="ident">integrated</span> {
-            <span class="kw">use</span> <span class="kw">super</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
+            <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
 
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="ident">should_parse_fixture_cases_and_matrix_in_any_order</span>() {
-                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(<span class="string">r#&quot;
+                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_rstest</span>(
+                    <span class="string">r#&quot;
                     u,
                     m =&gt; [1, 2],
                     case(42, A{}, D{}),
@@ -962,15 +1021,19 @@
                     the_fixture(42),
                     mm =&gt; [&quot;f&quot;, &quot;oo&quot;, &quot;BAR&quot;],
                     d
-                &quot;#</span>).<span class="ident">data</span>;
+                &quot;#</span>,
+                )
+                .<span class="ident">data</span>;
 
                 <span class="kw">let</span> <span class="ident">fixtures</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">fixtures</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">fixture</span>(<span class="string">&quot;the_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>])], <span class="ident">fixtures</span>);
 
-
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_strs</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;u&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;d&quot;</span>]), <span class="ident">data</span>.<span class="ident">case_args</span>()
-                    .<span class="ident">map</span>(<span class="ident">ToString</span>::<span class="ident">to_string</span>)
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>());
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="macro">to_strs</span><span class="macro">!</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;u&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;d&quot;</span>]),
+                    <span class="ident">data</span>.<span class="ident">case_args</span>()
+                        .<span class="ident">map</span>(<span class="ident">ToString</span>::<span class="ident">to_string</span>)
+                        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+                );
 
                 <span class="kw">let</span> <span class="ident">cases</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">cases</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">2</span>, <span class="ident">cases</span>.<span class="ident">len</span>());
@@ -980,7 +1043,10 @@
                 <span class="kw">let</span> <span class="ident">value_ranges</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">list_values</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">2</span>, <span class="ident">value_ranges</span>.<span class="ident">len</span>());
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_args</span><span class="macro">!</span>([<span class="string">&quot;1&quot;</span>, <span class="string">&quot;2&quot;</span>]), <span class="ident">value_ranges</span>[<span class="number">0</span>].<span class="ident">args</span>());
-                <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">to_args</span><span class="macro">!</span>([<span class="string">r#&quot;&quot;f&quot;&quot;#</span>, <span class="string">r#&quot;&quot;oo&quot;&quot;#</span>, <span class="string">r#&quot;&quot;BAR&quot;&quot;#</span>]), <span class="ident">value_ranges</span>[<span class="number">1</span>].<span class="ident">args</span>());
+                <span class="macro">assert_eq</span><span class="macro">!</span>(
+                    <span class="macro">to_args</span><span class="macro">!</span>([<span class="string">r#&quot;&quot;f&quot;&quot;#</span>, <span class="string">r#&quot;&quot;oo&quot;&quot;#</span>, <span class="string">r#&quot;&quot;BAR&quot;&quot;#</span>]),
+                    <span class="ident">value_ranges</span>[<span class="number">1</span>].<span class="ident">args</span>()
+                );
             }
         }
     }

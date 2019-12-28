@@ -207,19 +207,18 @@
 <span id="207">207</span>
 <span id="208">208</span>
 <span id="209">209</span>
-<span id="210">210</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">/// `fixture`&#39;s related data and parsing</span>
+<span class="kw">use</span> <span class="ident">syn</span>::{
+    <span class="ident">parse</span>::{<span class="ident">Parse</span>, <span class="ident">ParseStream</span>, <span class="prelude-ty">Result</span>},
+    <span class="ident">parse_quote</span>, <span class="ident">Ident</span>, <span class="ident">Token</span>,
+};
 
-<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Ident</span>, <span class="ident">Token</span>, <span class="ident">parse_quote</span>,
-          <span class="ident">parse</span>::{<span class="ident">Parse</span>, <span class="ident">ParseStream</span>, <span class="prelude-ty">Result</span>},
-          };
-
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Fixture</span>, <span class="ident">Attributes</span>, <span class="ident">parse_vector_trailing_till_double_comma</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">parse_vector_trailing_till_double_comma</span>, <span class="ident">Attributes</span>, <span class="ident">Fixture</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::<span class="ident">Attribute</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">refident</span>::<span class="ident">RefIdent</span>;
-<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">ToTokens</span>;
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::<span class="ident">TokenStream</span>;
+<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">ToTokens</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">FixtureInfo</span> {
@@ -235,34 +234,30 @@
 
 <span class="kw">impl</span> <span class="ident">Parse</span> <span class="kw">for</span> <span class="ident">FixtureInfo</span> {
     <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">input</span>: <span class="ident">ParseStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(
-            <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">Default</span>::<span class="ident">default</span>()
-            } <span class="kw">else</span> {
-                <span class="self">Self</span> {
-                    <span class="ident">data</span>: <span class="ident">input</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
-                    <span class="ident">attributes</span>: <span class="ident">input</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="macro">Token</span><span class="macro">!</span>[::]<span class="op">&gt;</span>()
-                        .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>()))
-                        .<span class="ident">and_then</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">parse</span>())<span class="question-mark">?</span>,
-                }
+        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">input</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">Default</span>::<span class="ident">default</span>()
+        } <span class="kw">else</span> {
+            <span class="self">Self</span> {
+                <span class="ident">data</span>: <span class="ident">input</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
+                <span class="ident">attributes</span>: <span class="ident">input</span>
+                    .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="macro">Token</span><span class="macro">!</span>[::]<span class="op">&gt;</span>()
+                    .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>()))
+                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">input</span>.<span class="ident">parse</span>())<span class="question-mark">?</span>,
             }
-        )
+        })
     }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">FixtureData</span> {
-    <span class="kw">pub</span> <span class="ident">items</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FixtureItem</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="ident">items</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FixtureItem</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">FixtureData</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fixtures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">Fixture</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span>
-                <span class="kw">match</span> <span class="ident">f</span> {
-                    <span class="ident">FixtureItem</span>::<span class="ident">Fixture</span>(<span class="kw-2">ref</span> <span class="ident">fixture</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">fixture</span>),
-                }
-            )
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fixtures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">Fixture</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">items</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">f</span> {
+            <span class="ident">FixtureItem</span>::<span class="ident">Fixture</span>(<span class="kw-2">ref</span> <span class="ident">fixture</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">fixture</span>),
+        })
     }
 }
 
@@ -271,14 +266,16 @@
         <span class="kw">if</span> <span class="ident">input</span>.<span class="ident">peek</span>(<span class="macro">Token</span><span class="macro">!</span>[::]) {
             <span class="prelude-val">Ok</span>(<span class="ident">Default</span>::<span class="ident">default</span>())
         } <span class="kw">else</span> {
-            <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">items</span>: <span class="ident">parse_vector_trailing_till_double_comma</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="macro">Token</span><span class="macro">!</span>[,]<span class="op">&gt;</span>(<span class="ident">input</span>)<span class="question-mark">?</span> })
+            <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+                <span class="ident">items</span>: <span class="ident">parse_vector_trailing_till_double_comma</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="macro">Token</span><span class="macro">!</span>[,]<span class="op">&gt;</span>(<span class="ident">input</span>)<span class="question-mark">?</span>,
+            })
         }
     }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">FixtureItem</span> {
-    <span class="ident">Fixture</span>(<span class="ident">Fixture</span>)
+    <span class="ident">Fixture</span>(<span class="ident">Fixture</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Fixture</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FixtureItem</span> {
@@ -296,7 +293,7 @@
 <span class="kw">impl</span> <span class="ident">RefIdent</span> <span class="kw">for</span> <span class="ident">FixtureItem</span> {
     <span class="kw">fn</span> <span class="ident">ident</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Ident</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">FixtureItem</span>::<span class="ident">Fixture</span>(<span class="ident">Fixture</span> { <span class="kw-2">ref</span> <span class="ident">name</span>, .. }) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">name</span>
+            <span class="ident">FixtureItem</span>::<span class="ident">Fixture</span>(<span class="ident">Fixture</span> { <span class="kw-2">ref</span> <span class="ident">name</span>, .. }) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">name</span>,
         }
     }
 }
@@ -323,12 +320,10 @@
 
     <span class="kw">fn</span> <span class="ident">extract_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">attr_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">syn</span>::<span class="ident">ReturnType</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span>
-                <span class="kw">match</span> <span class="ident">m</span> {
-                    <span class="ident">Attribute</span>::<span class="ident">Type</span>(<span class="ident">name</span>, <span class="ident">t</span>) <span class="kw">if</span> <span class="ident">name</span> <span class="op">=</span><span class="op">=</span> <span class="ident">attr_name</span> <span class="op">=</span><span class="op">&gt;</span>
-                        <span class="prelude-val">Some</span>(<span class="macro">parse_quote</span><span class="macro">!</span>{ <span class="op">-</span><span class="op">&gt;</span> #<span class="ident">t</span>}),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>
-                })
+            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">m</span> {
+                <span class="ident">Attribute</span>::<span class="ident">Type</span>(<span class="ident">name</span>, <span class="ident">t</span>) <span class="kw">if</span> <span class="ident">name</span> <span class="op">=</span><span class="op">=</span> <span class="ident">attr_name</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="macro">parse_quote</span><span class="macro">!</span> { <span class="op">-</span><span class="op">&gt;</span> #<span class="ident">t</span>}),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            })
             .<span class="ident">next</span>()
     }
 }
@@ -336,10 +331,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">should</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
 
     <span class="kw">mod</span> <span class="ident">parse</span> {
-        <span class="kw">use</span> <span class="kw">super</span>::{<span class="kw-2">*</span>, <span class="ident">assert_eq</span>};
+        <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">assert_eq</span>, <span class="kw-2">*</span>};
 
         <span class="kw">fn</span> <span class="ident">parse_fixture</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">fixture_data</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FixtureInfo</span> {
             <span class="ident">parse_meta</span>(<span class="ident">fixture_data</span>)
@@ -347,20 +342,24 @@
 
         <span class="attribute">#[<span class="ident">test</span>]</span>
         <span class="kw">fn</span> <span class="ident">happy_path</span>() {
-            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_fixture</span>(<span class="string">r#&quot;my_fixture(42, &quot;other&quot;), other(vec![42])
-                    :: trace :: no_trace(some)&quot;#</span>);
+            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_fixture</span>(
+                <span class="string">r#&quot;my_fixture(42, &quot;other&quot;), other(vec![42])
+                    :: trace :: no_trace(some)&quot;#</span>,
+            );
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">FixtureInfo</span> {
                 <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[
                     <span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]).<span class="ident">into</span>(),
                     <span class="ident">fixture</span>(<span class="string">&quot;other&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;vec![42]&quot;</span>]).<span class="ident">into</span>(),
-                ].<span class="ident">into</span>(),
+                ]
+                .<span class="ident">into</span>(),
                 <span class="ident">attributes</span>: <span class="ident">Attributes</span> {
                     <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
                         <span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;trace&quot;</span>),
-                        <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>])
-                    ]
-                }.<span class="ident">into</span>(),
+                        <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>]),
+                    ],
+                }
+                .<span class="ident">into</span>(),
             };
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">data</span>);
@@ -383,9 +382,10 @@
                 <span class="ident">attributes</span>: <span class="ident">Attributes</span> {
                     <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[
                         <span class="ident">Attribute</span>::<span class="ident">attr</span>(<span class="string">&quot;trace&quot;</span>),
-                        <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>])
-                    ]
-                }.<span class="ident">into</span>(),
+                        <span class="ident">Attribute</span>::<span class="ident">tagged</span>(<span class="string">&quot;no_trace&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;some&quot;</span>]),
+                    ],
+                }
+                .<span class="ident">into</span>(),
                 ..<span class="ident">Default</span>::<span class="ident">default</span>()
             };
 
@@ -397,9 +397,7 @@
             <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">parse_fixture</span>(<span class="string">r#&quot;my_fixture(42, &quot;other&quot;)&quot;#</span>);
 
             <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">FixtureInfo</span> {
-                <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]).<span class="ident">into</span>(),
-                ].<span class="ident">into</span>(),
+                <span class="ident">data</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">fixture</span>(<span class="string">&quot;my_fixture&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;42&quot;</span>, <span class="string">r#&quot;&quot;other&quot;&quot;#</span>]).<span class="ident">into</span>()].<span class="ident">into</span>(),
                 ..<span class="ident">Default</span>::<span class="ident">default</span>()
             };
 

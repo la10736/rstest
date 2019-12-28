@@ -338,6 +338,8 @@
 <span id="338">338</span>
 <span id="339">339</span>
 <span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">Span</span>, <span class="ident">TokenStream</span>};
 <span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Ident</span>, <span class="ident">ItemFn</span>};
@@ -489,11 +491,12 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">implement_a_get_method_with_input_fixture_signature</span>() {
         <span class="kw">let</span> (<span class="ident">item_fn</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(
-                    <span class="string">r#&quot;
+            <span class="string">r#&quot;
                     pub fn test&lt;R: AsRef&lt;str&gt;, B&gt;(mut s: String, v: &amp;u32, a: &amp;mut [i32], r: R) -&gt; (u32, B, String, &amp;str)
                             where B: Borrow&lt;u32&gt;
                     { }
-                    &quot;#</span>);
+                    &quot;#</span>,
+        );
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="string">&quot;get&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">sig</span>;
 
@@ -505,13 +508,14 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args</span>() {
         <span class="kw">let</span> (<span class="ident">item_fn</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(
-                    <span class="string">r#&quot;
+            <span class="string">r#&quot;
                     pub fn test&lt;R: AsRef&lt;str&gt;, B, F, H: Iterator&lt;Item=u32&gt;&gt;(mut s: String, v: &amp;u32, a: &amp;mut [i32], r: R) -&gt; (H, B, String, &amp;str)
                         where F: ToString,
                         B: Borrow&lt;u32&gt;
 
                     { }
-                    &quot;#</span>);
+                    &quot;#</span>,
+        );
 
         <span class="kw">let</span> <span class="ident">default_decl</span> <span class="op">=</span> <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="string">&quot;default&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">sig</span>;
 
