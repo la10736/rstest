@@ -7,14 +7,9 @@ use syn::{
     ItemFn, ItemMod,
 };
 
-use crate::resolver::*;
 use crate::test::{assert_eq, fixture, *};
 
 use super::*;
-
-fn first_arg_ident(ast: &ItemFn) -> &Ident {
-    fn_args_idents(&ast).next().unwrap()
-}
 
 mod arg_2_fixture_should {
     use super::{assert_eq, *};
@@ -50,30 +45,6 @@ mod arg_2_fixture_should {
         let line = arg_2_fixture(arg, &resolver);
 
         assert_eq!(line, "let fix = bar();".ast());
-    }
-}
-
-mod resolver_should {
-    use super::{assert_eq, *};
-
-    #[test]
-    fn return_the_given_expression() {
-        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
-        let arg = first_arg_ident(&ast);
-        let expected = expr("bar()");
-        let mut resolver = HashMap::new();
-
-        resolver.insert("foo".to_string(), &expected);
-
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
-    }
-
-    #[test]
-    fn return_none_for_unknown_argument() {
-        let ast = "fn function(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
-
-        assert!(EmptyResolver.resolve(&arg).is_none())
     }
 }
 

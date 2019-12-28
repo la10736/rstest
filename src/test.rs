@@ -20,6 +20,7 @@ use crate::parse::{
     Attribute, Fixture,
 };
 use crate::resolver::Resolver;
+use crate::utils::fn_args_idents;
 
 macro_rules! to_args {
     ($e:expr) => {{
@@ -94,6 +95,10 @@ pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
         arg: ident(arg),
         values: values.into_iter().map(|s| expr(s)).collect(),
     }
+}
+
+pub(crate) fn first_arg_ident(ast: &ItemFn) -> &Ident {
+    fn_args_idents(&ast).next().unwrap()
 }
 
 pub(crate) fn literal_expressions_str() -> Vec<&'static str> {

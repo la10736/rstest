@@ -72,3 +72,30 @@ fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
     let partial = Ident::new(&pname, Span::call_site());
     parse_quote! { #name::#partial(#(#positional), *) }
 }
+
+#[cfg(test)]
+mod should {
+    use super::*;
+    use crate::test::{assert_eq, *};
+    use syn::parse_str;
+
+    #[test]
+    fn return_the_given_expression() {
+        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
+        let arg = first_arg_ident(&ast);
+        let expected = expr("bar()");
+        let mut resolver = HashMap::new();
+
+        resolver.insert("foo".to_string(), &expected);
+
+        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+    }
+
+    #[test]
+    fn return_none_for_unknown_argument() {
+        let ast = "fn function(mut fix: String) {}".ast();
+        let arg = first_arg_ident(&ast);
+
+        assert!(EmptyResolver.resolve(&arg).is_none())
+    }
+}
