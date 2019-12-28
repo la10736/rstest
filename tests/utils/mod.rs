@@ -1,7 +1,6 @@
-use std::path::{Path, PathBuf};
 use std::borrow::Cow;
+use std::path::{Path, PathBuf};
 use std::thread;
-
 
 pub fn resources<O: AsRef<Path>>(name: O) -> PathBuf {
     Path::new("resources").join(name)
@@ -47,7 +46,7 @@ impl<S: AsRef<str>> TestResult<S> {
         use self::TestResult::*;
         match *self {
             Fail(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -55,7 +54,7 @@ impl<S: AsRef<str>> TestResult<S> {
         use self::TestResult::*;
         match *self {
             Ok(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -63,7 +62,7 @@ impl<S: AsRef<str>> TestResult<S> {
         use self::TestResult::*;
         match self {
             &Ok(ref s) => s.as_ref().to_owned(),
-            &Fail(ref s) => s.as_ref().to_owned()
+            &Fail(ref s) => s.as_ref().to_owned(),
         }
     }
 
@@ -77,10 +76,13 @@ impl<S: AsRef<str>> TestResult<S> {
 }
 
 #[derive(Default, Clone)]
-pub struct TestResults<S>(Vec<TestResult<S>>) where S: AsRef<str> + Clone;
+pub struct TestResults<S>(Vec<TestResult<S>>)
+where
+    S: AsRef<str> + Clone;
 
 impl<S> TestResults<S>
-    where S: AsRef<str> + Clone
+where
+    S: AsRef<str> + Clone,
 {
     pub fn new() -> Self {
         TestResults(vec![])
@@ -102,11 +104,19 @@ impl<S> TestResults<S>
     pub fn assert(&self, output: ::std::process::Output) {
         let tests = &self.0;
 
-        let (expected_code, msg) = if !self.should_fail()
-            { (0, "Unexpected fails!") } else { (101, "Some test should fail!") };
-        assert_eq!(Some(expected_code), output.status.code(),
-                   "{}\n Console: \nOUT:\n{}\nERR:\n{}\n",
-                   msg, output.stdout.str(), output.stderr.str());
+        let (expected_code, msg) = if !self.should_fail() {
+            (0, "Unexpected fails!")
+        } else {
+            (101, "Some test should fail!")
+        };
+        assert_eq!(
+            Some(expected_code),
+            output.status.code(),
+            "{}\n Console: \nOUT:\n{}\nERR:\n{}\n",
+            msg,
+            output.stdout.str(),
+            output.stderr.str()
+        );
 
         let stderr = output.stderr.str();
         let output = output.stdout.str();
@@ -117,17 +127,13 @@ impl<S> TestResults<S>
 
         assert_in!(output, format!("running {} test", tests.len()));
 
-        self.for_each(
-            |t| assert_in!(output, format!("test {} ... {}", t.name(), t.msg()))
-        );
+        self.for_each(|t| assert_in!(output, format!("test {} ... {}", t.name(), t.msg())));
 
         if self.should_fail() {
             assert_in!(output, format!("failures:"));
         }
 
-        self.for_each_failed(
-            |t| assert_in!(output, format!("    {}", t.name()))
-        );
+        self.for_each_failed(|t| assert_in!(output, format!("    {}", t.name())));
     }
 
     fn should_fail(&self) -> bool {
@@ -161,11 +167,14 @@ pub trait CountMessageOccurrence {
     fn count<S: AsRef<str>>(&self, message: S) -> usize;
 }
 
-impl<ST> CountMessageOccurrence for ST where ST: AsRef<str> {
+impl<ST> CountMessageOccurrence for ST
+where
+    ST: AsRef<str>,
+{
     fn count<S: AsRef<str>>(&self, message: S) -> usize {
-        self.as_ref().lines()
-            .filter(|line| line.contains(
-                message.as_ref()))
+        self.as_ref()
+            .lines()
+            .filter(|line| line.contains(message.as_ref()))
             .count()
     }
 }

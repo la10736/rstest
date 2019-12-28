@@ -1,6 +1,9 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Ident, parse::{Parse, ParseStream, Result}, Token, Expr};
+use syn::{
+    parse::{Parse, ParseStream, Result},
+    Expr, Ident, Token,
+};
 
 use crate::refident::RefIdent;
 
@@ -21,12 +24,12 @@ impl Parse for ValueList {
             .into_iter()
             .collect();
 
-        let ret = Self {
-            arg,
-            values,
-        };
+        let ret = Self { arg, values };
         if ret.values.len() == 0 {
-            Err(syn::Error::new(paren.span, "Values list should not be empty"))
+            Err(syn::Error::new(
+                paren.span,
+                "Values list should not be empty",
+            ))
         } else {
             Ok(ret)
         }
@@ -47,13 +50,13 @@ impl ToTokens for ValueList {
 
 #[cfg(test)]
 mod should {
-    use crate::test::{*, assert_eq};
+    use crate::test::{assert_eq, *};
 
     use super::*;
 
     mod parse_values_list {
-        use super::*;
         use super::assert_eq;
+        use super::*;
 
         fn parse_values_list<S: AsRef<str>>(values_list: S) -> ValueList {
             parse_meta(values_list)
@@ -64,14 +67,15 @@ mod should {
             let literals = literal_expressions_str();
             let name = "argument";
 
-            let values_list = parse_values_list(
-                format!(r#"{} => [{}]"#, name,
-                        literals
-                            .iter()
-                            .map(ToString::to_string)
-                            .collect::<Vec<String>>()
-                            .join(", "))
-            );
+            let values_list = parse_values_list(format!(
+                r#"{} => [{}]"#,
+                name,
+                literals
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ));
 
             assert_eq!(name, &values_list.arg.to_string());
             assert_eq!(values_list.args(), to_args!(literals));

@@ -1,8 +1,8 @@
 use std::path::Path;
 pub use unindent::Unindent;
 
-use crate::utils::{TestResults, resources};
 pub use crate::utils::Stringable;
+use crate::utils::{resources, TestResults};
 
 fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("fixture").join(res);
@@ -11,7 +11,10 @@ fn prj(res: &str) -> crate::prj::Project {
 
 fn run_test(res: &str) -> (std::process::Output, String) {
     let prj = prj(res);
-    (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
+    (
+        prj.run_tests().unwrap(),
+        prj.get_name().to_owned().to_string(),
+    )
 }
 
 mod should {
@@ -21,10 +24,7 @@ mod should {
     fn use_input_fixtures() {
         let (output, _) = run_test("simple_injection.rs");
 
-        TestResults::new()
-            .ok("success")
-            .fail("fail")
-            .assert(output);
+        TestResults::new().ok("success").fail("fail").assert(output);
     }
 
     #[test]
@@ -43,9 +43,7 @@ mod should {
     fn be_accessible_from_other_module() {
         let (output, _) = run_test("from_other_module.rs");
 
-        TestResults::new()
-            .ok("struct_access")
-            .assert(output);
+        TestResults::new().ok("struct_access").assert(output);
     }
 
     mod accept_and_return {
@@ -86,7 +84,6 @@ mod should {
             .ok("test_u32")
             .ok("test_i32")
             .assert(output);
-
     }
 
     #[test]
@@ -127,42 +124,77 @@ mod should {
         let output = prj.run_tests().unwrap();
         let name = prj.get_name();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:12:33
            |
-        12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{", name).unindent());
+        12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{",
+                name
+            )
+            .unindent()
+        );
 
-        assert_in!(output.stderr.str(), format!(r#"
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
         error[E0308]: mismatched types
          --> {}/src/lib.rs:8:18
           |
         8 |     let a: u32 = "";
-        "#, name).unindent());
+        "#,
+                name
+            )
+            .unindent()
+        );
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:16:29
            |
         16 | fn error_fixture_wrong_type(fixture: String) {{
            |                             ^^^^^^^
            |                             |
-        ", name).unindent());
+        ",
+                name
+            )
+            .unindent()
+        );
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Missed argument: 'not_a_fixture' should be a test function argument.
           --> {}/src/lib.rs:19:11
            |
         19 | #[fixture(not_a_fixture(24))]
            |           ^^^^^^^^^^^^^
-        ", name).unindent());
+        ",
+                name
+            )
+            .unindent()
+        );
 
-        assert_in!(output.stderr.str(), format!(r#"
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:33:23
            |
         33 | #[fixture(f("first"), f("second"))]
            |                       ^
-        "#, name).unindent());
+        "#,
+                name
+            )
+            .unindent()
+        );
     }
 }

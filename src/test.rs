@@ -3,55 +3,59 @@
 /// Unit testing utility module. Collect a bunch of functions&macro and impls to simplify unit
 /// testing bolilerplate.
 ///
-
 use std::borrow::Cow;
 use std::iter::FromIterator;
 
-use proc_macro2::TokenTree;
-use syn::{Expr, Ident, ItemFn, parse2, parse_str, parse::Parse};
-use quote::quote;
 pub(crate) use pretty_assertions::assert_eq;
+use proc_macro2::TokenTree;
+use quote::quote;
+use syn::{parse::Parse, parse2, parse_str, Expr, Ident, ItemFn};
 
 use super::*;
 use crate::parse::{
-    Fixture, Attribute,
-    fixture::{FixtureItem, FixtureData},
-    rstest::{RsTestItem, RsTestData},
-    vlist::ValueList,
+    fixture::{FixtureData, FixtureItem},
+    rstest::{RsTestData, RsTestItem},
     testcase::TestCase,
+    vlist::ValueList,
+    Attribute, Fixture,
 };
 use crate::resolver::Resolver;
 
 macro_rules! to_args {
-    ($e:expr) => {
-                   {
-                   $e.iter()
-                   .map(|s| s as & dyn AsRef<str>)
-                   .map(expr)
-                   .collect::<Vec<_>>()
-                   }
-                 };
+    ($e:expr) => {{
+        $e.iter()
+            .map(|s| s as &dyn AsRef<str>)
+            .map(expr)
+            .collect::<Vec<_>>()
+    }};
 }
 
 macro_rules! to_exprs {
-    ($e:expr) => {$e.iter().map(|s| expr(s)).collect::<Vec<_>>()};
+    ($e:expr) => {
+        $e.iter().map(|s| expr(s)).collect::<Vec<_>>()
+    };
 }
 
 macro_rules! to_strs {
-    ($e:expr) => {$e.iter().map(ToString::to_string).collect::<Vec<_>>()};
+    ($e:expr) => {
+        $e.iter().map(ToString::to_string).collect::<Vec<_>>()
+    };
 }
 
 pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
-    let to_parse = format!(r#"
+    let to_parse = format!(
+        r#"
         #[{}]
         fn to_parse() {{}}
-        "#, test_case.as_ref());
+        "#,
+        test_case.as_ref()
+    );
 
     let item_fn = parse_str::<ItemFn>(&to_parse).unwrap();
 
     let tokens = quote!(
-            #item_fn
-        );
+        #item_fn
+    );
 
     let tt = tokens.into_iter().skip(1).next().unwrap();
 
@@ -93,8 +97,18 @@ pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
 }
 
 pub(crate) fn literal_expressions_str() -> Vec<&'static str> {
-    vec!["42", "42isize", "1.0", "-1", "-1.0", "true", "1_000_000u64", "0b10100101u8",
-         r#""42""#, "b'H'"]
+    vec![
+        "42",
+        "42isize",
+        "1.0",
+        "-1",
+        "-1.0",
+        "true",
+        "1_000_000u64",
+        "0b10100101u8",
+        r#""42""#,
+        "b'H'",
+    ]
 }
 
 pub(crate) trait ExtractArgs {
@@ -119,19 +133,11 @@ impl Attribute {
     }
 
     pub fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
-        Attribute::Tagged(
-            ident(tag),
-            attrs.into_iter()
-                .map(|a| ident(a))
-                .collect(),
-        )
+        Attribute::Tagged(ident(tag), attrs.into_iter().map(|a| ident(a)).collect())
     }
 
     pub fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
-        Attribute::Type(
-            ident(tag),
-            parse_str(inner.as_ref()).unwrap(),
-        )
+        Attribute::Type(ident(tag), parse_str(inner.as_ref()).unwrap())
     }
 }
 
@@ -140,17 +146,15 @@ impl RsTestInfo {
         self.data.items.push(RsTestItem::TestCase(case));
     }
 
-    pub fn extend(&mut self, cases: impl Iterator<Item=TestCase>) {
+    pub fn extend(&mut self, cases: impl Iterator<Item = TestCase>) {
         self.data.items.extend(cases.map(RsTestItem::TestCase));
     }
 }
 
 impl<'a> FromIterator<&'a str> for TestCase {
-    fn from_iter<T: IntoIterator<Item=&'a str>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
         TestCase {
-            args: iter.into_iter()
-                .map(expr)
-                .collect(),
+            args: iter.into_iter().map(expr).collect(),
             description: None,
         }
     }
@@ -170,7 +174,10 @@ impl From<Vec<RsTestItem>> for RsTestData {
 
 impl From<RsTestData> for RsTestInfo {
     fn from(data: RsTestData) -> Self {
-        Self { data, attributes: Default::default() }
+        Self {
+            data,
+            attributes: Default::default(),
+        }
     }
 }
 

@@ -11,14 +11,12 @@ fn one_success() {
         fn success() {
             assert!(true);
         }
-        "#
+        "#,
     );
 
     let output = project.run_tests().unwrap();
 
-    TestResults::new()
-        .ok("success")
-        .assert(output);
+    TestResults::new().ok("success").assert(output);
 }
 
 #[test]
@@ -31,12 +29,10 @@ fn one_fail() {
         fn fail() {
             assert!(false);
         }
-        "#
+        "#,
     );
 
     let output = project.run_tests().unwrap();
 
-    TestResults::new()
-        .fail("fail")
-        .assert(output);
+    TestResults::new().fail("fail").assert(output);
 }

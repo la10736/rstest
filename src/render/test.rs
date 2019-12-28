@@ -380,7 +380,8 @@ mod cases_should {
     #[test]
     fn should_not_copy_should_panic_attribute() {
         let item_fn =
-            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#.ast();
+            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#
+                .ast();
         let data = into_rstest_data(&item_fn);
         let tokens = parametrize(item_fn.clone(), data.into());
 
@@ -545,7 +546,7 @@ mod matrix_cases_should {
     fn create_a_module_named_as_test_function() {
         let item_fn = "fn should_be_the_module_name(mut fix: String) {}".ast();
         let data = into_rstest_data(&item_fn);
-        
+
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -558,7 +559,7 @@ mod matrix_cases_should {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
-        
+
         let tokens = matrix(item_fn.clone(), data.into());
 
         let mut output = TestsGroup::from(tokens);
@@ -570,9 +571,10 @@ mod matrix_cases_should {
     #[test]
     fn should_not_copy_should_panic_attribute() {
         let item_fn =
-            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#.ast();
+            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#
+                .ast();
         let data = into_rstest_data(&item_fn);
-        
+
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -585,7 +587,7 @@ mod matrix_cases_should {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
-        
+
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -605,7 +607,7 @@ mod matrix_cases_should {
         let item_fn =
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
         let data = into_rstest_data(&item_fn);
-        
+
         let tokens = matrix(item_fn.clone(), data.into());
 
         let output = TestsGroup::from(tokens);
@@ -746,10 +748,7 @@ mod matrix_cases_should {
         )
         .ast();
 
-        let tokens = matrix(
-            item_fn,
-            info
-        );
+        let tokens = matrix(item_fn, info);
 
         let tg = TestsGroup::from(tokens);
 

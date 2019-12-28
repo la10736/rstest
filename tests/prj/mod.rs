@@ -1,30 +1,30 @@
 use std::{
     self,
-    process::{Command, Stdio},
-    path::{PathBuf, Path},
     ffi::{OsStr, OsString},
     io::Write,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
 };
 
-use toml_edit::{Document, Item, Array};
-use std::fs::{File, read_to_string};
-use std::io::Read;
-use toml_edit::Table;
 use std::borrow::Cow;
+use std::fs::{read_to_string, File};
+use std::io::Read;
 use std::sync::Arc;
+use toml_edit::Table;
+use toml_edit::{Array, Document, Item};
 
 #[derive(Clone)]
 pub enum Channel {
     Stable,
     Beta,
     Nightly,
-    Custom(String)
+    Custom(String),
 }
 
 pub static CHANNEL_DEFAULT: Channel = Channel::Stable;
 pub static ENV_CHANNEL: &'static str = "RSTEST_TEST_CHANNEL";
 
-impl From<String> for Channel{
+impl From<String> for Channel {
     fn from(value: String) -> Self {
         let s = value.to_string();
         match s.to_lowercase().as_str() {
@@ -40,7 +40,7 @@ impl Default for Channel {
     fn default() -> Self {
         std::env::var(ENV_CHANNEL)
             .ok()
-            .map(Channel::from )
+            .map(Channel::from)
             .unwrap_or(CHANNEL_DEFAULT.clone())
     }
 }
@@ -61,7 +61,8 @@ impl Project {
             name: "project".into(),
             channel: Default::default(),
             ws: Arc::new(std::sync::RwLock::new(())),
-        }.create()
+        }
+        .create()
     }
 
     pub fn get_name(&self) -> Cow<str> {
@@ -75,8 +76,9 @@ impl Project {
             root: self.path(),
             name: name.as_ref().to_owned(),
             channel: self.channel.clone(),
-            ws: self.ws.clone()
-        }.create()
+            ws: self.ws.clone(),
+        }
+        .create()
     }
 
     pub fn name<O: AsRef<OsStr>>(mut self, name: O) -> Self {
@@ -120,20 +122,22 @@ impl Project {
             .wait()
             .unwrap()
             .code()
-            .unwrap() {
+            .unwrap()
+        {
             0 => {
                 self.add_dependency();
                 std::fs::File::create(self.code_path()).unwrap();
                 self
+            }
 
-            },
-
-            code => panic!("cargo init return an error code: {}", code)
+            code => panic!("cargo init return an error code: {}", code),
         }
     }
 
-    fn has_test_global_attribute(&self, path: impl AsRef<Path>) -> bool{
-        return read_to_string(&path).unwrap().starts_with(Self::GLOBAL_TEST_ATTR);
+    fn has_test_global_attribute(&self, path: impl AsRef<Path>) -> bool {
+        return read_to_string(&path)
+            .unwrap()
+            .starts_with(Self::GLOBAL_TEST_ATTR);
     }
 
     fn add_test_global_attribute(&self, path: impl AsRef<Path>) {
@@ -145,10 +149,7 @@ impl Project {
     }
 
     pub fn set_code_file<P: AsRef<Path>>(self, src: P) -> Self {
-        std::fs::copy(
-            src,
-            self.code_path(),
-        ).unwrap();
+        std::fs::copy(src, self.code_path()).unwrap();
         self
     }
 
@@ -162,9 +163,7 @@ impl Project {
     }
 
     fn code_path(&self) -> PathBuf {
-        self.path()
-            .join("src")
-            .join("lib.rs")
+        self.path().join("src").join("lib.rs")
     }
 
     fn add_dependency(&self) {
@@ -172,14 +171,23 @@ impl Project {
             .current_dir(&self.path())
             .arg("add")
             .arg("rstest")
-            .arg(&format!("--path={}",
-                          std::env::current_dir().unwrap().as_os_str().to_str().unwrap()))
+            .arg(&format!(
+                "--path={}",
+                std::env::current_dir()
+                    .unwrap()
+                    .as_os_str()
+                    .to_str()
+                    .unwrap()
+            ))
             .spawn()
             .unwrap()
             .wait_with_output()
             .unwrap();
         if Some(0) != execution.status.code() {
-            panic!("cargo add return an error code = {:?}: {:?}", execution.status, execution);
+            panic!(
+                "cargo add return an error code = {:?}: {:?}",
+                execution.status, execution
+            );
         }
     }
 
@@ -199,17 +207,17 @@ impl Project {
 
         let mut doc = orig.parse::<Document>().expect("invalid Cargo.toml");
 
-        let a : Array = Array::default();
+        let a: Array = Array::default();
 
-        doc["workspace"].or_insert(Item::Table(Table::new()))
-            ["members"].or_insert(Item::Value(a.into()))
-            .as_array_mut().map(|a| a.push(prj));
+        doc["workspace"].or_insert(Item::Table(Table::new()))["members"]
+            .or_insert(Item::Value(a.into()))
+            .as_array_mut()
+            .map(|a| a.push(prj));
 
         File::create(path)
             .expect("cannot update Cargo.toml")
             .write(doc.to_string().as_bytes())
             .expect("cannot write Cargo.toml");
-
     }
 
     fn cargo_channel_arg(&self) -> String {

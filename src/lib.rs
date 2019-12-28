@@ -18,9 +18,9 @@
 //!
 //! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take 
-//! [fixtures](attr.rstest.html#injecting-fixtures), 
-//! [input table](attr.rstest.html#test-parametrized-cases) or 
+//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take
+//! [fixtures](attr.rstest.html#injecting-fixtures),
+//! [input table](attr.rstest.html#test-parametrized-cases) or
 //! [list of values](attr.rstest.html#values-lists).
 //! - [`[fixture]`](fixture): To mark a function as a fixture.
 //! - (*Deprecated* [`[rstest_parametrize]`](rstest_parametrize): Like `[rstest]` above but with the
@@ -223,21 +223,16 @@ extern crate proc_macro;
 #[cfg(test)]
 pub(crate) mod test;
 
-mod parse;
-mod render;
-mod utils;
-mod resolver;
-mod refident;
 mod error;
+mod parse;
+mod refident;
+mod render;
+mod resolver;
+mod utils;
 
-use syn::{
-    ItemFn, parse_macro_input
-};
+use syn::{parse_macro_input, ItemFn};
 
-use crate::parse::{
-    fixture::FixtureInfo,
-    rstest::RsTestInfo,
-};
+use crate::parse::{fixture::FixtureInfo, rstest::RsTestInfo};
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
@@ -262,9 +257,9 @@ use crate::parse::{
 ///     assert_eq!(42, injected)
 /// }
 /// ```
-/// 
+///
 /// # Partial Injection
-/// 
+///
 /// You can also partialy inject fixture dependency simply indicate dependency value as fixture
 /// argument:
 ///
@@ -324,9 +319,10 @@ use crate::parse::{
 /// ```
 /// `partial_i` is the fixture used when you inject the first `i` arguments in test call.
 #[proc_macro_attribute]
-pub fn fixture(args: proc_macro::TokenStream,
-               input: proc_macro::TokenStream)
-               -> proc_macro::TokenStream {
+pub fn fixture(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let fixture = parse_macro_input!(input as ItemFn);
 
@@ -335,21 +331,22 @@ pub fn fixture(args: proc_macro::TokenStream,
         render::fixture(fixture, info).into()
     } else {
         errors
-    }.into()
+    }
+    .into()
 }
 
-/// The attribute that you should use for your tests. Your 
-/// annotated function's arguments can be 
-/// [injected](attr.rstest.html#injecting-fixtures) with 
-/// [`[fixture]`](fixture)s, provided by 
-/// [parametrized cases](attr.rstest.html#test-parametrized-cases) 
+/// The attribute that you should use for your tests. Your
+/// annotated function's arguments can be
+/// [injected](attr.rstest.html#injecting-fixtures) with
+/// [`[fixture]`](fixture)s, provided by
+/// [parametrized cases](attr.rstest.html#test-parametrized-cases)
 /// or by [value lists](attr.rstest.html#values-lists).
-/// 
+///
 /// ## General Syntax
-/// 
-/// `rstest` attribute can be applied to _any_ function and you can costumize its 
+///
+/// `rstest` attribute can be applied to _any_ function and you can costumize its
 /// parameters by the follow syntax
-/// 
+///
 /// ```norun
 /// rstest(
 ///     arg_1,
@@ -359,11 +356,11 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// )
 /// ```
 /// Where:
-/// 
+///
 /// - `arg_i` could be one of the follow
-///   - `ident` that match to one of function arguments 
+///   - `ident` that match to one of function arguments
 /// (see [parametrized cases](#test-parametrized-cases) for more details)
-///   - `case[::description](v1, ..., vl)` a test case 
+///   - `case[::description](v1, ..., vl)` a test case
 /// (see [parametrized cases](#test-parametrized-cases) for more details)
 ///   - `fixture(v1, ..., vl)` where fixture is one of function arguments
 /// that and `v1, ..., vl` is a partial list of fixture's arguments
@@ -374,19 +371,19 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// - `attribute_j` a test [attribute](#attributes)
 ///
 /// Function's arguments can be present just once as case identity, fixture or value list.
-/// 
+///
 /// Your test function can use generics, `impl` or `dyn` and like any kind of rust tests:
-/// 
+///
 /// - return results
 /// - marked by `#[should_panic]` attribute
-/// 
+///
 /// ## Injecting Fixtures
-/// 
-/// The simplest case is write a test that can be injected with 
-/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing 
+///
+/// The simplest case is write a test that can be injected with
+/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing
 /// them as a function's arguments. This can help your test to be neat
 /// and make your dependecy clear.
-/// 
+///
 /// ```
 /// use rstest::*;
 ///
@@ -399,7 +396,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 ///
-/// [`[rstest]`](rstest) proc_macro will desugar it to something that isn't 
+/// [`[rstest]`](rstest) proc_macro will desugar it to something that isn't
 /// so far from
 ///
 /// ```
@@ -409,38 +406,38 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     assert_eq!(42, injected)
 /// }
 /// ```
-/// 
+///
 /// Sometimes is useful to have some parametes in your fixtures but your test would
-/// override the fixture's default values in some cases. Like in 
-/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some 
+/// override the fixture's default values in some cases. Like in
+/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some
 /// fixture's arguments also in `rstest`.
-/// 
+///
 /// ```
 /// # struct User(String, u8);
 /// # impl User { fn name(&self) -> &str {&self.0} }
 /// use rstest::*;
-/// 
+///
 /// #[fixture]
 /// fn name() -> &'static str { "Alice" }
 /// #[fixture]
 /// fn age() -> u8 { 22 }
-/// 
+///
 /// #[fixture]
 /// fn user(name: impl AsRef<str>, age: u8) -> User { User(name.as_ref().to_owned(), age) }
-/// 
+///
 /// #[rstest(user("Bob"))]
 /// fn check_user(user: User) {
 ///     assert_eq("Bob", user.name())
 /// }
 /// ```
-/// 
+///
 /// ## Test Parametrized Cases
-/// 
+///
 /// If you would execute your test for a set of input data cases
 /// you can define the arguments to use and the cases list. Let see
 /// the classical Fibonacci example. In this case we would give the
 /// `input` value and the `expected` result for a set of cases to test.
-/// 
+///
 /// ```
 /// use rstest::rstest;
 ///
@@ -463,11 +460,11 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     }
 /// }
 /// ```
-/// 
+///
 /// `rstest` will produce a 5 indipendent tests and not just one that
 /// check every case. Every test can fail indipendently and `cargo test`
 /// will give follow output:
-/// 
+///
 /// ```norun
 /// running 5 tests
 /// test fibonacci_test::case_1 ... ok
@@ -475,18 +472,18 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// test fibonacci_test::case_3 ... ok
 /// test fibonacci_test::case_4 ... ok
 /// test fibonacci_test::case_5 ... ok
-/// 
+///
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
-/// 
+///
 /// The cases input values can be arbitrary Rust expresions that return the
 /// argument type.
-/// 
+///
 /// ```
 /// use rstest::rstest;
 ///  
 /// fn sum(a: usize, b: usize) -> usize { a + b }
-/// 
+///
 /// #[rstest(s, len,
 ///     case("foo", 3),
 ///     case(String::from("foo"), 2 + 1),
@@ -496,13 +493,13 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     assert_eq!(s.as_ref().len(), len);
 /// }
 /// ```
-/// 
+///
 /// ### Optional case description
-/// 
+///
 /// Optionally you can give a _description_ to every case simple by follow `case`
 /// with `::my_case_description` where `my_case_description` should be a a valid
 /// Rust ident.
-/// 
+///
 /// ```norun
 /// #[rstest(input, expected,
 ///     case::zero_base_case(0, 0),
@@ -511,7 +508,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     case(3, 2),
 /// )]
 /// ```
-/// 
+///
 /// Outuput will be
 /// ```norun
 /// running 4 tests
@@ -519,28 +516,28 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// test fibonacci_test::case_2_one_base_case ... ok
 /// test fibonacci_test::case_3 ... ok
 /// test fibonacci_test::case_4 ... ok
-/// 
+///
 /// test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
-/// 
+///
 /// ## Values Lists
-/// 
+///
 /// Another useful way to write a test and execute it for some values
 /// is to use the values list syntax. This syntax can be usefull both
 /// for a plain list and for testing all combination of input arguments.
-/// 
+///
 /// ```
 /// # use rstest::*;
 /// # fn is_valid(input: &str) -> bool { true }
-/// 
+///
 /// #[rstest(input => ["Jhon", "alice", "My_Name", "Zigy_2001"])]
 /// fn should_be_valid(input: &str) {
 ///     assert!(is_valid(input))
 /// }
 /// ```
-/// 
+///
 /// or
-/// 
+///
 /// ```
 /// # use rstest::*;
 /// # fn valid_user(name: &str, age: u8) -> bool { true }
@@ -554,7 +551,7 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 /// where `cargo test` output is
-/// 
+///
 /// ```norun
 /// running 6 tests
 /// test should_accept_all_corner_cases::name_1::age_1 ... ok
@@ -563,17 +560,17 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// test should_accept_all_corner_cases::name_2::age_1 ... ok
 /// test should_accept_all_corner_cases::name_2::age_2 ... ok
 /// test should_accept_all_corner_cases::name_1::age_2 ... ok
-/// 
+///
 /// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
-/// 
+///
 /// ## Putting all Together
-/// 
-/// All these features can be used together: take some fixtures, define some 
+///
+/// All these features can be used together: take some fixtures, define some
 /// fixed cases and, for each case, tests all combinations of given values.
-/// For istance you need to test that given your repository in cases of both 
+/// For istance you need to test that given your repository in cases of both
 /// logged in or guest user should return an invalid query error.
-/// 
+///
 /// ```rust
 /// # enum User { Guest, Logged, }
 /// # impl User { fn logged(_n: &str, _d: &str, _w: &str, _s: &str) -> Self { Self::Logged } }
@@ -581,21 +578,21 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// # trait Repository { fn find_items(&self, user: &User, query: &str) -> Result<Vec<Item>, String> { Err("Invalid query error".to_owned()) } }
 /// # #[derive(Default)] struct InMemoryRepository {}
 /// # impl Repository for InMemoryRepository {}
-/// 
+///
 /// use rstest::*;
-/// 
+///
 /// #[fixture]
 /// fn repository() -> InMemoryRepository {
 ///     let mut r = InMemoryRepository::default();
 ///     // fill repository by some data
 ///     r
 /// }
-/// 
+///
 /// #[fixture]
 /// fn alice() -> User {
 ///     User::logged("Alice", "2001-10-04", "London", "UK")
 /// }
-/// 
+///
 /// #[rstest(user,
 ///     case::logged_user(alice()), // We can use `fixture` also as standard function
 ///     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
@@ -606,10 +603,10 @@ pub fn fixture(args: proc_macro::TokenStream,
 ///     repository.find_items(&user, query).unwrap();
 /// }
 /// ```
-/// 
+///
 /// ## Attributes
 /// ### Trace Input Arguments
-/// 
+///
 /// Sometimes can be very helpful to print all test's input arguments. To
 /// do it you can use the `trace` parameter.
 ///
@@ -637,8 +634,8 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// Expected :42
 /// Actual   :43
 /// ```
-/// If you want to trace input arguments but skip some of them that don't 
-/// implement the `Debug` trait, you can also use the 
+/// If you want to trace input arguments but skip some of them that don't
+/// implement the `Debug` trait, you can also use the
 /// `notrace(list, of, inputs)` attribute:
 ///
 /// ```
@@ -651,9 +648,10 @@ pub fn fixture(args: proc_macro::TokenStream,
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn rstest(args: proc_macro::TokenStream,
-              input: proc_macro::TokenStream)
-              -> proc_macro::TokenStream {
+pub fn rstest(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let test = parse_macro_input!(input as ItemFn);
     let info = parse_macro_input!(args as RsTestInfo);
 
@@ -669,7 +667,8 @@ pub fn rstest(args: proc_macro::TokenStream,
         }
     } else {
         errors
-    }.into()
+    }
+    .into()
 }
 
 /// Write table-based tests: you must indicate the arguments that you want use in your cases
@@ -750,13 +749,14 @@ pub fn rstest(args: proc_macro::TokenStream,
 /// }
 /// ```
 #[proc_macro_attribute]
-#[cfg_attr(deprecate_parametrize_matrix, deprecated(
-    since = "0.5.0",
-    note = "Please use #[rstest(...)] instead"
-))]
-pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
-                          -> proc_macro::TokenStream
-{
+#[cfg_attr(
+    deprecate_parametrize_matrix,
+    deprecated(since = "0.5.0", note = "Please use #[rstest(...)] instead")
+)]
+pub fn rstest_parametrize(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     rstest(args, input)
 }
 
@@ -831,12 +831,13 @@ pub fn rstest_parametrize(args: proc_macro::TokenStream, input: proc_macro::Toke
 /// }
 /// ```
 #[proc_macro_attribute]
-#[cfg_attr(deprecate_parametrize_matrix, deprecated(
-    since = "0.5.0",
-    note = "Please use #[rstest(...)] instead"
-))]
-pub fn rstest_matrix(args: proc_macro::TokenStream, input: proc_macro::TokenStream)
-                     -> proc_macro::TokenStream
-{
+#[cfg_attr(
+    deprecate_parametrize_matrix,
+    deprecated(since = "0.5.0", note = "Please use #[rstest(...)] instead")
+)]
+pub fn rstest_matrix(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     rstest(args, input)
 }

@@ -12,7 +12,7 @@ macro_rules! wrap_attributes {
         }
 
         impl $ident {
-            fn iter(&self) -> impl Iterator<Item=&Attribute> {
+            fn iter(&self) -> impl Iterator<Item = &Attribute> {
                 self.inner.attributes.iter()
             }
         }

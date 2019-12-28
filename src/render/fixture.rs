@@ -148,11 +148,12 @@ mod should {
     #[test]
     fn implement_a_get_method_with_input_fixture_signature() {
         let (item_fn, out) = parse_fixture(
-                    r#"
+            r#"
                     pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                             where B: Borrow<u32>
                     { }
-                    "#);
+                    "#,
+        );
 
         let mut signature = select_method(out.core_impl, "get").unwrap().sig;
 
@@ -164,13 +165,14 @@ mod should {
     #[test]
     fn implement_a_default_method_with_input_cleaned_fixture_signature_and_no_args() {
         let (item_fn, out) = parse_fixture(
-                    r#"
+            r#"
                     pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (H, B, String, &str)
                         where F: ToString,
                         B: Borrow<u32>
 
                     { }
-                    "#);
+                    "#,
+        );
 
         let default_decl = select_method(out.core_impl, "default").unwrap().sig;
 

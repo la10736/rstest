@@ -1,7 +1,7 @@
 use std::path::Path;
 use unindent::Unindent;
 
-pub use crate::utils::{*, CountMessageOccurrence};
+pub use crate::utils::{CountMessageOccurrence, *};
 
 fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("parametrize").join(res);
@@ -10,16 +10,22 @@ fn prj(res: &str) -> crate::prj::Project {
 
 fn run_test(res: &str) -> (std::process::Output, String) {
     let prj = prj(res);
-    (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
+    (
+        prj.run_tests().unwrap(),
+        prj.get_name().to_owned().to_string(),
+    )
 }
 
 #[test]
 fn should_compile() {
-    let output = prj("simple.rs")
-        .compile()
-        .unwrap();
+    let output = prj("simple.rs").compile().unwrap();
 
-    assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
+    assert_eq!(
+        Some(0),
+        output.status.code(),
+        "Compile error due: {}",
+        output.stderr.str()
+    )
 }
 
 #[test]
@@ -41,7 +47,6 @@ fn mut_input() {
         .ok("add_test::case_2")
         .assert(output);
 }
-
 
 #[test]
 fn generic_input() {
@@ -151,11 +156,15 @@ mod not_compile_if_missed_arguments {
 
         assert_ne!(Some(0), output.status.code());
         assert_in!(stderr, "Missed argument");
-        assert_in!(stderr, "
+        assert_in!(
+            stderr,
+            "
       |
     4 | #[rstest_parametrize(f, case(42), case(24))]
       |                      ^
-    ".unindent());
+    "
+            .unindent()
+        );
     }
 
     #[test]
@@ -163,20 +172,31 @@ mod not_compile_if_missed_arguments {
         let (output, _) = run_test("missed_some_arguments.rs");
         let stderr = output.stderr.str();
 
-        assert_in!(stderr, "
+        assert_in!(
+            stderr,
+            "
       |
     4 | #[rstest_parametrize(a,b,c, case(1,2,3), case(3,2,1))]
       |                      ^
-    ".unindent());
-        assert_in!(stderr, "
+    "
+            .unindent()
+        );
+        assert_in!(
+            stderr,
+            "
       |
     4 | #[rstest_parametrize(a,b,c, case(1,2,3), case(3,2,1))]
       |                          ^
-    ".unindent());
+    "
+            .unindent()
+        );
 
-        assert_eq!(2, stderr.count("Missed argument"),
-                   "Should contain message exactly 2 occurrences in error message:\n{}", stderr)
-
+        assert_eq!(
+            2,
+            stderr.count("Missed argument"),
+            "Should contain message exactly 2 occurrences in error message:\n{}",
+            stderr
+        )
     }
 
     #[test]
@@ -184,8 +204,12 @@ mod not_compile_if_missed_arguments {
         let (output, _) = run_test("missed_argument.rs");
         let stderr = output.stderr.str();
 
-        assert_eq!(1, stderr.count("Missed argument"),
-                   "More than one message occurrence in error message:\n{}", stderr)
+        assert_eq!(
+            1,
+            stderr.count("Missed argument"),
+            "More than one message occurrence in error message:\n{}",
+            stderr
+        )
     }
 
     #[test]
@@ -206,8 +230,7 @@ mod not_compile_if_a_case_has_a_wrong_signature {
     //noinspection RsTypeCheck
     fn execute() -> &'static (Output, String) {
         lazy_static! {
-            static ref OUTPUT: (Output, String) =
-                run_test("case_with_wrong_args.rs");
+            static ref OUTPUT: (Output, String) = run_test("case_with_wrong_args.rs");
         }
         assert_ne!(Some(0), OUTPUT.0.status.code(), "Should not compile");
         &OUTPUT
@@ -218,17 +241,25 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         let (output, _) = execute();
         let stderr = output.stderr.str();
 
-        assert_in!(stderr, "
+        assert_in!(
+            stderr,
+            "
           |
         8 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
           |                              ^^^^^^
-        ".unindent());
+        "
+            .unindent()
+        );
 
-        assert_in!(stderr, "
+        assert_in!(
+            stderr,
+            "
           |
         8 | #[rstest_parametrize(a, case(42, 43), case(12), case(24, 34))]
           |                                                      ^^^^^^
-        ".unindent());
+        "
+            .unindent()
+        );
     }
 
     #[test]
@@ -236,17 +267,25 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         let (output, _) = execute();
         let stderr = output.stderr.str();
 
-        assert_in!(stderr, "
+        assert_in!(
+            stderr,
+            "
           |
         4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
           |                                 ^^
-        ".unindent());
+        "
+            .unindent()
+        );
 
-        assert_in!(stderr, "
+        assert_in!(
+            stderr,
+            "
           |
         4 | #[rstest_parametrize(a, b, case(42), case(1, 2), case(43))]
           |                                                       ^^
-        ".unindent());
+        "
+            .unindent()
+        );
     }
 
     #[test]
@@ -255,8 +294,12 @@ mod not_compile_if_a_case_has_a_wrong_signature {
         let stderr = output.stderr.str();
 
         // Exactly 4 cases are wrong
-        assert_eq!(4, stderr.count("Wrong case signature: should match the given parameters list."),
-                   "Should contain message exactly 4 occurrences in error message:\n{}", stderr);
+        assert_eq!(
+            4,
+            stderr.count("Wrong case signature: should match the given parameters list."),
+            "Should contain message exactly 4 occurrences in error message:\n{}",
+            stderr
+        );
     }
 }
 
@@ -286,12 +329,19 @@ mod dump_input_values {
     fn should_not_compile_if_not_implement_debug() {
         let (output, name) = run_test("dump_not_debug.rs");
 
-        assert_in!(output.stderr.str().to_string(), format!("
+        assert_in!(
+            output.stderr.str().to_string(),
+            format!(
+                "
         error[E0277]: `S` doesn't implement `std::fmt::Debug`
          --> {}/src/lib.rs:9:18
           |
         9 | fn test_function(s: S) {{}}
-          |                  ^ `S` cannot be formatted using `{{:?}}`", name).unindent());
+          |                  ^ `S` cannot be formatted using `{{:?}}`",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
@@ -316,16 +366,19 @@ mod dump_input_values {
             .fail("should_fail::case_1")
             .assert(output);
 
-        let lines = out.lines()
-            .skip_while(|l|
-                !l.contains("TEST ARGUMENTS"))
-            .take_while(|l|
-                !l.contains("TEST START"))
+        let lines = out
+            .lines()
+            .skip_while(|l| !l.contains("TEST ARGUMENTS"))
+            .take_while(|l| !l.contains("TEST START"))
             .collect::<Vec<_>>();
 
-        assert_eq!(3, lines.len(),
-                   "Not contains 3 lines but {}: '{}'",
-                   lines.len(), lines.join("\n"));
+        assert_eq!(
+            3,
+            lines.len(),
+            "Not contains 3 lines but {}: '{}'",
+            lines.len(),
+            lines.join("\n")
+        );
     }
 }
 
@@ -337,8 +390,7 @@ mod should_show_correct_errors {
     //noinspection RsTypeCheck
     fn execute() -> &'static (Output, String) {
         lazy_static! {
-            static ref OUTPUT: (Output, String) =
-                run_test("errors.rs");
+            static ref OUTPUT: (Output, String) = run_test("errors.rs");
         }
         &OUTPUT
     }
@@ -347,114 +399,173 @@ mod should_show_correct_errors {
     fn if_no_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:11:33
            |
-        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).unindent());
+        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_inject_wrong_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Missed argument: 'not_a_fixture' should be a test function argument.
           --> {}/src/lib.rs:26:35
            |
         26 | #[rstest_parametrize(f, case(42), not_a_fixture(24))]
            |                                   ^^^^^^^^^^^^^
-        ", name).unindent());
+        ",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_wrong_type() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!(r#"
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
         error[E0308]: mismatched types
          --> {}/src/lib.rs:7:18
           |
         7 |     let a: u32 = "";
-        "#, name).unindent());
+        "#,
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_wrong_type_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:14:29
            |
         14 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
            |                             ^^^^^^^
            |                             |
-        ", name).unindent());
+        ",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_wrong_type_param() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:17:27
            |
-        17 | fn error_param_wrong_type(f: &str) {{}}", name).unindent());
+        17 | fn error_param_wrong_type(f: &str) {{}}",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_arbitrary_rust_code_has_some_errors() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:20:31
            |
         20 |     case(vec![1,2,3].contains(2)))
            |                               ^
            |                               |",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_inject_a_fixture_that_is_already_a_case() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:40:25
            |
         40 | #[rstest_parametrize(f, f(42), case(12))]
            |                         ^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_define_case_that_is_already_an_injected_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:44:29
            |
         44 | #[rstest_parametrize(f(42), f, case(12))]
            |                             ^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_inject_a_fixture_more_than_once() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:48:32
            |
         48 | #[rstest_parametrize(v, f(42), f(42), case(12))]
            |                                ^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 }
 
@@ -462,37 +573,56 @@ mod should_show_correct_errors {
 fn should_reject_no_item_function() {
     let (output, name) = run_test("reject_no_item_function.rs");
 
-    assert_in!(output.stderr.str(), format!("
+    assert_in!(
+        output.stderr.str(),
+        format!(
+            "
         error: expected `fn`
          --> {}/src/lib.rs:4:1
           |
         4 | struct Foo;
           | ^^^^^^
-        ", name).unindent());
+        ",
+            name
+        )
+        .unindent()
+    );
 
-    assert_in!(output.stderr.str(), format!("
+    assert_in!(
+        output.stderr.str(),
+        format!(
+            "
         error: expected `fn`
          --> {}/src/lib.rs:7:1
           |
         7 | impl Foo {{}}
           | ^^^^
-        ", name).unindent());
+        ",
+            name
+        )
+        .unindent()
+    );
 
-    assert_in!(output.stderr.str(), format!("
+    assert_in!(
+        output.stderr.str(),
+        format!(
+            "
         error: expected `fn`
           --> {}/src/lib.rs:10:1
            |
         10 | mod mod_baz {{}}
            | ^^^
-        ", name).unindent());
+        ",
+            name
+        )
+        .unindent()
+    );
 }
 
 #[test]
 #[cfg_attr(not(deprecate_parametrize_matrix), ignore)]
 fn should_deprecate() {
-    let output = prj("simple.rs")
-        .compile()
-        .unwrap();
+    let output = prj("simple.rs").compile().unwrap();
 
     assert_in!(output.stderr.str(), "deprecated");
     assert_in!(output.stderr.str(), "rstest_parametrize");

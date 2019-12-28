@@ -1,7 +1,7 @@
 use std::path::Path;
 use unindent::Unindent;
 
-pub use crate::utils::{*, CountMessageOccurrence};
+pub use crate::utils::{CountMessageOccurrence, *};
 
 fn prj(res: &str) -> crate::prj::Project {
     let path = Path::new("matrix").join(res);
@@ -10,16 +10,22 @@ fn prj(res: &str) -> crate::prj::Project {
 
 fn run_test(res: &str) -> (std::process::Output, String) {
     let prj = prj(res);
-    (prj.run_tests().unwrap(), prj.get_name().to_owned().to_string())
+    (
+        prj.run_tests().unwrap(),
+        prj.get_name().to_owned().to_string(),
+    )
 }
 
 #[test]
 fn should_compile() {
-    let output = prj("simple.rs")
-        .compile()
-        .unwrap();
+    let output = prj("simple.rs").compile().unwrap();
 
-    assert_eq!(Some(0), output.status.code(), "Compile error due: {}", output.stderr.str())
+    assert_eq!(
+        Some(0),
+        output.status.code(),
+        "Compile error due: {}",
+        output.stderr.str()
+    )
 }
 
 #[test]
@@ -91,12 +97,19 @@ mod dump_input_values {
     fn should_not_compile_if_not_implement_debug() {
         let (output, name) = run_test("dump_not_debug.rs");
 
-        assert_in!(output.stderr.str().to_string(), format!("
+        assert_in!(
+            output.stderr.str().to_string(),
+            format!(
+                "
         error[E0277]: `S` doesn't implement `std::fmt::Debug`
          --> {}/src/lib.rs:9:18
           |
         9 | fn test_function(s: S) {{}}
-          |                  ^ `S` cannot be formatted using `{{:?}}`", name).unindent());
+          |                  ^ `S` cannot be formatted using `{{:?}}`",
+                name
+            )
+            .unindent()
+        );
     }
 }
 
@@ -107,8 +120,7 @@ mod should_show_correct_errors {
 
     fn execute() -> &'static (Output, String) {
         lazy_static! {
-            static ref OUTPUT: (Output, String) =
-                run_test("errors.rs");
+            static ref OUTPUT: (Output, String) = run_test("errors.rs");
         }
         &OUTPUT
     }
@@ -117,149 +129,225 @@ mod should_show_correct_errors {
     fn if_no_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
           --> {}/src/lib.rs:11:33
            |
-        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}", name).unindent());
+        11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_wrong_type() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!(r#"
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
         error[E0308]: mismatched types
          --> {}/src/lib.rs:7:18
           |
         7 |     let a: u32 = "";
-        "#, name).unindent());
+        "#,
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_wrong_type_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:14:29
            |
         14 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
            |                             ^^^^^^^
            |                             |
-        ", name).unindent());
+        ",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_wrong_type_param() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:17:27
            |
-        17 | fn error_param_wrong_type(f: &str) {{}}", name).unindent());
+        17 | fn error_param_wrong_type(f: &str) {{}}",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_arbitrary_rust_code_has_some_errors() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error[E0308]: mismatched types
           --> {}/src/lib.rs:19:52
            |
         19 | #[rstest_matrix(condition => [vec![1,2,3].contains(2)] )]
            |                                                    ^
            |                                                    |",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_a_value_contains_empty_list() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Values list should not be empty
           --> {}/src/lib.rs:24:26
            |
         24 | #[rstest_matrix(empty => [])]
            |                          ^^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_argument_dont_match_function_signature() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Missed argument: 'not_exist_1' should be a test function argument.
           --> {}/src/lib.rs:27:17
            |
         27 | #[rstest_matrix(not_exist_1 => [42],
            |                 ^^^^^^^^^^^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Missed argument: 'not_exist_2' should be a test function argument.
           --> {}/src/lib.rs:28:17
            |
         28 |                 not_exist_2 => [42])]
            |                 ^^^^^^^^^^^",
-           name).unindent());
-
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_inject_wrong_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Missed argument: 'not_a_fixture' should be a test function argument.
           --> {}/src/lib.rs:31:32
            |
         31 | #[rstest_matrix(f => [41, 42], not_a_fixture(24))]
            |                                ^^^^^^^^^^^^^
-        ", name).unindent());
+        ",
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_inject_a_fixture_that_is_already_a_value_list() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:45:32
            |
         45 | #[rstest_matrix(f => [41, 42], f(42))]
            |                                ^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_define_value_list_that_is_already_an_injected_fixture() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:49:24
            |
         49 | #[rstest_matrix(f(42), f => [41, 42])]
            |                        ^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 
     #[test]
     fn if_inject_a_fixture_more_than_once() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
         error: Duplicate argument: 'f' is already defined.
           --> {}/src/lib.rs:53:24
            |
         53 | #[rstest_matrix(f(42), f(42), v => [41, 42])]
            |                        ^",
-           name).unindent());
+                name
+            )
+            .unindent()
+        );
     }
 }
 
@@ -267,37 +355,56 @@ mod should_show_correct_errors {
 fn should_reject_no_item_function() {
     let (output, name) = run_test("reject_no_item_function.rs");
 
-    assert_in!(output.stderr.str(), format!("
+    assert_in!(
+        output.stderr.str(),
+        format!(
+            "
         error: expected `fn`
          --> {}/src/lib.rs:4:1
           |
         4 | struct Foo;
           | ^^^^^^
-        ", name).unindent());
+        ",
+            name
+        )
+        .unindent()
+    );
 
-    assert_in!(output.stderr.str(), format!("
+    assert_in!(
+        output.stderr.str(),
+        format!(
+            "
         error: expected `fn`
          --> {}/src/lib.rs:7:1
           |
         7 | impl Foo {{}}
           | ^^^^
-        ", name).unindent());
+        ",
+            name
+        )
+        .unindent()
+    );
 
-    assert_in!(output.stderr.str(), format!("
+    assert_in!(
+        output.stderr.str(),
+        format!(
+            "
         error: expected `fn`
           --> {}/src/lib.rs:10:1
            |
         10 | mod mod_baz {{}}
            | ^^^
-        ", name).unindent());
+        ",
+            name
+        )
+        .unindent()
+    );
 }
 
 #[test]
 #[cfg_attr(not(deprecate_parametrize_matrix), ignore)]
 fn should_deprecate() {
-    let output = prj("simple.rs")
-        .compile()
-        .unwrap();
+    let output = prj("simple.rs").compile().unwrap();
 
     assert_in!(output.stderr.str(), "deprecated");
     assert_in!(output.stderr.str(), "rstest_matrix");

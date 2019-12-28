@@ -17,9 +17,9 @@ mod matrix;
 /// Fixture's integration tests
 mod fixture;
 
+use lazy_static::lazy_static;
 use prj::Project;
 use temp_testdir::TempDir;
-use lazy_static::lazy_static;
 
 lazy_static! {
     static ref ROOT_DIR: TempDir = TempDir::default().permanent();
@@ -35,4 +35,3 @@ pub fn prj() -> Project {
 
     ROOT_PROJECT.subproject(&prj_name)
 }
-

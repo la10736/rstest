@@ -1,13 +1,12 @@
 use proc_macro2::TokenStream;
 use syn::{
-    Ident, Token, token,
     parse::{Parse, ParseStream, Result},
     punctuated::Punctuated,
+    token, Ident, Token,
 };
 
-use quote::ToTokens;
 use crate::refident::RefIdent;
-
+use quote::ToTokens;
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -15,12 +14,12 @@ pub(crate) mod macros;
 
 pub(crate) mod fixture;
 pub(crate) mod rstest;
-pub(crate) mod vlist;
 pub(crate) mod testcase;
+pub(crate) mod vlist;
 
 #[derive(Default, Debug, PartialEq)]
 pub(crate) struct Attributes {
-    pub(crate) attributes: Vec<Attribute>
+    pub(crate) attributes: Vec<Attribute>,
 }
 
 impl Parse for Attributes {
@@ -66,21 +65,21 @@ impl Parse for Attribute {
 }
 
 fn parse_vector_trailing_till_double_comma<T, P>(input: ParseStream) -> Result<Vec<T>>
-    where
-        T: Parse,
-        P: syn::token::Token + Parse
+where
+    T: Parse,
+    P: syn::token::Token + Parse,
 {
     Ok(
-        Punctuated::<Option<T>, P>::parse_separated_nonempty_with(
-            input, |input_tokens|
-                if input_tokens.is_empty() || input_tokens.peek(Token![::]) {
-                    Ok(None)
-                } else {
-                    T::parse(input_tokens).map(|inner| Some(inner))
-                },
-        )?.into_iter()
-            .filter_map(|it| it)
-            .collect()
+        Punctuated::<Option<T>, P>::parse_separated_nonempty_with(input, |input_tokens| {
+            if input_tokens.is_empty() || input_tokens.peek(Token![::]) {
+                Ok(None)
+            } else {
+                T::parse(input_tokens).map(|inner| Some(inner))
+            }
+        })?
+        .into_iter()
+        .filter_map(|it| it)
+        .collect(),
     )
 }
 
@@ -91,7 +90,7 @@ pub(crate) fn drain_stream(input: ParseStream) {
         let mut rest = *cursor;
         while let Some((_, next)) = rest.token_tree() {
             rest = next
-        };
+        }
         Ok(((), rest))
     });
 }
@@ -116,9 +115,7 @@ impl Parse for Fixture {
         let positional = Punctuated::<syn::Expr, Token![,]>::parse_terminated(&content)?
             .into_iter()
             .collect();
-        Ok(
-            Self::new(name, positional)
-        )
+        Ok(Self::new(name, positional))
     }
 }
 
@@ -140,8 +137,8 @@ mod should {
     use crate::test::*;
 
     mod parse_attributes {
-        use super::*;
         use super::assert_eq;
+        use super::*;
 
         fn parse_attributes<S: AsRef<str>>(attributes: S) -> Attributes {
             parse_meta(attributes)
@@ -152,9 +149,7 @@ mod should {
             let attributes = parse_attributes("my_ident");
 
             let expected = Attributes {
-                attributes: vec![
-                    Attribute::attr("my_ident")
-                ]
+                attributes: vec![Attribute::attr("my_ident")],
             };
 
             assert_eq!(expected, attributes);
@@ -165,9 +160,7 @@ mod should {
             let attributes = parse_attributes("group_tag(first, second)");
 
             let expected = Attributes {
-                attributes: vec![
-                    Attribute::tagged("group_tag", vec!["first", "second"])
-                ]
+                attributes: vec![Attribute::tagged("group_tag", vec!["first", "second"])],
             };
 
             assert_eq!(expected, attributes);
@@ -178,9 +171,7 @@ mod should {
             let attributes = parse_attributes("type_tag<(u32, T, (String, i32))>");
 
             let expected = Attributes {
-                attributes: vec![
-                    Attribute::typed("type_tag", "(u32, T, (String, i32))")
-                ]
+                attributes: vec![Attribute::typed("type_tag", "(u32, T, (String, i32))")],
             };
 
             assert_eq!(expected, attributes);
@@ -188,8 +179,10 @@ mod should {
 
         #[test]
         fn integrated() {
-            let attributes = parse_attributes(r#"
-            simple :: tagged(first, second) :: type_tag<(u32, T, (std::string::String, i32))> :: more_tagged(a,b)"#);
+            let attributes = parse_attributes(
+                r#"
+            simple :: tagged(first, second) :: type_tag<(u32, T, (std::string::String, i32))> :: more_tagged(a,b)"#,
+            );
 
             let expected = Attributes {
                 attributes: vec![
@@ -197,11 +190,10 @@ mod should {
                     Attribute::tagged("tagged", vec!["first", "second"]),
                     Attribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
                     Attribute::tagged("more_tagged", vec!["a", "b"]),
-                ]
+                ],
             };
 
             assert_eq!(expected, attributes);
         }
     }
 }
-

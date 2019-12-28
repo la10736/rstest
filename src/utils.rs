@@ -6,16 +6,13 @@ use syn::{FnArg, Ident, ItemFn};
 /// Return an iterator over fn arguments items.
 ///
 pub(crate) fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item = &Ident> {
-    fn_args(&test)
-        .filter_map(MaybeIdent::maybe_ident)
+    fn_args(&test).filter_map(MaybeIdent::maybe_ident)
 }
 
 /// Return if function declaration has an ident
 ///
 pub(crate) fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
-    fn_args_idents(fn_decl)
-        .find(|&id| id == ident)
-        .is_some()
+    fn_args_idents(fn_decl).find(|&id| id == ident).is_some()
 }
 
 /// Return an iterator over fn arguments.

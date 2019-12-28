@@ -1,7 +1,6 @@
-
 use proc_macro2::TokenStream;
-use syn::Ident;
 use quote::{quote, ToTokens};
+use syn::Ident;
 
 pub(crate) trait WrapByModule {
     fn wrap_by_mod(&self, mod_name: &Ident) -> TokenStream;

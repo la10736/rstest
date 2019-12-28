@@ -111,8 +111,6 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
 
     let resolver = resolver::fixture_resolver(data.fixtures());
     let rendered_cases = if cases.is_empty() {
-
-
         let list_values = data.list_values().collect::<Vec<_>>();
         _matrix_recursive(&test, &list_values, &resolver, &attributes)
     } else {
@@ -120,7 +118,12 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
             .into_iter()
             .map(|(case_name, case_resolver)| {
                 let list_values = data.list_values().collect::<Vec<_>>();
-                _matrix_recursive(&test, &list_values, &(case_resolver, &resolver), &attributes)
+                _matrix_recursive(
+                    &test,
+                    &list_values,
+                    &(case_resolver, &resolver),
+                    &attributes,
+                )
                 .wrap_by_mod(&case_name)
             })
             .collect()
@@ -138,11 +141,10 @@ fn single_test_case<'a>(
 ) -> TokenStream {
     let testfn_name = &testfn.sig.ident;
     let test_impl = test_impl.map(|f| {
-        let mut f = f.clone(); 
+        let mut f = f.clone();
         f.attrs = vec![];
         f
-    }
-    ); // Remove attributes
+    }); // Remove attributes
     let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
     let attrs = &testfn.attrs;
     let output = &testfn.sig.output;
@@ -267,7 +269,10 @@ struct TestCaseRender<'a> {
 
 impl<'a> TestCaseRender<'a> {
     pub fn new<R: Resolver + 'a>(name: Ident, resolver: R) -> Self {
-        TestCaseRender { name, resolver: Box::new(resolver) }
+        TestCaseRender {
+            name,
+            resolver: Box::new(resolver),
+        }
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {

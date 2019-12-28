@@ -1,4 +1,8 @@
-use syn::{Ident, Token, parse::{Error, Parse, ParseStream, Result}, punctuated::Punctuated, Expr};
+use syn::{
+    parse::{Error, Parse, ParseStream, Result},
+    punctuated::Punctuated,
+    Expr, Ident, Token,
+};
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
@@ -41,7 +45,7 @@ impl ToTokens for TestCase {
 #[cfg(test)]
 mod should {
     use super::*;
-    use crate::test::{*, assert_eq};
+    use crate::test::{assert_eq, *};
 
     fn parse_test_case<S: AsRef<str>>(test_case: S) -> TestCase {
         parse_meta(test_case)
@@ -85,7 +89,10 @@ mod should {
         let test_case = parse_test_case(r#"case::this_test_description(42)"#);
         let args = test_case.args();
 
-        assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
+        assert_eq!(
+            "this_test_description",
+            &test_case.description.unwrap().to_string()
+        );
         assert_eq!(to_args!(["42"]), args);
     }
 
@@ -94,13 +101,17 @@ mod should {
         let test_case = parse_test_case(r#"case :: this_test_description (42, 24)"#);
         let args = test_case.args();
 
-        assert_eq!("this_test_description", &test_case.description.unwrap().to_string());
+        assert_eq!(
+            "this_test_description",
+            &test_case.description.unwrap().to_string()
+        );
         assert_eq!(to_args!(["42", "24"]), args);
     }
 
     #[test]
     fn parse_arbitrary_rust_code_as_expression() {
-        let test_case = parse_test_case(r##"
+        let test_case = parse_test_case(
+            r##"
             case(42, -42,
             pippo("pluto"),
             Vec::new(),
@@ -113,16 +124,22 @@ mod should {
                 sum
             },
             vec![1,2,3]
-        )"##);
+        )"##,
+        );
 
         let args = test_case.args();
 
         assert_eq!(
-            to_args!(["42", "-42", r#"pippo("pluto")"#, "Vec::new()",
-                    r##"String::from(r#"prrr"#)"##,
-                    r#"{let mut sum=0;for i in 1..3 {sum += i;}sum}"#,
-                    "vec![1,2,3]"
-                    ]),
-            args);
+            to_args!([
+                "42",
+                "-42",
+                r#"pippo("pluto")"#,
+                "Vec::new()",
+                r##"String::from(r#"prrr"#)"##,
+                r#"{let mut sum=0;for i in 1..3 {sum += i;}sum}"#,
+                "vec![1,2,3]"
+            ]),
+            args
+        );
     }
 }
