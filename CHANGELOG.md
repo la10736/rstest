@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2] 2019/12/30
+
+### Fixed
+
+- Fixed _unused attribute_ warning when use `should_panic` 
+attribute (See #79)
+
 ## [0.5.1] 2019/12/14
 
 ### Fixed

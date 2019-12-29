@@ -101,6 +101,13 @@ pub(crate) fn first_arg_ident(ast: &ItemFn) -> &Ident {
     fn_args_idents(&ast).next().unwrap()
 }
 
+pub(crate) fn extract_inner_functions(block: &syn::Block) -> impl Iterator<Item = &syn::ItemFn> {
+    block.stmts.iter().filter_map(|s| match s {
+        syn::Stmt::Item(syn::Item::Fn(f)) => Some(f),
+        _ => None,
+    })
+}
+
 pub(crate) fn literal_expressions_str() -> Vec<&'static str> {
     vec![
         "42",

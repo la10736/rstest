@@ -405,6 +405,25 @@ mod cases_should {
     }
 
     #[test]
+    fn not_copy_user_function() {
+        let t_name = "test_name";
+        let item_fn: ItemFn = format!(
+            "fn {}(fix: String) -> Result<i32, String> {{ Ok(42) }}",
+            t_name
+        )
+        .ast();
+        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
+        info.push_case(TestCase::from(r#"String::from("3")"#));
+
+        let tokens = parametrize(item_fn, info);
+
+        let test = &TestsGroup::from(tokens).get_all_tests()[0];
+        let inner_functions = extract_inner_functions(&test.block);
+
+        assert_eq!(0, inner_functions.filter(|f| f.sig.ident == t_name).count());
+    }
+
+    #[test]
     fn starts_case_number_from_1() {
         let (item_fn, info) = one_simple_case();
 
@@ -533,13 +552,41 @@ mod matrix_cases_should {
     }
 
     #[test]
+    fn not_copy_user_function() {
+        let t_name = "test_name";
+        let item_fn: ItemFn = format!(
+            "fn {}(fix: String) -> Result<i32, String> {{ Ok(42) }}",
+            t_name
+        )
+        .ast();
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![values_list("fix", &["1"]).into()].into(),
+            },
+            ..Default::default()
+        };
+
+        let tokens = matrix(item_fn, info);
+
+        let test = &TestsGroup::from(tokens).get_all_tests()[0];
+        let inner_functions = extract_inner_functions(&test.block);
+
+        assert_eq!(0, inner_functions.filter(|f| f.sig.ident == t_name).count());
+    }
+
+    #[test]
     fn not_copy_should_panic_attribute() {
         let item_fn =
             r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#
                 .ast();
-        let data = into_rstest_data(&item_fn);
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![values_list("fix", &["1"]).into()].into(),
+            },
+            ..Default::default()
+        };
 
-        let tokens = matrix(item_fn.clone(), data.into());
+        let tokens = matrix(item_fn, info);
 
         let output = TestsGroup::from(tokens);
 

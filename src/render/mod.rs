@@ -6,7 +6,8 @@ use std::{borrow::Cow, collections::HashMap};
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
-    parse_quote, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Stmt, Type, WherePredicate,
+    parse_quote, Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Stmt, Type,
+    WherePredicate,
 };
 
 use quote::quote;
@@ -23,11 +24,21 @@ use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
 
-pub(crate) fn single(test: ItemFn, info: RsTestInfo) -> TokenStream {
-    let name = &test.sig.ident;
+pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixture_resolver(info.data.fixtures());
+    let args = fn_args_idents(&test).cloned().collect::<Vec<_>>();
+    let attrs = std::mem::take(&mut test.attrs);
 
-    single_test_case(name.clone(), &test, Some(&test), resolver, &info.attributes)
+    single_test_case(
+        &test.sig.ident,
+        &test.sig.ident,
+        &args,
+        &attrs,
+        &test.sig.output,
+        Some(&test),
+        resolver,
+        &info.attributes,
+    )
 }
 
 pub(crate) fn parametrize(test: ItemFn, info: RsTestInfo) -> TokenStream {
@@ -132,23 +143,28 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
+/// Render a single test case:
+///
+/// * `name` - Test case name
+/// * `testfn_name` - The name of test function to call
+/// * `args` - The arguments of the test function
+/// * `attrs` - The expected test attributes
+/// * `output` - The expected test return type  
+/// * `test_impl` - If you want embed test function (should be the one called by `testfn_name`)
+/// * `resolver` - The resolver used to resolve injected values
+/// * `attributes` - Test attributes to select test behaviour
+///
 fn single_test_case<'a>(
-    name: Ident,
-    testfn: &ItemFn,
+    name: &Ident,
+    testfn_name: &Ident,
+    args: &[Ident],
+    attrs: &[Attribute],
+    output: &ReturnType,
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
     attributes: &'a RsTestAttributes,
 ) -> TokenStream {
-    let testfn_name = &testfn.sig.ident;
-    let test_impl = test_impl.map(|f| {
-        let mut f = f.clone();
-        f.attrs = vec![];
-        f
-    }); // Remove attributes
-    let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
-    let attrs = &testfn.attrs;
-    let output = &testfn.sig.output;
-    let inject = resolve_args(fn_args_idents(&testfn), &resolver);
+    let inject = resolve_args(args.iter(), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
     quote! {
         #[test]
@@ -276,7 +292,18 @@ impl<'a> TestCaseRender<'a> {
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
-        single_test_case(self.name, testfn, None, self.resolver, attributes)
+        let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
+
+        single_test_case(
+            &self.name,
+            &testfn.sig.ident,
+            &args,
+            &testfn.attrs,
+            &testfn.sig.output,
+            None,
+            self.resolver,
+            attributes,
+        )
     }
 }
 
