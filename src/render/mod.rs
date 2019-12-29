@@ -27,7 +27,7 @@ pub(crate) use fixture::render as fixture;
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixture_resolver(info.data.fixtures());
     let args = fn_args_idents(&test).cloned().collect::<Vec<_>>();
-    let attrs = std::mem::take(&mut test.attrs);
+    let attrs = std::mem::replace(&mut test.attrs, Default::default());
 
     single_test_case(
         &test.sig.ident,
