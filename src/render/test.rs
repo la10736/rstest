@@ -48,28 +48,20 @@ mod arg_2_fixture_should {
     }
 }
 
-mod fn_test_should {
-    use pretty_assertions::assert_eq;
-    use proc_macro2::Span;
+mod single_test_should {
+    use crate::test::{assert_eq, *};
 
     use super::*;
 
     #[test]
     fn add_return_type_if_any() {
-        let ast: ItemFn = "fn function(mut fix: String) -> Result<i32, String> { Ok(42) }".ast();
+        let input_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
 
-        let tokens = single_test_case(
-            Ident::new("new_name", Span::call_site()),
-            &ast,
-            None,
-            EmptyResolver,
-            &Default::default(),
-        );
+        let tokens = single(input_fn.clone(), Default::default());
 
         let result: ItemFn = parse2(tokens).unwrap();
 
-        assert_eq!(result.sig.ident.to_string(), "new_name");
-        assert_eq!(result.sig.output, ast.sig.output);
+        assert_eq!(result.sig.output, input_fn.sig.output);
     }
 
     #[test]
@@ -83,13 +75,7 @@ mod fn_test_should {
                 }
                 "#.ast();
 
-        let tokens = single_test_case(
-            Ident::new("new_name", Span::call_site()),
-            &input_fn,
-            Some(&input_fn),
-            EmptyResolver,
-            &Default::default(),
-        );
+        let tokens = single(input_fn.clone(), Default::default());
 
         let result: ItemFn = parse2(tokens).unwrap();
         let first_stmt = result.block.stmts.get(0).unwrap();
@@ -102,16 +88,10 @@ mod fn_test_should {
     }
 
     #[test]
-    fn should_not_copy_should_panic_attribute() {
+    fn not_copy_should_panic_attribute() {
         let input_fn: ItemFn = r#"#[should_panic] pub fn test(_s: String){}"#.ast();
 
-        let tokens = single_test_case(
-            Ident::new("new_name", Span::call_site()),
-            &input_fn,
-            Some(&input_fn),
-            EmptyResolver,
-            &Default::default(),
-        );
+        let tokens = single(input_fn.clone(), Default::default());
 
         let result: ItemFn = parse2(tokens).unwrap();
         let first_stmt = result.block.stmts.get(0).unwrap();
@@ -412,6 +392,19 @@ mod cases_should {
     }
 
     #[test]
+    fn add_return_type_if_any() {
+        let item_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
+        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
+        info.push_case(TestCase::from(r#"String::from("3")"#));
+
+        let tokens = parametrize(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert_eq!(tests[0].sig.output, item_fn.sig.output);
+    }
+
+    #[test]
     fn starts_case_number_from_1() {
         let (item_fn, info) = one_simple_case();
 
@@ -540,7 +533,7 @@ mod matrix_cases_should {
     }
 
     #[test]
-    fn should_not_copy_should_panic_attribute() {
+    fn not_copy_should_panic_attribute() {
         let item_fn =
             r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#
                 .ast();
@@ -551,6 +544,25 @@ mod matrix_cases_should {
         let output = TestsGroup::from(tokens);
 
         assert!(!format!("{:?}", output.requested_test.attrs).contains("should_panic"));
+    }
+
+    #[test]
+    fn add_return_type_if_any() {
+        let item_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![values_list("fix", &["1", "2", "3"]).into()].into(),
+            },
+            ..Default::default()
+        };
+
+        let tokens = matrix(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_tests();
+
+        assert_eq!(tests[0].sig.output, item_fn.sig.output);
+        assert_eq!(tests[1].sig.output, item_fn.sig.output);
+        assert_eq!(tests[2].sig.output, item_fn.sig.output);
     }
 
     #[test]
