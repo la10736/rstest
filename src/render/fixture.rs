@@ -22,7 +22,6 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let default_generics =
         generics_clean_up(&fixture.sig.generics, std::iter::empty(), &default_output);
     let default_where_clause = &default_generics.where_clause;
-    let body = &fixture.block;
     let where_clause = &fixture.sig.generics.where_clause;
     let output = &fixture.sig.output;
     let visibility = &fixture.vis;
@@ -36,8 +35,9 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
 
         impl #name {
             #(#orig_attrs)*
+            #[allow(unused_mut)]
             pub fn get #generics (#orig_args) #output #where_clause {
-                #body
+                #name(#(#args),*)
             }
 
             pub fn default #default_generics () #default_output #default_where_clause {
@@ -74,6 +74,7 @@ fn render_partial_impl(
     let name = Ident::new(&format!("partial_{}", n), Span::call_site());
 
     quote! {
+        #[allow(unused_mut)]
         pub fn #name #generics (#(#sign_args),*) #output #where_clause {
             #inject
             Self::get(#(#fixture_args),*)

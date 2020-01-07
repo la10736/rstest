@@ -46,6 +46,13 @@ mod should {
         TestResults::new().ok("struct_access").assert(output);
     }
 
+    #[test]
+    fn not_show_any_warning() {
+        let (output, _) = run_test("no_warning.rs");
+
+        assert_not_in!(output.stderr.str(), "warning:");
+    }
+
     mod accept_and_return {
         use super::*;
 
