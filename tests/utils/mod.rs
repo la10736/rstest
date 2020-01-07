@@ -18,7 +18,7 @@ macro_rules! assert_in {
         match (&$text, &$message) {
             (text_val, message_val) => {
                 if !text_val.contains(message_val) {
-                    panic!(r#"assertion failed: `text not contains message`
+                    panic!(r#"assertion failed: `text don't contain message`
          text: `{}`,
          message: `{}`"#, text_val, message_val)
                 }
@@ -32,7 +32,36 @@ macro_rules! assert_in {
         match (&$text, &$message) {
             (text_val, message_val) => {
                 if !text_val.contains(message_val) {
-                    panic!(r#"assertion failed: `text not contains message`
+                    panic!(r#"assertion failed: `text don't contain message`
+         text: `{}`,
+         message: `{}`: {}"#, text_val, message_val, format_args!($($arg)+))
+                }
+            }
+        }
+        });
+}
+
+#[macro_export]
+macro_rules! assert_not_in {
+    ($text:expr, $message:expr) => ({
+        match (&$text, &$message) {
+            (text_val, message_val) => {
+                if text_val.contains(message_val) {
+                    panic!(r#"assertion failed: `text contains message`
+         text: `{}`,
+         message: `{}`"#, text_val, message_val)
+                }
+            }
+        }
+        });
+    ($message:expr, $expected:expr, ) => (
+        assert_not_in!($message, $expected)
+    );
+    ($text:expr, $message:expr, $($arg:tt)+) => ({
+        match (&$text, &$message) {
+            (text_val, message_val) => {
+                if text_val.contains(message_val) {
+                    panic!(r#"assertion failed: `text contains message`
          text: `{}`,
          message: `{}`: {}"#, text_val, message_val, format_args!($($arg)+))
                 }
