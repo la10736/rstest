@@ -27,7 +27,7 @@ lazy_static! {
 }
 
 fn sanitize_project_name<S: AsRef<str>>(s: S) -> String {
-    s.as_ref().replace(":", "_")
+    s.as_ref().replace(":", "_").replace("__", "_")
 }
 
 pub fn prj() -> Project {
