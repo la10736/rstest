@@ -5,7 +5,7 @@
 ### Fixed
 
 - Fixed  a false _unused mut_ warning regression introduced by
-partial fixtures (See [8a0ff08])
+partial fixtures (See [8a0ff08](https://github.com/la10736/rstest/commit/8a0ff0874dc8186edfaefb1ddef64d53666b94da))
 
 ## [0.5.2] 2019/12/29
 
