@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3] unreleased
+
+### Fixed
+
+- Fixed  a false _unused mut_ warning regression introduced by
+partial fixtures (See [8a0ff08])
+
 ## [0.5.2] 2019/12/29
 
 ### Fixed
