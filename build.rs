@@ -10,7 +10,4 @@ fn main() {
         }
         _ => {}
     }
-    if ver.major > 1 || ver.minor >= 40 {
-        println!("cargo:rustc-cfg=deprecate_parametrize_matrix");
-    }
 }

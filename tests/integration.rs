@@ -8,12 +8,6 @@ mod framework;
 /// Rstest integration tests
 mod rstest;
 
-/// Parametrize's integration tests
-mod parametrize;
-
-/// Matrix's integration tests
-mod matrix;
-
 /// Fixture's integration tests
 mod fixture;
 
