@@ -1,3 +1,3 @@
 var searchIndex={};
-searchIndex["rstest"] = {"doc":"This crate will help you to write simpler tests by…","i":[[23,"fixture","rstest","Define a fixture that you can use in all `rstest`'s test…",null,null],[23,"rstest","","The attribute that you should use for your tests. Your…",null,null],[23,"rstest_parametrize","","Write table-based tests: you must indicate the arguments…",null,null],[23,"rstest_matrix","","Write matrix-based tests: you must indicate arguments and…",null,null]],"p":[]};
+searchIndex["rstest"] = {"doc":"This crate will help you to write simpler tests by…","i":[[23,"fixture","rstest","Define a fixture that you can use in all `rstest`'s test…",null,null],[23,"rstest","","The attribute that you should use for your tests. Your…",null,null]],"p":[]};
 addSearchOptions(searchIndex);initSearch(searchIndex);
