@@ -63,6 +63,13 @@ fn should_not_show_a_warning_for_should_panic_attribute() {
 }
 
 #[test]
+fn should_map_fixture_by_remove_first_underscore_if_any() {
+    let (output, _) = run_test("remove_underscore.rs");
+
+    TestResults::new().ok("ignore_input").assert(output);
+}
+
+#[test]
 fn generic_input() {
     let (output, _) = run_test("generic.rs");
 

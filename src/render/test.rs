@@ -14,37 +14,77 @@ use super::*;
 mod arg_2_fixture_should {
     use super::{assert_eq, *};
 
-    #[test]
-    fn call_arg() {
-        let ast = "fn foo(fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
+    mod call_fixture {
+        use super::{assert_eq, *};
 
-        let line = arg_2_fixture(arg, &EmptyResolver);
+        fn test(function: &str, expected: &str) {
+            let ast = function.ast();
+            let arg = first_arg_ident(&ast);
 
-        assert_eq!(line, "let fix = fix::default();".ast());
+            let line = arg_2_fixture(arg, &EmptyResolver);
+
+            assert_eq!(line, expected.ast());
+        }
+
+        #[test]
+        fn as_is() {
+            test("fn foo(fix: String) {}", "let fix = fix::default();");
+        }
+
+        #[test]
+        fn by_remove_underscore_if_any() {
+            test("fn foo(_fix: String) {}", "let _fix = fix::default();");
+        }
+
+        #[test]
+        fn do_not_remove_more_underscores() {
+            test("fn foo(f_i_x: String) {}", "let f_i_x = f_i_x::default();");
+        }
+
+        #[test]
+        fn do_not_remove_two_underscores() {
+            test("fn foo(__fix: String) {}", "let __fix = __fix::default();");
+        }
+
+        #[test]
+        fn without_add_mut() {
+            test("fn foo(mut fix: String) {}", "let fix = fix::default();");
+        }
     }
 
-    #[test]
-    fn not_add_mut() {
-        let ast = "fn foo(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
+    mod call_given_fixture {
+        use super::{assert_eq, *};
 
-        let line = arg_2_fixture(arg, &EmptyResolver);
+        fn test(function: &str, fixture: &str, call: Expr, expected: &str) {
+            let ast = function.ast();
+            let arg = first_arg_ident(&ast);
+            let mut resolver = HashMap::new();
+            resolver.insert(fixture.to_owned(), &call);
 
-        assert_eq!(line, "let fix = fix::default();".ast());
-    }
+            let line = arg_2_fixture(arg, &resolver);
 
-    #[test]
-    fn use_passed_fixture_if_any() {
-        let ast = "fn foo(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
-        let call = expr("bar()");
-        let mut resolver = HashMap::new();
-        resolver.insert("fix".to_string(), &call);
+            assert_eq!(line, expected.ast());
+        }
 
-        let line = arg_2_fixture(arg, &resolver);
+        #[test]
+        fn as_is() {
+            test(
+                "fn foo(mut fix: String) {}",
+                "fix",
+                expr("bar()"),
+                "let fix = bar();",
+            );
+        }
 
-        assert_eq!(line, "let fix = bar();".ast());
+        #[test]
+        fn by_remove_underscore() {
+            test(
+                "fn foo(_fix: String) {}",
+                "fix",
+                expr("bar()"),
+                "let _fix = bar();",
+            );
+        }
     }
 }
 

@@ -25,7 +25,7 @@ use wrapper::WrapByModule;
 pub(crate) use fixture::render as fixture;
 
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    let resolver = resolver::fixture_resolver(info.data.fixtures());
+    let resolver = resolver::fixtures::get(info.data.fixtures());
     let args = fn_args_idents(&test).cloned().collect::<Vec<_>>();
     let attrs = std::mem::replace(&mut test.attrs, Default::default());
 
@@ -43,7 +43,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
 
 pub(crate) fn parametrize(test: ItemFn, info: RsTestInfo) -> TokenStream {
     let RsTestInfo { data, attributes } = info;
-    let resolver_fixtures = resolver::fixture_resolver(data.fixtures());
+    let resolver_fixtures = resolver::fixtures::get(data.fixtures());
 
     let rendered_cases = cases_data(&data, test.sig.ident.span())
         .map(|(name, resolver)| TestCaseRender::new(name, (resolver, &resolver_fixtures)))
@@ -120,7 +120,7 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
 
     let cases = cases_data(&data, span).collect::<Vec<_>>();
 
-    let resolver = resolver::fixture_resolver(data.fixtures());
+    let resolver = resolver::fixtures::get(data.fixtures());
     let rendered_cases = if cases.is_empty() {
         let list_values = data.list_values().collect::<Vec<_>>();
         _matrix_recursive(&test, &list_values, &resolver, &attributes)
@@ -207,10 +207,17 @@ fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
 }
 
 fn arg_2_fixture(ident: &Ident, resolver: &impl Resolver) -> Stmt {
+    let id_str = ident.to_string();
+    let fixture_name = if id_str.starts_with("_") && !id_str.starts_with("__") {
+        Cow::Owned(Ident::new(&id_str[1..], ident.span()))
+    } else {
+        Cow::Borrowed(ident)
+    };
+
     let fixture = resolver
-        .resolve(ident)
+        .resolve(&fixture_name)
         .map(|e| e.clone())
-        .unwrap_or_else(|| default_fixture_resolve(ident));
+        .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
     parse_quote! {
         let #ident = #fixture;
     }
