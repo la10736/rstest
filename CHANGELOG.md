@@ -2,6 +2,9 @@
 
 ## [0.6.0] Unreleased
 
+### Add
+- Hook argument name to fixture by remove starting `_` (See #70)
+
 ### Changed
 
 - Removed useless `rstest_parametrize` and `rstest_matrix` (See #81). From 0.5.0 you
