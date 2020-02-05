@@ -10,8 +10,7 @@ use std::borrow::Cow;
 use std::fs::{read_to_string, File};
 use std::io::Read;
 use std::sync::Arc;
-use toml_edit::Table;
-use toml_edit::{Array, Document, Item};
+use toml_edit::{Array, Document, InlineTable, Item, Table};
 
 #[derive(Clone)]
 pub enum Channel {
@@ -162,62 +161,66 @@ impl Project {
             .unwrap()
     }
 
+    fn add_dependency(&self) {
+        let mut doc = self.read_cargo_toml();
+
+        let add_dependency = InlineTable::default();
+
+        doc["dependencies"].or_insert(Item::Table(Table::new()))["rstest"]
+            .or_insert(Item::Value(add_dependency.into()))
+            .as_inline_table_mut()
+            .map(|add_dependency| add_dependency.get_or_insert("path", self.project_path_str()));
+
+        self.save_cargo_toml(&doc);
+    }
+
+    fn workspace_add(&self, prj: &str) {
+        let mut doc = self.read_cargo_toml();
+
+        let members: Array = Array::default();
+
+        doc["workspace"].or_insert(Item::Table(Table::new()))["members"]
+            .or_insert(Item::Value(members.into()))
+            .as_array_mut()
+            .map(|members| members.push(prj));
+
+        self.save_cargo_toml(&doc);
+    }
+
     fn code_path(&self) -> PathBuf {
         self.path().join("src").join("lib.rs")
     }
 
-    fn add_dependency(&self) {
-        let execution = Command::new("cargo")
-            .current_dir(&self.path())
-            .arg("add")
-            .arg("rstest")
-            .arg(&format!(
-                "--path={}",
-                std::env::current_dir()
-                    .unwrap()
-                    .as_os_str()
-                    .to_str()
-                    .unwrap()
-            ))
-            .spawn()
-            .unwrap()
-            .wait_with_output()
-            .unwrap();
-        if Some(0) != execution.status.code() {
-            panic!(
-                "cargo add return an error code = {:?}: {:?}",
-                execution.status, execution
-            );
-        }
-    }
-
-    fn cargo_toml(&self) -> PathBuf {
+    fn cargo_toml_path(&self) -> PathBuf {
         let mut path = self.path().clone();
         path.push("Cargo.toml");
         path
     }
 
-    fn workspace_add(&self, prj: &str) {
+    fn read_cargo_toml(&self) -> Document {
         let mut orig = String::new();
-        let path = &self.cargo_toml();
-        File::open(path)
+        File::open(self.cargo_toml_path())
             .expect("cannot open Cargo.toml")
             .read_to_string(&mut orig)
             .expect("cannot read Cargo.toml");
 
-        let mut doc = orig.parse::<Document>().expect("invalid Cargo.toml");
+        orig.parse::<Document>().expect("invalid Cargo.toml")
+    }
 
-        let a: Array = Array::default();
-
-        doc["workspace"].or_insert(Item::Table(Table::new()))["members"]
-            .or_insert(Item::Value(a.into()))
-            .as_array_mut()
-            .map(|a| a.push(prj));
-
-        File::create(path)
+    fn save_cargo_toml(&self, doc: &Document) {
+        File::create(self.cargo_toml_path())
             .expect("cannot update Cargo.toml")
             .write(doc.to_string().as_bytes())
             .expect("cannot write Cargo.toml");
+    }
+
+    fn project_path_str(&self) -> String {
+        std::env::current_dir()
+            .unwrap()
+            .as_os_str()
+            .to_str()
+            .unwrap()
+            .to_owned()
     }
 
     fn cargo_channel_arg(&self) -> String {

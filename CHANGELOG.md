@@ -9,6 +9,7 @@
 
 - Removed useless `rstest_parametrize` and `rstest_matrix` (See #81). From 0.5.0 you
 can use just `rstest` to create cases and values list.
+- Removed `cargo-edit` test dependecy (See #61)
 
 ### Fixed
 
