@@ -1,7 +1,7 @@
 use syn::{
     parse::{Error, Parse, ParseStream, Result},
     punctuated::Punctuated,
-    Expr, Ident, Token,
+    Attribute, Expr, Ident, Token,
 };
 
 use proc_macro2::TokenStream;
@@ -12,11 +12,13 @@ use quote::ToTokens;
 /// attributes.
 pub(crate) struct TestCase {
     pub(crate) args: Vec<Expr>,
+    pub(crate) attrs: Vec<Attribute>,
     pub(crate) description: Option<Ident>,
 }
 
 impl Parse for TestCase {
     fn parse(input: ParseStream) -> Result<Self> {
+        let attrs = Attribute::parse_outer(input)?;
         let case: Ident = input.parse()?;
         if case == "case" {
             let mut description = None;
@@ -29,7 +31,11 @@ impl Parse for TestCase {
             let args = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?
                 .into_iter()
                 .collect();
-            Ok(TestCase { args, description })
+            Ok(TestCase {
+                args,
+                attrs,
+                description,
+            })
         } else {
             Err(Error::new(case.span(), "expected a test case"))
         }
@@ -141,5 +147,16 @@ mod should {
             ]),
             args
         );
+    }
+
+    #[test]
+    fn save_attributes() {
+        let test_case = parse_test_case(r#"#[should_panic]#[other_attr(x)]case(42)"#);
+
+        let content = format!("{:?}", test_case.attrs);
+
+        assert_eq!(2, test_case.attrs.len());
+        assert!(content.contains("should_panic"));
+        assert!(content.contains("other_attr"));
     }
 }

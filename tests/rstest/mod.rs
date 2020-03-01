@@ -364,6 +364,20 @@ mod cases {
             .assert(output);
     }
 
+    #[test]
+    fn should_use_case_attributes() {
+        let (output, _) = run_test(res("case_attributes.rs"));
+
+        TestResults::new()
+            .ok("attribute_per_case::case_1_no_panic")
+            .ok("attribute_per_case::case_2_panic")
+            .ok("attribute_per_case::case_3_panic_with_message")
+            .fail("attribute_per_case::case_4_no_panic_but_fail")
+            .fail("attribute_per_case::case_5_panic_but_fail")
+            .fail("attribute_per_case::case_6_panic_with_wrong_message")
+            .assert(output);
+    }
+
     mod not_compile_if_missed_arguments {
         use super::*;
 

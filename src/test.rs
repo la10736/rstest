@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
-use syn::{parse::Parse, parse2, parse_str, Expr, Ident, ItemFn};
+use syn::{parse::Parse, parse2, parse_str, Error, Expr, Ident, ItemFn};
 
 use super::*;
 use crate::parse::{
@@ -43,16 +43,30 @@ macro_rules! to_strs {
     };
 }
 
+struct Outer<T>(T);
+impl<T: Parse> Parse for Outer<T> {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let outer: Ident = input.parse()?;
+        if outer == "outer" {
+            let content;
+            let _ = syn::parenthesized!(content in input);
+            content.parse().map(Outer)
+        } else {
+            Err(Error::new(outer.span(), "Expected 'outer'"))
+        }
+    }
+}
+
 pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T {
     let to_parse = format!(
         r#"
-        #[{}]
+        #[outer({})]
         fn to_parse() {{}}
         "#,
         test_case.as_ref()
     );
 
-    let item_fn = parse_str::<ItemFn>(&to_parse).unwrap();
+    let item_fn = parse_str::<ItemFn>(&to_parse).expect(&format!("Cannot parse '{}'", to_parse));
 
     let tokens = quote!(
         #item_fn
@@ -62,7 +76,7 @@ pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T
 
     if let TokenTree::Group(g) = tt {
         let ts = g.stream();
-        parse2::<T>(ts).unwrap()
+        parse2::<Outer<T>>(ts).unwrap().0
     } else {
         panic!("Cannot find group in {:#?}", tt)
     }
@@ -84,6 +98,17 @@ pub(crate) fn ident(s: impl AsRef<str>) -> syn::Ident {
 
 pub(crate) fn expr(s: impl AsRef<str>) -> syn::Expr {
     s.as_ref().ast()
+}
+
+pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
+    parse_str::<ItemFn>(&format!(
+        r#"{}
+           fn _no_name_() {{}}   
+        "#,
+        s.as_ref()
+    ))
+    .unwrap()
+    .attrs
 }
 
 pub(crate) fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
@@ -163,10 +188,18 @@ impl RsTestInfo {
     }
 }
 
+impl TestCase {
+    pub fn with_attrs(mut self, attrs: Vec<syn::Attribute>) -> Self {
+        self.attrs = attrs;
+        self
+    }
+}
+
 impl<'a> FromIterator<&'a str> for TestCase {
     fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
         TestCase {
             args: iter.into_iter().map(expr).collect(),
+            attrs: Default::default(),
             description: None,
         }
     }

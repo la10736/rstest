@@ -142,6 +142,17 @@ mod single_test_should {
 
         assert!(!format!("{:?}", inner_fn.attrs).contains("should_panic"));
     }
+
+    #[test]
+    fn mark_test_with_given_attributes() {
+        let input_fn: ItemFn = r#"#[should_panic] #[other(value)] fn test(_s: String){}"#.ast();
+
+        let tokens = single(input_fn.clone(), Default::default());
+
+        let result: ItemFn = parse2(tokens).unwrap();
+
+        assert_eq!(input_fn.attrs, &result.attrs[1..]);
+    }
 }
 
 struct TestsGroup {
@@ -379,6 +390,43 @@ mod cases_should {
         let output = TestsGroup::from(tokens);
 
         assert!(!format!("{:?}", output.requested_test.attrs).contains("should_panic"));
+    }
+
+    #[test]
+    fn should_mark_test_with_given_attributes() {
+        let item_fn: ItemFn = r#"#[should_panic] #[other(value)] fn test(s: String){}"#.ast();
+
+        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
+        info.push_case(TestCase::from(r#"String::from("3")"#));
+
+        let tokens = parametrize(item_fn.clone(), info.into());
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        // Sanity check
+        assert!(tests.len() > 0);
+
+        for t in tests {
+            assert_eq!(item_fn.attrs, &t.attrs[1..]);
+        }
+    }
+
+    #[test]
+    fn should_add_attributes_given_in_the_test_case() {
+        let item_fn: ItemFn = r#"fn test(v: i32){}"#.ast();
+
+        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
+        info.push_case(TestCase::from("42").with_attrs(attrs("#[should_panic]")));
+        info.push_case(TestCase::from("42").with_attrs(attrs("#[first]#[second(arg)]")));
+        info.push_case(TestCase::from("42"));
+
+        let tokens = parametrize(item_fn.clone(), info.into());
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert_eq!(attrs("#[should_panic]"), &tests[0].attrs[1..]);
+        assert_eq!(attrs("#[first]#[second(arg)]"), &tests[1].attrs[1..]);
+        assert_eq!(1, tests[2].attrs.len());
     }
 
     #[test]
@@ -634,6 +682,28 @@ mod matrix_cases_should {
     }
 
     #[test]
+    fn should_mark_test_with_given_attributes() {
+        let item_fn: ItemFn = r#"#[should_panic] #[other(value)] fn test(_s: String){}"#.ast();
+
+        let info = RsTestInfo {
+            data: RsTestData {
+                items: vec![values_list("fix", &["1"]).into()].into(),
+            },
+            ..Default::default()
+        };
+        let tokens = matrix(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        // Sanity check
+        assert!(tests.len() > 0);
+
+        for t in tests {
+            assert_eq!(item_fn.attrs, &t.attrs[1..]);
+        }
+    }
+
+    #[test]
     fn add_return_type_if_any() {
         let item_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
         let info = RsTestInfo {
@@ -882,7 +952,8 @@ mod complete_should {
 
     fn rendered_case(fn_name: &str) -> TestsGroup {
         let item_fn: ItemFn = format!(
-            r#"
+            r#"         #[first]
+                        #[second(arg)]
                         fn {}(
                             fix: u32,
                             a: f64, b: f32,
@@ -903,6 +974,7 @@ mod complete_should {
                     description: Some(ident("description")),
                     ..vec!["3f64", "4f32"].into_iter().collect::<TestCase>()
                 }
+                .with_attrs(attrs("#[third]#[forth(other)]"))
                 .into(),
                 values_list("x", &["12", "-2"]).into(),
                 values_list("y", &["-3", "42"]).into(),
@@ -980,6 +1052,28 @@ mod complete_should {
                 assert_eq!(assignments.0["x"], expr(x));
                 assert_eq!(assignments.0["y"], expr(y));
             }
+        }
+    }
+
+    #[test]
+    fn mark_test_with_given_attributes() {
+        let modules = test_case().module.get_modules();
+        let attrs = attrs("#[first]#[second(arg)]");
+
+        for f in modules[0].get_all_tests() {
+            assert_eq!(attrs, &f.attrs[1..]);
+        }
+        for f in modules[1].get_all_tests() {
+            assert_eq!(attrs, &f.attrs[1..3]);
+        }
+    }
+    #[test]
+    fn should_add_attributes_given_in_the_test_case() {
+        let modules = test_case().module.get_modules();
+        let attrs = attrs("#[third]#[forth(other)]");
+
+        for f in modules[1].get_all_tests() {
+            assert_eq!(attrs, &f.attrs[3..]);
         }
     }
 }

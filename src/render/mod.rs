@@ -46,7 +46,9 @@ pub(crate) fn parametrize(test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver_fixtures = resolver::fixtures::get(data.fixtures());
 
     let rendered_cases = cases_data(&data, test.sig.ident.span())
-        .map(|(name, resolver)| TestCaseRender::new(name, (resolver, &resolver_fixtures)))
+        .map(|(name, attrs, resolver)| {
+            TestCaseRender::new(name, attrs, (resolver, &resolver_fixtures))
+        })
         .map(|case| case.render(&test, &attributes))
         .collect();
 
@@ -58,12 +60,13 @@ impl ValueList {
         &self,
         test: &ItemFn,
         resolver: &dyn Resolver,
+        attrs: &[syn::Attribute],
         attributes: &RsTestAttributes,
     ) -> TokenStream {
         let span = test.sig.ident.span();
         let test_cases = self
             .argument_data(resolver)
-            .map(|(name, r)| TestCaseRender::new(Ident::new(&name, span), r))
+            .map(|(name, r)| TestCaseRender::new(Ident::new(&name, span), attrs, r))
             .map(|test_case| test_case.render(&test, &attributes));
 
         quote! { #(#test_cases)* }
@@ -91,6 +94,7 @@ fn _matrix_recursive<'a>(
     test: &ItemFn,
     list_values: &'a [&'a ValueList],
     resolver: &dyn Resolver,
+    attrs: &'a [syn::Attribute],
     attributes: &RsTestAttributes,
 ) -> TokenStream {
     if list_values.len() == 0 {
@@ -100,11 +104,11 @@ fn _matrix_recursive<'a>(
     let list_values = &list_values[1..];
 
     if list_values.len() == 0 {
-        vlist.render(test, resolver, attributes)
+        vlist.render(test, resolver, attrs, attributes)
     } else {
         let span = test.sig.ident.span();
         let modules = vlist.argument_data(resolver).map(move |(name, resolver)| {
-            _matrix_recursive(test, list_values, &resolver, attributes)
+            _matrix_recursive(test, list_values, &resolver, attrs, attributes)
                 .wrap_by_mod(&Ident::new(&name, span))
         });
 
@@ -123,16 +127,17 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(data.fixtures());
     let rendered_cases = if cases.is_empty() {
         let list_values = data.list_values().collect::<Vec<_>>();
-        _matrix_recursive(&test, &list_values, &resolver, &attributes)
+        _matrix_recursive(&test, &list_values, &resolver, &[], &attributes)
     } else {
         cases
             .into_iter()
-            .map(|(case_name, case_resolver)| {
+            .map(|(case_name, attrs, case_resolver)| {
                 let list_values = data.list_values().collect::<Vec<_>>();
                 _matrix_recursive(
                     &test,
                     &list_values,
                     &(case_resolver, &resolver),
+                    attrs,
                     &attributes,
                 )
                 .wrap_by_mod(&case_name)
@@ -287,25 +292,29 @@ fn generics_clean_up<'a>(
 
 struct TestCaseRender<'a> {
     name: Ident,
+    attrs: &'a [syn::Attribute],
     resolver: Box<dyn Resolver + 'a>,
 }
 
 impl<'a> TestCaseRender<'a> {
-    pub fn new<R: Resolver + 'a>(name: Ident, resolver: R) -> Self {
+    pub fn new<R: Resolver + 'a>(name: Ident, attrs: &'a [syn::Attribute], resolver: R) -> Self {
         TestCaseRender {
             name,
+            attrs,
             resolver: Box::new(resolver),
         }
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
         let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
+        let mut attrs = testfn.attrs.clone();
+        attrs.extend(self.attrs.iter().cloned());
 
         single_test_case(
             &self.name,
             &testfn.sig.ident,
             &args,
-            &testfn.attrs,
+            &attrs,
             &testfn.sig.output,
             None,
             self.resolver,
@@ -358,7 +367,7 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
 fn cases_data(
     data: &RsTestData,
     name_span: Span,
-) -> impl Iterator<Item = (Ident, HashMap<String, &syn::Expr>)> {
+) -> impl Iterator<Item = (Ident, &[syn::Attribute], HashMap<String, &syn::Expr>)> {
     let display_len = data.cases().count().display_len();
     data.cases().enumerate().map({
         move |(n, case)| {
@@ -369,6 +378,7 @@ fn cases_data(
                 .collect::<HashMap<_, _>>();
             (
                 Ident::new(&format_case_name(case, n + 1, display_len), name_span),
+                case.attrs.as_slice(),
                 resolver_case,
             )
         }
