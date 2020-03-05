@@ -513,7 +513,50 @@ pub fn fixture(
 ///
 /// test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
-///
+/// 
+/// ### Use specific `case` attributes
+/// 
+/// Every function's attributes that follow the `rstest` one will 
+/// used in tests but you can also define a `case`'s attributes set. 
+/// This feature can be use to mark just some cases as `should_panic` 
+/// and chose to have a fine grain on expected panic messages.
+/// 
+/// In follow example we run 3 tests where the first pass without any
+/// panic, in the second we catch a panic but we don't care about the message 
+/// and in the third one we also check the panic message.
+/// 
+/// ```
+/// use rstest::rstest;
+/// 
+/// #[rstest(
+///     val,
+///     case::no_panic(0),
+///     #[should_panic]
+///     case::panic(1),
+///     #[should_panic(expected="expected")]
+///     case::panic_with_message(2),
+/// )]
+/// fn attribute_per_case(val: i32) {
+///     match val {
+///         0 => assert!(true),
+///         1 => panic!("No catch"),
+///         2 => panic!("expected"),
+///         _ => unreachable!(),
+///     }
+/// }
+/// ```
+/// 
+/// Output:
+/// 
+/// ```norun
+/// running 3 tests
+/// test attribute_per_case::case_1_no_panic ... ok
+/// test attribute_per_case::case_3_panic_with_message ... ok
+/// test attribute_per_case::case_2_panic ... ok
+/// 
+/// test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// ```
+/// 
 /// ## Values Lists
 ///
 /// Another useful way to write a test and execute it for some values
