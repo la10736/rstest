@@ -4,17 +4,13 @@
 
 ### Add
 - Hook argument name to fixture by remove starting `_` (See #70)
+- Every `case` can have a specific set of attributes (See #82)
 
 ### Changed
 
 - Removed useless `rstest_parametrize` and `rstest_matrix` (See #81). From 0.5.0 you
 can use just `rstest` to create cases and values list.
 - Removed `cargo-edit` test dependecy (See #61)
-
-### Fixed
-
-- Fixed  a false _unused mut_ warning regression introduced by
-partial fixtures (See [8a0ff08](https://github.com/la10736/rstest/commit/8a0ff0874dc8186edfaefb1ddef64d53666b94da))
 
 ## [0.5.3] 2020/1/23
 
