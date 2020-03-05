@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.0] Unreleased
+## [0.6.0] 2020/3/5
 
 ### Add
 - Hook argument name to fixture by remove starting `_` (See #70)

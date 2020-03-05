@@ -13,7 +13,7 @@ following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.5"
+rstest = "0.6"
 ```
 
 The core idea is that you can inject your test dependencies
