@@ -306,6 +306,21 @@ mod single {
             .ok("complete")
             .assert(output);
     }
+
+    #[test]
+    fn should_run_async_function() {
+        let prj = prj(res("async.rs"));
+        prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("should_pass")
+            .fail("should_fail")
+            .ok("should_panic_pass")
+            .fail("should_panic_fail")
+            .assert(output);
+    }
 }
 
 mod cases {

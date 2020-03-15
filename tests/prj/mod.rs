@@ -10,7 +10,7 @@ use std::borrow::Cow;
 use std::fs::{read_to_string, File};
 use std::io::Read;
 use std::sync::Arc;
-use toml_edit::{Array, Document, InlineTable, Item, Table};
+use toml_edit::{Array, Document, Item, Table};
 
 #[derive(Clone)]
 pub enum Channel {
@@ -124,7 +124,7 @@ impl Project {
             .unwrap()
         {
             0 => {
-                self.add_dependency();
+                self.add_rstest_dependency();
                 std::fs::File::create(self.code_path()).unwrap();
                 self
             }
@@ -161,17 +161,20 @@ impl Project {
             .unwrap()
     }
 
-    fn add_dependency(&self) {
+    pub fn add_dependency(&self, crate_name: &str, attrs: &str) {
         let mut doc = self.read_cargo_toml();
 
-        let add_dependency = InlineTable::default();
-
-        doc["dependencies"].or_insert(Item::Table(Table::new()))["rstest"]
-            .or_insert(Item::Value(add_dependency.into()))
-            .as_inline_table_mut()
-            .map(|add_dependency| add_dependency.get_or_insert("path", self.project_path_str()));
+        doc["dependencies"].or_insert(Item::Table(Table::new()))[crate_name]
+            .or_insert(Item::Value(attrs.parse().unwrap()));
 
         self.save_cargo_toml(&doc);
+    }
+
+    fn add_rstest_dependency(&self) {
+        self.add_dependency(
+            "rstest",
+            format!(r#"{{path="{}"}}"#, self.project_path_str()).as_str(),
+        );
     }
 
     fn workspace_add(&self, prj: &str) {

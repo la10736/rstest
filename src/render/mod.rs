@@ -3,6 +3,7 @@ mod test;
 mod wrapper;
 
 use std::{borrow::Cow, collections::HashMap};
+use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
@@ -28,6 +29,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(info.data.fixtures());
     let args = fn_args_idents(&test).cloned().collect::<Vec<_>>();
     let attrs = std::mem::replace(&mut test.attrs, Default::default());
+    let asyncness = test.sig.asyncness.clone();
 
     single_test_case(
         &test.sig.ident,
@@ -35,6 +37,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         &args,
         &attrs,
         &test.sig.output,
+        asyncness,
         Some(&test),
         resolver,
         &info.attributes,
@@ -165,21 +168,33 @@ fn single_test_case<'a>(
     args: &[Ident],
     attrs: &[Attribute],
     output: &ReturnType,
+    asyncness: Option<Async>,
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
     attributes: &'a RsTestAttributes,
 ) -> TokenStream {
     let inject = resolve_args(args.iter(), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
+    let test_attr: syn::Path = if asyncness.is_none() {
+        parse_quote! {test}
+    } else {
+        parse_quote! {async_std::test}
+    };
+    let execute = if asyncness.is_none() {
+        quote! {#testfn_name(#(#args),*)}
+    } else {
+        quote! {#testfn_name(#(#args),*).await}
+    };
+
     quote! {
-        #[test]
+        #[#test_attr]
         #(#attrs)*
-        fn #name() #output {
+        #asyncness fn #name() #output {
             #test_impl
             #inject
             #trace_args
             println!("{:-^40}", " TEST START ");
-            #testfn_name(#(#args),*)
+            #execute
         }
     }
 }
@@ -309,6 +324,7 @@ impl<'a> TestCaseRender<'a> {
         let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
+        let asyncness = testfn.sig.asyncness.clone();
 
         single_test_case(
             &self.name,
@@ -316,6 +332,7 @@ impl<'a> TestCaseRender<'a> {
             &args,
             &attrs,
             &testfn.sig.output,
+            asyncness,
             None,
             self.resolver,
             attributes,
