@@ -393,6 +393,21 @@ mod cases {
             .assert(output);
     }
 
+    #[test]
+    fn should_run_async_function() {
+        let prj = prj(res("async.rs"));
+        prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("my_async_test::case_1_pass")
+            .fail("my_async_test::case_2_fail")
+            .ok("my_async_test::case_3_pass_panic")
+            .fail("my_async_test::case_4_fail_panic")
+            .assert(output);
+    }
+
     mod not_compile_if_missed_arguments {
         use super::*;
 
@@ -656,6 +671,21 @@ mod matrix {
             .fail("complete::a_1::b_1")
             .fail("complete::a_1::b_2")
             .fail("complete::a_2::b_1")
+            .assert(output);
+    }
+
+    #[test]
+    fn should_run_async_function() {
+        let prj = prj(res("async.rs"));
+        prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("my_async_test::first_1::second_1")
+            .fail("my_async_test::first_1::second_2")
+            .fail("my_async_test::first_2::second_1")
+            .ok("my_async_test::first_2::second_2")
             .assert(output);
     }
 }
