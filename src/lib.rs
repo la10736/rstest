@@ -371,6 +371,10 @@ pub fn fixture(
 /// - return results
 /// - marked by `#[should_panic]` attribute
 ///
+/// If the test function is an [`async` function](#async) `rstest` will run all tests as `async`
+/// tests. You can use it just with `async-std` and you should include `attributes` in
+/// `async-std`'s features.
+///
 /// ## Injecting Fixtures
 ///
 /// The simplest case is write a test that can be injected with
@@ -513,21 +517,21 @@ pub fn fixture(
 ///
 /// test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
-/// 
+///
 /// ### Use specific `case` attributes
-/// 
-/// Every function's attributes that follow the `rstest` one will 
-/// used in tests but you can also define a `case`'s attributes set. 
-/// This feature can be use to mark just some cases as `should_panic` 
+///
+/// Every function's attributes that follow the `rstest` one will
+/// used in tests but you can also define a `case`'s attributes set.
+/// This feature can be use to mark just some cases as `should_panic`
 /// and chose to have a fine grain on expected panic messages.
-/// 
+///
 /// In follow example we run 3 tests where the first pass without any
-/// panic, in the second we catch a panic but we don't care about the message 
+/// panic, in the second we catch a panic but we don't care about the message
 /// and in the third one we also check the panic message.
-/// 
+///
 /// ```
 /// use rstest::rstest;
-/// 
+///
 /// #[rstest(
 ///     val,
 ///     case::no_panic(0),
@@ -545,18 +549,18 @@ pub fn fixture(
 ///     }
 /// }
 /// ```
-/// 
+///
 /// Output:
-/// 
+///
 /// ```norun
 /// running 3 tests
 /// test attribute_per_case::case_1_no_panic ... ok
 /// test attribute_per_case::case_3_panic_with_message ... ok
 /// test attribute_per_case::case_2_panic ... ok
-/// 
+///
 /// test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
-/// 
+///
 /// ## Values Lists
 ///
 /// Another useful way to write a test and execute it for some values
@@ -599,6 +603,36 @@ pub fn fixture(
 /// test should_accept_all_corner_cases::name_1::age_2 ... ok
 ///
 /// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// ```
+/// ## Async
+///
+/// `rstest` provide an out of the box `async` support. Just mark your
+/// test function as async and test'll use `#[async-std::test]` to
+/// annotate it. This feature can be really useful to build async
+/// parametric tests by a really clean syntax:
+///
+/// ```rust
+/// use rstest::*;
+/// # async fn async_sum(a: u32, b: u32) -> u32 { a + b }
+///
+/// #[rstest(expected, a, b,
+///     case(5, 2, 3),
+///     #[should_panic]
+///     case(42, 40, 1),
+///  ]
+/// async fn my_async_test(expected: u32, a: u32, b: u32) {
+///     assert_eq!(expected, async_sum(a, b).await);
+/// }
+/// ```
+///
+/// By now you cannot write async `#[fixture]` and just `async-std` support
+/// is provided but in the future will come `tokio`, custom runners and
+/// `async` fixtures.
+///
+/// To use this feature you should use `attributes` in `async-std` fetures:
+///
+/// ```toml
+/// async-std = { version="1.5", features = ["attributes"] }
 /// ```
 ///
 /// ## Putting all Together

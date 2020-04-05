@@ -11,6 +11,7 @@ trace_all = []
 
 [dependencies]
 lazy_static = "*"
+async-std = { version="1.5", features = ["attributes"] }
 
 [dependencies.rstest]
 path = "../"

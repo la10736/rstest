@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.6.1] Unreleased
+- Introducing async tests support. Leverage on `async_std::test` to automatic switch to
+async test (both for single, cases and matrix) (See #73)
+
 ## [0.6.0] 2020/3/5
 
 ### Add

@@ -7,6 +7,8 @@
 
 # Fixture-based test framework for Rust
 
+## Introduction
+
 `rstest` uses procedural macros to help you on writing
 fixtures and table-based tests. To use it, add the
 following lines to your `Cargo.toml` file:
@@ -15,6 +17,8 @@ following lines to your `Cargo.toml` file:
 [dev-dependencies]
 rstest = "0.6"
 ```
+
+### Fixture
 
 The core idea is that you can inject your test dependencies
 by passing them as test arguments. In the following example
@@ -37,6 +41,8 @@ fn should_fail(fixture: u32) {
     assert_ne!(fixture, 42);
 }
 ```
+
+### Parametrize
 
 You can also inject values in some other ways. For instance, you can
 create a set of tests by simply indicating the injected values for each
@@ -89,6 +95,38 @@ Or create a _matrix_ test by using _list of values_ for some
 variables that will generate the cartesian product of all the
 values.
 
+### Async
+
+`rstest` provide an out of the box `async` support. Just mark your
+test function as async and test'll use `#[async-std::test]` to 
+annotate it. This feature can be really useful to build async 
+parametric tests by a really clean syntax:
+
+```rust
+use rstest::*;
+
+#[rstest(expected, a, b, 
+    case(5, 2, 3),
+    #[should_panic]
+    case(42, 40, 1),
+ ]
+async fn my_async_test(expected: u32, a: u32, b: u32) {
+    assert_eq!(expected, async_sum(a, b).await);
+}
+```
+
+By now you cannot write async `#[fixture]` and just `async-std` support 
+is provided but in the future will come `tokio`, custom runners and 
+`async` fixtures.
+
+To use this feature you should use `attributes` in `async-std` fetures: 
+
+```toml
+async-std = { version="1.5", features = ["attributes"] }
+```
+
+## Complete Example
+
 All these features can be used together with mix fixture variables,
 fixed cases and bunch of values. For instance you need two
 tests that given your repository in cases of both logged in or guest 
@@ -133,6 +171,8 @@ test should_be_invalid_query_error::case_2_guest::query_1 ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
+
+## More
 
 Is that all? Not yet!
 
