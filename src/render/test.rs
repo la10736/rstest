@@ -97,9 +97,7 @@ mod single_test_should {
     fn add_return_type_if_any() {
         let input_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
 
-        let tokens = single(input_fn.clone(), Default::default());
-
-        let result: ItemFn = parse2(tokens).unwrap();
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         assert_eq!(result.sig.output, input_fn.sig.output);
     }
@@ -115,9 +113,7 @@ mod single_test_should {
                 }
                 "#.ast();
 
-        let tokens = single(input_fn.clone(), Default::default());
-
-        let result: ItemFn = parse2(tokens).unwrap();
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
         let first_stmt = result.block.stmts.get(0).unwrap();
 
         let inner_fn: ItemFn = parse_quote! {
@@ -131,9 +127,7 @@ mod single_test_should {
     fn not_copy_should_panic_attribute() {
         let input_fn: ItemFn = r#"#[should_panic] pub fn test(_s: String){}"#.ast();
 
-        let tokens = single(input_fn.clone(), Default::default());
-
-        let result: ItemFn = parse2(tokens).unwrap();
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
         let first_stmt = result.block.stmts.get(0).unwrap();
 
         let inner_fn: ItemFn = parse_quote! {
@@ -147,11 +141,49 @@ mod single_test_should {
     fn mark_test_with_given_attributes() {
         let input_fn: ItemFn = r#"#[should_panic] #[other(value)] fn test(_s: String){}"#.ast();
 
-        let tokens = single(input_fn.clone(), Default::default());
-
-        let result: ItemFn = parse2(tokens).unwrap();
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         assert_eq!(input_fn.attrs, &result.attrs[1..]);
+    }
+
+    #[test]
+    fn use_std_test_to_mark_test_no_async_test_functions() {
+        let input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
+
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+
+        assert_eq!(result.attrs[0].path, parse_quote! { test });
+    }
+
+    #[test]
+    fn use_async_std_test_to_mark_test_function_instead_just_test() {
+        let input_fn: ItemFn = r#"async fn test(_s: String) {} "#.ast();
+
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+
+        assert_eq!(result.attrs[0].path, parse_quote! { async_std::test });
+    }
+
+    #[test]
+    fn not_use_await_for_no_async_test_function() {
+        let input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
+
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+
+        let last_stmt = result.block.stmts.last().unwrap();
+
+        assert!(!last_stmt.is_await());
+    }
+
+    #[test]
+    fn append_await_when_call_async_test_function() {
+        let input_fn: ItemFn = r#"async fn test(_s: String) {} "#.ast();
+
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+
+        let last_stmt = result.block.stmts.last().unwrap();
+
+        assert!(last_stmt.is_await());
     }
 }
 
@@ -169,26 +201,34 @@ impl Parse for TestsGroup {
     }
 }
 
+trait QueryAttrs {
+    fn has_attr(&self, attr: &syn::Path) -> bool;
+    fn has_attr_that_ends_with(&self, attr: &syn::PathSegment) -> bool;
+}
+
+impl QueryAttrs for ItemFn {
+    fn has_attr(&self, attr: &syn::Path) -> bool {
+        self.attrs.iter().find(|a| &a.path == attr).is_some()
+    }
+
+    fn has_attr_that_ends_with(&self, name: &syn::PathSegment) -> bool {
+        self.attrs
+            .iter()
+            .find(|a| &a.path.segments.iter().last() == &Some(name))
+            .is_some()
+    }
+}
+
 /// To extract all test functions
 struct TestFunctions(Vec<ItemFn>);
 
 fn is_test_fn(item_fn: &ItemFn) -> bool {
-    item_fn
-        .attrs
-        .iter()
-        .filter(|&a| a.path == parse_str::<syn::Path>("test").unwrap())
-        .next()
-        .is_some()
+    item_fn.has_attr_that_ends_with(&parse_quote! { test })
 }
 
 impl TestFunctions {
     fn is_test_fn(item_fn: &ItemFn) -> bool {
-        item_fn
-            .attrs
-            .iter()
-            .filter(|&a| a.path == parse_str::<syn::Path>("test").unwrap())
-            .next()
-            .is_some()
+        is_test_fn(item_fn)
     }
 }
 
@@ -341,25 +381,54 @@ mod cases_should {
         }
     }
 
+    struct TestCaseBuilder {
+        item_fn: ItemFn,
+        info: RsTestInfo,
+    }
+
+    impl TestCaseBuilder {
+        fn new(item_fn: ItemFn) -> Self {
+            let info: RsTestInfo = into_rstest_data(&item_fn).into();
+            Self { item_fn, info }
+        }
+
+        fn from<S: AsRef<str>>(s: S) -> Self {
+            Self::new(s.as_ref().ast())
+        }
+
+        fn push_case<T: Into<TestCase>>(mut self, case: T) -> Self {
+            self.info.push_case(case.into());
+            self
+        }
+
+        fn extend<T: Into<TestCase>>(mut self, cases: impl Iterator<Item = T>) -> Self {
+            self.info.extend(cases.map(Into::into));
+            self
+        }
+
+        fn take(self) -> (ItemFn, RsTestInfo) {
+            (self.item_fn, self.info)
+        }
+    }
+
     fn one_simple_case() -> (ItemFn, RsTestInfo) {
-        let item_fn = r#"fn test(mut fix: String) { println!("user code") }"#.ast();
-        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
-        info.push_case(TestCase::from(r#"String::from("3")"#));
-        (item_fn, info)
+        TestCaseBuilder::from(r#"fn test(mut fix: String) { println!("user code") }"#)
+            .push_case(r#"String::from("3")"#)
+            .take()
     }
 
     fn some_simple_cases(cases: i32) -> (ItemFn, RsTestInfo) {
-        let item_fn = r#"fn test(mut fix: String) { println!("user code") }"#.ast();
-        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
-        info.extend((0..cases).map(|_| TestCase::from(r#"String::from("3")"#)));
-        (item_fn, info)
+        TestCaseBuilder::from(r#"fn test(mut fix: String) { println!("user code") }"#)
+            .extend((0..cases).map(|_| r#"String::from("3")"#))
+            .take()
     }
 
     #[test]
     fn create_a_module_named_as_test_function() {
-        let item_fn = "fn should_be_the_module_name(mut fix: String) {}".ast();
-        let data = into_rstest_data(&item_fn);
-        let tokens = parametrize(item_fn.clone(), data.into());
+        let (item_fn, info) =
+            TestCaseBuilder::from("fn should_be_the_module_name(mut fix: String) {}").take();
+
+        let tokens = parametrize(item_fn, info);
 
         let output = TestsGroup::from(tokens);
 
@@ -368,10 +437,12 @@ mod cases_should {
 
     #[test]
     fn copy_user_function() {
-        let item_fn =
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
-        let data = into_rstest_data(&item_fn);
-        let tokens = parametrize(item_fn.clone(), data.into());
+        let (item_fn, info) = TestCaseBuilder::from(
+            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
+        )
+        .take();
+
+        let tokens = parametrize(item_fn.clone(), info);
 
         let mut output = TestsGroup::from(tokens);
 
@@ -381,11 +452,12 @@ mod cases_should {
 
     #[test]
     fn should_not_copy_should_panic_attribute() {
-        let item_fn =
-            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#
-                .ast();
-        let data = into_rstest_data(&item_fn);
-        let tokens = parametrize(item_fn.clone(), data.into());
+        let (item_fn, info) = TestCaseBuilder::from(
+            r#"#[should_panic] fn with_should_panic(mut fix: String) { println!("user code") }"#,
+        )
+        .take();
+
+        let tokens = parametrize(item_fn.clone(), info);
 
         let output = TestsGroup::from(tokens);
 
@@ -394,12 +466,12 @@ mod cases_should {
 
     #[test]
     fn should_mark_test_with_given_attributes() {
-        let item_fn: ItemFn = r#"#[should_panic] #[other(value)] fn test(s: String){}"#.ast();
+        let (item_fn, info) =
+            TestCaseBuilder::from(r#"#[should_panic] #[other(value)] fn test(s: String){}"#)
+                .push_case(r#"String::from("3")"#)
+                .take();
 
-        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
-        info.push_case(TestCase::from(r#"String::from("3")"#));
-
-        let tokens = parametrize(item_fn.clone(), info.into());
+        let tokens = parametrize(item_fn.clone(), info);
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
@@ -413,14 +485,13 @@ mod cases_should {
 
     #[test]
     fn should_add_attributes_given_in_the_test_case() {
-        let item_fn: ItemFn = r#"fn test(v: i32){}"#.ast();
+        let (item_fn, info) = TestCaseBuilder::from(r#"fn test(v: i32){}"#)
+            .push_case(TestCase::from("42").with_attrs(attrs("#[should_panic]")))
+            .push_case(TestCase::from("42").with_attrs(attrs("#[first]#[second(arg)]")))
+            .push_case("42")
+            .take();
 
-        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
-        info.push_case(TestCase::from("42").with_attrs(attrs("#[should_panic]")));
-        info.push_case(TestCase::from("42").with_attrs(attrs("#[first]#[second(arg)]")));
-        info.push_case(TestCase::from("42"));
-
-        let tokens = parametrize(item_fn.clone(), info.into());
+        let tokens = parametrize(item_fn, info);
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
@@ -431,10 +502,11 @@ mod cases_should {
 
     #[test]
     fn mark_user_function_as_test() {
-        let item_fn =
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
-        let data = into_rstest_data(&item_fn);
-        let tokens = parametrize(item_fn.clone(), data.into());
+        let (item_fn, info) = TestCaseBuilder::from(
+            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
+        )
+        .take();
+        let tokens = parametrize(item_fn, info);
 
         let output = TestsGroup::from(tokens);
 
@@ -450,10 +522,11 @@ mod cases_should {
 
     #[test]
     fn mark_module_as_test() {
-        let item_fn =
-            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#.ast();
-        let data = into_rstest_data(&item_fn);
-        let tokens = parametrize(item_fn.clone(), data.into());
+        let (item_fn, info) = TestCaseBuilder::from(
+            r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
+        )
+        .take();
+        let tokens = parametrize(item_fn, info);
 
         let output = TestsGroup::from(tokens);
 
@@ -471,7 +544,7 @@ mod cases_should {
     fn add_a_test_case() {
         let (item_fn, info) = one_simple_case();
 
-        let tokens = parametrize(item_fn.clone(), info);
+        let tokens = parametrize(item_fn, info);
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
@@ -481,9 +554,10 @@ mod cases_should {
 
     #[test]
     fn add_return_type_if_any() {
-        let item_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
-        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
-        info.push_case(TestCase::from(r#"String::from("3")"#));
+        let (item_fn, info) =
+            TestCaseBuilder::from("fn function(fix: String) -> Result<i32, String> { Ok(42) }")
+                .push_case(r#"String::from("3")"#)
+                .take();
 
         let tokens = parametrize(item_fn.clone(), info);
 
@@ -495,13 +569,12 @@ mod cases_should {
     #[test]
     fn not_copy_user_function() {
         let t_name = "test_name";
-        let item_fn: ItemFn = format!(
+        let (item_fn, info) = TestCaseBuilder::from(format!(
             "fn {}(fix: String) -> Result<i32, String> {{ Ok(42) }}",
             t_name
-        )
-        .ast();
-        let mut info: RsTestInfo = into_rstest_data(&item_fn).into();
-        info.push_case(TestCase::from(r#"String::from("3")"#));
+        ))
+        .push_case(r#"String::from("3")"#)
+        .take();
 
         let tokens = parametrize(item_fn, info);
 
@@ -588,6 +661,63 @@ mod cases_should {
             .ident
             .to_string()
             .ends_with(&format!("_{}", description)));
+    }
+
+    #[test]
+    fn use_std_test_to_mark_no_async_tests() {
+        let (item_fn, info) = TestCaseBuilder::from(r#"fn test(v: u32) { }"#)
+            .push_case("42")
+            .take();
+
+        let tokens = parametrize(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert_eq!(tests[0].attrs[0].path, parse_quote! { test });
+    }
+
+    #[test]
+    fn use_async_std_test_to_mark_test_functions_instead_just_test() {
+        let (item_fn, info) = TestCaseBuilder::from(r#"async fn test(v: u32) { }"#)
+            .push_case("42")
+            .take();
+
+        let tokens = parametrize(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert_eq!(tests[0].attrs[0].path, parse_quote! { async_std::test });
+    }
+
+    #[test]
+    fn not_use_await_for_no_async_test_function() {
+        let (item_fn, info) =
+            TestCaseBuilder::from(r#"fn test(mut fix: String) { println!("user code") }"#)
+                .push_case(r#"String::from("3")"#)
+                .take();
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        let last_stmt = tests[0].block.stmts.last().unwrap();
+
+        assert!(!last_stmt.is_await());
+    }
+
+    #[test]
+    fn append_await_when_call_async_test_function() {
+        let (item_fn, info) = TestCaseBuilder::from(r#"async fn test(v: u32) { }"#)
+            .push_case("42")
+            .take();
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        let last_stmt = tests[0].block.stmts.last().unwrap();
+
+        assert!(last_stmt.is_await());
     }
 }
 
@@ -780,6 +910,70 @@ mod matrix_cases_should {
 
         assert_eq!(3, tests.len());
         assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
+    }
+
+    #[test]
+    fn use_std_test_to_mark_no_async_tests() {
+        let data = RsTestData {
+            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+        };
+
+        let item_fn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
+
+        let tokens = matrix(item_fn, data.into());
+
+        let tests = TestsGroup::from(tokens).get_tests();
+
+        assert_eq!(tests[0].attrs[0].path, parse_quote! { test });
+    }
+
+    #[test]
+    fn use_async_std_test_to_mark_test_functions_instead_just_test() {
+        let data = RsTestData {
+            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+        };
+
+        let item_fn = r#"async fn test(v: u32) {{ println!("user code") }}"#.ast();
+
+        let tokens = matrix(item_fn, data.into());
+
+        let tests = TestsGroup::from(tokens).get_tests();
+
+        assert_eq!(tests[0].attrs[0].path, parse_quote! { async_std::test });
+    }
+
+    #[test]
+    fn not_use_await_for_no_async_test_function() {
+        let data = RsTestData {
+            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+        };
+
+        let item_fn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
+
+        let tokens = matrix(item_fn, data.into());
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        let last_stmt = tests[0].block.stmts.last().unwrap();
+
+        assert!(!last_stmt.is_await());
+    }
+
+    #[test]
+    fn append_await_when_call_async_test_function() {
+        let data = RsTestData {
+            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+        };
+
+        let item_fn = r#"async fn test(v: u32) {{ println!("user code") }}"#.ast();
+
+        let tokens = matrix(item_fn, data.into());
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        let last_stmt = tests[0].block.stmts.last().unwrap();
+
+        assert!(last_stmt.is_await());
     }
 
     mod two_args_should {

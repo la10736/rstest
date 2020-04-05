@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
-use syn::{parse::Parse, parse2, parse_str, Error, Expr, Ident, ItemFn};
+use syn::{parse::Parse, parse2, parse_str, Error, Expr, Ident, ItemFn, Stmt};
 
 use super::*;
 use crate::parse::{
@@ -83,12 +83,24 @@ pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T
 }
 
 pub(crate) trait ToAst {
-    fn ast<T: Parse>(&self) -> T;
+    fn ast<T: Parse>(self) -> T;
 }
 
-impl<S: AsRef<str>> ToAst for S {
-    fn ast<T: Parse>(&self) -> T {
-        parse_str(self.as_ref()).unwrap()
+impl ToAst for &str {
+    fn ast<T: Parse>(self) -> T {
+        parse_str(self).unwrap()
+    }
+}
+
+impl ToAst for String {
+    fn ast<T: Parse>(self) -> T {
+        parse_str(&self).unwrap()
+    }
+}
+
+impl ToAst for proc_macro2::TokenStream {
+    fn ast<T: Parse>(self) -> T {
+        parse2(self).unwrap()
     }
 }
 
@@ -237,5 +249,18 @@ pub(crate) struct EmptyResolver;
 impl<'a> Resolver for EmptyResolver {
     fn resolve(&self, _ident: &Ident) -> Option<Cow<Expr>> {
         None
+    }
+}
+
+pub(crate) trait IsAwait {
+    fn is_await(&self) -> bool;
+}
+
+impl IsAwait for Stmt {
+    fn is_await(&self) -> bool {
+        match self {
+            Stmt::Expr(Expr::Await(_)) => true,
+            _ => false,
+        }
     }
 }
