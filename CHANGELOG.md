@@ -3,7 +3,7 @@
 ## [0.6.1] 2020/4/5
 
 ### Add
-- Introducing async tests support. Leverage on `async_std::test` to automatic switch to
+- Introducing async tests support. Leverage on `async_std::test` to automatically switch to
 async test (both for single, cases and matrix) (See #73)
 
 ## [0.6.0] 2020/3/5
@@ -29,7 +29,7 @@ partial fixtures (See [8a0ff08](https://github.com/la10736/rstest/commit/8a0ff08
 
 ### Fixed
 
-- Fixed _unused attribute_ warning when use `should_panic` 
+- Fixed _unused attribute_ warning when use `should_panic`
 attribute (See #79)
 
 ## [0.5.1] 2019/12/14
@@ -51,7 +51,7 @@ in modules (See #68 for details)
 ### Changed
 
 - Better `README.md` that introduce all features
-- (From rustc 1.40) Deprecated `rstest_parametrize` and `rstest_matrix`: 
+- (From rustc 1.40) Deprecated `rstest_parametrize` and `rstest_matrix`:
 `rstest` now cover all features
 - Refactored
 
@@ -70,7 +70,7 @@ in modules (See #68 for details)
 ### Added
 
 - Injecting fixture with partial values in all tests (See #48)
-- Add new `rstest_matrix` macro to build tests by carthesian product of 
+- Add new `rstest_matrix` macro to build tests by carthesian product of
 input arguments (See #38)
 
 ### Fixed
@@ -89,7 +89,7 @@ input arguments (See #38)
 
 - Introduced `fixture` macro: Now you must annotate your fixture by
 this tag. See #5
-- Support for arbitrary rust code without use `Unwrap(str_lit)` trick. 
+- Support for arbitrary rust code without use `Unwrap(str_lit)` trick.
 See #19 and #20 (deprecate `Unwrap()`)
 - Support for tests that return `Result()`, See #23
 - Support for dump test arguments
@@ -126,6 +126,6 @@ See #19 and #20 (deprecate `Unwrap()`)
 
 First Public release.
 
-## [0.1.0] ....
+## [0.1.0] ...
 
 Just my testing and private use.

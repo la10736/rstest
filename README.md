@@ -21,9 +21,9 @@ rstest = "0.6.1"
 ### Fixture
 
 The core idea is that you can inject your test dependencies
-by passing them as test arguments. In the following example
+by passing them as test arguments. In the following example,
 a `fixture` is defined and then used in two tests,
-simply indicating it as argument:
+simply providing it as an argument:
 
 ```rust
 use rstest::*;
@@ -45,7 +45,7 @@ fn should_fail(fixture: u32) {
 ### Parametrize
 
 You can also inject values in some other ways. For instance, you can
-create a set of tests by simply indicating the injected values for each
+create a set of tests by simply providing the injected values for each
 case: `rstest` will generate an independent test for each case.
 
 ```rust
@@ -76,8 +76,8 @@ test fibonacci_test::case_5 ... ok
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-If you need to just indicate a bunch of values for which you
-need to run your test you can use `var => [list, of, values]`
+If you need to just providing a bunch of values for which you
+need to run your test, you can use `var => [list, of, values]`
 syntax:
 
 ```rust
@@ -97,15 +97,15 @@ values.
 
 ### Async
 
-`rstest` provide an out of the box `async` support. Just mark your
-test function as async and test'll use `#[async-std::test]` to 
-annotate it. This feature can be really useful to build async 
-parametric tests by a really clean syntax:
+`rstest` provides out of the box `async` support. Just mark your
+test function as `async` and it'll use `#[async-std::test]` to
+annotate it. This feature can be really useful to build async
+parametric tests using a tidy syntax:
 
 ```rust
 use rstest::*;
 
-#[rstest(expected, a, b, 
+#[rstest(expected, a, b,
     case(5, 2, 3),
     #[should_panic]
     case(42, 40, 1)
@@ -115,22 +115,22 @@ async fn my_async_test(expected: u32, a: u32, b: u32) {
 }
 ```
 
-By now you cannot write async `#[fixture]` and just `async-std` support 
-is provided but in the future will come `tokio`, custom runners and 
-`async` fixtures.
+Currently, you cannot write async `#[fixture]` and only `async-std` is
+supported but support for `tokio` is planned as well as support for
+custom async runtimes and `async` fixtures.
 
-To use this feature you should use `attributes` in `async-std` fetures: 
+To use this feature, you need to enable `attributes` in the `async-std`
+features list in your `Cargo.toml`:
 
 ```toml
-async-std = { version="1.5", features = ["attributes"] }
+async-std = { version = "1.5", features = ["attributes"] }
 ```
 
 ## Complete Example
 
-All these features can be used together with mix fixture variables,
-fixed cases and bunch of values. For instance you need two
-tests that given your repository in cases of both logged in or guest 
-user should return an invalid query error.
+All these features can be used together with a mixture of fixture variables,
+fixed cases and bunch of values. For instance, you might need two
+test cases which test for panics, one for a logged in user and one for a guest user.
 
 ```rust
 use rstest::*;
@@ -138,7 +138,7 @@ use rstest::*;
 #[fixture]
 fn repository() -> InMemoryRepository {
     let mut r = InMemoryRepository::default();
-    // fill repository by some data
+    // fill repository with some data
     r
 }
 
@@ -148,8 +148,9 @@ fn alice() -> User {
 }
 
 #[rstest(user,
-    case::logged_user(alice()), // We can use `fixture` also as standard function
+    case::authed_user(alice()), // We can use `fixture` also as standard function
     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
+                                // and `authed_user`
     query => ["     ", "^%$#@!", "...." ]
 )]
 #[should_panic(expected = "Invalid query error")] // We whould test a panic
@@ -162,11 +163,11 @@ This example will generate exactly 6 tests grouped by 2 different cases:
 
 ```
 running 6 tests
-test should_be_invalid_query_error::case_1_logged_user::query_1 ... ok
+test should_be_invalid_query_error::case_1_authed_user::query_1 ... ok
 test should_be_invalid_query_error::case_2_guest::query_2 ... ok
 test should_be_invalid_query_error::case_2_guest::query_3 ... ok
-test should_be_invalid_query_error::case_1_logged_user::query_2 ... ok
-test should_be_invalid_query_error::case_1_logged_user::query_3 ... ok
+test should_be_invalid_query_error::case_1_authed_user::query_2 ... ok
+test should_be_invalid_query_error::case_1_authed_user::query_3 ... ok
 test should_be_invalid_query_error::case_2_guest::query_1 ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -174,7 +175,7 @@ test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
 ## More
 
-Is that all? Not yet!
+Is that all? Not quite yet!
 
 A fixture can be injected by another fixture and they can be called
 using just some of its arguments.
@@ -219,11 +220,11 @@ fn is_42(user: User) {
 Currently, using a fixture is required also to just provide _default
 value_, but this will change soon with the introduction of a syntax
 for default values, without the need of the fixture function
-definition. 
+definition.
 
 Finally if you need tracing the input values you can just
 add the `trace` attribute to your test to enable the dump of all input
-variables. 
+variables.
 
 ```rust
 #[rstest(
@@ -270,12 +271,12 @@ test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 In case one or more variables don't implement the `Debug` trait, an error
-is raised, but it's also possible to exclude a variable using the 
+is raised, but it's also possible to exclude a variable using the
 `notrace(var,list,that,not,implement,Debug)` attribute.
 
-You can learn more on [Docs][docs-link] and find more 
-examples in [`resources`](resources) directory and in 
-[`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs) 
+You can learn more on [Docs][docs-link] and find more
+examples in [`resources`](resources) directory and in
+[`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs)
 which uses this module in-depth.
 
 ## Changelog
@@ -286,7 +287,7 @@ See [CHANGELOG.md](CHANGELOG.md)
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or 
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 [license-apache-link])
 
 * MIT license [LICENSE-MIT](LICENSE-MIT) or [license-MIT-link]
