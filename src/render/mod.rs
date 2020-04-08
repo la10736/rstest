@@ -175,6 +175,13 @@ fn single_test_case<'a>(
 ) -> TokenStream {
     let inject = resolve_args(args.iter(), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
+
+    let mut contains_test = false;
+    for attr in attrs {
+        if attr.path.is_ident("test") {
+            contains_test = true;
+        }
+    }
     let test_attr: syn::Path = if asyncness.is_none() {
         parse_quote! {test}
     } else {
@@ -186,15 +193,28 @@ fn single_test_case<'a>(
         quote! {#testfn_name(#(#args),*).await}
     };
 
-    quote! {
-        #[#test_attr]
-        #(#attrs)*
-        #asyncness fn #name() #output {
-            #test_impl
-            #inject
-            #trace_args
-            println!("{:-^40}", " TEST START ");
-            #execute
+    if contains_test {
+        quote! {
+            #(#attrs)*
+            #asyncness fn #name() #output {
+                #test_impl
+                #inject
+                #trace_args
+                println!("{:-^40}", " TEST START ");
+                #execute
+            }
+        }
+    } else {
+        quote! {
+            #[#test_attr]
+            #(#attrs)*
+            #asyncness fn #name() #output {
+                #test_impl
+                #inject
+                #trace_args
+                println!("{:-^40}", " TEST START ");
+                #execute
+            }
         }
     }
 }
