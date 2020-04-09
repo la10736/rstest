@@ -20,7 +20,7 @@ use crate::parse::{
 };
 use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
-use crate::utils::fn_args_idents;
+use crate::utils::{attr_ends_with, fn_args_idents};
 use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
@@ -151,6 +151,14 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
+fn resolve_default_test_attr(is_async: bool) -> Attribute {
+    if is_async {
+        parse_quote! { #[async_std::test] }
+    } else {
+        parse_quote! { #[test] }
+    }
+}
+
 /// Render a single test case:
 ///
 /// * `name` - Test case name
@@ -175,10 +183,15 @@ fn single_test_case<'a>(
 ) -> TokenStream {
     let inject = resolve_args(args.iter(), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
-    let test_attr: syn::Path = if asyncness.is_none() {
-        parse_quote! {test}
+
+    // If no injected attribut provided use the default one
+    let test_attr = if attrs
+        .iter()
+        .any(|a| attr_ends_with(a, &parse_quote! {test}))
+    {
+        None
     } else {
-        parse_quote! {async_std::test}
+        Some(resolve_default_test_attr(asyncness.is_some()))
     };
     let execute = if asyncness.is_none() {
         quote! {#testfn_name(#(#args),*)}
@@ -187,7 +200,7 @@ fn single_test_case<'a>(
     };
 
     quote! {
-        #[#test_attr]
+        #test_attr
         #(#attrs)*
         #asyncness fn #name() #output {
             #test_impl

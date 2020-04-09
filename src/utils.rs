@@ -1,7 +1,7 @@
 use crate::refident::MaybeIdent;
 /// Contains some unsorted functions used across others modules
 ///
-use syn::{FnArg, Ident, ItemFn};
+use syn::{Attribute, FnArg, Ident, ItemFn};
 
 /// Return an iterator over fn arguments items.
 ///
@@ -19,6 +19,10 @@ pub(crate) fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
 ///
 pub(crate) fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item = &FnArg> {
     item_fn.sig.inputs.iter()
+}
+
+pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
+    &attr.path.segments.iter().last() == &Some(segment)
 }
 
 #[cfg(test)]

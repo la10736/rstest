@@ -7,9 +7,9 @@ use syn::{
     ItemFn, ItemMod,
 };
 
-use crate::test::{assert_eq, fixture, *};
-
 use super::*;
+use crate::test::{assert_eq, fixture, *};
+use crate::utils::*;
 
 mod arg_2_fixture_should {
     use super::{assert_eq, *};
@@ -214,7 +214,7 @@ impl QueryAttrs for ItemFn {
     fn has_attr_that_ends_with(&self, name: &syn::PathSegment) -> bool {
         self.attrs
             .iter()
-            .find(|a| &a.path.segments.iter().last() == &Some(name))
+            .find(|a| attr_ends_with(a, name))
             .is_some()
     }
 }
