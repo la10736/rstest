@@ -1,6 +1,15 @@
 name: Test
 
-on: [push, pull_request]
+on: 
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  release:
+    types: # This configuration does not affect the page_build event above
+      - created
 
 jobs:
   build:
