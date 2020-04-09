@@ -401,6 +401,19 @@
 <span id="401">401</span>
 <span id="402">402</span>
 <span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">fixture</span>;
 <span class="kw">mod</span> <span class="ident">test</span>;
@@ -424,7 +437,7 @@
 };
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">refident</span>::<span class="ident">MaybeIdent</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">resolver</span>::{<span class="self">self</span>, <span class="ident">Resolver</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::<span class="ident">fn_args_idents</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::{<span class="ident">attr_ends_with</span>, <span class="ident">fn_args_idents</span>};
 <span class="kw">use</span> <span class="ident">wrapper</span>::<span class="ident">WrapByModule</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">fixture</span>::<span class="ident">render</span> <span class="kw">as</span> <span class="ident">fixture</span>;
@@ -555,6 +568,14 @@
     <span class="ident">test_group</span>(<span class="ident">test</span>, <span class="ident">rendered_cases</span>)
 }
 
+<span class="kw">fn</span> <span class="ident">resolve_default_test_attr</span>(<span class="ident">is_async</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Attribute</span> {
+    <span class="kw">if</span> <span class="ident">is_async</span> {
+        <span class="macro">parse_quote</span><span class="macro">!</span> { <span class="attribute">#[<span class="ident">async_std</span>::<span class="ident">test</span>]</span> }
+    } <span class="kw">else</span> {
+        <span class="macro">parse_quote</span><span class="macro">!</span> { <span class="attribute">#[<span class="ident">test</span>]</span> }
+    }
+}
+
 <span class="doccomment">/// Render a single test case:</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `name` - Test case name</span>
@@ -579,10 +600,15 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">resolve_args</span>(<span class="ident">args</span>.<span class="ident">iter</span>(), <span class="kw-2">&amp;</span><span class="ident">resolver</span>);
     <span class="kw">let</span> <span class="ident">trace_args</span> <span class="op">=</span> <span class="ident">trace_arguments</span>(<span class="ident">args</span>.<span class="ident">iter</span>(), <span class="ident">attributes</span>);
-    <span class="kw">let</span> <span class="ident">test_attr</span>: <span class="ident">syn</span>::<span class="ident">Path</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">asyncness</span>.<span class="ident">is_none</span>() {
-        <span class="macro">parse_quote</span><span class="macro">!</span> {<span class="ident">test</span>}
+
+    <span class="comment">// If no injected attribut provided use the default one</span>
+    <span class="kw">let</span> <span class="ident">test_attr</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">attrs</span>
+        .<span class="ident">iter</span>()
+        .<span class="ident">any</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">attr_ends_with</span>(<span class="ident">a</span>, <span class="kw-2">&amp;</span><span class="macro">parse_quote</span><span class="macro">!</span> {<span class="ident">test</span>}))
+    {
+        <span class="prelude-val">None</span>
     } <span class="kw">else</span> {
-        <span class="macro">parse_quote</span><span class="macro">!</span> {<span class="ident">async_std</span>::<span class="ident">test</span>}
+        <span class="prelude-val">Some</span>(<span class="ident">resolve_default_test_attr</span>(<span class="ident">asyncness</span>.<span class="ident">is_some</span>()))
     };
     <span class="kw">let</span> <span class="ident">execute</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">asyncness</span>.<span class="ident">is_none</span>() {
         <span class="macro">quote</span><span class="macro">!</span> {#<span class="ident">testfn_name</span>(#(#<span class="ident">args</span>),<span class="kw-2">*</span>)}
@@ -591,7 +617,7 @@
     };
 
     <span class="macro">quote</span><span class="macro">!</span> {
-        <span class="attribute">#[#<span class="ident">test_attr</span>]</span>
+        #<span class="ident">test_attr</span>
         #(#<span class="ident">attrs</span>)<span class="op">*</span>
         #<span class="ident">asyncness</span> <span class="kw">fn</span> #<span class="ident">name</span>() #<span class="ident">output</span> {
             #<span class="ident">test_impl</span>
