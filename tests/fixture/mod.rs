@@ -84,6 +84,19 @@ mod should {
     }
 
     #[test]
+    fn resolve_async_fixture() {
+        let prj = prj("async_fixture.rs");
+        prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("default_is_async")
+            .ok("use_async_fixture")
+            .assert(output);
+    }
+
+    #[test]
     fn resolve_fixture_generics_by_fixture_input() {
         let (output, _) = run_test("resolve.rs");
 
