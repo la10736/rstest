@@ -87,6 +87,7 @@ fn render_partial_impl(
 
     let generics = generics_clean_up(&fixture.sig.generics, fn_args(fixture).take(n), &output);
     let where_clause = &generics.where_clause;
+    let asyncness = &fixture.sig.asyncness;
 
     let inject = resolve_args(fn_args_idents(fixture).skip(n), resolver);
 
@@ -94,11 +95,21 @@ fn render_partial_impl(
     let fixture_args = fn_args_idents(fixture);
     let name = Ident::new(&format!("partial_{}", n), Span::call_site());
 
+    let self_get = if asyncness.is_none() {
+        quote! {
+            Self::get(#(#fixture_args),*)
+        }
+    } else {
+        quote! {
+            Self::get(#(#fixture_args),*).await
+        }
+    };
+
     quote! {
         #[allow(unused_mut)]
-        pub fn #name #generics (#(#sign_args),*) #output #where_clause {
+        pub #asyncness fn #name #generics (#(#sign_args),*) #output #where_clause {
             #inject
-            Self::get(#(#fixture_args),*)
+            #self_get
         }
     }
 }
