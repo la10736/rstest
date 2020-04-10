@@ -93,6 +93,7 @@ mod should {
         TestResults::new()
             .ok("default_is_async")
             .ok("use_async_fixture")
+            .ok("use_async_impl_output")
             .assert(output);
     }
 
