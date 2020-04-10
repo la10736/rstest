@@ -10,6 +10,7 @@ use crate::utils::{fn_args, fn_args_idents};
 
 pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let name = &fixture.sig.ident;
+    let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
     let args = &vargs;
     let orig_args = &fixture.sig.inputs;
@@ -32,6 +33,23 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let inject = resolve_args(fn_args_idents(&fixture), &resolver);
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
+
+    let (self_get_default, self_get) = if asyncness.is_none() {
+        (
+            quote! {
+                Self::get(#(#args),*)
+            },
+            quote! {#name(#(#args),*)},
+        )
+    } else {
+        (
+            quote! {
+                Self::get(#(#args),*).await
+            },
+            quote! {#name(#(#args),*).await},
+        )
+    };
+
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {}
@@ -39,13 +57,13 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         impl #name {
             #(#orig_attrs)*
             #[allow(unused_mut)]
-            pub fn get #generics (#orig_args) #output #where_clause {
-                #name(#(#args),*)
+            pub #asyncness fn get #generics (#orig_args) #output #where_clause {
+                #self_get
             }
 
-            pub fn default #default_generics () #default_output #default_where_clause {
+            pub #asyncness fn default #default_generics () #default_output #default_where_clause {
                 #inject
-                Self::get(#(#args),*)
+                #self_get_default
             }
 
             #(#partials)*
