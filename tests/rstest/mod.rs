@@ -321,6 +321,25 @@ mod single {
             .fail("should_panic_fail")
             .assert(output);
     }
+
+    #[test]
+    fn should_use_injected_test_attr() {
+        let prj = prj(res("inject.rs"));
+        prj.add_dependency("actix-rt", r#""1.1.0""#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("sync_case")
+            .ok("sync_case_panic")
+            .fail("sync_case_fail")
+            .fail("sync_case_panic_fail")
+            .ok("async_case")
+            .ok("async_case_panic")
+            .fail("async_case_fail")
+            .fail("async_case_panic_fail")
+            .assert(output);
+    }
 }
 
 mod cases {
@@ -405,6 +424,23 @@ mod cases {
             .fail("my_async_test::case_2_fail")
             .ok("my_async_test::case_3_pass_panic")
             .fail("my_async_test::case_4_fail_panic")
+            .assert(output);
+    }
+
+    #[test]
+    fn should_use_injected_test_attr() {
+        let prj = prj(res("inject.rs"));
+        prj.add_dependency("actix-rt", r#""1.1.0""#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("sync::case_1_pass")
+            .ok("sync::case_2_panic")
+            .fail("sync::case_3_fail")
+            .ok("fn_async::case_1_pass")
+            .ok("fn_async::case_2_panic")
+            .fail("fn_async::case_3_fail")
             .assert(output);
     }
 
@@ -686,6 +722,25 @@ mod matrix {
             .fail("my_async_test::first_1::second_2")
             .fail("my_async_test::first_2::second_1")
             .ok("my_async_test::first_2::second_2")
+            .assert(output);
+    }
+
+    #[test]
+    fn should_use_injected_test_attr() {
+        let prj = prj(res("inject.rs"));
+        prj.add_dependency("actix-rt", r#""1.1.0""#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("sync::first_1::second_1")
+            .fail("sync::first_1::second_2")
+            .fail("sync::first_2::second_1")
+            .ok("sync::first_2::second_2")
+            .ok("fn_async::first_1::second_1")
+            .fail("fn_async::first_1::second_2")
+            .fail("fn_async::first_2::second_1")
+            .ok("fn_async::first_2::second_2")
             .assert(output);
     }
 }
