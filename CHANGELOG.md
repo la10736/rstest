@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.2] Unreleased
+## [0.6.2] 2020/4/13
 
 ### Add
 - Injecting test attribute. You can choose your own test attribute (should be something like `*::test`) 
