@@ -151,11 +151,19 @@ pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
-fn resolve_default_test_attr(is_async: bool) -> Attribute {
+fn resolve_default_test_attr(is_async: bool) -> TokenStream {
     if is_async {
-        parse_quote! { #[async_std::test] }
+        quote! { #[async_std::test] }
     } else {
-        parse_quote! { #[test] }
+        quote! { #[test] }
+    }
+}
+
+fn render_execute(testfn_name: &Ident, args: &[Ident], is_async: bool) -> TokenStream {
+    if is_async {
+        quote! {#testfn_name(#(#args),*).await}
+    } else {
+        quote! {#testfn_name(#(#args),*)}
     }
 }
 
@@ -184,6 +192,7 @@ fn single_test_case<'a>(
     let inject = resolve_args(args.iter(), &resolver);
     let trace_args = trace_arguments(args.iter(), attributes);
 
+    let is_async = asyncness.is_some();
     // If no injected attribut provided use the default one
     let test_attr = if attrs
         .iter()
@@ -191,13 +200,9 @@ fn single_test_case<'a>(
     {
         None
     } else {
-        Some(resolve_default_test_attr(asyncness.is_some()))
+        Some(resolve_default_test_attr(is_async))
     };
-    let execute = if asyncness.is_none() {
-        quote! {#testfn_name(#(#args),*)}
-    } else {
-        quote! {#testfn_name(#(#args),*).await}
-    };
+    let execute = render_execute(testfn_name, args, is_async);
 
     quote! {
         #test_attr
