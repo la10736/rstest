@@ -611,7 +611,7 @@ pub fn fixture(
 /// annotate it. This feature can be really useful to build async
 /// parametric tests using a tidy syntax:
 ///
-/// ```rust
+/// ```
 /// use rstest::*;
 /// # async fn async_sum(a: u32, b: u32) -> u32 { a + b }
 ///
@@ -643,7 +643,7 @@ pub fn fixture(
 /// indicate it in your test function's attributes. For instance if you want
 /// to test some async function with use `actix_rt::test` attribute you can just write:
 ///
-/// ```rust
+/// ```norun
 /// use rstest::*;
 /// use actix_rt;
 /// use std::future::Future;

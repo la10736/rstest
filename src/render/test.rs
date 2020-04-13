@@ -10,7 +10,7 @@ use syn::{
 use super::*;
 use crate::test::{assert_eq, fixture, *};
 use crate::utils::*;
-use rstest::*;
+use mytest::*;
 
 trait SetAsync {
     fn set_async(&mut self, is_async: bool);
