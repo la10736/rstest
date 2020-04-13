@@ -22,18 +22,18 @@ exclude = [
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0", features = ["full", "parsing", "extra-traits", "visit"] }
-proc-macro2 = { version = "1.0" }
-quote = "1.0"
-cfg-if = "0.1"
+syn = { version = "1.0.17", features = ["full", "parsing", "extra-traits", "visit"] }
+proc-macro2 = { version = "1.0.10" }
+quote = "1.0.3"
+cfg-if = "0.1.10"
 
 [dev-dependencies]
-temp_testdir = "0.2"
+temp_testdir = "0.2.3"
 lazy_static = "1.4.0"
-toml_edit = "0.1"
-pretty_assertions = "0.6"
-unindent = "^0.1.4"
-mytest = { package = "rstest", version = "0.6" }
+toml_edit = "0.1.5"
+pretty_assertions = "0.6.1"
+unindent = "0.1.5"
+mytest = { package = "rstest", version = "0.6.1" }
 
 [build-dependencies]
-rustc_version = "0.2"
+rustc_version = "0.2.3"
