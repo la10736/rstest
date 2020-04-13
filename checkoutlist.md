@@ -1,6 +1,7 @@
 # TODO list
 
 - [ ] Update rustup
+- [ ] Update dependency
 - [ ] Run all test
   - [ ] Stable
   - [ ] Beta use also `RSTEST_TEST_CHANNEL=beta`
@@ -13,3 +14,6 @@
 - [ ] Push tag
 - [ ] prepare deploy `cargo publish --dry-run`
 - [ ] deploy `cargo publish`
+- [ ] Change next version 
+- [ ] Change dependency (inner rstest)
+- [ ] Prepare next changelog
