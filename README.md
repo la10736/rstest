@@ -116,8 +116,9 @@ async fn my_async_test(expected: u32, a: u32, b: u32) {
 ```
 
 Currently, you cannot write async `#[fixture]` and only `async-std` is
-supported but support for `tokio` is planned as well as support for
-custom async runtimes and `async` fixtures.
+supported out of the box. But if you need to use another runtime
+that provide it's own test attribute (i.e. `tokio::test` or `actix_rt::test`)
+you can use it in your `async` test like described in [#inject-test-attribute].
 
 To use this feature, you need to enable `attributes` in the `async-std`
 features list in your `Cargo.toml`:
@@ -125,6 +126,28 @@ features list in your `Cargo.toml`:
 ```toml
 async-std = { version = "1.5", features = ["attributes"] }
 ```
+
+### Inject Test Attribute
+
+If you would like to use another `test` attribute for your test you can simply 
+indicate it in your test function's attributes. For instance if you want
+to test some async function with use `actix_rt::test` attribute you can just write:
+
+```rust
+use rstest::*;
+use actix_rt;
+use std::future::Future;
+
+#[rstest(a, result,
+    case(2, async { 4 }),
+    case(21, async { 42 })
+)]
+#[actix_rt::test]
+async fn my_async_test(a: u32, result: impl Future<Output=u32>) {
+    assert_eq!(2 * a, result.await);
+}
+```
+Just the attributes that ends with `test` (last path segment) can be injected.
 
 ## Complete Example
 

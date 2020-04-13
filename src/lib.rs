@@ -606,10 +606,10 @@ pub fn fixture(
 /// ```
 /// ## Async
 ///
-/// `rstest` provide an out of the box `async` support. Just mark your
-/// test function as async and test'll use `#[async-std::test]` to
+/// `rstest` provides out of the box `async` support. Just mark your
+/// test function as `async` and it'll use `#[async-std::test]` to
 /// annotate it. This feature can be really useful to build async
-/// parametric tests by a really clean syntax:
+/// parametric tests using a tidy syntax:
 ///
 /// ```rust
 /// use rstest::*;
@@ -625,22 +625,45 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// By now you cannot write async `#[fixture]` and just `async-std` support
-/// is provided but in the future will come `tokio`, custom runners and
-/// `async` fixtures.
+/// Currently, you cannot write async `#[fixture]` and only `async-std` is
+/// supported out of the box. But if you need to use another runtime
+/// that provide it's own test attribute (i.e. `tokio::test` or `actix_rt::test`)
+/// you can use it in your `async` test like described in [#inject-test-attribute].
 ///
-/// To use this feature you should use `attributes` in `async-std` fetures:
+/// To use this feature, you need to enable `attributes` in the `async-std`
+/// features list in your `Cargo.toml`:
 ///
 /// ```toml
-/// async-std = { version="1.5", features = ["attributes"] }
+/// async-std = { version = "1.5", features = ["attributes"] }
 /// ```
+///
+/// ## Inject Test Attribute
+///
+/// If you would like to use another `test` attribute for your test you can simply
+/// indicate it in your test function's attributes. For instance if you want
+/// to test some async function with use `actix_rt::test` attribute you can just write:
+///
+/// ```rust
+/// use rstest::*;
+/// use actix_rt;
+/// use std::future::Future;
+///
+/// #[rstest(a, result,
+///     case(2, async { 4 }),
+///     case(21, async { 42 })
+/// )]
+/// #[actix_rt::test]
+/// async fn my_async_test(a: u32, result: impl Future<Output=u32>) {
+///     assert_eq!(2 * a, result.await);
+/// }
+/// ```
+/// Just the attributes that ends with `test` (last path segment) can be injected.
 ///
 /// ## Putting all Together
 ///
-/// All these features can be used together: take some fixtures, define some
-/// fixed cases and, for each case, tests all combinations of given values.
-/// For istance you need to test that given your repository in cases of both
-/// logged in or guest user should return an invalid query error.
+/// All these features can be used together with a mixture of fixture variables,
+/// fixed cases and bunch of values. For instance, you might need two
+/// test cases which test for panics, one for a logged in user and one for a guest user.
 ///
 /// ```rust
 /// # enum User { Guest, Logged, }
@@ -655,7 +678,7 @@ pub fn fixture(
 /// #[fixture]
 /// fn repository() -> InMemoryRepository {
 ///     let mut r = InMemoryRepository::default();
-///     // fill repository by some data
+///     // fill repository with some data
 ///     r
 /// }
 ///
@@ -665,7 +688,7 @@ pub fn fixture(
 /// }
 ///
 /// #[rstest(user,
-///     case::logged_user(alice()), // We can use `fixture` also as standard function
+///     case::authed_user(alice()), // We can use `fixture` also as standard function
 ///     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
 ///     query => ["     ", "^%$#@!", "...." ]
 /// )]
