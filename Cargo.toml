@@ -1,6 +1,6 @@
 [package]
 name = "rstest"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
@@ -33,6 +33,7 @@ lazy_static = "1.4.0"
 toml_edit = "0.1"
 pretty_assertions = "0.6"
 unindent = "^0.1.4"
+rstest = "0.6"
 
 [build-dependencies]
 rustc_version = "0.2"
