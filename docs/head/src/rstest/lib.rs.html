@@ -741,6 +741,29 @@
 <span id="741">741</span>
 <span id="742">742</span>
 <span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This crate will help you to write simpler tests by leveraging a software testing concept called</span>
 <span class="doccomment">//! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something</span>
@@ -1350,10 +1373,10 @@
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// ## Async</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// `rstest` provide an out of the box `async` support. Just mark your</span>
-<span class="doccomment">/// test function as async and test&#39;ll use `#[async-std::test]` to</span>
+<span class="doccomment">/// `rstest` provides out of the box `async` support. Just mark your</span>
+<span class="doccomment">/// test function as `async` and it&#39;ll use `#[async-std::test]` to</span>
 <span class="doccomment">/// annotate it. This feature can be really useful to build async</span>
-<span class="doccomment">/// parametric tests by a really clean syntax:</span>
+<span class="doccomment">/// parametric tests using a tidy syntax:</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// use rstest::*;</span>
@@ -1369,22 +1392,45 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// By now you cannot write async `#[fixture]` and just `async-std` support</span>
-<span class="doccomment">/// is provided but in the future will come `tokio`, custom runners and</span>
-<span class="doccomment">/// `async` fixtures.</span>
+<span class="doccomment">/// Currently, you cannot write async `#[fixture]` and only `async-std` is</span>
+<span class="doccomment">/// supported out of the box. But if you need to use another runtime</span>
+<span class="doccomment">/// that provide it&#39;s own test attribute (i.e. `tokio::test` or `actix_rt::test`)</span>
+<span class="doccomment">/// you can use it in your `async` test like described in [#inject-test-attribute].</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// To use this feature you should use `attributes` in `async-std` fetures:</span>
+<span class="doccomment">/// To use this feature, you need to enable `attributes` in the `async-std`</span>
+<span class="doccomment">/// features list in your `Cargo.toml`:</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```toml</span>
-<span class="doccomment">/// async-std = { version=&quot;1.5&quot;, features = [&quot;attributes&quot;] }</span>
+<span class="doccomment">/// async-std = { version = &quot;1.5&quot;, features = [&quot;attributes&quot;] }</span>
 <span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ## Inject Test Attribute</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// If you would like to use another `test` attribute for your test you can simply</span>
+<span class="doccomment">/// indicate it in your test function&#39;s attributes. For instance if you want</span>
+<span class="doccomment">/// to test some async function with use `actix_rt::test` attribute you can just write:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// use rstest::*;</span>
+<span class="doccomment">/// use actix_rt;</span>
+<span class="doccomment">/// use std::future::Future;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// #[rstest(a, result,</span>
+<span class="doccomment">///     case(2, async { 4 }),</span>
+<span class="doccomment">///     case(21, async { 42 })</span>
+<span class="doccomment">/// )]</span>
+<span class="doccomment">/// #[actix_rt::test]</span>
+<span class="doccomment">/// async fn my_async_test(a: u32, result: impl Future&lt;Output=u32&gt;) {</span>
+<span class="doccomment">///     assert_eq!(2 * a, result.await);</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// Just the attributes that ends with `test` (last path segment) can be injected.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ## Putting all Together</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// All these features can be used together: take some fixtures, define some</span>
-<span class="doccomment">/// fixed cases and, for each case, tests all combinations of given values.</span>
-<span class="doccomment">/// For istance you need to test that given your repository in cases of both</span>
-<span class="doccomment">/// logged in or guest user should return an invalid query error.</span>
+<span class="doccomment">/// All these features can be used together with a mixture of fixture variables,</span>
+<span class="doccomment">/// fixed cases and bunch of values. For instance, you might need two</span>
+<span class="doccomment">/// test cases which test for panics, one for a logged in user and one for a guest user.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// # enum User { Guest, Logged, }</span>
@@ -1399,7 +1445,7 @@
 <span class="doccomment">/// #[fixture]</span>
 <span class="doccomment">/// fn repository() -&gt; InMemoryRepository {</span>
 <span class="doccomment">///     let mut r = InMemoryRepository::default();</span>
-<span class="doccomment">///     // fill repository by some data</span>
+<span class="doccomment">///     // fill repository with some data</span>
 <span class="doccomment">///     r</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">///</span>
@@ -1409,7 +1455,7 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// #[rstest(user,</span>
-<span class="doccomment">///     case::logged_user(alice()), // We can use `fixture` also as standard function</span>
+<span class="doccomment">///     case::authed_user(alice()), // We can use `fixture` also as standard function</span>
 <span class="doccomment">///     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case</span>
 <span class="doccomment">///     query =&gt; [&quot;     &quot;, &quot;^%$#@!&quot;, &quot;....&quot; ]</span>
 <span class="doccomment">/// )]</span>
