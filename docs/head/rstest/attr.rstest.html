@@ -250,7 +250,7 @@ parametric tests using a tidy syntax:</p>
 <p>Currently, you cannot write async <code>#[fixture]</code> and only <code>async-std</code> is
 supported out of the box. But if you need to use another runtime
 that provide it's own test attribute (i.e. <code>tokio::test</code> or <code>actix_rt::test</code>)
-you can use it in your <code>async</code> test like described in [#inject-test-attribute].</p>
+you can use it in your <code>async</code> test like described in <a href="attr.rstest.html#inject-test-attribute">Inject Test Attribute</a>.</p>
 <p>To use this feature, you need to enable <code>attributes</code> in the <code>async-std</code>
 features list in your <code>Cargo.toml</code>:</p>
 <pre><code class="language-toml">async-std = { version = &quot;1.5&quot;, features = [&quot;attributes&quot;] }
