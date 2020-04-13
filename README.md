@@ -118,7 +118,7 @@ async fn my_async_test(expected: u32, a: u32, b: u32) {
 Currently, you cannot write async `#[fixture]` and only `async-std` is
 supported out of the box. But if you need to use another runtime
 that provide it's own test attribute (i.e. `tokio::test` or `actix_rt::test`)
-you can use it in your `async` test like described in [#inject-test-attribute].
+you can use it in your `async` test like described in [Inject Test Attribute](#inject-test-attribute).
 
 To use this feature, you need to enable `attributes` in the `async-std`
 features list in your `Cargo.toml`:

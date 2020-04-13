@@ -628,7 +628,7 @@ pub fn fixture(
 /// Currently, you cannot write async `#[fixture]` and only `async-std` is
 /// supported out of the box. But if you need to use another runtime
 /// that provide it's own test attribute (i.e. `tokio::test` or `actix_rt::test`)
-/// you can use it in your `async` test like described in [#inject-test-attribute].
+/// you can use it in your `async` test like described in [Inject Test Attribute](attr.rstest.html#inject-test-attribute).
 ///
 /// To use this feature, you need to enable `attributes` in the `async-std`
 /// features list in your `Cargo.toml`:
