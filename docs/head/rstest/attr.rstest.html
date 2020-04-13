@@ -259,20 +259,19 @@ features list in your <code>Cargo.toml</code>:</p>
 <p>If you would like to use another <code>test</code> attribute for your test you can simply
 indicate it in your test function's attributes. For instance if you want
 to test some async function with use <code>actix_rt::test</code> attribute you can just write:</p>
+<pre><code class="language-norun">use rstest::*;
+use actix_rt;
+use std::future::Future;
 
-<div class="example-wrap"><pre class="rust rust-example-rendered">
-<span class="kw">use</span> <span class="ident">rstest</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">actix_rt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">future</span>::<span class="ident">Future</span>;
-
-<span class="attribute">#[<span class="ident">rstest</span>(<span class="ident">a</span>, <span class="ident">result</span>,
-    <span class="ident">case</span>(<span class="number">2</span>, <span class="kw">async</span> { <span class="number">4</span> }),
-    <span class="ident">case</span>(<span class="number">21</span>, <span class="kw">async</span> { <span class="number">42</span> })
-)]</span>
-<span class="attribute">#[<span class="ident">actix_rt</span>::<span class="ident">test</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">my_async_test</span>(<span class="ident">a</span>: <span class="ident">u32</span>, <span class="ident">result</span>: <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span><span class="op">=</span><span class="ident">u32</span><span class="op">&gt;</span>) {
-    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">2</span> <span class="op">*</span> <span class="ident">a</span>, <span class="ident">result</span>.<span class="kw">await</span>);
-}</pre></div>
+#[rstest(a, result,
+    case(2, async { 4 }),
+    case(21, async { 42 })
+)]
+#[actix_rt::test]
+async fn my_async_test(a: u32, result: impl Future&lt;Output=u32&gt;) {
+    assert_eq!(2 * a, result.await);
+}
+</code></pre>
 <p>Just the attributes that ends with <code>test</code> (last path segment) can be injected.</p>
 <h2 id="putting-all-together" class="section-header"><a href="#putting-all-together">Putting all Together</a></h2>
 <p>All these features can be used together with a mixture of fixture variables,
