@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.2] Unreleased
+
+### Add
+- Injecting test attribute. You can choose your own test attribute (should be something like `*::test`) 
+for each test. This feature enable every async runtime (See #91).
+
 ## [0.6.1] 2020/4/5
 
 ### Add
