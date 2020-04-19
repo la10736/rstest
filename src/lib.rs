@@ -359,7 +359,7 @@ pub fn fixture(
 /// `rstest` attribute can be applied to _any_ function and you can costumize its
 /// parameters by the follow syntax
 ///
-/// ```norun
+/// ```text
 /// rstest(
 ///     arg_1,
 ///     ...,
@@ -476,7 +476,7 @@ pub fn fixture(
 /// check every case. Every test can fail indipendently and `cargo test`
 /// will give follow output:
 ///
-/// ```norun
+/// ```text
 /// running 5 tests
 /// test fibonacci_test::case_1 ... ok
 /// test fibonacci_test::case_2 ... ok
@@ -511,7 +511,7 @@ pub fn fixture(
 /// with `::my_case_description` where `my_case_description` should be a a valid
 /// Rust ident.
 ///
-/// ```norun
+/// ```text
 /// #[rstest(input, expected,
 ///     case::zero_base_case(0, 0),
 ///     case::one_base_case(1, 1),
@@ -521,7 +521,7 @@ pub fn fixture(
 /// ```
 ///
 /// Outuput will be
-/// ```norun
+/// ```text
 /// running 4 tests
 /// test fibonacci_test::case_1_zero_base_case ... ok
 /// test fibonacci_test::case_2_one_base_case ... ok
@@ -565,7 +565,7 @@ pub fn fixture(
 ///
 /// Output:
 ///
-/// ```norun
+/// ```text
 /// running 3 tests
 /// test attribute_per_case::case_1_no_panic ... ok
 /// test attribute_per_case::case_3_panic_with_message ... ok
@@ -606,7 +606,7 @@ pub fn fixture(
 /// ```
 /// where `cargo test` output is
 ///
-/// ```norun
+/// ```text
 /// running 6 tests
 /// test should_accept_all_corner_cases::name_1::age_1 ... ok
 /// test should_accept_all_corner_cases::name_3::age_1 ... ok
@@ -656,7 +656,7 @@ pub fn fixture(
 /// indicate it in your test function's attributes. For instance if you want
 /// to test some async function with use `actix_rt::test` attribute you can just write:
 ///
-/// ```norun,rust
+/// ```
 /// use rstest::*;
 /// use actix_rt;
 /// use std::future::Future;

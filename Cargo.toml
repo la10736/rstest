@@ -23,7 +23,7 @@ proc-macro = true
 
 [dependencies]
 syn = { version = "1.0.17", features = ["full", "parsing", "extra-traits", "visit"] }
-proc-macro2 = { version = "1.0.10" }
+proc-macro2 = "1.0.10"
 quote = "1.0.3"
 cfg-if = "0.1.10"
 
@@ -33,6 +33,7 @@ lazy_static = "1.4.0"
 toml_edit = "0.1.5"
 pretty_assertions = "0.6.1"
 unindent = "0.1.5"
+actix-rt = "1.1.0"
 mytest = { package = "rstest", version = "0.6.2" }
 
 [build-dependencies]
