@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.3] Unreleased
+## [0.6.3] 2020/4/19
 
 ### Add
 - Define default values instead use trivial fixtures (See #72).
