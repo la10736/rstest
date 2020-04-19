@@ -252,6 +252,24 @@ use crate::parse::{fixture::FixtureInfo, rstest::RsTestInfo};
 /// }
 /// ```
 ///
+/// # Default values
+///
+/// If you need to define argument default value you can use the `name=expression`
+/// syntax in fixture attribute:
+///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture(twenty_one=21, two=2)]
+/// fn injected(twenty_one: i32, two: i32) -> i32 { twenty_one * two }
+///
+/// #[rstest]
+/// fn the_test(injected: i32) {
+///     assert_eq!(42, injected)
+/// }
+/// ```
+/// The `expression` could be any valid rust expression, even an `async` block if you need.
+///
 /// # Partial Injection
 ///
 /// You can also partialy inject fixture dependency simply indicate dependency value as fixture
@@ -415,12 +433,7 @@ pub fn fixture(
 /// # impl User { fn name(&self) -> &str {&self.0} }
 /// use rstest::*;
 ///
-/// #[fixture]
-/// fn name() -> &'static str { "Alice" }
-/// #[fixture]
-/// fn age() -> u8 { 22 }
-///
-/// #[fixture]
+/// #[fixture(name="Alice", age=22)]
 /// fn user(name: impl AsRef<str>, age: u8) -> User { User(name.as_ref().to_owned(), age) }
 ///
 /// #[rstest(user("Bob"))]
@@ -643,7 +656,7 @@ pub fn fixture(
 /// indicate it in your test function's attributes. For instance if you want
 /// to test some async function with use `actix_rt::test` attribute you can just write:
 ///
-/// ```norun
+/// ```norun,rust
 /// use rstest::*;
 /// use actix_rt;
 /// use std::future::Future;

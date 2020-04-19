@@ -15,7 +15,7 @@ following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.6.2"
+rstest = "0.6.3"
 ```
 
 ### Fixture
@@ -204,17 +204,7 @@ A fixture can be injected by another fixture and they can be called
 using just some of its arguments.
 
 ```rust
-#[fixture]
-fn name() -> &'static str {
-    "Alice"
-}
-
-#[fixture]
-fn age() -> u8 {
-    22
-}
-
-#[fixture]
+#[fixture(name="Alice", age: 22)]
 fn user(name: &str, age: u8) -> User {
     User::new(name, age)
 }
@@ -240,10 +230,8 @@ fn is_42(user: User) {
 }
 ```
 
-Currently, using a fixture is required also to just provide _default
-value_, but this will change soon with the introduction of a syntax
-for default values, without the need of the fixture function
-definition.
+As you noted you can provide default values without the need of a fixture
+to define it.
 
 Finally if you need tracing the input values you can just
 add the `trace` attribute to your test to enable the dump of all input

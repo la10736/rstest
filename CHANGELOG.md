@@ -2,6 +2,8 @@
 
 ## [0.6.3] Unreleased
 
+### Add
+- Define default values instead use trivial fixtures (See #72).
 
 ## [0.6.2] 2020/4/13
 
