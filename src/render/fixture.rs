@@ -25,7 +25,10 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let where_clause = &fixture.sig.generics.where_clause;
     let output = &fixture.sig.output;
     let visibility = &fixture.vis;
-    let resolver = resolver::fixtures::get(info.data.fixtures());
+    let resolver = (
+        resolver::fixtures::get(info.data.fixtures()),
+        resolver::values::get(info.data.values()),
+    );
     let inject = resolve_args(fn_args_idents(&fixture), &resolver);
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));

@@ -1,7 +1,7 @@
 /// `fixture`'s related data and parsing
 use syn::{
     parse::{Parse, ParseStream, Result},
-    parse_quote, Ident, Token,
+    parse_quote, Expr, Ident, Token,
 };
 
 use super::{parse_vector_trailing_till_double_comma, Attributes, Fixture};
@@ -47,6 +47,14 @@ impl FixtureData {
     pub(crate) fn fixtures(&self) -> impl Iterator<Item = &Fixture> {
         self.items.iter().filter_map(|f| match f {
             FixtureItem::Fixture(ref fixture) => Some(fixture),
+            _ => None,
+        })
+    }
+
+    pub(crate) fn values(&self) -> impl Iterator<Item = &ArgumentValue> {
+        self.items.iter().filter_map(|f| match f {
+            FixtureItem::ArgumentValue(ref value) => Some(value),
+            _ => None,
         })
     }
 }
@@ -64,8 +72,21 @@ impl Parse for FixtureData {
 }
 
 #[derive(PartialEq, Debug)]
+pub(crate) struct ArgumentValue {
+    pub name: Ident,
+    pub expr: Expr,
+}
+
+impl ArgumentValue {
+    pub(crate) fn new(name: Ident, expr: Expr) -> Self {
+        Self { name, expr }
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub(crate) enum FixtureItem {
     Fixture(Fixture),
+    ArgumentValue(ArgumentValue),
 }
 
 impl From<Fixture> for FixtureItem {
@@ -76,7 +97,11 @@ impl From<Fixture> for FixtureItem {
 
 impl Parse for FixtureItem {
     fn parse(input: ParseStream) -> Result<Self> {
-        input.parse().map(FixtureItem::Fixture)
+        if input.peek2(Token![=]) {
+            input.parse::<ArgumentValue>().map(|v| v.into())
+        } else {
+            input.parse::<Fixture>().map(|v| v.into())
+        }
     }
 }
 
@@ -84,6 +109,7 @@ impl RefIdent for FixtureItem {
     fn ident(&self) -> &Ident {
         match self {
             FixtureItem::Fixture(Fixture { ref name, .. }) => name,
+            FixtureItem::ArgumentValue(ArgumentValue { ref name, .. }) => name,
         }
     }
 }
@@ -91,6 +117,21 @@ impl RefIdent for FixtureItem {
 impl ToTokens for FixtureItem {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.ident().to_tokens(tokens)
+    }
+}
+
+impl From<ArgumentValue> for FixtureItem {
+    fn from(av: ArgumentValue) -> Self {
+        FixtureItem::ArgumentValue(av)
+    }
+}
+
+impl Parse for ArgumentValue {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let name = input.parse()?;
+        let _eq: Token![=] = input.parse()?;
+        let expr = input.parse()?;
+        Ok(ArgumentValue::new(name, expr))
     }
 }
 
@@ -125,6 +166,7 @@ mod should {
 
     mod parse {
         use super::{assert_eq, *};
+        use mytest::rstest;
 
         fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
             parse_meta(fixture_data)
@@ -133,7 +175,7 @@ mod should {
         #[test]
         fn happy_path() {
             let data = parse_fixture(
-                r#"my_fixture(42, "other"), other(vec![42])
+                r#"my_fixture(42, "other"), other(vec![42]), value=42, other_value=vec![1.0]
                     :: trace :: no_trace(some)"#,
             );
 
@@ -141,6 +183,8 @@ mod should {
                 data: vec![
                     fixture("my_fixture", vec!["42", r#""other""#]).into(),
                     fixture("other", vec!["vec![42]"]).into(),
+                    arg_value("value", "42").into(),
+                    arg_value("other_value", "vec![1.0]").into(),
                 ]
                 .into(),
                 attributes: Attributes {
@@ -194,16 +238,21 @@ mod should {
             assert_eq!(expected, data);
         }
 
-        #[test]
-        fn should_accept_trailing_comma() {
-            let fixtures = vec![
-                parse_fixture(r#"first(42),"#),
-                parse_fixture(r#"fixture(42, "other"), :: trace"#),
-            ];
+        #[rstest(
+            input,
+            expected,
+            case("first(42),", 1),
+            case("first(42), second=42,", 2),
+            case(r#"fixture(42, "other"), :: trace"#, 1),
+            case(r#"second=42, fixture(42, "other"), :: trace"#, 2)
+        )]
+        fn should_accept_trailing_comma(input: &str, expected: usize) {
+            let info: FixtureInfo = input.ast();
 
-            for f in fixtures {
-                assert_eq!(1, f.data.fixtures().count());
-            }
+            assert_eq!(
+                expected,
+                info.data.fixtures().count() + info.data.values().count()
+            );
         }
     }
 }

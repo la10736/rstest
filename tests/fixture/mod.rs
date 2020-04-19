@@ -126,6 +126,19 @@ mod should {
     }
 
     #[test]
+    fn use_input_values_if_any() {
+        let (output, _) = run_test("default.rs");
+
+        TestResults::new()
+            .ok("test_simple")
+            .ok("test_simple_changed")
+            .ok("test_double")
+            .ok("test_double_changed")
+            .ok("test_mixed")
+            .assert(output);
+    }
+
+    #[test]
     fn show_correct_errors() {
         let prj = prj("errors.rs");
         let output = prj.run_tests().unwrap();

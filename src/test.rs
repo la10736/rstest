@@ -21,6 +21,7 @@ use crate::parse::{
 };
 use crate::resolver::Resolver;
 use crate::utils::fn_args_idents;
+use parse::fixture::ArgumentValue;
 
 macro_rules! to_args {
     ($e:expr) => {{
@@ -125,6 +126,10 @@ pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
 
 pub(crate) fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
     Fixture::new(ident(name), to_exprs!(args))
+}
+
+pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> ArgumentValue {
+    ArgumentValue::new(ident(name), expr(value))
 }
 
 pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {

@@ -44,6 +44,41 @@ pub(crate) mod fixtures {
     }
 }
 
+pub(crate) mod values {
+    use super::*;
+    use crate::parse::fixture::ArgumentValue;
+
+    pub(crate) fn get<'a>(values: impl Iterator<Item = &'a ArgumentValue>) -> impl Resolver + 'a {
+        values
+            .map(|av| (av.name.to_string(), &av.expr))
+            .collect::<HashMap<_, &'a Expr>>()
+    }
+
+    #[cfg(test)]
+    mod should {
+        use super::*;
+        use crate::test::{assert_eq, *};
+
+        #[test]
+        fn resolve_by_use_the_given_name() {
+            let data = vec![
+                arg_value("pippo", "42"),
+                arg_value("donaldduck", "vec![1,2]"),
+            ];
+            let resolver = get(data.iter());
+
+            assert_eq!(
+                resolver.resolve(&ident("pippo")).unwrap().into_owned(),
+                "42".ast()
+            );
+            assert_eq!(
+                resolver.resolve(&ident("donaldduck")).unwrap().into_owned(),
+                "vec![1,2]".ast()
+            );
+        }
+    }
+}
+
 /// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>>;
