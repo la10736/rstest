@@ -1,6 +1,6 @@
 [package]
 name = "rstest"
-version = "0.6.3"
+version = "0.6.4"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
@@ -34,7 +34,7 @@ toml_edit = "0.1.5"
 pretty_assertions = "0.6.1"
 unindent = "0.1.5"
 actix-rt = "1.1.0"
-mytest = { package = "rstest", version = "0.6.2" }
+mytest = { package = "rstest", version = "0.6.3" }
 
 [build-dependencies]
 rustc_version = "0.2.3"
