@@ -764,6 +764,19 @@
 <span id="764">764</span>
 <span id="765">765</span>
 <span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This crate will help you to write simpler tests by leveraging a software testing concept called</span>
 <span class="doccomment">//! [test fixtures](https://en.wikipedia.org/wiki/Test_fixture#Software). A fixture is something</span>
@@ -1019,6 +1032,24 @@
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">///</span>
+<span class="doccomment">/// # Default values</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// If you need to define argument default value you can use the `name=expression`</span>
+<span class="doccomment">/// syntax in fixture attribute:</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// use rstest::*;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// #[fixture(twenty_one=21, two=2)]</span>
+<span class="doccomment">/// fn injected(twenty_one: i32, two: i32) -&gt; i32 { twenty_one * two }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// #[rstest]</span>
+<span class="doccomment">/// fn the_test(injected: i32) {</span>
+<span class="doccomment">///     assert_eq!(42, injected)</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// The `expression` could be any valid rust expression, even an `async` block if you need.</span>
+<span class="doccomment">///</span>
 <span class="doccomment">/// # Partial Injection</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// You can also partialy inject fixture dependency simply indicate dependency value as fixture</span>
@@ -1182,12 +1213,7 @@
 <span class="doccomment">/// # impl User { fn name(&amp;self) -&gt; &amp;str {&amp;self.0} }</span>
 <span class="doccomment">/// use rstest::*;</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// #[fixture]</span>
-<span class="doccomment">/// fn name() -&gt; &amp;&#39;static str { &quot;Alice&quot; }</span>
-<span class="doccomment">/// #[fixture]</span>
-<span class="doccomment">/// fn age() -&gt; u8 { 22 }</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// #[fixture]</span>
+<span class="doccomment">/// #[fixture(name=&quot;Alice&quot;, age=22)]</span>
 <span class="doccomment">/// fn user(name: impl AsRef&lt;str&gt;, age: u8) -&gt; User { User(name.as_ref().to_owned(), age) }</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// #[rstest(user(&quot;Bob&quot;))]</span>
@@ -1410,7 +1436,7 @@
 <span class="doccomment">/// indicate it in your test function&#39;s attributes. For instance if you want</span>
 <span class="doccomment">/// to test some async function with use `actix_rt::test` attribute you can just write:</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```norun,rust</span>
 <span class="doccomment">/// use rstest::*;</span>
 <span class="doccomment">/// use actix_rt;</span>
 <span class="doccomment">/// use std::future::Future;</span>

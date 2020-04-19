@@ -341,6 +341,9 @@
 <span id="341">341</span>
 <span id="342">342</span>
 <span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">Span</span>, <span class="ident">TokenStream</span>};
 <span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Ident</span>, <span class="ident">ItemFn</span>};
@@ -369,7 +372,10 @@
     <span class="kw">let</span> <span class="ident">where_clause</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">generics</span>.<span class="ident">where_clause</span>;
     <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">output</span>;
     <span class="kw">let</span> <span class="ident">visibility</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">vis</span>;
-    <span class="kw">let</span> <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">resolver</span>::<span class="ident">fixtures</span>::<span class="ident">get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">fixtures</span>());
+    <span class="kw">let</span> <span class="ident">resolver</span> <span class="op">=</span> (
+        <span class="ident">resolver</span>::<span class="ident">fixtures</span>::<span class="ident">get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">fixtures</span>()),
+        <span class="ident">resolver</span>::<span class="ident">values</span>::<span class="ident">get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">values</span>()),
+    );
     <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">resolve_args</span>(<span class="ident">fn_args_idents</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>), <span class="kw-2">&amp;</span><span class="ident">resolver</span>);
     <span class="kw">let</span> <span class="ident">partials</span> <span class="op">=</span>
         (<span class="number">1</span>..<span class="op">=</span><span class="ident">orig_args</span>.<span class="ident">len</span>()).<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">render_partial_impl</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>, <span class="ident">n</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>, <span class="kw-2">&amp;</span><span class="ident">info</span>));
