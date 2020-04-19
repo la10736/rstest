@@ -1139,7 +1139,7 @@
 <span class="doccomment">/// `rstest` attribute can be applied to _any_ function and you can costumize its</span>
 <span class="doccomment">/// parameters by the follow syntax</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```text</span>
 <span class="doccomment">/// rstest(</span>
 <span class="doccomment">///     arg_1,</span>
 <span class="doccomment">///     ...,</span>
@@ -1256,7 +1256,7 @@
 <span class="doccomment">/// check every case. Every test can fail indipendently and `cargo test`</span>
 <span class="doccomment">/// will give follow output:</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```text</span>
 <span class="doccomment">/// running 5 tests</span>
 <span class="doccomment">/// test fibonacci_test::case_1 ... ok</span>
 <span class="doccomment">/// test fibonacci_test::case_2 ... ok</span>
@@ -1291,7 +1291,7 @@
 <span class="doccomment">/// with `::my_case_description` where `my_case_description` should be a a valid</span>
 <span class="doccomment">/// Rust ident.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```text</span>
 <span class="doccomment">/// #[rstest(input, expected,</span>
 <span class="doccomment">///     case::zero_base_case(0, 0),</span>
 <span class="doccomment">///     case::one_base_case(1, 1),</span>
@@ -1301,7 +1301,7 @@
 <span class="doccomment">/// ```</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Outuput will be</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```text</span>
 <span class="doccomment">/// running 4 tests</span>
 <span class="doccomment">/// test fibonacci_test::case_1_zero_base_case ... ok</span>
 <span class="doccomment">/// test fibonacci_test::case_2_one_base_case ... ok</span>
@@ -1345,7 +1345,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Output:</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```text</span>
 <span class="doccomment">/// running 3 tests</span>
 <span class="doccomment">/// test attribute_per_case::case_1_no_panic ... ok</span>
 <span class="doccomment">/// test attribute_per_case::case_3_panic_with_message ... ok</span>
@@ -1386,7 +1386,7 @@
 <span class="doccomment">/// ```</span>
 <span class="doccomment">/// where `cargo test` output is</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun</span>
+<span class="doccomment">/// ```text</span>
 <span class="doccomment">/// running 6 tests</span>
 <span class="doccomment">/// test should_accept_all_corner_cases::name_1::age_1 ... ok</span>
 <span class="doccomment">/// test should_accept_all_corner_cases::name_3::age_1 ... ok</span>
@@ -1436,7 +1436,7 @@
 <span class="doccomment">/// indicate it in your test function&#39;s attributes. For instance if you want</span>
 <span class="doccomment">/// to test some async function with use `actix_rt::test` attribute you can just write:</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```norun,rust</span>
+<span class="doccomment">/// ```</span>
 <span class="doccomment">/// use rstest::*;</span>
 <span class="doccomment">/// use actix_rt;</span>
 <span class="doccomment">/// use std::future::Future;</span>
