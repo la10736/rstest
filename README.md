@@ -204,7 +204,7 @@ A fixture can be injected by another fixture and they can be called
 using just some of its arguments.
 
 ```rust
-#[fixture(name="Alice", age: 22)]
+#[fixture(name="Alice", age=22)]
 fn user(name: &str, age: u8) -> User {
     User::new(name, age)
 }
