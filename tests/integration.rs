@@ -1,9 +1,4 @@
-pub mod prj;
-#[macro_use]
-pub mod utils;
-
-/// Test Framework
-mod framework;
+use rstest_test::{sanitize_name, testname, Project};
 
 /// Rstest integration tests
 mod rstest;
@@ -12,7 +7,7 @@ mod rstest;
 mod fixture;
 
 use lazy_static::lazy_static;
-use prj::Project;
+
 use temp_testdir::TempDir;
 
 lazy_static! {
@@ -20,12 +15,10 @@ lazy_static! {
     static ref ROOT_PROJECT: Project = Project::new(ROOT_DIR.as_ref());
 }
 
-fn sanitize_project_name<S: AsRef<str>>(s: S) -> String {
-    s.as_ref().replace(":", "_").replace("__", "_")
-}
-
 pub fn prj() -> Project {
-    let prj_name = sanitize_project_name(utils::testname());
+    let prj_name = sanitize_name(testname());
 
-    ROOT_PROJECT.subproject(&prj_name)
+    let prj = ROOT_PROJECT.subproject(&prj_name);
+    prj.add_local_dependency("rstest");
+    prj
 }

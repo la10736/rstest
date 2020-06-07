@@ -207,3 +207,33 @@ where
             .count()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn should_count_message_occurence() {
+        let foo_occurences = "
+        foobaz
+        bar
+        foobazfoo
+        baz
+        foo
+        "
+        .count("foo");
+
+        assert_eq!(3, foo_occurences);
+    }
+
+    #[test]
+    fn should_get_test_path() {
+        use super::*;
+
+        assert_eq!("utils::test::should_get_test_path", testname());
+    }
+}
+
+pub fn sanitize_name<S: AsRef<str>>(s: S) -> String {
+    s.as_ref().replace(":", "_").replace("__", "_")
+}

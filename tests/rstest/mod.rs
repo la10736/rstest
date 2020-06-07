@@ -1,10 +1,9 @@
 use std::path::Path;
 
+use rstest_test::*;
 use unindent::Unindent;
 
-use crate::utils::*;
-
-fn prj(res: impl AsRef<Path>) -> crate::prj::Project {
+fn prj(res: impl AsRef<Path>) -> Project {
     let path = Path::new("rstest").join(res.as_ref());
     crate::prj().set_code_file(resources(path))
 }

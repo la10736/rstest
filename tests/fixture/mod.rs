@@ -1,10 +1,9 @@
 use std::path::Path;
 pub use unindent::Unindent;
 
-pub use crate::utils::Stringable;
-use crate::utils::{resources, TestResults};
+use rstest_test::{assert_in, assert_not_in, resources, Project, Stringable, TestResults};
 
-fn prj(res: &str) -> crate::prj::Project {
+fn prj(res: &str) -> Project {
     let path = Path::new("fixture").join(res);
     crate::prj().set_code_file(resources(path))
 }

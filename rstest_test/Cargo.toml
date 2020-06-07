@@ -1,0 +1,21 @@
+[package]
+name = "rstest_test"
+version = "0.1.0"
+authors = ["Michele d'Amico <michele.damico@gmail.com>"]
+homepage = "https://github.com/la10736/rstest"
+description = """
+Provides some utilities used by to write rstest crate's tests.
+"""
+repository = "https://github.com/la10736/rstest"
+license = "MIT/Apache-2.0"
+keywords = ["test"]
+categories = ["development-tools::testing"]
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+toml_edit = "0.1.5"
+
+[dev-dependencies]
+temp_testdir = "0.2.3"
+lazy_static = "1.4.0"

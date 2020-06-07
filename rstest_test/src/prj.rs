@@ -124,7 +124,6 @@ impl Project {
             .unwrap()
         {
             0 => {
-                self.add_rstest_dependency();
                 std::fs::File::create(self.code_path()).unwrap();
                 self
             }
@@ -170,9 +169,9 @@ impl Project {
         self.save_cargo_toml(&doc);
     }
 
-    fn add_rstest_dependency(&self) {
+    pub fn add_local_dependency(&self, name: &str) {
         self.add_dependency(
-            "rstest",
+            name,
             format!(r#"{{path="{}"}}"#, self.project_path_str()).as_str(),
         );
     }
