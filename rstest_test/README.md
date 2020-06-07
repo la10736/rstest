@@ -10,6 +10,7 @@ Moreover give some utilities on assertions, strings manipulations and test name.
 
 This crate isn't designed for general pourpuse use but just as `rstest` develop helper crate.
 
+
 ## License
 
 Licensed under either of
