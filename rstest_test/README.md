@@ -8,7 +8,7 @@ assertions based on passed and failed tests.
 
 Moreover give some utilities on assertions, strings manipulations and test name.
 
-It's not designed for general pourpuse use but just to help `rstest` develop.
+This crate isn't designed for general pourpuse use but just as `rstest` develop helper crate.
 
 ## License
 
