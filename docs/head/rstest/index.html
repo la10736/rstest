@@ -14,11 +14,11 @@ A test can consume an arbitrary number of fixtures at the same time.</p>
 <h2 id="what" class="section-header"><a href="#what">What</a></h2>
 <p>The <code>rstest</code> crate defines the following procedural macros:</p>
 <ul>
-<li><a href="../rstest/attr.rstest.html"><code>[rstest]</code></a>: Declare that a test or a group of tests that may take
+<li><a href="rstest"><code>[rstest]</code></a>: Declare that a test or a group of tests that may take
 <a href="attr.rstest.html#injecting-fixtures">fixtures</a>,
 <a href="attr.rstest.html#test-parametrized-cases">input table</a> or
 <a href="attr.rstest.html#values-lists">list of values</a>.</li>
-<li><a href="../rstest/attr.fixture.html"><code>[fixture]</code></a>: To mark a function as a fixture.</li>
+<li><a href="fixture"><code>[fixture]</code></a>: To mark a function as a fixture.</li>
 </ul>
 <h2 id="why" class="section-header"><a href="#why">Why</a></h2>
 <p>Very often in Rust we write tests like this</p>
@@ -37,7 +37,7 @@ A test can consume an arbitrary number of fixtures at the same time.</p>
     <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">processor</span>.<span class="ident">output</span>.<span class="ident">contains</span>(<span class="string">&quot;Bob&quot;</span>));
     <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">processor</span>.<span class="ident">output</span>.<span class="ident">contains</span>(<span class="string">&quot;Alice&quot;</span>));
 }</pre></div>
-<p>By making use of <a href="../rstest/attr.rstest.html"><code>[rstest]</code></a> we can isolate the dependencies <code>empty_repository</code> and
+<p>By making use of <a href="rstest"><code>[rstest]</code></a> we can isolate the dependencies <code>empty_repository</code> and
 <code>string_processor</code> by passing them as fixtures:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
@@ -77,7 +77,7 @@ and use it directly:</p>
 <p><code>rstest</code> functions can receive fixtures by using them as input arguments.
 A function decorated with <a href="attr.rstest.html#injecting-fixtures"><code>[rstest]</code></a>
 will resolve each argument name by call the fixture function.
-Fixtures should be annotated with the <a href="../rstest/attr.fixture.html"><code>[fixture]</code></a> attribute.</p>
+Fixtures should be annotated with the <a href="fixture"><code>[fixture]</code></a> attribute.</p>
 <p>Fixtures will be resolved like function calls by following the standard resolution rules.
 Therefore, an identically named fixture can be use in different context.</p>
 
@@ -163,7 +163,7 @@ use other fixtures.</p>
 </td></tr><tr class='module-item'><td><a class="attr" href="attr.rstest.html" title='rstest::rstest attr'>rstest</a></td><td class='docblock-short'><p>The attribute that you should use for your tests. Your
 annotated function's arguments can be
 <a href="attr.rstest.html#injecting-fixtures">injected</a> with
-<a href="../rstest/attr.fixture.html"><code>[fixture]</code></a>s, provided by
+<a href="fixture"><code>[fixture]</code></a>s, provided by
 <a href="attr.rstest.html#test-parametrized-cases">parametrized cases</a>
 or by <a href="attr.rstest.html#values-lists">value lists</a>.</p>
 </td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "rstest";</script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
