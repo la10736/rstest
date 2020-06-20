@@ -1,0 +1,36 @@
+[package]
+name = "rstest_reuse"
+version = "0.1.0"
+authors = ["Michele d'Amico <michele.damico@gmail.com>"]
+homepage = "https://github.com/la10736/rstest"
+description = """
+Reuse rstest attributes: create a set of tests and apply it 
+to every scenario you want to test.
+"""
+repository = "https://github.com/la10736/rstest"
+license = "MIT/Apache-2.0"
+keywords = ["test", "fixture"]
+categories = ["development-tools::testing"]
+readme = "README.md"
+edition = "2018"
+exclude = [
+    "/playground",
+    "/rstest_fixtures"
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+
+[dependencies]
+quote = "1.0.7"
+# We must fix the version till syn fix https://github.com/dtolnay/syn/issues/852
+syn = { version = "=1.0.26", features = ["full"] }
+
+[dev-dependencies]
+temp_testdir = "0.2.3"
+lazy_static = "1.4.0"
+rstest_test = "0.1.0"
+

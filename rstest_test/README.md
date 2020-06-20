@@ -1,4 +1,7 @@
 [![Crate][crate-image]][crate-link]
+[![Status][test-action-image]][test-action-link]
+[![Apache 2.0 Licensed][license-apache-image]][license-apache-link]
+[![MIT Licensed][license-mit-image]][license-mit-link]
 
 # Helper crate for testing `rstest` crate
 

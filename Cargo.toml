@@ -21,6 +21,10 @@ exclude = [
 [workspace]
 members = [
     "rstest_test",
+    "rstest_reuse",
+]
+exclude = [
+    "playground"
 ]
 
 [lib]
