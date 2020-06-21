@@ -1,6 +1,6 @@
 [package]
 name = "rstest_reuse"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
