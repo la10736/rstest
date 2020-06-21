@@ -34,5 +34,5 @@ temp_testdir = "0.2.3"
 lazy_static = "1.4.0"
 rstest_test = "0.2.0"
 # To compile doc tests
-rstest = "0.6.3"
+rstest = "0.6.4"
 

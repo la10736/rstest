@@ -1,6 +1,6 @@
 [package]
 name = "rstest"
-version = "0.6.4"
+version = "0.6.5"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
 homepage = "https://github.com/la10736/rstest"
 description = """
@@ -42,7 +42,7 @@ lazy_static = "1.4.0"
 pretty_assertions = "0.6.1"
 unindent = "0.1.6"
 actix-rt = "1.1.1"
-mytest = { package = "rstest", version = "0.6.3" }
+mytest = { package = "rstest", version = "0.6.4" }
 rstest_test = "0.2.0"
 rstest_reuse = "0.1.0"
 
