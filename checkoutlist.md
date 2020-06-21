@@ -3,9 +3,9 @@
 - [ ] Update rustup
 - [ ] Update dependency `cargo upgrade`
 - [ ] Run all test
-  - [ ] Stable: `RSTEST_TEST_CHANNEL=stable; cargo +stable test`
-  - [ ] Beta: `RSTEST_TEST_CHANNEL=beta; cargo +beta test`
-  - [ ] Nightly: `RSTEST_TEST_CHANNEL=nightly; cargo +nightly test`
+  - [ ] Stable: `RSTEST_TEST_CHANNEL=stable; cargo +${RSTEST_TEST_CHANNEL} test`
+  - [ ] Beta: `RSTEST_TEST_CHANNEL=beta; cargo +${RSTEST_TEST_CHANNEL} test`
+  - [ ] Nightly: `RSTEST_TEST_CHANNEL=nightly; cargo +${RSTEST_TEST_CHANNEL} test`
 - [ ] Check Cargo.toml version
 - [ ] Create docs and checks links
 - [ ] Check CHANGELOG

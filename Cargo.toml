@@ -31,19 +31,20 @@ exclude = [
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0.17", features = ["full", "parsing", "extra-traits", "visit"] }
-proc-macro2 = "1.0.10"
-quote = "1.0.3"
+syn = { version = "1.0.32", features = ["full", "parsing", "extra-traits", "visit"] }
+proc-macro2 = "1.0.18"
+quote = "1.0.7"
 cfg-if = "0.1.10"
 
 [dev-dependencies]
 temp_testdir = "0.2.3"
 lazy_static = "1.4.0"
 pretty_assertions = "0.6.1"
-unindent = "0.1.5"
-actix-rt = "1.1.0"
+unindent = "0.1.6"
+actix-rt = "1.1.1"
 mytest = { package = "rstest", version = "0.6.3" }
 rstest_test = "0.2.0"
+rstest_reuse = "0.1.0"
 
 [build-dependencies]
 rustc_version = "0.2.3"

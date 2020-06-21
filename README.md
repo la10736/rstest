@@ -95,6 +95,31 @@ Or create a _matrix_ test by using _list of values_ for some
 variables that will generate the cartesian product of all the
 values.
 
+#### Use Parametrize definition in more tests
+
+If you need to use a test list for more than one test you can use [`rstest_reuse`][reuse-crate-link] 
+crate. With this helper crate you can define a template and use it everywhere .
+
+```rust
+use rstest::rstest;
+use rstest_reuse::{self, *};
+
+#[template]
+#[rstest(a,  b,
+    case(2, 2),
+    case(4/2, 2),
+    )
+]
+fn two_simple_cases(a: u32, b: u32) {}
+
+#[apply(two_simple_cases)]
+fn it_works(a: u32, b: u32) {
+    assert!(a == b);
+}
+```
+
+See [`rstest_reuse`][reuse-crate-link] for more dettails.
+
 ### Async
 
 `rstest` provides out of the box `async` support. Just mark your
@@ -317,3 +342,4 @@ at your option.
 [license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0
 [license-MIT-link]: http://opensource.org/licenses/MIT
 [rustc-image]: https://img.shields.io/badge/rustc-1.32+-blue.svg
+[reuse-crate-link]: https://crates.io/crates/rstest_reuse

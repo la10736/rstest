@@ -18,11 +18,11 @@
 //!
 //! The `rstest` crate defines the following procedural macros:
 //!
-//! - [`[rstest]`](rstest): Declare that a test or a group of tests that may take
+//! - [`[rstest]`](macro@rstest): Declare that a test or a group of tests that may take
 //! [fixtures](attr.rstest.html#injecting-fixtures),
 //! [input table](attr.rstest.html#test-parametrized-cases) or
 //! [list of values](attr.rstest.html#values-lists).
-//! - [`[fixture]`](fixture): To mark a function as a fixture.
+//! - [`[fixture]`](macro@fixture): To mark a function as a fixture.
 //!
 //! ## Why
 //!
@@ -44,7 +44,7 @@
 //! }
 //! ```
 //!
-//! By making use of [`[rstest]`](rstest) we can isolate the dependencies `empty_repository` and
+//! By making use of [`[rstest]`](macro@rstest) we can isolate the dependencies `empty_repository` and
 //! `string_processor` by passing them as fixtures:
 //!
 //! ```
@@ -98,7 +98,7 @@
 //! `rstest` functions can receive fixtures by using them as input arguments.
 //! A function decorated with [`[rstest]`](attr.rstest.html#injecting-fixtures)
 //! will resolve each argument name by call the fixture function.
-//! Fixtures should be annotated with the [`[fixture]`](fixture) attribute.
+//! Fixtures should be annotated with the [`[fixture]`](macro@fixture) attribute.
 //!
 //! Fixtures will be resolved like function calls by following the standard resolution rules.
 //! Therefore, an identically named fixture can be use in different context.
@@ -350,7 +350,7 @@ pub fn fixture(
 /// The attribute that you should use for your tests. Your
 /// annotated function's arguments can be
 /// [injected](attr.rstest.html#injecting-fixtures) with
-/// [`[fixture]`](fixture)s, provided by
+/// [`[fixture]`](macro@fixture)s, provided by
 /// [parametrized cases](attr.rstest.html#test-parametrized-cases)
 /// or by [value lists](attr.rstest.html#values-lists).
 ///
@@ -396,7 +396,7 @@ pub fn fixture(
 /// ## Injecting Fixtures
 ///
 /// The simplest case is write a test that can be injected with
-/// [`[fixture]`](fixture)s. You can just declare all used fixtures by passing
+/// [`[fixture]`](macro@fixture)s. You can just declare all used fixtures by passing
 /// them as a function's arguments. This can help your test to be neat
 /// and make your dependecy clear.
 ///
@@ -412,7 +412,7 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// [`[rstest]`](rstest) proc_macro will desugar it to something that isn't
+/// [`[rstest]`](macro@rstest) proc_macro will desugar it to something that isn't
 /// so far from
 ///
 /// ```
@@ -617,6 +617,33 @@ pub fn fixture(
 ///
 /// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
+///
+/// ## Use Parametrize definition in more tests
+///
+/// If you need to use a test list for more than one test you can use
+/// [`rstest_reuse`](https://crates.io/crates/rstest_reuse) crate.
+/// With this helper crate you can define a template and use it everywhere.
+///
+/// ```rust,ignore
+/// use rstest::rstest;
+/// use rstest_reuse::{self, *};
+///
+/// #[template]
+/// #[rstest(a,  b,
+///     case(2, 2),
+///     case(4/2, 2),
+///     )
+/// ]
+/// fn two_simple_cases(a: u32, b: u32) {}
+///
+/// #[apply(two_simple_cases)]
+/// fn it_works(a: u32, b: u32) {
+///     assert!(a == b);
+/// }
+/// ```
+///
+/// See [`rstest_reuse`](https://crates.io/crates/rstest_reuse) for more dettails.
+///
 /// ## Async
 ///
 /// `rstest` provides out of the box `async` support. Just mark your
