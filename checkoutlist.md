@@ -16,5 +16,5 @@
 - [ ] Change next version
   - [ ] `Cargo.toml`
   - [ ] `README.md`)
-- [ ] Change dependency (inner rstest)
+- [ ] Change dependency (inner `rstest` and `rstest_ruse`)
 - [ ] Prepare next changelog
