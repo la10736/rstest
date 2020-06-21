@@ -1,5 +1,6 @@
 use rstest_reuse;
 
+#[macro_use]
 mod template {
     use rstest::rstest;
     use rstest_reuse::template;
