@@ -1,10 +1,5 @@
 use std::borrow::Cow;
-use std::path::{Path, PathBuf};
 use std::thread;
-
-pub fn resources<O: AsRef<Path>>(name: O) -> PathBuf {
-    Path::new("resources").join(name)
-}
 
 #[derive(Clone)]
 pub enum TestResult<S: AsRef<str>> {

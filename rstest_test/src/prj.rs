@@ -172,7 +172,7 @@ impl Project {
     pub fn add_local_dependency(&self, name: &str) {
         self.add_dependency(
             name,
-            format!(r#"{{path="{}"}}"#, self.project_path_str()).as_str(),
+            format!(r#"{{path="{}"}}"#, self.current_dir_str()).as_str(),
         );
     }
 
@@ -216,7 +216,7 @@ impl Project {
             .expect("cannot write Cargo.toml");
     }
 
-    fn project_path_str(&self) -> String {
+    fn current_dir_str(&self) -> String {
         std::env::current_dir()
             .unwrap()
             .as_os_str()
