@@ -94,21 +94,41 @@ error: test failed, to rerun pass '--bin playground'
 
 Simple and neat!
 
-## Some cavelets
+## Cavelets
 
-You **should** add `rstest_resuse` at the top of your crate:
+### `use rstest_resuse` at the top of your crate
+
+You **should** add `use rstest_resuse` at the top of your crate:
 
 ```rust
 ![cfg(test)]
 use rstest_reuse;
 ```
 
-This is because `rstest_reuse::template` define a macro that need to call a `rstest_resuse`'s macros.
+This is due `rstest_reuse::template` define a macro that need to call a `rstest_resuse`'s macro.
 I hope to remove this in the future but for now we should live with it. Note that 
 ```rust
 use rstest_reuse::*;
 ```
 is not enougth: this statment doesn't include `rstest_reuse` but just its public items.
+
+### Define `template` before `apply` it
+
+`template` attribute define a macro that `apply` will use. Macro in rust are expanded in 
+a single depth-first, lexical-order traversal of a crate’s source, that means the template 
+definition should be allways before the `apply`.
+
+### Tag modules with `#[macro_use]`
+
+If you define a `template` in a module and you want to use it outside the module you should _lift_ it by
+mark the module with `#[macro_use]` attribute. This attribute make your `template` visibe outside this module
+but not at the upper level. When a `template` is defined you can use it in all submodules that follow 
+the definition.
+
+If you plan to spread your templates in some modules and you use a dirrerent name for each template 
+consider to add `!#[macro_use]` at crate level: this put all your templates available everywhere: you should 
+just take care that a `template` should be defined before the `apply` call.
+
 
 ## Disclamer
 

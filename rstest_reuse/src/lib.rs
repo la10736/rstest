@@ -19,7 +19,10 @@ impl Parse for MergeAttrs {
 
 #[proc_macro]
 pub fn merge_attrs(item: TokenStream) -> TokenStream {
-    let MergeAttrs {template, mut function} = parse_macro_input!(item as MergeAttrs);
+    let MergeAttrs {
+        template,
+        mut function,
+    } = parse_macro_input!(item as MergeAttrs);
     let mut attrs = template.attrs;
     attrs.append(&mut function.attrs);
     function.attrs = attrs;
@@ -36,7 +39,6 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
     let test: ItemFn = parse(input).unwrap();
     let tokens = quote! {
         #template! {
-
             #test
         }
     };
@@ -48,6 +50,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     let template: ItemFn = parse(input).unwrap();
     let macro_name = template.sig.ident.clone();
     let tokens = quote! {
+        #[macro_export]
         macro_rules! #macro_name {
             ( $test:item ) => {
                         $crate::rstest_reuse::merge_attrs! {

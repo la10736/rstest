@@ -52,6 +52,16 @@ fn in_mod() {
         .assert(output);
 }
 
+#[test]
+fn import_from_mod() {
+    let (output, _) = run_test("import_from_mod.rs");
+
+    TestResults::new()
+        .ok("user::it_works::case_1")
+        .ok("user::it_works::case_2")
+        .assert(output);
+}
+
 lazy_static! {
     static ref ROOT_DIR: TempDir = TempDir::new(std::env::temp_dir().join("rstest_reuse"), false);
     static ref ROOT_PROJECT: Project = Project::new(ROOT_DIR.as_ref());
