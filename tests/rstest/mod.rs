@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use super::resources;
+
 use rstest_test::*;
 use unindent::Unindent;
 

@@ -8,6 +8,7 @@ mod fixture;
 
 use lazy_static::lazy_static;
 
+use std::path::{Path, PathBuf};
 use temp_testdir::TempDir;
 
 lazy_static! {
@@ -21,4 +22,8 @@ pub fn prj() -> Project {
     let prj = ROOT_PROJECT.subproject(&prj_name);
     prj.add_local_dependency("rstest");
     prj
+}
+
+pub fn resources<O: AsRef<Path>>(name: O) -> PathBuf {
+    Path::new("resources").join(name)
 }

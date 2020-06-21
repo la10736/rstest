@@ -1,7 +1,8 @@
 use std::path::Path;
 pub use unindent::Unindent;
 
-use rstest_test::{assert_in, assert_not_in, resources, Project, Stringable, TestResults};
+use super::resources;
+use rstest_test::{assert_in, assert_not_in, Project, Stringable, TestResults};
 
 fn prj(res: &str) -> Project {
     let path = Path::new("fixture").join(res);

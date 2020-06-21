@@ -43,7 +43,7 @@ pretty_assertions = "0.6.1"
 unindent = "0.1.5"
 actix-rt = "1.1.0"
 mytest = { package = "rstest", version = "0.6.3" }
-rstest_test = "0.1.0"
+rstest_test = "0.2.0"
 
 [build-dependencies]
 rustc_version = "0.2.3"
