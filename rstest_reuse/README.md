@@ -15,7 +15,7 @@ Both solutions have some drawbreak:
 
 The aim of this crate is solve this problem. `rstest_resuse` expose two attributes:
 - `#[template]`: to define a template
-- `#[apply]`: to apply a defined template to create create tests
+- `#[apply]`: to apply a defined template to create tests
 
 Here is a simple example:
 
@@ -46,14 +46,15 @@ fn two_simple_cases(a: u32, b: u32) {}
 fn it_works(a: u32, b: u32) {
     assert!(a == b);
 }
-// Here we reuse the `two_simple_cases` template to create two other tests
+// Here we reuse the `two_simple_cases` template to create two 
+// other tests
 #[apply(two_simple_cases)]
 fn it_fail(a: u32, b: u32) {
     assert!(a != b);
 }
 ```
 
-if we run `cargo test` we have:
+If we run `cargo test` we have:
 
 ```text
     Finished test [unoptimized + debuginfo] target(s) in 0.05s
@@ -108,14 +109,9 @@ definition should be allways before the `apply`.
 
 ### Tag modules with `#[macro_use]`
 
-If you define a `template` in a module and you want to use it outside the module you should _lift_ it by
-mark the module with the `#[macro_use]` attribute. This attribute make your `template` visibe outside this module
-but not at the upper level. When a `template` is defined you can use it in all submodules that follow
-the definition.
+If you define a `template` in a module and you want to use it outside the module you should _lift_ it by mark the module with the `#[macro_use]` attribute. This attribute make your `template` visibe outside this module but not at the upper level. When a `template` is defined you can use it in all submodules that follow the definition.
 
-If you plan to spread your templates in some modules and you use a dirrerent name for each template
-consider to add the global attribute `!#[macro_use]` at crate level: this put all your templates 
-available everywhere: you should just take care that a `template` should be defined before the `apply` call.
+If you plan to spread your templates in some modules and you use a dirrerent name for each template consider to add the global attribute `!#[macro_use]` at crate level: this put all your templates available everywhere: you should just take care that a `template` should be defined before the `apply` call.
 
 ## Disclamer
 
