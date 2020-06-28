@@ -2,12 +2,13 @@
 
 ## [0.6.5] Unreleasd
 
+### Add
+- `async` fixtures (See #86, #96. Thanks to @rubdos).
+
 ## [0.6.4] 2020/6/20
 
 ### Add
 - Implemented reusable test list with `rstest_reuse` external crate (See #80)
-
-### Add
 
 ## [0.6.3] 2020/4/19
 
