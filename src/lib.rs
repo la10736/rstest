@@ -216,6 +216,8 @@ extern crate proc_macro;
 // Test utility module
 #[cfg(test)]
 pub(crate) mod test;
+#[cfg(test)]
+use rstest_reuse;
 
 mod error;
 mod parse;

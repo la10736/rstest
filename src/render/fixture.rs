@@ -125,6 +125,8 @@ mod should {
 
     use super::*;
     use crate::test::assert_eq;
+    use mytest::*;
+    use rstest_reuse::*;
 
     #[derive(Clone)]
     struct FixtureOutput {
@@ -193,6 +195,52 @@ mod should {
         signature.ident = item_fn.sig.ident.clone();
 
         assert_eq!(item_fn.sig, signature);
+    }
+
+    #[template]
+    #[rstest(is_async,
+        case::async_fn(true),
+        case::not_async_fn(false),
+        method => ["default", "get", "partial_1", "partial_2", "partial_3"]
+    )]
+    fn async_fixture_cases(is_async: bool, method: &str) {}
+
+    #[apply(async_fixture_cases)]
+    fn fixture_method_should_be_async_if_fixture_function_is_async(is_async: bool, method: &str) {
+        let prefix = if is_async { "async" } else { "" };
+        let (_, out) = parse_fixture(&format!(
+            r#"
+                    pub {} fn test(mut s: String, v: &u32, a: &mut [i32]) -> u32
+                            where B: Borrow<u32>
+                    {{ }}
+                    "#,
+            prefix
+        ));
+
+        let signature = select_method(out.core_impl, method).unwrap().sig;
+
+        assert_eq!(is_async, signature.asyncness.is_some());
+    }
+
+    #[apply(async_fixture_cases)]
+    fn fixture_method_should_use_await_if_fixture_function_is_async(is_async: bool, method: &str) {
+        let prefix = if is_async { "async" } else { "" };
+        let (_, out) = parse_fixture(&format!(
+            r#"
+                    pub {} fn test(mut s: String, v: &u32, a: &mut [i32]) -> u32
+                    {{ }}
+                    "#,
+            prefix
+        ));
+
+        let body = select_method(out.core_impl, method).unwrap().block;
+        let last_statment = body.stmts.last().unwrap();
+        let is_await = match last_statment {
+            syn::Stmt::Expr(syn::Expr::Await(_)) => true,
+            _ => false,
+        };
+
+        assert_eq!(is_async, is_await);
     }
 
     #[test]
