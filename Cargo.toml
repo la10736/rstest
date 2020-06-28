@@ -42,6 +42,7 @@ lazy_static = "1.4.0"
 pretty_assertions = "0.6.1"
 unindent = "0.1.6"
 actix-rt = "1.1.1"
+async-std = { version = "1.5", features = ["attributes"] }
 mytest = { package = "rstest", version = "0.6.4" }
 rstest_test = "0.2.0"
 rstest_reuse = "0.1.0"

@@ -254,6 +254,9 @@ use crate::parse::{fixture::FixtureInfo, rstest::RsTestInfo};
 /// }
 /// ```
 ///
+/// If the test function is an [`async` function](#async) your fixture become an `async`
+/// fixture.
+///
 /// # Default values
 ///
 /// If you need to define argument default value you can use the `name=expression`
@@ -271,6 +274,26 @@ use crate::parse::{fixture::FixtureInfo, rstest::RsTestInfo};
 /// }
 /// ```
 /// The `expression` could be any valid rust expression, even an `async` block if you need.
+///
+/// # Async
+///
+/// If you need you can write `async` fixtures to use in your `async` tests. Simply use `async`
+/// keyword for your function and the fixture become an `async` fixture.
+///
+/// ```
+/// use rstest::*;
+/// # use std::future::Future;
+///
+/// #[fixture]
+/// async fn async_fixture() -> i32 { 42 }
+///
+///
+/// #[rstest]
+/// async fn the_test(async_fixture: impl Future<Output = i32>) {
+///     assert_eq!(42, async_fixture.await)
+/// }
+/// ```
+///
 ///
 /// # Partial Injection
 ///
@@ -667,10 +690,10 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// Currently, you cannot write async `#[fixture]` and only `async-std` is
-/// supported out of the box. But if you need to use another runtime
-/// that provide it's own test attribute (i.e. `tokio::test` or `actix_rt::test`)
-/// you can use it in your `async` test like described in [Inject Test Attribute](attr.rstest.html#inject-test-attribute).
+/// Currently only `async-std` is supported out of the box. But if you need to use
+/// another runtime that provide it's own test attribute (i.e. `tokio::test` or
+/// `actix_rt::test`) you can use it in your `async` test like described in
+/// [Inject Test Attribute](attr.rstest.html#inject-test-attribute).
 ///
 /// To use this feature, you need to enable `attributes` in the `async-std`
 /// features list in your `Cargo.toml`:
