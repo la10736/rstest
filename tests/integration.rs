@@ -25,5 +25,5 @@ pub fn prj() -> Project {
 }
 
 pub fn resources<O: AsRef<Path>>(name: O) -> PathBuf {
-    Path::new("resources").join(name)
+    Path::new("tests").join("resources").join(name)
 }
