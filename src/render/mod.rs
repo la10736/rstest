@@ -7,7 +7,7 @@ use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
 use syn::{
-    parse_quote, Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Stmt, Type,
+    parse_quote, Attribute, Expr, FnArg, Generics, Ident, ItemFn, Path, ReturnType, Stmt, Type,
     WherePredicate,
 };
 
@@ -159,11 +159,11 @@ fn resolve_default_test_attr(is_async: bool) -> TokenStream {
     }
 }
 
-fn render_execute(testfn_name: &Ident, args: &[Ident], is_async: bool) -> TokenStream {
+fn render_exec_call(fn_path: Path, args: &[Ident], is_async: bool) -> TokenStream {
     if is_async {
-        quote! {#testfn_name(#(#args),*).await}
+        quote! {#fn_path(#(#args),*).await}
     } else {
-        quote! {#testfn_name(#(#args),*)}
+        quote! {#fn_path(#(#args),*)}
     }
 }
 
@@ -202,7 +202,7 @@ fn single_test_case<'a>(
     } else {
         Some(resolve_default_test_attr(is_async))
     };
-    let execute = render_execute(testfn_name, args, is_async);
+    let execute = render_exec_call(testfn_name.clone().into(), args, is_async);
 
     quote! {
         #test_attr

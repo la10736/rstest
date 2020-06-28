@@ -1,9 +1,9 @@
 use proc_macro2::{Span, TokenStream};
-use syn::{Ident, ItemFn};
+use syn::{parse_quote, Ident, ItemFn};
 
 use quote::quote;
 
-use super::{generics_clean_up, resolve_args};
+use super::{generics_clean_up, render_exec_call, resolve_args};
 use crate::parse::fixture::FixtureInfo;
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
@@ -34,21 +34,8 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
 
-    let (self_get_default, self_get) = if asyncness.is_none() {
-        (
-            quote! {
-                Self::get(#(#args),*)
-            },
-            quote! {#name(#(#args),*)},
-        )
-    } else {
-        (
-            quote! {
-                Self::get(#(#args),*).await
-            },
-            quote! {#name(#(#args),*).await},
-        )
-    };
+    let call_get = render_exec_call(parse_quote! { Self::get }, args, asyncness.is_some());
+    let call_impl = render_exec_call(parse_quote! { #name }, args, asyncness.is_some());
 
     quote! {
         #[allow(non_camel_case_types)]
@@ -58,12 +45,12 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
             #(#orig_attrs)*
             #[allow(unused_mut)]
             pub #asyncness fn get #generics (#orig_args) #output #where_clause {
-                #self_get
+                #call_impl
             }
 
             pub #asyncness fn default #default_generics () #default_output #default_where_clause {
                 #inject
-                #self_get_default
+                #call_get
             }
 
             #(#partials)*
@@ -92,24 +79,20 @@ fn render_partial_impl(
     let inject = resolve_args(fn_args_idents(fixture).skip(n), resolver);
 
     let sign_args = fn_args(fixture).take(n);
-    let fixture_args = fn_args_idents(fixture);
+    let fixture_args = fn_args_idents(fixture).cloned().collect::<Vec<_>>();
     let name = Ident::new(&format!("partial_{}", n), Span::call_site());
 
-    let self_get = if asyncness.is_none() {
-        quote! {
-            Self::get(#(#fixture_args),*)
-        }
-    } else {
-        quote! {
-            Self::get(#(#fixture_args),*).await
-        }
-    };
+    let call_get = render_exec_call(
+        parse_quote! { Self::get },
+        &fixture_args,
+        asyncness.is_some(),
+    );
 
     quote! {
         #[allow(unused_mut)]
         pub #asyncness fn #name #generics (#(#sign_args),*) #output #where_clause {
             #inject
-            #self_get
+            #call_get
         }
     }
 }
