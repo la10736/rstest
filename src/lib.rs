@@ -360,8 +360,12 @@ pub fn fixture(
     args: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
-    let fixture = parse_macro_input!(input as ItemFn);
+    let mut info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
+    let mut fixture = parse_macro_input!(input as ItemFn);
+
+    if let Err(errors) = info.extend(&mut fixture) {
+        return errors.into();
+    }
 
     let errors = error::fixture(&fixture, &info);
     if errors.is_empty() {

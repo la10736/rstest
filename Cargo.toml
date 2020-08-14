@@ -1,51 +1,51 @@
 [package]
-name = "rstest"
-version = "0.6.5"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
-homepage = "https://github.com/la10736/rstest"
+categories = ["development-tools::testing"]
 description = """
 Rust fixture based test framework. It use procedural macro
 to implement fixtures and table based tests.
 """
-repository = "https://github.com/la10736/rstest"
-license = "MIT/Apache-2.0"
-keywords = ["test", "fixture"]
-categories = ["development-tools::testing"]
-readme = "README.md"
 edition = "2018"
 exclude = [
-    "/playground",
-    "/rstest_fixtures"
+  "/playground",
+  "/rstest_fixtures",
 ]
+homepage = "https://github.com/la10736/rstest"
+keywords = ["test", "fixture"]
+license = "MIT/Apache-2.0"
+name = "rstest"
+readme = "README.md"
+repository = "https://github.com/la10736/rstest"
+version = "0.6.5"
 
 [workspace]
-members = [
-    "rstest_test",
-    "rstest_reuse",
-]
 exclude = [
-    "playground"
+  "playground",
+]
+members = [
+  "rstest_test",
+  "rstest_reuse",
 ]
 
 [lib]
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0.32", features = ["full", "parsing", "extra-traits", "visit"] }
+cfg-if = "0.1.10"
 proc-macro2 = "1.0.18"
 quote = "1.0.7"
-cfg-if = "0.1.10"
+syn = {version = "1.0.32", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]}
 
 [dev-dependencies]
-temp_testdir = "0.2.3"
-lazy_static = "1.4.0"
-pretty_assertions = "0.6.1"
-unindent = "0.1.6"
 actix-rt = "1.1.1"
-async-std = { version = "1.5", features = ["attributes"] }
-mytest = { package = "rstest", version = "0.6.4" }
-rstest_test = "0.2.0"
+async-std = {version = "1.5", features = ["attributes"]}
+lazy_static = "1.4.0"
+mytest = {package = "rstest", version = "0.6.4"}
+pretty_assertions = "0.6.1"
 rstest_reuse = "0.1.0"
+rstest_test = "0.2.0"
+temp_testdir = "0.2.3"
+unindent = "0.1.6"
 
 [build-dependencies]
 rustc_version = "0.2.3"

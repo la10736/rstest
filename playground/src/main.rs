@@ -1,4 +1,4 @@
-use rstest::rstest;
+use rstest::*;
 use rstest_reuse::{self, *};
 
 // Here we define the template. This define 
@@ -32,4 +32,19 @@ fn it_works(a: u32, b: u32) {
 #[apply(two_simple_cases)]
 fn it_fail(a: u32, b: u32) {
     assert!(a != b);
+}
+
+#[fixture(a=42)]
+fn f(a: u32) -> u32 {
+    a
+}
+
+#[fixture(f(42))]
+fn fix(#[with(3, 5)] f: u32) -> u32 {
+    f
+}
+
+#[rstest]
+fn aaa(fix: u32) {
+    assert_eq!(42, fix);
 }

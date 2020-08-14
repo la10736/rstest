@@ -1,4 +1,6 @@
 use crate::refident::MaybeIdent;
+use quote::format_ident;
+
 /// Contains some unsorted functions used across others modules
 ///
 use syn::{Attribute, FnArg, Ident, ItemFn};
@@ -23,6 +25,10 @@ pub(crate) fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item = &FnArg> {
 
 pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
     &attr.path.segments.iter().last() == &Some(segment)
+}
+
+pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
+    attr.path.is_ident(&format_ident!("{}", name))
 }
 
 #[cfg(test)]

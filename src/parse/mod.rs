@@ -96,13 +96,26 @@ pub(crate) fn drain_stream(input: ParseStream) {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub(crate) struct Positional(pub(crate) Vec<syn::Expr>);
+
+impl Parse for Positional {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self(
+            Punctuated::<syn::Expr, Token![,]>::parse_terminated(input)?
+                .into_iter()
+                .collect(),
+        ))
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub(crate) struct Fixture {
     pub(crate) name: Ident,
-    pub(crate) positional: Vec<syn::Expr>,
+    pub(crate) positional: Positional,
 }
 
 impl Fixture {
-    pub(crate) fn new(name: Ident, positional: Vec<syn::Expr>) -> Self {
+    pub(crate) fn new(name: Ident, positional: Positional) -> Self {
         Self { name, positional }
     }
 }
@@ -112,9 +125,7 @@ impl Parse for Fixture {
         let name = input.parse()?;
         let content;
         let _ = syn::parenthesized!(content in input);
-        let positional = Punctuated::<syn::Expr, Token![,]>::parse_terminated(&content)?
-            .into_iter()
-            .collect();
+        let positional = content.parse()?;
         Ok(Self::new(name, positional))
     }
 }

@@ -29,6 +29,41 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
         .collect()
 }
 
+#[derive(Debug)]
+pub(crate) struct ErrorsVec(Vec<syn::Error>);
+
+impl std::ops::Deref for ErrorsVec {
+    type Target = Vec<syn::Error>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Vec<syn::Error>> for ErrorsVec {
+    fn from(errors: Vec<syn::Error>) -> Self {
+        Self(errors)
+    }
+}
+
+impl Into<Vec<syn::Error>> for ErrorsVec {
+    fn into(self) -> Vec<syn::Error> {
+        self.0
+    }
+}
+
+impl quote::ToTokens for ErrorsVec {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(self.0.iter().map(|e| e.to_compile_error()))
+    }
+}
+
+impl Into<proc_macro::TokenStream> for ErrorsVec {
+    fn into(self) -> proc_macro::TokenStream {
+        use quote::ToTokens;
+        self.into_token_stream().into()
+    }
+}
+
 type Errors<'a> = Box<dyn Iterator<Item = syn::Error> + 'a>;
 
 fn missed_arguments<'a, I: MaybeIdent + Spanned + 'a>(

@@ -146,6 +146,18 @@ mod should {
     }
 
     #[test]
+    fn apply_partial_fixture_fron_value_attribute() {
+        let (output, _) = run_test("partial_in_attr.rs");
+
+        TestResults::new()
+            .ok("default")
+            .ok("t_partial_1")
+            .ok("t_partial_2")
+            .ok("t_complete")
+            .assert(output);
+    }
+
+    #[test]
     fn use_input_values_if_any() {
         let (output, _) = run_test("default.rs");
 

@@ -17,7 +17,7 @@ use crate::parse::{
     rstest::{RsTestData, RsTestItem},
     testcase::TestCase,
     vlist::ValueList,
-    Attribute, Fixture,
+    Attribute, Fixture, Positional,
 };
 use crate::resolver::Resolver;
 use crate::utils::fn_args_idents;
@@ -125,7 +125,7 @@ pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
 }
 
 pub(crate) fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
-    Fixture::new(ident(name), to_exprs!(args))
+    Fixture::new(ident(name), Positional(to_exprs!(args)))
 }
 
 pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> ArgumentValue {
@@ -240,6 +240,12 @@ impl From<RsTestData> for RsTestInfo {
             data,
             attributes: Default::default(),
         }
+    }
+}
+
+impl From<Vec<Expr>> for Positional {
+    fn from(data: Vec<Expr>) -> Self {
+        Positional(data)
     }
 }
 

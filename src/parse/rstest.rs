@@ -231,7 +231,7 @@ mod should {
             let fixtures = parse_rstest_data("my_fixture(42)");
 
             let expected = RsTestData {
-                items: vec![Fixture::new(ident("my_fixture"), vec![expr("42")]).into()],
+                items: vec![Fixture::new(ident("my_fixture"), vec![expr("42")].into()).into()],
             };
 
             assert_eq!(expected, fixtures);

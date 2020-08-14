@@ -21,7 +21,7 @@ pub(crate) mod fixtures {
 
     fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
         let name = &fixture.name;
-        let positional = &fixture.positional;
+        let positional = &fixture.positional.0;
         let pname = format!("partial_{}", positional.len());
         let partial = Ident::new(&pname, Span::call_site());
         parse_quote! { #name::#partial(#(#positional), *) }

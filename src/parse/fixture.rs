@@ -1,12 +1,18 @@
 /// `fixture`'s related data and parsing
 use syn::{
     parse::{Parse, ParseStream, Result},
-    parse_quote, Expr, Ident, Token,
+    parse_quote,
+    visit_mut::VisitMut,
+    Expr, FnArg, Ident, ItemFn, Token,
 };
 
-use super::{parse_vector_trailing_till_double_comma, Attributes, Fixture};
+use super::{parse_vector_trailing_till_double_comma, Attributes, Fixture, Positional};
 use crate::parse::Attribute;
-use crate::refident::RefIdent;
+use crate::{
+    error::ErrorsVec,
+    refident::{MaybeIdent, RefIdent},
+    utils::attr_is,
+};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 
@@ -35,6 +41,58 @@ impl Parse for FixtureInfo {
                     .and_then(|_| input.parse())?,
             }
         })
+    }
+}
+
+impl FixtureInfo {
+    pub(crate) fn extend(&mut self, item_fn: &mut ItemFn) -> std::result::Result<(), ErrorsVec> {
+        let mut extractor = FixtureFunctionExtractor(self, Vec::new());
+        extractor.visit_item_fn_mut(item_fn);
+        if extractor.1.len() > 0 {
+            Err(extractor.1.into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+/// Simple struct used to visit function attributes and extract fixture info and
+/// eventualy parsing errors
+struct FixtureFunctionExtractor<'a>(&'a mut FixtureInfo, Vec<syn::Error>);
+
+impl<'a> VisitMut for FixtureFunctionExtractor<'a> {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        let name = node.maybe_ident().cloned();
+        if name.is_none() {
+            return;
+        }
+
+        let name = name.unwrap();
+        if let FnArg::Typed(ref mut arg) = node {
+            // Extract and interesting attributes
+            let attributes = std::mem::take(&mut arg.attrs);
+            let (attrs, with_atributes): (Vec<_>, Vec<_>) = attributes
+                .into_iter()
+                .partition(|attr| !attr_is(attr, "with"));
+
+            arg.attrs = attrs;
+
+            // Parse positionals
+            let (positionals, errors): (Vec<_>, Vec<_>) = with_atributes
+                .into_iter()
+                .map(|attribute| attribute.parse_args::<Positional>())
+                .partition(Result::is_ok);
+
+            // Collect Infos
+            self.0.data.items.extend(
+                positionals
+                    .into_iter()
+                    .map(|p| p.unwrap())
+                    .map(|p| Fixture::new(name.clone(), p).into()),
+            );
+            // Collect Errors
+            self.1.extend(errors.into_iter().map(|e| e.unwrap_err()))
+        }
     }
 }
 
@@ -205,7 +263,7 @@ mod should {
             let fixture = parse_fixture(&format!("my_fixture({})", args_expressions.join(", ")));
             let args = fixture.data.fixtures().next().unwrap().positional.clone();
 
-            assert_eq!(to_args!(args_expressions), args);
+            assert_eq!(to_args!(args_expressions), args.0);
         }
 
         #[test]
@@ -253,6 +311,53 @@ mod should {
                 expected,
                 info.data.fixtures().count() + info.data.values().count()
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod extend {
+    use super::*;
+    use crate::test::{assert_eq, *};
+    use syn::ItemFn;
+
+    mod should {
+        use super::{assert_eq, *};
+
+        #[test]
+        fn use_with_attributes() {
+            let to_parse = r#"
+                fn my_fix(#[with(2)] f1: &str, #[with(vec![1,2], "s")] f2: u32) {}
+            "#;
+
+            let mut item_fn: ItemFn = to_parse.ast();
+            let mut info = FixtureInfo::default();
+
+            info.extend(&mut item_fn).unwrap();
+
+            let expected = FixtureInfo {
+                data: vec![
+                    fixture("f1", vec!["2"]).into(),
+                    fixture("f2", vec!["vec![1,2]", r#""s""#]).into(),
+                ]
+                .into(),
+                ..Default::default()
+            };
+
+            assert!(!format!("{:?}", item_fn).contains("with"));
+            assert_eq!(expected, info);
+        }
+
+        #[test]
+        fn raise_error_for_invalid_expressions() {
+            let mut item_fn: ItemFn = r#"
+                fn my_fix(#[with(valid)] f1: &str, #[with(with(,.,))] f2: u32, #[with(with(use))] f3: u32) {}
+            "#
+            .ast();
+
+            let errors = FixtureInfo::default().extend(&mut item_fn).unwrap_err();
+
+            assert_eq!(2, errors.len());
         }
     }
 }
