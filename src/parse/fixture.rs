@@ -56,6 +56,16 @@ impl FixtureInfo {
     }
 }
 
+#[derive(Debug)]
+struct DefValue(Expr);
+
+impl Parse for DefValue {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<Token![ = ]>()?;
+        Ok(DefValue(input.parse::<Expr>()?))
+    }
+}
+
 /// Simple struct used to visit function attributes and extract fixture info and
 /// eventualy parsing errors
 struct FixtureFunctionExtractor<'a>(&'a mut FixtureInfo, Vec<syn::Error>);
@@ -70,17 +80,25 @@ impl<'a> VisitMut for FixtureFunctionExtractor<'a> {
         let name = name.unwrap();
         if let FnArg::Typed(ref mut arg) = node {
             // Extract and interesting attributes
-            let attributes = std::mem::take(&mut arg.attrs);
-            let (attrs, with_atributes): (Vec<_>, Vec<_>) = attributes
+            let attrs = std::mem::take(&mut arg.attrs);
+            let (attrs, with_atributes): (Vec<_>, Vec<_>) =
+                attrs.into_iter().partition(|attr| !attr_is(attr, "with"));
+            let (attrs, default_atributes): (Vec<_>, Vec<_>) = attrs
                 .into_iter()
-                .partition(|attr| !attr_is(attr, "with"));
+                .partition(|attr| !attr_is(attr, "default"));
 
             arg.attrs = attrs;
 
             // Parse positionals
-            let (positionals, errors): (Vec<_>, Vec<_>) = with_atributes
+            let (positionals, positional_errors): (Vec<_>, Vec<_>) = with_atributes
                 .into_iter()
                 .map(|attribute| attribute.parse_args::<Positional>())
+                .partition(Result::is_ok);
+
+            // Parse Default values
+            let (defaults, defult_errors): (Vec<_>, Vec<_>) = default_atributes
+                .into_iter()
+                .map(|attribute| syn::parse2::<DefValue>(attribute.tokens))
                 .partition(Result::is_ok);
 
             // Collect Infos
@@ -90,8 +108,17 @@ impl<'a> VisitMut for FixtureFunctionExtractor<'a> {
                     .map(|p| p.unwrap())
                     .map(|p| Fixture::new(name.clone(), p).into()),
             );
+            self.0.data.items.extend(
+                defaults
+                    .into_iter()
+                    .map(|d| d.unwrap())
+                    .map(|d| ArgumentValue::new(name.clone(), d.0).into()),
+            );
             // Collect Errors
-            self.1.extend(errors.into_iter().map(|e| e.unwrap_err()))
+            self.1
+                .extend(positional_errors.into_iter().map(|e| e.unwrap_err()));
+            self.1
+                .extend(defult_errors.into_iter().map(|e| e.unwrap_err()))
         }
     }
 }
@@ -345,6 +372,30 @@ mod extend {
             };
 
             assert!(!format!("{:?}", item_fn).contains("with"));
+            assert_eq!(expected, info);
+        }
+
+        #[test]
+        fn use_default_attributes() {
+            let to_parse = r#"
+                fn my_fix(#[default = 2] f1: &str, #[default = (vec![1,2], "s")] f2: (Vec<u32>, &str)) {}
+            "#;
+
+            let mut item_fn: ItemFn = to_parse.ast();
+            let mut info = FixtureInfo::default();
+
+            info.extend(&mut item_fn).unwrap();
+
+            let expected = FixtureInfo {
+                data: vec![
+                    arg_value("f1", "2").into(),
+                    arg_value("f2", r#"(vec![1,2], "s")"#).into(),
+                ]
+                .into(),
+                ..Default::default()
+            };
+
+            assert!(!format!("{:?}", item_fn).contains("default"));
             assert_eq!(expected, info);
         }
 
