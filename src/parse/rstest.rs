@@ -1,12 +1,18 @@
 use syn::{
-    parse::{Parse, ParseStream, Result},
-    Ident, Token,
+    parse::{Parse, ParseStream},
+    Ident, ItemFn, Token,
 };
 
 use super::testcase::TestCase;
-use super::{parse_vector_trailing_till_double_comma, Attribute, Attributes, Fixture};
+use super::{
+    extract_fixtures, parse_vector_trailing_till_double_comma, Attribute, Attributes,
+    ExtendWithFunctionAttrs, Fixture,
+};
 use crate::parse::vlist::ValueList;
-use crate::refident::{MaybeIdent, RefIdent};
+use crate::{
+    error::ErrorsVec,
+    refident::{MaybeIdent, RefIdent},
+};
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 
@@ -17,7 +23,7 @@ pub(crate) struct RsTestInfo {
 }
 
 impl Parse for RsTestInfo {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(if input.is_empty() {
             Default::default()
         } else {
@@ -29,6 +35,12 @@ impl Parse for RsTestInfo {
                     .and_then(|_| input.parse())?,
             }
         })
+    }
+}
+
+impl ExtendWithFunctionAttrs for RsTestInfo {
+    fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
+        self.data.extend_with_function_attrs(item_fn)
     }
 }
 
@@ -86,7 +98,7 @@ impl RsTestData {
 }
 
 impl Parse for RsTestData {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(Token![::]) {
             Ok(Default::default())
         } else {
@@ -94,6 +106,16 @@ impl Parse for RsTestData {
                 items: parse_vector_trailing_till_double_comma::<_, Token![,]>(input)?,
             })
         }
+    }
+}
+
+impl ExtendWithFunctionAttrs for RsTestData {
+    fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
+        let fixtures = extract_fixtures(item_fn)?;
+
+        self.items.extend(fixtures.into_iter().map(|f| f.into()));
+
+        Ok(())
     }
 }
 
@@ -130,7 +152,7 @@ impl From<ValueList> for RsTestItem {
 }
 
 impl Parse for RsTestItem {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.fork().parse::<TestCase>().is_ok() {
             input.parse::<TestCase>().map(RsTestItem::TestCase)
         } else if input.peek2(Token![=>]) {
@@ -208,7 +230,7 @@ impl RsTestAttributes {
 }
 
 impl Parse for RsTestAttributes {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(input.parse::<Attributes>()?.into())
     }
 }
@@ -270,6 +292,30 @@ mod should {
                     }
                     .into(),
                 };
+
+                assert_eq!(expected, data);
+            }
+
+            #[test]
+            fn fixtures_defined_via_with_attributes() {
+                let mut item_fn = r#"
+                fn test_fn(#[with(42, "other")] my_fixture: u32, #[with(vec![42])] other: &str) {
+                }
+                "#
+                .ast();
+
+                let expected = RsTestInfo {
+                    data: vec![
+                        fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                        fixture("other", vec!["vec![42]"]).into(),
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
+
+                let mut data = RsTestInfo::default();
+
+                data.extend_with_function_attrs(&mut item_fn).unwrap();
 
                 assert_eq!(expected, data);
             }

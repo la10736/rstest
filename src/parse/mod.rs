@@ -1,11 +1,14 @@
 use proc_macro2::TokenStream;
 use syn::{
-    parse::{Parse, ParseStream, Result},
+    parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    token, Ident, Token,
+    token,
+    visit_mut::VisitMut,
+    Ident, ItemFn, Token,
 };
 
-use crate::refident::RefIdent;
+use crate::{error::ErrorsVec, refident::RefIdent};
+use fixture::{DefaultsFunctionExtractor, FixturesFunctionExtractor, ArgumentValue};
 use quote::ToTokens;
 
 // To use the macros this should be the first one module
@@ -17,13 +20,20 @@ pub(crate) mod rstest;
 pub(crate) mod testcase;
 pub(crate) mod vlist;
 
+pub(crate) trait ExtendWithFunctionAttrs {
+    fn extend_with_function_attrs(
+        &mut self,
+        item_fn: &mut ItemFn,
+    ) -> std::result::Result<(), ErrorsVec>;
+}
+
 #[derive(Default, Debug, PartialEq)]
 pub(crate) struct Attributes {
     pub(crate) attributes: Vec<Attribute>,
 }
 
 impl Parse for Attributes {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let vars = Punctuated::<Attribute, Token![::]>::parse_terminated(input)?;
         Ok(Attributes {
             attributes: vars.into_iter().collect(),
@@ -39,7 +49,7 @@ pub(crate) enum Attribute {
 }
 
 impl Parse for Attribute {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek2(Token![<]) {
             let tag = input.parse()?;
             let _open = input.parse::<Token![<]>()?;
@@ -64,7 +74,7 @@ impl Parse for Attribute {
     }
 }
 
-fn parse_vector_trailing_till_double_comma<T, P>(input: ParseStream) -> Result<Vec<T>>
+fn parse_vector_trailing_till_double_comma<T, P>(input: ParseStream) -> syn::Result<Vec<T>>
 where
     T: Parse,
     P: syn::token::Token + Parse,
@@ -99,7 +109,7 @@ pub(crate) fn drain_stream(input: ParseStream) {
 pub(crate) struct Positional(pub(crate) Vec<syn::Expr>);
 
 impl Parse for Positional {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(Self(
             Punctuated::<syn::Expr, Token![,]>::parse_terminated(input)?
                 .into_iter()
@@ -121,7 +131,7 @@ impl Fixture {
 }
 
 impl Parse for Fixture {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let name = input.parse()?;
         let content;
         let _ = syn::parenthesized!(content in input);
@@ -139,6 +149,28 @@ impl RefIdent for Fixture {
 impl ToTokens for Fixture {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.name.to_tokens(tokens)
+    }
+}
+
+pub(crate) fn extract_fixtures(item_fn: &mut ItemFn) -> Result<Vec<Fixture>, ErrorsVec> {
+    let mut fixtures_extractor = FixturesFunctionExtractor::default();
+    fixtures_extractor.visit_item_fn_mut(item_fn);
+
+    if fixtures_extractor.1.len() > 0 {
+        Err(fixtures_extractor.1.into())
+    } else {
+        Ok(fixtures_extractor.0)
+    }
+}
+
+pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue>, ErrorsVec> {
+    let mut defaults_extractor = DefaultsFunctionExtractor::default();
+    defaults_extractor.visit_item_fn_mut(item_fn);
+
+    if defaults_extractor.1.len() > 0 {
+        Err(defaults_extractor.1.into())
+    } else {
+        Ok(defaults_extractor.0)
     }
 }
 

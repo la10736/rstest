@@ -303,8 +303,11 @@ mod single {
         TestResults::new()
             .ok("default")
             .ok("partial_1")
+            .ok("partial_attr_1")
             .ok("partial_2")
+            .ok("partial_attr_2")
             .ok("complete")
+            .ok("complete_attr")
             .assert(output);
     }
 
@@ -392,10 +395,16 @@ mod cases {
             .ok("partial_1::case_1")
             .ok("partial_2::case_1")
             .ok("complete::case_1")
+            .ok("partial_attr_1::case_1")
+            .ok("partial_attr_2::case_1")
+            .ok("complete_attr::case_1")
             .fail("default::case_2")
             .fail("partial_1::case_2")
             .fail("partial_2::case_2")
             .fail("complete::case_2")
+            .fail("partial_attr_1::case_2")
+            .fail("partial_attr_2::case_2")
+            .fail("complete_attr::case_2")
             .assert(output);
     }
 
@@ -696,7 +705,9 @@ mod matrix {
             .ok("default::a_1::b_2")
             .ok("default::a_2::b_1")
             .ok("partial_2::a_2::b_2")
+            .ok("partial_attr_2::a_2::b_2")
             .ok("complete::a_2::b_2")
+            .ok("complete_attr::a_2::b_2")
             .fail("default::a_2::b_2")
             .fail("partial_1::a_1::b_1")
             .fail("partial_1::a_1::b_2")
@@ -708,6 +719,16 @@ mod matrix {
             .fail("complete::a_1::b_1")
             .fail("complete::a_1::b_2")
             .fail("complete::a_2::b_1")
+            .fail("partial_attr_1::a_1::b_1")
+            .fail("partial_attr_1::a_1::b_2")
+            .fail("partial_attr_1::a_2::b_1")
+            .fail("partial_attr_1::a_2::b_2")
+            .fail("partial_attr_2::a_1::b_1")
+            .fail("partial_attr_2::a_1::b_2")
+            .fail("partial_attr_2::a_2::b_1")
+            .fail("complete_attr::a_1::b_1")
+            .fail("complete_attr::a_1::b_2")
+            .fail("complete_attr::a_2::b_1")
             .assert(output);
     }
 

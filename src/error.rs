@@ -39,6 +39,12 @@ impl std::ops::Deref for ErrorsVec {
     }
 }
 
+impl std::ops::DerefMut for ErrorsVec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl From<Vec<syn::Error>> for ErrorsVec {
     fn from(errors: Vec<syn::Error>) -> Self {
         Self(errors)
