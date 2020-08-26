@@ -32,6 +32,29 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
 #[derive(Debug)]
 pub(crate) struct ErrorsVec(Vec<syn::Error>);
 
+pub(crate) fn _merge_errors<R1, R2>(
+    r1: Result<R1, ErrorsVec>,
+    r2: Result<R2, ErrorsVec>,
+) -> Result<(R1, R2), ErrorsVec> {
+    match (r1, r2) {
+        (Ok(r1), Ok(r2)) => Ok((r1, r2)),
+        (Ok(_), Err(e)) | (Err(e), Ok(_)) => Err(e),
+        (Err(mut e1), Err(mut e2)) => {
+            e1.append(&mut e2);
+            Err(e1)
+        }
+    }
+}
+
+macro_rules! merge_errors {
+    ($e:expr) => {
+        $e
+    };
+    ($e:expr, $($es:expr), +) => {
+        crate::error::_merge_errors($e, merge_errors!($($es),*));
+    };
+}
+
 impl std::ops::Deref for ErrorsVec {
     type Target = Vec<syn::Error>;
     fn deref(&self) -> &Self::Target {

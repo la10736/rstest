@@ -44,6 +44,12 @@ macro_rules! to_strs {
     };
 }
 
+macro_rules! to_idents {
+    ($e:expr) => {
+        $e.iter().map(|s| ident(s)).collect::<Vec<_>>()
+    };
+}
+
 struct Outer<T>(T);
 impl<T: Parse> Parse for Outer<T> {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -206,14 +212,19 @@ impl RsTestInfo {
 }
 
 impl TestCase {
+    pub fn with_description(mut self, description: &str) -> Self {
+        self.description = Some(ident(description));
+        self
+    }
+
     pub fn with_attrs(mut self, attrs: Vec<syn::Attribute>) -> Self {
         self.attrs = attrs;
         self
     }
 }
 
-impl<'a> FromIterator<&'a str> for TestCase {
-    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
+impl<A: AsRef<str>> FromIterator<A> for TestCase {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
         TestCase {
             args: iter.into_iter().map(expr).collect(),
             attrs: Default::default(),

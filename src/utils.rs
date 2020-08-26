@@ -27,6 +27,10 @@ pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bo
     &attr.path.segments.iter().last() == &Some(segment)
 }
 
+pub(crate) fn attr_starts_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
+    &attr.path.segments.iter().nth(0) == &Some(segment)
+}
+
 pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
     attr.path.is_ident(&format_ident!("{}", name))
 }

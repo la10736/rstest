@@ -355,7 +355,7 @@ mod cases {
 
     #[test]
     fn should_compile() {
-        let output = prj(res("happy_path.rs")).compile().unwrap();
+        let output = prj(res("simple.rs")).compile().unwrap();
 
         assert_eq!(
             Some(0),
@@ -367,11 +367,22 @@ mod cases {
 
     #[test]
     fn happy_path() {
-        let (output, _) = run_test(res("happy_path.rs"));
+        let (output, _) = run_test(res("simple.rs"));
 
         TestResults::new()
             .ok("strlen_test::case_1")
             .ok("strlen_test::case_2")
+            .assert(output);
+    }
+
+    #[test]
+    fn use_attr() {
+        let (output, _) = run_test(res("use_attr.rs"));
+
+        TestResults::new()
+            .ok("strlen_test::case_1_ciao")
+            .ok("strlen_test::case_2_foo")
+            .ok("strlen_test::case_3_panic")
             .assert(output);
     }
 

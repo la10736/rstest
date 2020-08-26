@@ -7,7 +7,7 @@ use syn::{
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 /// A test case instance data. Contains a list of arguments. It is parsed by parametrize
 /// attributes.
 pub(crate) struct TestCase {

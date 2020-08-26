@@ -1,15 +1,21 @@
 use proc_macro2::TokenStream;
 use syn::{
     parse::{Parse, ParseStream},
+    parse_quote,
     punctuated::Punctuated,
     token,
     visit_mut::VisitMut,
-    Ident, ItemFn, Token,
+    FnArg, Ident, ItemFn, Token,
 };
 
-use crate::{error::ErrorsVec, refident::RefIdent};
-use fixture::{DefaultsFunctionExtractor, FixturesFunctionExtractor, ArgumentValue};
+use crate::{
+    error::ErrorsVec,
+    refident::{MaybeIdent, RefIdent},
+    utils::{attr_is, attr_starts_with},
+};
+use fixture::{ArgumentValue, DefaultsFunctionExtractor, FixturesFunctionExtractor};
 use quote::ToTokens;
+use testcase::TestCase;
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -171,6 +177,108 @@ pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue
         Err(defaults_extractor.1.into())
     } else {
         Ok(defaults_extractor.0)
+    }
+}
+
+fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
+    node: &mut FnArg,
+    is_valid_attr: fn(&syn::Attribute) -> bool,
+    build: fn(syn::Attribute, &Ident) -> syn::Result<B>,
+) -> Box<dyn Iterator<Item = syn::Result<B>> + 'a> {
+    let name = node.maybe_ident().cloned();
+    if name.is_none() {
+        return Box::new(std::iter::empty());
+    }
+
+    let name = name.unwrap();
+    if let FnArg::Typed(ref mut arg) = node {
+        // Extract interesting attributes
+        let attrs = std::mem::take(&mut arg.attrs);
+        let (extracted, remain): (Vec<_>, Vec<_>) =
+            attrs.into_iter().partition(|attr| is_valid_attr(attr));
+
+        arg.attrs = remain;
+
+        // Parse attrs
+        Box::new(extracted.into_iter().map(move |attr| build(attr, &name)))
+    } else {
+        Box::new(std::iter::empty())
+    }
+}
+
+/// Simple struct used to visit function attributes and extract case arguments and
+/// eventualy parsing errors
+#[derive(Default)]
+struct CaseArgsFunctionExtractor(Vec<Ident>, Vec<syn::Error>);
+
+impl VisitMut for CaseArgsFunctionExtractor {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        for r in extract_argument_attrs(node, |a| attr_is(a, "case"), |_a, name| Ok(name.clone())) {
+            match r {
+                Ok(value) => self.0.push(value),
+                Err(err) => self.1.push(err),
+            }
+        }
+    }
+}
+
+pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+    let mut case_args_extractor = CaseArgsFunctionExtractor::default();
+    case_args_extractor.visit_item_fn_mut(item_fn);
+
+    if case_args_extractor.1.len() > 0 {
+        Err(case_args_extractor.1.into())
+    } else {
+        Ok(case_args_extractor.0)
+    }
+}
+
+/// Simple struct used to visit function attributes and extract cases and
+/// eventualy parsing errors
+#[derive(Default)]
+struct CasesFunctionExtractor(Vec<TestCase>, Vec<syn::Error>);
+
+impl VisitMut for CasesFunctionExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let mut tc: Option<TestCase> = None;
+        let case: syn::PathSegment = parse_quote! { case };
+        for attr in attrs.into_iter() {
+            if attr_starts_with(&attr, &case) {
+                match attr
+                    .parse_meta()
+                    .map(|m| m.into_token_stream())
+                    .and_then(|tokens| syn::parse2::<TestCase>(tokens))
+                {
+                    Ok(t) => {
+                        match tc {
+                            Some(test_case) => self.0.push(test_case),
+                            None => {}
+                        }
+                        tc = Some(t);
+                    }
+                    Err(err) => self.1.push(err),
+                };
+            } else {
+                let dest = tc.as_mut().map(|t| &mut t.attrs).unwrap_or(&mut node.attrs);
+                dest.push(attr);
+            }
+        }
+        match tc {
+            Some(test_case) => self.0.push(test_case),
+            None => {}
+        }
+    }
+}
+
+pub(crate) fn extract_cases(item_fn: &mut ItemFn) -> Result<Vec<TestCase>, ErrorsVec> {
+    let mut cases_extractor = CasesFunctionExtractor::default();
+    cases_extractor.visit_item_fn_mut(item_fn);
+
+    if cases_extractor.1.len() > 0 {
+        Err(cases_extractor.1.into())
+    } else {
+        Ok(cases_extractor.0)
     }
 }
 

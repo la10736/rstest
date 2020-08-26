@@ -5,12 +5,12 @@ use syn::{
 
 use super::testcase::TestCase;
 use super::{
-    extract_fixtures, parse_vector_trailing_till_double_comma, Attribute, Attributes,
-    ExtendWithFunctionAttrs, Fixture,
+    extract_case_args, extract_cases, extract_fixtures, parse_vector_trailing_till_double_comma,
+    Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::parse::vlist::ValueList;
 use crate::{
-    error::ErrorsVec,
+    error::{ErrorsVec},
     refident::{MaybeIdent, RefIdent},
 };
 use proc_macro2::{Span, TokenStream};
@@ -111,9 +111,15 @@ impl Parse for RsTestData {
 
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let fixtures = extract_fixtures(item_fn)?;
+        let (fixtures, (case_args, cases)) = merge_errors!(
+            extract_fixtures(item_fn),
+            extract_case_args(item_fn),
+            extract_cases(item_fn)
+        )?;
 
         self.items.extend(fixtures.into_iter().map(|f| f.into()));
+        self.items.extend(case_args.into_iter().map(|f| f.into()));
+        self.items.extend(cases.into_iter().map(|f| f.into()));
 
         Ok(())
     }
@@ -236,7 +242,7 @@ impl Parse for RsTestAttributes {
 }
 
 #[cfg(test)]
-mod should {
+mod test {
     use super::*;
     use crate::test::*;
 
@@ -260,313 +266,451 @@ mod should {
         }
     }
 
-    mod simple_case {
-        use super::{assert_eq, *};
+    fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
+        parse_meta(rstest_data)
+    }
 
-        fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
-            parse_meta(rstest_data)
+    mod no_cases {
+        use super::{assert_eq, *};
+        use crate::parse::{Attribute, Attributes};
+
+        #[test]
+        fn happy_path() {
+            let data = parse_rstest(
+                r#"my_fixture(42, "other"), other(vec![42])
+            :: trace :: no_trace(some)"#,
+            );
+
+            let expected = RsTestInfo {
+                data: vec![
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                    fixture("other", vec!["vec![42]"]).into(),
+                ]
+                .into(),
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"]),
+                    ],
+                }
+                .into(),
+            };
+
+            assert_eq!(expected, data);
         }
 
-        mod no_cases {
-            use super::{assert_eq, *};
-            use crate::parse::{Attribute, Attributes};
-
-            #[test]
-            fn happy_path() {
-                let data = parse_rstest(
-                    r#"my_fixture(42, "other"), other(vec![42])
-                :: trace :: no_trace(some)"#,
-                );
-
-                let expected = RsTestInfo {
-                    data: vec![
-                        fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                        fixture("other", vec!["vec![42]"]).into(),
-                    ]
-                    .into(),
-                    attributes: Attributes {
-                        attributes: vec![
-                            Attribute::attr("trace"),
-                            Attribute::tagged("no_trace", vec!["some"]),
-                        ],
-                    }
-                    .into(),
-                };
-
-                assert_eq!(expected, data);
+        #[test]
+        fn fixtures_defined_via_with_attributes() {
+            let mut item_fn = r#"
+            fn test_fn(#[with(42, "other")] my_fixture: u32, #[with(vec![42])] other: &str) {
             }
+            "#
+            .ast();
+
+            let expected = RsTestInfo {
+                data: vec![
+                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
+                    fixture("other", vec!["vec![42]"]).into(),
+                ]
+                .into(),
+                ..Default::default()
+            };
+
+            let mut data = RsTestInfo::default();
+
+            data.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn empty_fixtures() {
+            let data = parse_rstest(r#"::trace::no_trace(some)"#);
+
+            let expected = RsTestInfo {
+                attributes: Attributes {
+                    attributes: vec![
+                        Attribute::attr("trace"),
+                        Attribute::tagged("no_trace", vec!["some"]),
+                    ],
+                }
+                .into(),
+                ..Default::default()
+            };
+
+            assert_eq!(expected, data);
+        }
+
+        #[test]
+        fn empty_attributes() {
+            let data = parse_rstest(r#"my_fixture(42, "other")"#);
+
+            let expected = RsTestInfo {
+                data: vec![fixture("my_fixture", vec!["42", r#""other""#]).into()].into(),
+                ..Default::default()
+            };
+
+            assert_eq!(expected, data);
+        }
+    }
+
+    mod parametrize_cases {
+        use super::{assert_eq, *};
+        use std::iter::FromIterator;
+
+        #[test]
+        fn one_simple_case_one_arg() {
+            let data = parse_rstest(r#"arg, case(42)"#).data;
+
+            let args = data.case_args().collect::<Vec<_>>();
+            let cases = data.cases().collect::<Vec<_>>();
+
+            assert_eq!(1, args.len());
+            assert_eq!(1, cases.len());
+            assert_eq!("arg", &args[0].to_string());
+            assert_eq!(to_args!(["42"]), cases[0].args())
+        }
+
+        #[test]
+        fn happy_path() {
+            let info = parse_rstest(
+                r#"
+                my_fixture(42,"foo"),
+                arg1, arg2, arg3,
+                case(1,2,3),
+                case(11,12,13),
+                case(21,22,23)
+            "#,
+            );
+
+            let data = info.data;
+            let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
+
+            assert_eq!(
+                vec![fixture("my_fixture", vec!["42", r#""foo""#])],
+                fixtures
+            );
+            assert_eq!(
+                to_strs!(vec!["arg1", "arg2", "arg3"]),
+                data.case_args()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+
+            let cases = data.cases().collect::<Vec<_>>();
+
+            assert_eq!(3, cases.len());
+            assert_eq!(to_args!(["1", "2", "3"]), cases[0].args());
+            assert_eq!(to_args!(["11", "12", "13"]), cases[1].args());
+            assert_eq!(to_args!(["21", "22", "23"]), cases[2].args());
+        }
+
+        mod defined_via_with_attributes {
+            use super::{assert_eq, *};
 
             #[test]
-            fn fixtures_defined_via_with_attributes() {
+            fn one_case() {
                 let mut item_fn = r#"
-                fn test_fn(#[with(42, "other")] my_fixture: u32, #[with(vec![42])] other: &str) {
+                #[case::first(42, "first")]
+                fn test_fn(#[case] arg1: u32, #[case] arg2: &str) {
                 }
                 "#
                 .ast();
 
-                let expected = RsTestInfo {
-                    data: vec![
-                        fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                        fixture("other", vec!["vec![42]"]).into(),
-                    ]
-                    .into(),
-                    ..Default::default()
-                };
+                let mut info = RsTestInfo::default();
 
-                let mut data = RsTestInfo::default();
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
 
-                data.extend_with_function_attrs(&mut item_fn).unwrap();
+                let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
+                let cases = info.data.cases().cloned().collect::<Vec<_>>();
 
-                assert_eq!(expected, data);
+                assert_eq!(to_idents!(["arg1", "arg2"]), case_args);
+                assert_eq!(
+                    vec![
+                        TestCase::from_iter(["42", r#""first""#].iter()).with_description("first"),
+                    ],
+                    cases
+                );
             }
 
             #[test]
-            fn empty_fixtures() {
-                let data = parse_rstest(r#"::trace::no_trace(some)"#);
+            fn more_cases() {
+                let mut item_fn = r#"
+                #[case::first(42, "first")]
+                #[case(24, "second")]
+                #[case::third(0, "third")]
+                fn test_fn(#[case] arg1: u32, #[case] arg2: &str) {
+                }
+                "#
+                .ast();
 
-                let expected = RsTestInfo {
-                    attributes: Attributes {
-                        attributes: vec![
-                            Attribute::attr("trace"),
-                            Attribute::tagged("no_trace", vec!["some"]),
-                        ],
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
+                let cases = info.data.cases().cloned().collect::<Vec<_>>();
+
+                assert_eq!(to_idents!(["arg1", "arg2"]), case_args);
+                assert_eq!(
+                    vec![
+                        TestCase::from_iter(["42", r#""first""#].iter()).with_description("first"),
+                        TestCase::from_iter(["24", r#""second""#].iter()),
+                        TestCase::from_iter(["0", r#""third""#].iter()).with_description("third"),
+                    ],
+                    cases
+                );
+            }
+
+            #[test]
+            fn should_collect_attributes() {
+                let mut item_fn = r#"
+                    #[global]
+                    #[case(42)]
+                    #[first]
+                    #[first2(42)]
+                    #[case(24)]
+                    #[second]
+                    fn test_fn(#[case] arg: u32) {
                     }
-                    .into(),
-                    ..Default::default()
-                };
+                "#
+                .ast();
 
-                assert_eq!(expected, data);
-            }
+                let mut info = RsTestInfo::default();
 
-            #[test]
-            fn empty_attributes() {
-                let data = parse_rstest(r#"my_fixture(42, "other")"#);
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
 
-                let expected = RsTestInfo {
-                    data: vec![fixture("my_fixture", vec!["42", r#""other""#]).into()].into(),
-                    ..Default::default()
-                };
-
-                assert_eq!(expected, data);
-            }
-        }
-
-        mod parametrize_cases {
-            use super::{assert_eq, *};
-
-            #[test]
-            fn one_simple_case_one_arg() {
-                let data = parse_rstest(r#"arg, case(42)"#).data;
-
-                let args = data.case_args().collect::<Vec<_>>();
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(1, args.len());
-                assert_eq!(1, cases.len());
-                assert_eq!("arg", &args[0].to_string());
-                assert_eq!(to_args!(["42"]), cases[0].args())
-            }
-
-            #[test]
-            fn happy_path() {
-                let info = parse_rstest(
-                    r#"
-                    my_fixture(42,"foo"),
-                    arg1, arg2, arg3,
-                    case(1,2,3),
-                    case(11,12,13),
-                    case(21,22,23)
-                "#,
-                );
-
-                let data = info.data;
-                let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
-
-                assert_eq!(
-                    vec![fixture("my_fixture", vec!["42", r#""foo""#])],
-                    fixtures
-                );
-                assert_eq!(
-                    to_strs!(vec!["arg1", "arg2", "arg3"]),
-                    data.case_args()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                );
-
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(3, cases.len());
-                assert_eq!(to_args!(["1", "2", "3"]), cases[0].args());
-                assert_eq!(to_args!(["11", "12", "13"]), cases[1].args());
-                assert_eq!(to_args!(["21", "22", "23"]), cases[2].args());
-            }
-
-            #[test]
-            fn should_accept_comma_at_the_end_of_cases() {
-                let data = parse_rstest(
-                    r#"
-                    arg,
-                    case(42),
-                "#,
-                )
-                .data;
-
-                let args = data.case_args().collect::<Vec<_>>();
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(1, args.len());
-                assert_eq!(1, cases.len());
-                assert_eq!("arg", &args[0].to_string());
-                assert_eq!(to_args!(["42"]), cases[0].args())
-            }
-
-            #[test]
-            #[should_panic]
-            fn should_not_accept_invalid_separator_from_args_and_cases() {
-                parse_rstest(
-                    r#"
-                    ret
-                    case::should_success(Ok(())),
-                    case::should_fail(Err("Return Error"))
-                "#,
-                );
-            }
-
-            #[test]
-            fn case_could_be_arg_name() {
-                let data = parse_rstest(
-                    r#"
-                    case,
-                    case(42)
-                "#,
-                )
-                .data;
-
-                assert_eq!("case", &data.case_args().next().unwrap().to_string());
-
-                let cases = data.cases().collect::<Vec<_>>();
-
-                assert_eq!(1, cases.len());
-                assert_eq!(to_args!(["42"]), cases[0].args());
-            }
-        }
-
-        mod matrix_cases {
-            use crate::parse::Attribute;
-
-            use super::{assert_eq, *};
-
-            #[test]
-            fn happy_path() {
-                let info = parse_rstest(
-                    r#"
-                        expected => [12, 34 * 2],
-                        input => [format!("aa_{}", 2), "other"],
-                    "#,
-                );
-
-                let value_ranges = info.data.list_values().collect::<Vec<_>>();
-                assert_eq!(2, value_ranges.len());
-                assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
-                assert_eq!(
-                    to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]),
-                    value_ranges[1].args()
-                );
-                assert_eq!(info.attributes, Default::default());
-            }
-
-            #[test]
-            fn should_parse_attributes_too() {
-                let info = parse_rstest(
-                    r#"
-                                            a => [12, 24, 42]
-                                            ::trace
-                                        "#,
-                );
-
-                assert_eq!(
-                    info.attributes,
-                    Attributes {
-                        attributes: vec![Attribute::attr("trace")]
-                    }
-                    .into()
-                );
-            }
-
-            #[test]
-            fn should_parse_injected_fixtures_too() {
-                let info = parse_rstest(
-                    r#"
-                    a => [12, 24, 42],
-                    fixture_1(42, "foo"),
-                    fixture_2("bar")
-                    "#,
-                );
-
-                let fixtures = info.data.fixtures().cloned().collect::<Vec<_>>();
+                let cases = info.data.cases().cloned().collect::<Vec<_>>();
 
                 assert_eq!(
                     vec![
-                        fixture("fixture_1", vec!["42", r#""foo""#]),
-                        fixture("fixture_2", vec![r#""bar""#])
+                        TestCase::from_iter(["42"].iter()).with_attrs(attrs(
+                            "
+                                #[first]
+                                #[first2(42)]
+                            "
+                        )),
+                        TestCase::from_iter(["24"].iter()).with_attrs(attrs(
+                            "
+                            #[second]
+                        "
+                        )),
                     ],
-                    fixtures
+                    cases
                 );
             }
 
             #[test]
-            #[should_panic(expected = "should not be empty")]
-            fn should_not_compile_if_empty_expression_slice() {
-                parse_rstest(
-                    r#"
-                    invalid => []
-                    "#,
+            fn should_consume_all_used_attributes() {
+                let mut item_fn = r#"
+                    #[global]
+                    #[case(42)]
+                    #[first]
+                    #[first2(42)]
+                    #[case(24)]
+                    #[second]
+                    fn test_fn(#[case] arg: u32) {
+                    }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                assert_eq!(
+                    item_fn.attrs,
+                    attrs(
+                        "
+                        #[global]
+                        "
+                    )
                 );
+                assert!(!format!("{:?}", item_fn).contains("case"));
+            }
+
+            #[test]
+            fn should_report_all_errors() {
+                let mut item_fn = r#"
+                    #[case(#case_error#)]
+                    fn test_fn(#[case] arg: u32, #[with(#fixture_error#)] err_fixture: u32) {
+                    }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+                assert_eq!(2, errors.len());
             }
         }
 
-        mod integrated {
-            use super::{assert_eq, *};
+        #[test]
+        fn should_accept_comma_at_the_end_of_cases() {
+            let data = parse_rstest(
+                r#"
+                arg,
+                case(42),
+            "#,
+            )
+            .data;
 
-            #[test]
-            fn should_parse_fixture_cases_and_matrix_in_any_order() {
-                let data = parse_rstest(
-                    r#"
-                    u,
-                    m => [1, 2],
-                    case(42, A{}, D{}),
-                    a,
-                    case(43, A{}, D{}),
-                    the_fixture(42),
-                    mm => ["f", "oo", "BAR"],
-                    d
+            let args = data.case_args().collect::<Vec<_>>();
+            let cases = data.cases().collect::<Vec<_>>();
+
+            assert_eq!(1, args.len());
+            assert_eq!(1, cases.len());
+            assert_eq!("arg", &args[0].to_string());
+            assert_eq!(to_args!(["42"]), cases[0].args())
+        }
+
+        #[test]
+        #[should_panic]
+        fn should_not_accept_invalid_separator_from_args_and_cases() {
+            parse_rstest(
+                r#"
+                ret
+                case::should_success(Ok(())),
+                case::should_fail(Err("Return Error"))
+            "#,
+            );
+        }
+
+        #[test]
+        fn case_could_be_arg_name() {
+            let data = parse_rstest(
+                r#"
+                case,
+                case(42)
+            "#,
+            )
+            .data;
+
+            assert_eq!("case", &data.case_args().next().unwrap().to_string());
+
+            let cases = data.cases().collect::<Vec<_>>();
+
+            assert_eq!(1, cases.len());
+            assert_eq!(to_args!(["42"]), cases[0].args());
+        }
+    }
+
+    mod matrix_cases {
+        use crate::parse::Attribute;
+
+        use super::{assert_eq, *};
+
+        #[test]
+        fn happy_path() {
+            let info = parse_rstest(
+                r#"
+                    expected => [12, 34 * 2],
+                    input => [format!("aa_{}", 2), "other"],
                 "#,
-                )
-                .data;
+            );
 
-                let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
-                assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
+            let value_ranges = info.data.list_values().collect::<Vec<_>>();
+            assert_eq!(2, value_ranges.len());
+            assert_eq!(to_args!(["12", "34 * 2"]), value_ranges[0].args());
+            assert_eq!(
+                to_args!([r#"format!("aa_{}", 2)"#, r#""other""#]),
+                value_ranges[1].args()
+            );
+            assert_eq!(info.attributes, Default::default());
+        }
 
-                assert_eq!(
-                    to_strs!(vec!["u", "a", "d"]),
-                    data.case_args()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                );
+        #[test]
+        fn should_parse_attributes_too() {
+            let info = parse_rstest(
+                r#"
+                                        a => [12, 24, 42]
+                                        ::trace
+                                    "#,
+            );
 
-                let cases = data.cases().collect::<Vec<_>>();
-                assert_eq!(2, cases.len());
-                assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
-                assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
+            assert_eq!(
+                info.attributes,
+                Attributes {
+                    attributes: vec![Attribute::attr("trace")]
+                }
+                .into()
+            );
+        }
 
-                let value_ranges = data.list_values().collect::<Vec<_>>();
-                assert_eq!(2, value_ranges.len());
-                assert_eq!(to_args!(["1", "2"]), value_ranges[0].args());
-                assert_eq!(
-                    to_args!([r#""f""#, r#""oo""#, r#""BAR""#]),
-                    value_ranges[1].args()
-                );
-            }
+        #[test]
+        fn should_parse_injected_fixtures_too() {
+            let info = parse_rstest(
+                r#"
+                a => [12, 24, 42],
+                fixture_1(42, "foo"),
+                fixture_2("bar")
+                "#,
+            );
+
+            let fixtures = info.data.fixtures().cloned().collect::<Vec<_>>();
+
+            assert_eq!(
+                vec![
+                    fixture("fixture_1", vec!["42", r#""foo""#]),
+                    fixture("fixture_2", vec![r#""bar""#])
+                ],
+                fixtures
+            );
+        }
+
+        #[test]
+        #[should_panic(expected = "should not be empty")]
+        fn should_not_compile_if_empty_expression_slice() {
+            parse_rstest(
+                r#"
+                invalid => []
+                "#,
+            );
+        }
+    }
+
+    mod integrated {
+        use super::{assert_eq, *};
+
+        #[test]
+        fn should_parse_fixture_cases_and_matrix_in_any_order() {
+            let data = parse_rstest(
+                r#"
+                u,
+                m => [1, 2],
+                case(42, A{}, D{}),
+                a,
+                case(43, A{}, D{}),
+                the_fixture(42),
+                mm => ["f", "oo", "BAR"],
+                d
+            "#,
+            )
+            .data;
+
+            let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
+            assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
+
+            assert_eq!(
+                to_strs!(vec!["u", "a", "d"]),
+                data.case_args()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
+
+            let cases = data.cases().collect::<Vec<_>>();
+            assert_eq!(2, cases.len());
+            assert_eq!(to_args!(["42", "A{}", "D{}"]), cases[0].args());
+            assert_eq!(to_args!(["43", "A{}", "D{}"]), cases[1].args());
+
+            let value_ranges = data.list_values().collect::<Vec<_>>();
+            assert_eq!(2, value_ranges.len());
+            assert_eq!(to_args!(["1", "2"]), value_ranges[0].args());
+            assert_eq!(
+                to_args!([r#""f""#, r#""oo""#, r#""BAR""#]),
+                value_ranges[1].args()
+            );
         }
     }
 }

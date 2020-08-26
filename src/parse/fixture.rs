@@ -7,15 +7,12 @@ use syn::{
 };
 
 use super::{
-    extract_defaults, extract_fixtures, parse_vector_trailing_till_double_comma, Attributes,
-    ExtendWithFunctionAttrs, Fixture, Positional,
+    extract_argument_attrs, extract_defaults, extract_fixtures,
+    parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
+    Positional,
 };
 use crate::parse::Attribute;
-use crate::{
-    error::ErrorsVec,
-    refident::{MaybeIdent, RefIdent},
-    utils::attr_is,
-};
+use crate::{error::ErrorsVec, refident::RefIdent, utils::attr_is};
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 
@@ -52,22 +49,15 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         &mut self,
         item_fn: &mut ItemFn,
     ) -> std::result::Result<(), ErrorsVec> {
-        match (extract_fixtures(item_fn), extract_defaults(item_fn)) {
-            (Ok(fixtures), Ok(defaults)) => {
-                self.data.items.extend(
-                    fixtures
-                        .into_iter()
-                        .map(|f| f.into())
-                        .chain(defaults.into_iter().map(|d| d.into())),
-                );
-                Ok(())
-            }
-            (Ok(_), Err(e)) | (Err(e), Ok(_)) => Err(e),
-            (Err(mut e1), Err(mut e2)) => {
-                e1.append(&mut e2);
-                Err(e1)
-            }
-        }
+        let (fixtures, defaults) =
+            merge_errors!(extract_fixtures(item_fn), extract_defaults(item_fn))?;
+        self.data.items.extend(
+            fixtures
+                .into_iter()
+                .map(|f| f.into())
+                .chain(defaults.into_iter().map(|d| d.into())),
+        );
+        Ok(())
     }
 }
 
@@ -78,32 +68,6 @@ impl Parse for DefValue {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         input.parse::<Token![ = ]>()?;
         Ok(DefValue(input.parse::<Expr>()?))
-    }
-}
-
-fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
-    node: &mut FnArg,
-    is_valid_attr: fn(&syn::Attribute) -> bool,
-    build: fn(syn::Attribute, &Ident) -> syn::Result<B>,
-) -> Box<dyn Iterator<Item = syn::Result<B>> + 'a> {
-    let name = node.maybe_ident().cloned();
-    if name.is_none() {
-        return Box::new(std::iter::empty());
-    }
-
-    let name = name.unwrap();
-    if let FnArg::Typed(ref mut arg) = node {
-        // Extract interesting attributes
-        let attrs = std::mem::take(&mut arg.attrs);
-        let (extracted, remain): (Vec<_>, Vec<_>) =
-            attrs.into_iter().partition(|attr| is_valid_attr(attr));
-
-        arg.attrs = remain;
-
-        // Parse attrs
-        Box::new(extracted.into_iter().map(move |attr| build(attr, &name)))
-    } else {
-        Box::new(std::iter::empty())
     }
 }
 
@@ -130,7 +94,7 @@ impl VisitMut for FixturesFunctionExtractor {
     }
 }
 
-/// Simple struct used to visit function attributes and extract fixture info and
+/// Simple struct used to visit function attributes and extract fixture default values info and
 /// eventualy parsing errors
 #[derive(Default)]
 pub(crate) struct DefaultsFunctionExtractor(
