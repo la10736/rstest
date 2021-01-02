@@ -10,7 +10,7 @@ use super::{
 };
 use crate::parse::vlist::ValueList;
 use crate::{
-    error::{ErrorsVec},
+    error::ErrorsVec,
     refident::{MaybeIdent, RefIdent},
 };
 use proc_macro2::{Span, TokenStream};
