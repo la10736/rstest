@@ -822,9 +822,11 @@ pub fn rstest(
     let mut test = parse_macro_input!(input as ItemFn);
     let mut info = parse_macro_input!(args as RsTestInfo);
 
+    let extend_result = info.extend_with_function_attrs(&mut test);
+
     let mut errors = error::rstest(&test, &info);
 
-    if let Err(attrs_errors) = info.extend_with_function_attrs(&mut test) {
+    if let Err(attrs_errors) = extend_result {
         attrs_errors.to_tokens(&mut errors);
     }
 

@@ -380,9 +380,17 @@ mod cases {
         let (output, _) = run_test(res("use_attr.rs"));
 
         TestResults::new()
-            .ok("strlen_test::case_1_ciao")
-            .ok("strlen_test::case_2_foo")
-            .ok("strlen_test::case_3_panic")
+            .ok("all::case_1_ciao")
+            .ok("all::case_2_panic")
+            .ok("all::case_3_foo")
+            .ok("just_cases::case_1_ciao")
+            .ok("just_cases::case_2_foo")
+            .ok("just_cases::case_3_panic")
+            .ok("just_args::case_1_ciao")
+            .ok("just_args::case_2_foo")
+            .ok("just_args::case_3_panic")
+            .ok("all_panic::case_1")
+            .ok("all_panic::case_2")
             .assert(output);
     }
 
