@@ -189,14 +189,14 @@ mod should {
         let output = prj.run_tests().unwrap();
         let name = prj.get_name();
 
+        assert_in!(output.stderr.str(), "error[E0433]: ");
         assert_in!(
             output.stderr.str(),
             format!(
-                "
-        error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
-          --> {}/src/lib.rs:12:33
-           |
-        12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{",
+                r#"
+                  --> {}/src/lib.rs:12:33
+                   |
+                12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#,
                 name
             )
             .unindent()
@@ -206,11 +206,11 @@ mod should {
             output.stderr.str(),
             format!(
                 r#"
-        error[E0308]: mismatched types
-         --> {}/src/lib.rs:8:18
-          |
-        8 |     let a: u32 = "";
-        "#,
+                error[E0308]: mismatched types
+                 --> {}/src/lib.rs:8:18
+                  |
+                8 |     let a: u32 = "";
+                "#,
                 name
             )
             .unindent()
@@ -220,12 +220,12 @@ mod should {
             output.stderr.str(),
             format!(
                 "
-        error[E0308]: mismatched types
-          --> {}/src/lib.rs:16:29
-           |
-        16 | fn error_fixture_wrong_type(fixture: String) {{
-           |                             ^^^^^^^
-           |                             |
+                error[E0308]: mismatched types
+                  --> {}/src/lib.rs:16:29
+                   |
+                16 | fn error_fixture_wrong_type(fixture: String) {{
+                   |                             ^^^^^^^
+                   |                             |
         ",
                 name
             )
@@ -236,12 +236,12 @@ mod should {
             output.stderr.str(),
             format!(
                 "
-        error: Missed argument: 'not_a_fixture' should be a test function argument.
-          --> {}/src/lib.rs:19:11
-           |
-        19 | #[fixture(not_a_fixture(24))]
-           |           ^^^^^^^^^^^^^
-        ",
+                error: Missed argument: 'not_a_fixture' should be a test function argument.
+                  --> {}/src/lib.rs:19:11
+                   |
+                19 | #[fixture(not_a_fixture(24))]
+                   |           ^^^^^^^^^^^^^
+                ",
                 name
             )
             .unindent()
@@ -251,12 +251,12 @@ mod should {
             output.stderr.str(),
             format!(
                 r#"
-        error: Duplicate argument: 'f' is already defined.
-          --> {}/src/lib.rs:33:23
-           |
-        33 | #[fixture(f("first"), f("second"))]
-           |                       ^
-        "#,
+                error: Duplicate argument: 'f' is already defined.
+                  --> {}/src/lib.rs:33:23
+                   |
+                33 | #[fixture(f("first"), f("second"))]
+                   |                       ^
+                "#,
                 name
             )
             .unindent()

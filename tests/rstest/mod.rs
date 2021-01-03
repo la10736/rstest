@@ -821,11 +821,11 @@ mod should_show_correct_errors {
     fn if_no_fixture() {
         let (output, name) = execute();
 
+        assert_in!(output.stderr.str(), "error[E0433]: ");
         assert_in!(
             output.stderr.str(),
             format!(
                 "
-                error[E0433]: failed to resolve: use of undeclared type or module `no_fixture`
                   --> {}/src/lib.rs:11:33
                    |
                 11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}",
