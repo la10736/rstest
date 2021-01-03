@@ -5,8 +5,9 @@ use syn::{
 
 use super::testcase::TestCase;
 use super::{
-    extract_case_args, extract_cases, extract_fixtures, parse_vector_trailing_till_double_comma,
-    Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
+    extract_case_args, extract_cases, extract_fixtures, extract_value_list,
+    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
+    Fixture,
 };
 use crate::parse::vlist::ValueList;
 use crate::{
@@ -111,15 +112,17 @@ impl Parse for RsTestData {
 
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (fixtures, (case_args, cases)) = merge_errors!(
+        let (fixtures, (case_args, (cases, value_list))) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
-            extract_cases(item_fn)
+            extract_cases(item_fn),
+            extract_value_list(item_fn)
         )?;
 
         self.items.extend(fixtures.into_iter().map(|f| f.into()));
         self.items.extend(case_args.into_iter().map(|f| f.into()));
         self.items.extend(cases.into_iter().map(|f| f.into()));
+        self.items.extend(value_list.into_iter().map(|f| f.into()));
 
         Ok(())
     }
@@ -667,6 +670,29 @@ mod test {
                 invalid => []
                 "#,
             );
+        }
+
+        mod defined_via_with_attributes {
+            use super::{assert_eq, *};
+
+            #[test]
+            fn one_arg() {
+                let mut item_fn = r#"
+                fn test_fn(#[values(1, 2, 1+2)] arg1: u32, #[values(format!("a"), "b b".to_owned(), String::new())] arg2: String) {
+                }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                let list_values = info.data.list_values().cloned().collect::<Vec<_>>();
+
+                assert_eq!(2, list_values.len());
+                assert_eq!(to_args!(["1", "2", "1+2"]), list_values[0].args());
+                assert_eq!(to_args!([r#"format!("a")"#, r#""b b".to_owned()"#, "String::new()"]), list_values[1].args());
+            }
         }
     }
 

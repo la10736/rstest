@@ -17,6 +17,8 @@ use fixture::{ArgumentValue, DefaultsFunctionExtractor, FixturesFunctionExtracto
 use quote::ToTokens;
 use testcase::TestCase;
 
+use self::vlist::{ValueList, Expressions};
+
 // To use the macros this should be the first one module
 #[macro_use]
 pub(crate) mod macros;
@@ -279,6 +281,42 @@ pub(crate) fn extract_cases(item_fn: &mut ItemFn) -> Result<Vec<TestCase>, Error
         Err(cases_extractor.1.into())
     } else {
         Ok(cases_extractor.0)
+    }
+}
+
+/// Simple struct used to visit function attributes and extract value list and
+/// eventualy parsing errors
+#[derive(Default)]
+struct ValueListFunctionExtractor(Vec<ValueList>, Vec<syn::Error>);
+
+impl VisitMut for ValueListFunctionExtractor {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        for r in extract_argument_attrs(
+            node,
+            |a| attr_is(a, "values"),
+            |a, name| {
+                a.parse_args::<Expressions>().map(|v| ValueList {
+                    arg: name.clone(),
+                    values: v.take(),
+                })
+            },
+        ) {
+            match r {
+                Ok(vlist) => self.0.push(vlist),
+                Err(err) => self.1.push(err),
+            }
+        }
+    }
+}
+
+pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>, ErrorsVec> {
+    let mut vlist_extractor = ValueListFunctionExtractor::default();
+    vlist_extractor.visit_item_fn_mut(item_fn);
+
+    if vlist_extractor.1.len() > 0 {
+        Err(vlist_extractor.1.into())
+    } else {
+        Ok(vlist_extractor.0)
     }
 }
 

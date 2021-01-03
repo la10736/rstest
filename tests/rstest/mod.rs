@@ -784,6 +784,27 @@ mod matrix {
             .ok("fn_async::first_2::second_2")
             .assert(output);
     }
+
+    #[test]
+    fn use_args_attributes() {
+        let (output, _) = run_test(res("use_attr.rs"));
+
+        TestResults::new()
+            .ok("both::expected_1::input_1")
+            .ok("both::expected_1::input_2")
+            .ok("both::expected_2::input_1")
+            .ok("both::expected_2::input_2")
+            .ok("first::input_1::expected_1")
+            .ok("first::input_2::expected_1")
+            .ok("first::input_1::expected_2")
+            .ok("first::input_2::expected_2")
+            .ok("second::expected_1::input_1")
+            .ok("second::expected_1::input_2")
+            .ok("second::expected_2::input_1")
+            .ok("second::expected_2::input_2")
+            .assert(output);
+    }
+
 }
 
 #[test]

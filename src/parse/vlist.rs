@@ -13,18 +13,36 @@ pub(crate) struct ValueList {
     pub(crate) values: Vec<Expr>,
 }
 
+pub(crate) struct Expressions(Vec<Expr>);
+
+impl Expressions {
+    pub(crate) fn take(self) -> Vec<Expr> {
+        self.0
+    }
+}
+
+impl Parse for Expressions {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let values = input
+            .parse_terminated::<_, Token![,]>(Parse::parse)?
+            .into_iter()
+            .collect();
+        Ok(Self(values))
+    }
+}
+
 impl Parse for ValueList {
     fn parse(input: ParseStream) -> Result<Self> {
         let arg = input.parse()?;
         let _to: Token![=>] = input.parse()?;
         let content;
         let paren = syn::bracketed!(content in input);
-        let values = content
-            .parse_terminated::<_, Token![,]>(Parse::parse)?
-            .into_iter()
-            .collect();
+        let values: Expressions = content.parse()?;
 
-        let ret = Self { arg, values };
+        let ret = Self {
+            arg,
+            values: values.take(),
+        };
         if ret.values.len() == 0 {
             Err(syn::Error::new(
                 paren.span,
