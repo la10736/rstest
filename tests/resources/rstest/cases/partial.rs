@@ -38,7 +38,7 @@ fn partial_2(fixture: u32, expected: u32) {
     assert_eq!(fixture, expected);
 }
 
-#[rstest(fixture(2, 4), expected, case(42), case(1000))]
+#[rstest(expected, case(42), case(1000))]
 fn partial_attr_2(#[with(2, 4)] fixture: u32, expected: u32) {
     assert_eq!(fixture, expected);
 }
@@ -48,7 +48,7 @@ fn complete(fixture: u32, expected: u32) {
     assert_eq!(fixture, expected);
 }
 
-#[rstest(fixture(2, 4, 5), expected, case(542), case(1000))]
+#[rstest(expected, case(542), case(1000))]
 fn complete_attr(#[with(2, 4, 5)] fixture: u32, expected: u32) {
     assert_eq!(fixture, expected);
 }
