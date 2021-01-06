@@ -29,7 +29,7 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
         .collect()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct ErrorsVec(Vec<syn::Error>);
 
 pub(crate) fn _merge_errors<R1, R2>(
@@ -55,6 +55,15 @@ macro_rules! merge_errors {
     };
 }
 
+macro_rules! composed_tuple {
+    ($i:ident) => {
+        $i
+    };
+    ($i:ident, $($is:ident), +) => {
+        ($i, composed_tuple!($($is),*))
+    };
+}
+
 impl std::ops::Deref for ErrorsVec {
     type Target = Vec<syn::Error>;
     fn deref(&self) -> &Self::Target {
@@ -65,6 +74,12 @@ impl std::ops::Deref for ErrorsVec {
 impl std::ops::DerefMut for ErrorsVec {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<syn::Error> for ErrorsVec {
+    fn from(errors: syn::Error) -> Self {
+        vec![errors].into()
     }
 }
 

@@ -1,23 +1,18 @@
 use proc_macro2::TokenStream;
-use syn::{
-    parse::{Parse, ParseStream},
-    parse_quote,
-    punctuated::Punctuated,
-    token,
-    visit_mut::VisitMut,
-    FnArg, Ident, ItemFn, Token,
-};
+use syn::{FnArg, Ident, ItemFn, Token, parse::{Parse, ParseStream}, parse_quote, punctuated::Punctuated, spanned::Spanned, token, visit_mut::VisitMut};
 
 use crate::{
     error::ErrorsVec,
     refident::{MaybeIdent, RefIdent},
     utils::{attr_is, attr_starts_with},
 };
-use fixture::{ArgumentValue, DefaultsFunctionExtractor, FixturesFunctionExtractor};
+use fixture::{
+    ArgumentValue, DefaultsFunctionExtractor, FixtureModifiers, FixturesFunctionExtractor,
+};
 use quote::ToTokens;
 use testcase::TestCase;
 
-use self::vlist::{ValueList, Expressions};
+use self::vlist::{Expressions, ValueList};
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -182,6 +177,22 @@ pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue
     }
 }
 
+pub(crate) fn extract_default_return_type(
+    item_fn: &mut ItemFn,
+) -> Result<Option<syn::Type>, ErrorsVec> {
+    let mut default_type_extractor = DefaultTypeFunctionExtractor::default();
+    default_type_extractor.visit_item_fn_mut(item_fn);
+    default_type_extractor.take()
+}
+
+pub(crate) fn extract_partials_return_type(
+    item_fn: &mut ItemFn,
+) -> Result<Vec<(usize, syn::Type)>, ErrorsVec> {
+    let mut partials_type_extractor = PartialsTypeFunctionExtractor::default();
+    partials_type_extractor.visit_item_fn_mut(item_fn);
+    partials_type_extractor.take()
+}
+
 fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
     node: &mut FnArg,
     is_valid_attr: fn(&syn::Attribute) -> bool,
@@ -205,6 +216,92 @@ fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
         Box::new(extracted.into_iter().map(move |attr| build(attr, &name)))
     } else {
         Box::new(std::iter::empty())
+    }
+}
+
+/// Simple struct used to visit function attributes and extract default return
+/// type
+struct DefaultTypeFunctionExtractor(Result<Option<syn::Type>, ErrorsVec>);
+
+impl DefaultTypeFunctionExtractor {
+    fn take(self) -> Result<Option<syn::Type>, ErrorsVec> {
+        self.0
+    }
+}
+
+impl Default for DefaultTypeFunctionExtractor {
+    fn default() -> Self {
+        Self(Ok(None))
+    }
+}
+
+impl VisitMut for DefaultTypeFunctionExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let (mut defaults, remain): (Vec<_>, Vec<_>) = attrs
+            .into_iter()
+            .partition(|attr| attr_is(&attr, FixtureModifiers::DEFAULT_RET_ATTR));
+
+        node.attrs = remain;
+        self.0 = match defaults.pop().map(|def| def.parse_args::<syn::Type>()) {
+            Some(Ok(t)) => Ok(Some(t)),
+            Some(Err(e)) => Err(e.into()),
+            None => Ok(None),
+        };
+    }
+}
+
+/// Simple struct used to visit function attributes and extract default return
+/// type
+struct PartialsTypeFunctionExtractor(Result<Vec<(usize, syn::Type)>, ErrorsVec>);
+
+impl PartialsTypeFunctionExtractor {
+    fn take(self) -> Result<Vec<(usize, syn::Type)>, ErrorsVec> {
+        self.0
+    }
+}
+
+impl Default for PartialsTypeFunctionExtractor {
+    fn default() -> Self {
+        Self(Ok(Vec::default()))
+    }
+}
+
+impl VisitMut for PartialsTypeFunctionExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let (partials, remain): (Vec<_>, Vec<_>) =
+            attrs
+                .into_iter()
+                .partition(|attr| match attr.path.get_ident() {
+                    Some(name) => name
+                        .to_string()
+                        .starts_with(FixtureModifiers::PARTIAL_RET_ATTR),
+                    None => false,
+                });
+
+        node.attrs = remain;
+        let mut errors = ErrorsVec::default();
+        let mut data: Vec<(usize, syn::Type)> = Vec::default();
+        for attr in partials {
+            match attr.parse_args::<syn::Type>() {
+                Ok(t) => {
+                    match attr.path.get_ident().unwrap().to_string()
+                        [FixtureModifiers::PARTIAL_RET_ATTR.len()..]
+                        .parse()
+                    {
+                        Ok(id) => data.push((id, t)),
+                        Err(_) => errors.push(syn::Error::new(attr.span(), "Invalid patial syntax: should be partial_<n_arguments>")),
+                    }
+                }
+                Err(e) => errors.push(e),
+            }
+        }
+        self.0 = if errors.len() > 0 {
+            Err(errors)
+        } else {
+            Ok(data)
+        };
     }
 }
 

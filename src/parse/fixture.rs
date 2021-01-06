@@ -7,14 +7,14 @@ use syn::{
 };
 
 use super::{
-    extract_argument_attrs, extract_defaults, extract_fixtures,
-    parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
-    Positional,
+    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
+    extract_partials_return_type, parse_vector_trailing_till_double_comma, Attributes,
+    ExtendWithFunctionAttrs, Fixture, Positional,
 };
 use crate::parse::Attribute;
 use crate::{error::ErrorsVec, refident::RefIdent, utils::attr_is};
 use proc_macro2::TokenStream;
-use quote::ToTokens;
+use quote::{format_ident, ToTokens};
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct FixtureInfo {
@@ -49,14 +49,29 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         &mut self,
         item_fn: &mut ItemFn,
     ) -> std::result::Result<(), ErrorsVec> {
-        let (fixtures, defaults) =
-            merge_errors!(extract_fixtures(item_fn), extract_defaults(item_fn))?;
+        let composed_tuple!(
+            fixtures,
+            defaults,
+            default_return_type,
+            partials_return_type
+        ) = merge_errors!(
+            extract_fixtures(item_fn),
+            extract_defaults(item_fn),
+            extract_default_return_type(item_fn),
+            extract_partials_return_type(item_fn)
+        )?;
         self.data.items.extend(
             fixtures
                 .into_iter()
                 .map(|f| f.into())
                 .chain(defaults.into_iter().map(|d| d.into())),
         );
+        if let Some(return_type) = default_return_type {
+            self.attributes.set_default_return_type(return_type);
+        }
+        for (id, return_type) in partials_return_type {
+            self.attributes.set_partial_return_type(id, return_type);
+        }
         Ok(())
     }
 }
@@ -219,8 +234,8 @@ impl Parse for ArgumentValue {
 wrap_attributes!(FixtureModifiers);
 
 impl FixtureModifiers {
-    const DEFAULT_RET_ATTR: &'static str = "default";
-    const PARTIAL_RET_ATTR: &'static str = "partial_";
+    pub(crate) const DEFAULT_RET_ATTR: &'static str = "default";
+    pub(crate) const PARTIAL_RET_ATTR: &'static str = "partial_";
 
     pub(crate) fn extract_default_type(&self) -> Option<syn::ReturnType> {
         self.extract_type(Self::DEFAULT_RET_ATTR)
@@ -228,6 +243,20 @@ impl FixtureModifiers {
 
     pub(crate) fn extract_partial_type(&self, pos: usize) -> Option<syn::ReturnType> {
         self.extract_type(&format!("{}{}", Self::PARTIAL_RET_ATTR, pos))
+    }
+
+    pub(crate) fn set_default_return_type(&mut self, return_type: syn::Type) {
+        self.inner.attributes.push(Attribute::Type(
+            format_ident!("{}", Self::DEFAULT_RET_ATTR),
+            return_type,
+        ))
+    }
+
+    pub(crate) fn set_partial_return_type(&mut self, id: usize, return_type: syn::Type) {
+        self.inner.attributes.push(Attribute::Type(
+            format_ident!("{}{}", Self::PARTIAL_RET_ATTR, id),
+            return_type,
+        ))
     }
 
     fn extract_type(&self, attr_name: &str) -> Option<syn::ReturnType> {
@@ -372,7 +401,7 @@ mod extend {
         }
 
         #[test]
-        fn use_default_attributes() {
+        fn use_default_values_attributes() {
             let to_parse = r#"
                 fn my_fix(#[default = 2] f1: &str, #[default = (vec![1,2], "s")] f2: (Vec<u32>, &str)) {}
             "#;
@@ -407,6 +436,67 @@ mod extend {
                 .unwrap_err();
 
             assert_eq!(2, errors.len());
+        }
+
+        #[test]
+        fn find_default_return_type() {
+            let mut item_fn: ItemFn = r#"
+                #[default(impl Iterator<Item=(u32, i32)>)]
+                fn my_fix<I, J>(f1: I, f2: J) -> impl Iterator<Item=(I, J)> {}
+            "#
+            .ast();
+
+            let mut info = FixtureInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(
+                info.attributes.extract_default_type(),
+                Some(parse_quote! { -> impl Iterator<Item=(u32, i32)> })
+            );
+        }
+
+        #[test]
+        fn find_partials_return_type() {
+            let mut item_fn: ItemFn = r#"
+                #[partial_1(impl Iterator<Item=(u32, J, K)>)]
+                #[partial_2(impl Iterator<Item=(u32, i32, K)>)]
+                fn my_fix<I, J, K>(f1: I, f2: J, f3: K) -> impl Iterator<Item=(I, J, K)> {}
+            "#
+            .ast();
+
+            let mut info = FixtureInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(
+                info.attributes.extract_partial_type(1),
+                Some(parse_quote! { -> impl Iterator<Item=(u32, J, K)> })
+            );
+            assert_eq!(
+                info.attributes.extract_partial_type(2),
+                Some(parse_quote! { -> impl Iterator<Item=(u32, i32, K)> })
+            );
+        }
+
+        mod raise_error {
+            use super::{assert_eq, *};
+            use rstest_test::assert_in;
+
+            #[test]
+            fn if_partial_is_not_correct() {
+                let mut item_fn: ItemFn = r#"
+                    #[partial_not_a_number(u32)]
+                    fn my_fix<I, J>(f1: I, f2: &str) -> I {}
+                    "#
+                .ast();
+
+                let mut info = FixtureInfo::default();
+
+                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+                assert_in!(format!("{:?}", error).to_lowercase(), "invalid patial syntax");
+            }
         }
     }
 }

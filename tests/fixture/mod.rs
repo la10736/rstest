@@ -120,6 +120,8 @@ mod should {
         TestResults::new()
             .ok("resolve")
             .ok("resolve_partial")
+            .ok("resolve_attrs")
+            .ok("resolve_partial_attrs")
             .assert(output);
     }
 

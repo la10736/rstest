@@ -112,7 +112,7 @@ impl Parse for RsTestData {
 
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (fixtures, (case_args, (cases, value_list))) = merge_errors!(
+        let composed_tuple!(fixtures, case_args, cases, value_list) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
             extract_cases(item_fn),
