@@ -3,7 +3,6 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_quote,
     punctuated::Punctuated,
-    spanned::Spanned,
     token,
     visit_mut::VisitMut,
     FnArg, Ident, ItemFn, Token,
@@ -299,8 +298,8 @@ impl VisitMut for PartialsTypeFunctionExtractor {
                         .parse()
                     {
                         Ok(id) => data.push((id, t)),
-                        Err(_) => errors.push(syn::Error::new(
-                            attr.span(),
+                        Err(_) => errors.push(syn::Error::new_spanned(
+                            attr,
                             "Invalid partial syntax: should be partial_<n_arguments>",
                         )),
                     }
