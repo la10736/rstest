@@ -1,5 +1,13 @@
 use proc_macro2::TokenStream;
-use syn::{FnArg, Ident, ItemFn, Token, parse::{Parse, ParseStream}, parse_quote, punctuated::Punctuated, spanned::Spanned, token, visit_mut::VisitMut};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    token,
+    visit_mut::VisitMut,
+    FnArg, Ident, ItemFn, Token,
+};
 
 use crate::{
     error::ErrorsVec,
@@ -291,7 +299,10 @@ impl VisitMut for PartialsTypeFunctionExtractor {
                         .parse()
                     {
                         Ok(id) => data.push((id, t)),
-                        Err(_) => errors.push(syn::Error::new(attr.span(), "Invalid patial syntax: should be partial_<n_arguments>")),
+                        Err(_) => errors.push(syn::Error::new(
+                            attr.span(),
+                            "Invalid partial syntax: should be partial_<n_arguments>",
+                        )),
                     }
                 }
                 Err(e) => errors.push(e),

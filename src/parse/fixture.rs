@@ -495,7 +495,10 @@ mod extend {
 
                 let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
 
-                assert_in!(format!("{:?}", error).to_lowercase(), "invalid patial syntax");
+                assert_in!(
+                    format!("{:?}", error).to_lowercase(),
+                    "invalid partial syntax"
+                );
             }
         }
     }
