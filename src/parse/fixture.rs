@@ -425,23 +425,11 @@ mod extend {
         }
 
         #[test]
-        fn raise_error_for_invalid_expressions() {
-            let mut item_fn: ItemFn = r#"
-                fn my_fix(#[with(valid)] f1: &str, #[with(with(,.,))] f2: u32, #[with(with(use))] f3: u32) {}
-            "#
-            .ast();
-
-            let errors = FixtureInfo::default()
-                .extend_with_function_attrs(&mut item_fn)
-                .unwrap_err();
-
-            assert_eq!(2, errors.len());
-        }
-
-        #[test]
         fn find_default_return_type() {
             let mut item_fn: ItemFn = r#"
+                #[first]
                 #[default(impl Iterator<Item=(u32, i32)>)]
+                #[last]
                 fn my_fix<I, J>(f1: I, f2: J) -> impl Iterator<Item=(I, J)> {}
             "#
             .ast();
@@ -454,13 +442,23 @@ mod extend {
                 info.attributes.extract_default_type(),
                 Some(parse_quote! { -> impl Iterator<Item=(u32, i32)> })
             );
+            assert_eq!(
+                to_idents!(["first", "last"]),
+                item_fn
+                    .attrs
+                    .into_iter()
+                    .filter_map(|a| a.path.get_ident().cloned())
+                    .collect::<Vec<_>>()
+            );
         }
 
         #[test]
         fn find_partials_return_type() {
             let mut item_fn: ItemFn = r#"
+                #[first]
                 #[partial_1(impl Iterator<Item=(u32, J, K)>)]
                 #[partial_2(impl Iterator<Item=(u32, i32, K)>)]
+                #[last]
                 fn my_fix<I, J, K>(f1: I, f2: J, f3: K) -> impl Iterator<Item=(I, J, K)> {}
             "#
             .ast();
@@ -477,11 +475,82 @@ mod extend {
                 info.attributes.extract_partial_type(2),
                 Some(parse_quote! { -> impl Iterator<Item=(u32, i32, K)> })
             );
+            assert_eq!(
+                to_idents!(["first", "last"]),
+                item_fn
+                    .attrs
+                    .into_iter()
+                    .filter_map(|a| a.path.get_ident().cloned())
+                    .collect::<Vec<_>>()
+            );
         }
 
         mod raise_error {
             use super::{assert_eq, *};
             use rstest_test::assert_in;
+
+            #[test]
+            fn for_invalid_expressions() {
+                let mut item_fn: ItemFn = r#"
+                fn my_fix(#[with(valid)] f1: &str, #[with(with(,.,))] f2: u32, #[with(with(use))] f3: u32) {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .unwrap_err();
+
+                assert_eq!(2, errors.len());
+            }
+
+            #[test]
+            fn for_invalid_default_type() {
+                let mut item_fn: ItemFn = r#"
+                    #[default(no<valid::>type)]
+                    fn my_fix<I>() -> I {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .unwrap_err();
+
+                assert_eq!(1, errors.len());
+            }
+
+            #[test]
+            fn if_default_is_defined_more_than_once() {
+                let mut item_fn: ItemFn = r#"
+                    #[default(u32)]
+                    #[default(u32)]
+                    fn my_fix<I>() -> I {}
+                    "#
+                .ast();
+
+                let mut info = FixtureInfo::default();
+
+                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+                assert_in!(
+                    format!("{:?}", error).to_lowercase(),
+                    "cannot use default more than once"
+                );
+            }
+
+            #[test]
+            fn for_invalid_partial_type() {
+                let mut item_fn: ItemFn = r#"
+                    #[partial_1(no<valid::>type)]
+                    fn my_fix<I>(x: I, y: u32) -> I {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .unwrap_err();
+
+                assert_eq!(1, errors.len());
+            }
 
             #[test]
             fn if_partial_is_not_correct() {

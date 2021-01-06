@@ -245,15 +245,26 @@ impl Default for DefaultTypeFunctionExtractor {
 impl VisitMut for DefaultTypeFunctionExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
         let attrs = std::mem::take(&mut node.attrs);
-        let (mut defaults, remain): (Vec<_>, Vec<_>) = attrs
+        let (defaults, remain): (Vec<_>, Vec<_>) = attrs
             .into_iter()
             .partition(|attr| attr_is(&attr, FixtureModifiers::DEFAULT_RET_ATTR));
 
         node.attrs = remain;
-        self.0 = match defaults.pop().map(|def| def.parse_args::<syn::Type>()) {
-            Some(Ok(t)) => Ok(Some(t)),
-            Some(Err(e)) => Err(e.into()),
-            None => Ok(None),
+        let mut defaults = defaults.into_iter();
+        let mut data = None;
+        let mut errors = ErrorsVec::default();
+        match defaults.nth(0).map(|def| def.parse_args::<syn::Type>()) {
+            Some(Ok(t)) => data = Some(t),
+            Some(Err(e)) => errors.push(e),
+            None => {}
+        };
+        errors.extend(
+            defaults.map(|a| syn::Error::new_spanned(a, "You cannot use default more than once")),
+        );
+        self.0 = if errors.len() > 0 {
+            Err(errors)
+        } else {
+            Ok(data)
         };
     }
 }
