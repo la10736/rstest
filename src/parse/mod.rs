@@ -19,12 +19,13 @@ use fixture::{
 use quote::ToTokens;
 use testcase::TestCase;
 
-use self::vlist::{Expressions, ValueList};
+use self::{expressions::Expressions, vlist::ValueList};
 
 // To use the macros this should be the first one module
 #[macro_use]
 pub(crate) mod macros;
 
+pub(crate) mod expressions;
 pub(crate) mod fixture;
 pub(crate) mod rstest;
 pub(crate) mod testcase;
@@ -266,6 +267,8 @@ impl VisitMut for DefaultTypeFunctionExtractor {
         } else {
             Ok(data)
         };
+
+        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -323,6 +326,8 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         } else {
             Ok(data)
         };
+
+        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -339,6 +344,8 @@ impl VisitMut for CaseArgsFunctionExtractor {
                 Err(err) => self.1.push(err),
             }
         }
+
+        syn::visit_mut::visit_fn_arg_mut(self, node);
     }
 }
 
@@ -365,17 +372,18 @@ impl VisitMut for CasesFunctionExtractor {
         let case: syn::PathSegment = parse_quote! { case };
         for attr in attrs.into_iter() {
             if attr_starts_with(&attr, &case) {
-                match attr
-                    .parse_meta()
-                    .map(|m| m.into_token_stream())
-                    .and_then(|tokens| syn::parse2::<TestCase>(tokens))
-                {
-                    Ok(t) => {
-                        match tc {
+                match attr.parse_args::<Expressions>() {
+                    Ok(expressions) => {
+                        let description = attr.path.segments.into_iter().nth(1).map(|p| p.ident);
+                        let t = TestCase {
+                            args: expressions.into(),
+                            attrs: Default::default(),
+                            description,
+                        };
+                        match std::mem::replace(&mut tc, Some(t)) {
                             Some(test_case) => self.0.push(test_case),
                             None => {}
                         }
-                        tc = Some(t);
                     }
                     Err(err) => self.1.push(err),
                 };
@@ -388,6 +396,8 @@ impl VisitMut for CasesFunctionExtractor {
             Some(test_case) => self.0.push(test_case),
             None => {}
         }
+
+        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -424,6 +434,8 @@ impl VisitMut for ValueListFunctionExtractor {
                 Err(err) => self.1.push(err),
             }
         }
+
+        syn::visit_mut::visit_fn_arg_mut(self, node);
     }
 }
 
@@ -436,6 +448,110 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
     } else {
         Ok(vlist_extractor.0)
     }
+}
+
+/// Simple struct used to visit function attributes, extract trace info and
+/// eventualy parsing errors
+struct TraceAttributesFunctionExtractor(Result<TraceInfo, ErrorsVec>);
+#[derive(Default)]
+pub(crate) struct TraceInfo {
+    pub(crate) should_trace: Option<Ident>,
+    pub(crate) excluded: Vec<Ident>,
+}
+
+impl TraceInfo {
+    fn update_should_trace(&mut self, value: Option<Ident>) {
+        self.should_trace = value;
+    }
+
+    fn update_excluded(&mut self, value: Ident) {
+        self.excluded.push(value);
+    }
+}
+
+impl From<Result<TraceInfo, ErrorsVec>> for TraceAttributesFunctionExtractor {
+    fn from(inner: Result<TraceInfo, ErrorsVec>) -> Self {
+        Self(inner)
+    }
+}
+
+impl TraceAttributesFunctionExtractor {
+    pub(crate) fn take(self) -> Result<TraceInfo, ErrorsVec> {
+        self.0
+    }
+
+    fn update_error(&mut self, mut errors: ErrorsVec) {
+        match &mut self.0 {
+            Ok(_) => self.0 = Err(errors),
+            Err(err) => err.append(&mut errors),
+        }
+        .into()
+    }
+
+    fn update_should_trace(&mut self, value: Option<Ident>) {
+        self.0
+            .iter_mut()
+            .next()
+            .map(|inner| inner.update_should_trace(value));
+    }
+
+    fn update_excluded(&mut self, value: Ident) {
+        self.0.iter_mut().next().map(|inner| {
+            inner.update_excluded(value);
+        });
+    }
+}
+
+impl Default for TraceAttributesFunctionExtractor {
+    fn default() -> Self {
+        Self(Ok(Default::default()))
+    }
+}
+
+impl VisitMut for TraceAttributesFunctionExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let trace: syn::Path = parse_quote! { trace };
+        let (traces, remain): (Vec<_>, Vec<_>) =
+            attrs.into_iter().partition(|attr| attr.path == trace);
+        node.attrs = remain;
+        let mut traces = traces
+            .into_iter()
+            .filter_map(|a| a.path.get_ident().cloned());
+
+        let data = traces.next();
+        let errors = traces
+            .into_iter()
+            .map(|id| syn::Error::new_spanned(id, "You cannot use trace more than once"))
+            .collect::<Vec<_>>();
+
+        if errors.len() > 0 {
+            self.update_error(errors.into());
+        } else {
+            self.update_should_trace(data);
+        }
+
+        syn::visit_mut::visit_item_fn_mut(self, node);
+    }
+
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        for r in
+            extract_argument_attrs(node, |a| attr_is(a, "notrace"), |_a, name| Ok(name.clone()))
+        {
+            match r {
+                Ok(value) => self.update_excluded(value),
+                Err(err) => self.update_error(err.into()),
+            }
+        }
+
+        syn::visit_mut::visit_fn_arg_mut(self, node);
+    }
+}
+
+pub(crate) fn extract_trace(item_fn: &mut ItemFn) -> Result<TraceInfo, ErrorsVec> {
+    let mut trace_extractor = TraceAttributesFunctionExtractor::default();
+    trace_extractor.visit_item_fn_mut(item_fn);
+    trace_extractor.take()
 }
 
 #[cfg(test)]

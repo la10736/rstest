@@ -148,7 +148,7 @@ mod should {
     }
 
     #[test]
-    fn apply_partial_fixture_fron_value_attribute() {
+    fn apply_partial_fixture_from_value_attribute() {
         let (output, _) = run_test("partial_in_attr.rs");
 
         TestResults::new()

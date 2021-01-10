@@ -7,28 +7,12 @@ use syn::{
 
 use crate::refident::RefIdent;
 
+use super::expressions::Expressions;
+
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ValueList {
     pub(crate) arg: Ident,
     pub(crate) values: Vec<Expr>,
-}
-
-pub(crate) struct Expressions(Vec<Expr>);
-
-impl Expressions {
-    pub(crate) fn take(self) -> Vec<Expr> {
-        self.0
-    }
-}
-
-impl Parse for Expressions {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let values = input
-            .parse_terminated::<_, Token![,]>(Parse::parse)?
-            .into_iter()
-            .collect();
-        Ok(Self(values))
-    }
 }
 
 impl Parse for ValueList {

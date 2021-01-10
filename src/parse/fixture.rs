@@ -427,9 +427,11 @@ mod extend {
         #[test]
         fn find_default_return_type() {
             let mut item_fn: ItemFn = r#"
-                #[first]
+                #[simple]
+                #[first(comp)]
+                #[second::default]
                 #[default(impl Iterator<Item=(u32, i32)>)]
-                #[last]
+                #[last::more]
                 fn my_fix<I, J>(f1: I, f2: J) -> impl Iterator<Item=(I, J)> {}
             "#
             .ast();
@@ -442,23 +444,18 @@ mod extend {
                 info.attributes.extract_default_type(),
                 Some(parse_quote! { -> impl Iterator<Item=(u32, i32)> })
             );
-            assert_eq!(
-                to_idents!(["first", "last"]),
-                item_fn
-                    .attrs
-                    .into_iter()
-                    .filter_map(|a| a.path.get_ident().cloned())
-                    .collect::<Vec<_>>()
-            );
+            assert_eq!(attrs("#[simple]#[first(comp)]#[second::default]#[last::more]"), item_fn.attrs);
         }
 
         #[test]
         fn find_partials_return_type() {
             let mut item_fn: ItemFn = r#"
-                #[first]
+                #[simple]
+                #[first(comp)]
+                #[second::default]
                 #[partial_1(impl Iterator<Item=(u32, J, K)>)]
                 #[partial_2(impl Iterator<Item=(u32, i32, K)>)]
-                #[last]
+                #[last::more]
                 fn my_fix<I, J, K>(f1: I, f2: J, f3: K) -> impl Iterator<Item=(I, J, K)> {}
             "#
             .ast();
@@ -475,14 +472,7 @@ mod extend {
                 info.attributes.extract_partial_type(2),
                 Some(parse_quote! { -> impl Iterator<Item=(u32, i32, K)> })
             );
-            assert_eq!(
-                to_idents!(["first", "last"]),
-                item_fn
-                    .attrs
-                    .into_iter()
-                    .filter_map(|a| a.path.get_ident().cloned())
-                    .collect::<Vec<_>>()
-            );
+            assert_eq!(attrs("#[simple]#[first(comp)]#[second::default]#[last::more]"), item_fn.attrs);
         }
 
         mod raise_error {

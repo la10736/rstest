@@ -30,7 +30,8 @@ fn simple(fu32: u32, #[notrace] fa: A, #[notrace] fb: B, fd: D) {
 
 #[rstest]
 #[trace]
-fn cases(fu32: u32, #[notrace] a: A, #[notrace] b: B, d: D) {
+#[case(A{}, B{}, D{})]
+fn cases(fu32: u32, #[case] #[notrace] a: A, #[case] #[notrace] b: B, #[case] d: D) {
     assert!(false);
 }
 

@@ -5,7 +5,7 @@ use syn::{
 
 use super::testcase::TestCase;
 use super::{
-    extract_case_args, extract_cases, extract_fixtures, extract_value_list,
+    extract_case_args, extract_cases, extract_fixtures, extract_trace, extract_value_list,
     parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
     Fixture,
 };
@@ -15,7 +15,7 @@ use crate::{
     refident::{MaybeIdent, RefIdent},
 };
 use proc_macro2::{Span, TokenStream};
-use quote::ToTokens;
+use quote::{format_ident, ToTokens};
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -41,7 +41,15 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        self.data.extend_with_function_attrs(item_fn)
+        let (_, trace) = merge_errors!(
+            self.data.extend_with_function_attrs(item_fn),
+            extract_trace(item_fn)
+        )?;
+        if let Some(trace) = trace.should_trace {
+            self.attributes.add_trace(trace);
+        }
+        self.attributes.add_notraces(trace.excluded);
+        Ok(())
     }
 }
 
@@ -123,7 +131,6 @@ impl ExtendWithFunctionAttrs for RsTestData {
         self.items.extend(case_args.into_iter().map(|f| f.into()));
         self.items.extend(cases.into_iter().map(|f| f.into()));
         self.items.extend(value_list.into_iter().map(|f| f.into()));
-
         Ok(())
     }
 }
@@ -226,8 +233,22 @@ impl RsTestAttributes {
         }
     }
 
-    fn should_trace(&self) -> bool {
+    pub(crate) fn should_trace(&self) -> bool {
         self.iter().filter(|&m| Self::is_trace(m)).next().is_some()
+    }
+
+    pub(crate) fn add_trace(&mut self, trace: Ident) {
+        self.inner.attributes.push(Attribute::Attr(trace));
+    }
+
+    pub(crate) fn add_notraces(&mut self, notraces: Vec<Ident>) {
+        if notraces.is_empty() {
+            return;
+        }
+        self.inner.attributes.push(Attribute::Tagged(
+            format_ident!("{}", Self::NOTRACE_VARIABLE_ATTR),
+            notraces,
+        ));
     }
 
     fn is_trace(m: &Attribute) -> bool {
@@ -355,6 +376,79 @@ mod test {
 
             assert_eq!(expected, data);
         }
+
+        #[test]
+        fn extract_trace_atttribute() {
+            let mut item_fn = r#"
+            #[simple]
+            #[before(some)]
+            #[trace]
+            #[after::trace]
+            fn test_fn() {
+            }
+            "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert!(info.attributes.should_trace());
+            assert_eq!(
+                attrs("#[simple]#[before(some)]#[after::trace]"),
+                item_fn.attrs
+            );
+        }
+
+        #[test]
+        fn should_report_errors_if_trace_is_defined_more_than_once() {
+            let mut item_fn = r#"
+                    #[trace]
+                    #[trace]
+                    #[trace]
+                    fn test_fn() {
+                    }
+                "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+            assert_eq!(2, errors.len());
+            assert!(format!("{:?}", errors)
+                .to_lowercase()
+                .contains("trace more than once"));
+        }
+
+        #[test]
+        fn extract_notrace_args_atttribute() {
+            let mut item_fn = r#"
+            #[trace]
+            fn test_fn(#[notrace] a: u32, #[something_else] b: &str, #[notrace] c: i32) {
+            }
+            "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert!(!info.attributes.trace_me(&ident("a")));
+            assert!(info.attributes.trace_me(&ident("b")));
+            assert!(!info.attributes.trace_me(&ident("c")));
+            let b_args = item_fn
+                .sig
+                .inputs
+                .into_iter()
+                .nth(1)
+                .and_then(|id| match id {
+                    syn::FnArg::Typed(arg) => Some(arg.attrs),
+                    _ => None,
+                })
+                .unwrap();
+            assert_eq!(attrs("#[something_else]"), b_args);
+        }
     }
 
     mod parametrize_cases {
@@ -432,6 +526,27 @@ mod test {
                     vec![
                         TestCase::from_iter(["42", r#""first""#].iter()).with_description("first"),
                     ],
+                    cases
+                );
+            }
+
+            #[test]
+            fn parse_tuple_value() {
+                let mut item_fn = r#"
+                #[case(42, (24, "first"))]
+                fn test_fn(#[case] arg1: u32, #[case] tupled: (u32, &str)) {
+                }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                let cases = info.data.cases().cloned().collect::<Vec<_>>();
+
+                assert_eq!(
+                    vec![TestCase::from_iter(["42", r#"(24, "first")"#].iter()),],
                     cases
                 );
             }

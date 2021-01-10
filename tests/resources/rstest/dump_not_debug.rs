@@ -9,10 +9,10 @@ fn fixture() -> S { S {} }
 #[trace]
 fn single(fixture: S) {}
 
-#[rstest]
+#[rstest(s)]
 #[trace]
 #[case(S{})]
-fn cases(#[case] s: S) {}
+fn cases(s: S) {}
 
 #[rstest(
     s => [S{}])]
