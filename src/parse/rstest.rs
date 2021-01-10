@@ -691,7 +691,10 @@ mod test {
 
                 assert_eq!(2, list_values.len());
                 assert_eq!(to_args!(["1", "2", "1+2"]), list_values[0].args());
-                assert_eq!(to_args!([r#"format!("a")"#, r#""b b".to_owned()"#, "String::new()"]), list_values[1].args());
+                assert_eq!(
+                    to_args!([r#"format!("a")"#, r#""b b".to_owned()"#, "String::new()"]),
+                    list_values[1].args()
+                );
             }
         }
     }

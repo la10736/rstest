@@ -2,6 +2,7 @@ use std::path::Path;
 
 use super::resources;
 
+use rstest::*;
 use rstest_test::*;
 use unindent::Unindent;
 
@@ -145,9 +146,13 @@ fn should_reject_no_item_function() {
 mod dump_input_values {
     use super::*;
 
-    #[test]
-    fn if_implements_debug() {
-        let (output, _) = run_test("dump_debug.rs");
+    #[rstest(
+        source,
+        case::compact_syntax("dump_debug_compact.rs"),
+        case::attr_syntax("dump_debug.rs")
+    )]
+    fn if_implements_debug(source: &str) {
+        let (output, _) = run_test(source);
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -185,17 +190,21 @@ mod dump_input_values {
         assert_in!(out, r#"t = ("TT", -24)"#);
     }
 
-    #[test]
-    fn should_not_compile_if_not_implement_debug() {
-        let (output, name) = run_test("dump_not_debug.rs");
+    #[rstest(
+        source,
+        case::compact_syntax("dump_not_debug_compact.rs"),
+        case::attr_syntax("dump_not_debug.rs")
+    )]
+    fn should_not_compile_if_not_implement_debug(source: &str) {
+        let (output, name) = run_test(source);
 
         assert_in!(
             output.stderr.str(),
             format!(
                 "
-             --> {}/src/lib.rs:9:11
+             --> {}/src/lib.rs:10:11
               |
-            9 | fn single(fixture: S) {{}}
+           10 | fn single(fixture: S) {{}}
               |           ^^^^^^^ `S` cannot be formatted using `{{:?}}`",
                 name
             )
@@ -219,9 +228,9 @@ mod dump_input_values {
             output.stderr.str().to_string(),
             format!(
                 "
-              --> {}/src/lib.rs:21:11
+              --> {}/src/lib.rs:20:11
                |
-            21 | fn matrix(s: S) {{}}
+            20 | fn matrix(s: S) {{}}
                |           ^ `S` cannot be formatted using `{{:?}}`",
                 name
             )
@@ -229,9 +238,13 @@ mod dump_input_values {
         );
     }
 
-    #[test]
-    fn can_exclude_some_inputs() {
-        let (output, _) = run_test("dump_exclude_some_inputs.rs");
+    #[rstest(
+        source,
+        case::compact_syntax("dump_exclude_some_inputs_compact.rs"),
+        case::attr_syntax("dump_exclude_some_inputs.rs")
+    )]
+    fn can_exclude_some_inputs(source: &str) {
+        let (output, _) = run_test(source);
         let out = output.stdout.str().to_string();
 
         TestResults::new()
@@ -804,7 +817,6 @@ mod matrix {
             .ok("second::expected_2::input_2")
             .assert(output);
     }
-
 }
 
 #[test]

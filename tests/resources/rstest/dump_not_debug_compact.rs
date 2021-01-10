@@ -5,17 +5,17 @@ use rstest::*; use super::*;
 #[fixture]
 fn fixture() -> S { S {} }
 
-#[rstest]
-#[trace]
+#[rstest(
+    ::trace)]
 fn single(fixture: S) {}
 
-#[rstest]
-#[trace]
-#[case(S{})]
-fn cases(#[case] s: S) {}
+#[rstest(s,
+    case(S{})
+    ::trace)]
+fn cases(s: S) {}
 
 #[rstest(
-    s => [S{}])]
-#[trace]
+    s => [S{}]
+    ::trace)]
 fn matrix(s: S) {}
 }
