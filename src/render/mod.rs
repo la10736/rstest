@@ -192,8 +192,14 @@ fn single_test_case<'a>(
     resolver: impl Resolver,
     attributes: &'a RsTestAttributes,
 ) -> TokenStream {
+    let (attrs, trace_me): (Vec<_>, Vec<_>) =
+        attrs.iter().cloned().partition(|a| !attr_is(a, "trace"));
+    let mut attributes = attributes.clone();
+    if trace_me.len() > 0 {
+        attributes.add_trace(format_ident!("trace"));
+    }
     let inject = resolve_args(args.iter(), &resolver);
-    let trace_args = trace_arguments(args.iter(), attributes);
+    let trace_args = trace_arguments(args.iter(), &attributes);
 
     let is_async = asyncness.is_some();
     // If no injected attribut provided use the default one
@@ -345,14 +351,7 @@ impl<'a> TestCaseRender<'a> {
         let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
-        let (attrs, trace_me): (Vec<_>, Vec<_>) = attrs
-            .into_iter()
-            .partition(|a| !attr_is(a, "trace"));
         let asyncness = testfn.sig.asyncness.clone();
-        let mut attributes = attributes.clone();
-        if trace_me.len() > 0 {
-            attributes.add_trace(format_ident!("trace"));
-        }
 
         single_test_case(
             &self.name,

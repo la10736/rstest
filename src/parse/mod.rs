@@ -450,33 +450,17 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
     }
 }
 
-/// Simple struct used to visit function attributes, extract trace info and
-/// eventualy parsing errors
-struct TraceAttributesFunctionExtractor(Result<TraceInfo, ErrorsVec>);
-#[derive(Default)]
-pub(crate) struct TraceInfo {
-    pub(crate) should_trace: Option<Ident>,
-    pub(crate) excluded: Vec<Ident>,
-}
-
-impl TraceInfo {
-    fn update_should_trace(&mut self, value: Option<Ident>) {
-        self.should_trace = value;
-    }
-
-    fn update_excluded(&mut self, value: Ident) {
-        self.excluded.push(value);
-    }
-}
-
-impl From<Result<TraceInfo, ErrorsVec>> for TraceAttributesFunctionExtractor {
-    fn from(inner: Result<TraceInfo, ErrorsVec>) -> Self {
+/// Simple struct used to visit function args attributes to extract the 
+/// excluded ones and eventualy parsing errors
+struct ExcludedTraceAttributesFunctionExtractor(Result<Vec<Ident>, ErrorsVec>);
+impl From<Result<Vec<Ident>, ErrorsVec>> for ExcludedTraceAttributesFunctionExtractor {
+    fn from(inner: Result<Vec<Ident>, ErrorsVec>) -> Self {
         Self(inner)
     }
 }
 
-impl TraceAttributesFunctionExtractor {
-    pub(crate) fn take(self) -> Result<TraceInfo, ErrorsVec> {
+impl ExcludedTraceAttributesFunctionExtractor {
+    pub(crate) fn take(self) -> Result<Vec<Ident>, ErrorsVec> {
         self.0
     }
 
@@ -488,52 +472,20 @@ impl TraceAttributesFunctionExtractor {
         .into()
     }
 
-    fn update_should_trace(&mut self, value: Option<Ident>) {
-        self.0
-            .iter_mut()
-            .next()
-            .map(|inner| inner.update_should_trace(value));
-    }
-
     fn update_excluded(&mut self, value: Ident) {
         self.0.iter_mut().next().map(|inner| {
-            inner.update_excluded(value);
+            inner.push(value);
         });
     }
 }
 
-impl Default for TraceAttributesFunctionExtractor {
+impl Default for ExcludedTraceAttributesFunctionExtractor {
     fn default() -> Self {
         Self(Ok(Default::default()))
     }
 }
 
-impl VisitMut for TraceAttributesFunctionExtractor {
-    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = std::mem::take(&mut node.attrs);
-        let trace: syn::Path = parse_quote! { trace };
-        let (traces, remain): (Vec<_>, Vec<_>) =
-            attrs.into_iter().partition(|attr| attr.path == trace);
-        node.attrs = remain;
-        let mut traces = traces
-            .into_iter()
-            .filter_map(|a| a.path.get_ident().cloned());
-
-        let data = traces.next();
-        let errors = traces
-            .into_iter()
-            .map(|id| syn::Error::new_spanned(id, "You cannot use trace more than once"))
-            .collect::<Vec<_>>();
-
-        if errors.len() > 0 {
-            self.update_error(errors.into());
-        } else {
-            self.update_should_trace(data);
-        }
-
-        syn::visit_mut::visit_item_fn_mut(self, node);
-    }
-
+impl VisitMut for ExcludedTraceAttributesFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         for r in
             extract_argument_attrs(node, |a| attr_is(a, "notrace"), |_a, name| Ok(name.clone()))
@@ -548,10 +500,10 @@ impl VisitMut for TraceAttributesFunctionExtractor {
     }
 }
 
-pub(crate) fn extract_trace(item_fn: &mut ItemFn) -> Result<TraceInfo, ErrorsVec> {
-    let mut trace_extractor = TraceAttributesFunctionExtractor::default();
-    trace_extractor.visit_item_fn_mut(item_fn);
-    trace_extractor.take()
+pub(crate) fn extract_excluded_trace(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+    let mut excluded_trace_extractor = ExcludedTraceAttributesFunctionExtractor::default();
+    excluded_trace_extractor.visit_item_fn_mut(item_fn);
+    excluded_trace_extractor.take()
 }
 
 #[cfg(test)]

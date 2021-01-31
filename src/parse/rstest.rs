@@ -5,7 +5,7 @@ use syn::{
 
 use super::testcase::TestCase;
 use super::{
-    extract_case_args, extract_cases, extract_fixtures, extract_trace, extract_value_list,
+    extract_case_args, extract_cases, extract_fixtures, extract_excluded_trace, extract_value_list,
     parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
     Fixture,
 };
@@ -41,14 +41,11 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (_, trace) = merge_errors!(
+        let (_, excluded) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
-            extract_trace(item_fn)
+            extract_excluded_trace(item_fn)
         )?;
-        if let Some(trace) = trace.should_trace {
-            self.attributes.add_trace(trace);
-        }
-        self.attributes.add_notraces(trace.excluded);
+        self.attributes.add_notraces(excluded);
         Ok(())
     }
 }
@@ -378,53 +375,8 @@ mod test {
         }
 
         #[test]
-        fn extract_trace_atttribute() {
-            let mut item_fn = r#"
-            #[simple]
-            #[before(some)]
-            #[trace]
-            #[after::trace]
-            fn test_fn() {
-            }
-            "#
-            .ast();
-
-            let mut info = RsTestInfo::default();
-
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
-
-            assert!(info.attributes.should_trace());
-            assert_eq!(
-                attrs("#[simple]#[before(some)]#[after::trace]"),
-                item_fn.attrs
-            );
-        }
-
-        #[test]
-        fn should_report_errors_if_trace_is_defined_more_than_once() {
-            let mut item_fn = r#"
-                    #[trace]
-                    #[trace]
-                    #[trace]
-                    fn test_fn() {
-                    }
-                "#
-            .ast();
-
-            let mut info = RsTestInfo::default();
-
-            let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
-
-            assert_eq!(2, errors.len());
-            assert!(format!("{:?}", errors)
-                .to_lowercase()
-                .contains("trace more than once"));
-        }
-
-        #[test]
         fn extract_notrace_args_atttribute() {
             let mut item_fn = r#"
-            #[trace]
             fn test_fn(#[notrace] a: u32, #[something_else] b: &str, #[notrace] c: i32) {
             }
             "#
@@ -433,6 +385,7 @@ mod test {
             let mut info = RsTestInfo::default();
 
             info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.attributes.add_trace(ident("trace"));
 
             assert!(!info.attributes.trace_me(&ident("a")));
             assert!(info.attributes.trace_me(&ident("b")));

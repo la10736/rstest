@@ -112,7 +112,6 @@ fn trace_argument_code_string(arg_name: &str) -> String {
 }
 
 mod single_test_should {
-    use quote::format_ident;
     use rstest_test::{assert_in, assert_not_in};
 
     use crate::test::{assert_eq, *};
@@ -198,19 +197,9 @@ mod single_test_should {
 
     #[test]
     fn trace_arguments_values() {
-        let input_fn: ItemFn = r#"fn test(s: String, a:i32) {} "#.ast();
+        let input_fn: ItemFn = r#"#[trace]fn test(s: String, a:i32) {} "#.ast();
 
-        let mut attributes = RsTestAttributes::default();
-        attributes.add_trace(format_ident!("trace"));
-
-        let item_fn: ItemFn = single(
-            input_fn.clone(),
-            RsTestInfo {
-                attributes,
-                ..Default::default()
-            },
-        )
-        .ast();
+        let item_fn: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         assert_in!(
             item_fn.block.display_code(),
@@ -225,10 +214,10 @@ mod single_test_should {
     #[test]
     fn trace_not_all_arguments_values() {
         let input_fn: ItemFn =
-            r#"fn test(a_trace: i32, b_no_trace:i32, c_no_trace:i32, d_trace:i32) {} "#.ast();
+            r#"#[trace] fn test(a_trace: i32, b_no_trace:i32, c_no_trace:i32, d_trace:i32) {} "#
+                .ast();
 
         let mut attributes = RsTestAttributes::default();
-        attributes.add_trace(ident("trace"));
         attributes.add_notraces(vec![ident("b_no_trace"), ident("c_no_trace")]);
 
         let item_fn: ItemFn = single(
@@ -528,11 +517,6 @@ mod cases_should {
 
         fn take(self) -> (ItemFn, RsTestInfo) {
             (self.item_fn, self.info)
-        }
-
-        fn set_trace(mut self) -> Self {
-            self.info.attributes.add_trace(ident("trace"));
-            self
         }
 
         fn add_notrace(mut self, idents: Vec<Ident>) -> Self {
@@ -871,10 +855,9 @@ mod cases_should {
     #[test]
     fn trace_arguments_value() {
         let (item_fn, info) =
-            TestCaseBuilder::from(r#"fn test(a_trace_me: i32, b_trace_me: i32) {}"#)
+            TestCaseBuilder::from(r#"#[trace] fn test(a_trace_me: i32, b_trace_me: i32) {}"#)
                 .push_case(TestCase::from_iter(vec!["1", "2"]))
                 .push_case(TestCase::from_iter(vec!["3", "4"]))
-                .set_trace()
                 .take();
 
         let tokens = parametrize(item_fn, info);
@@ -892,10 +875,9 @@ mod cases_should {
     #[test]
     fn trace_just_some_arguments_value() {
         let (item_fn, info) =
-            TestCaseBuilder::from(r#"fn test(a_trace_me: i32, b_no_trace_me: i32, c_no_trace_me: i32, d_trace_me: i32) {}"#)
+            TestCaseBuilder::from(r#"#[trace] fn test(a_trace_me: i32, b_no_trace_me: i32, c_no_trace_me: i32, d_trace_me: i32) {}"#)
                 .push_case(TestCase::from_iter(vec!["1", "2", "1", "2"]))
                 .push_case(TestCase::from_iter(vec!["3", "4", "3", "4"]))
-                .set_trace()
                 .add_notrace(to_idents!(["b_no_trace_me", "c_no_trace_me"]))
                 .take();
 
@@ -1244,11 +1226,9 @@ mod matrix_cases_should {
             ]
             .into(),
         };
-        let mut attributes: RsTestAttributes = Default::default();
-        attributes.add_trace(ident("trace"));
-        let item_fn: ItemFn = r#"fn test(a_trace_me: u32, b_trace_me: u32) {}"#.ast();
+        let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_trace_me: u32) {}"#.ast();
 
-        let tokens = matrix(item_fn, RsTestInfo { data, attributes });
+        let tokens = matrix(item_fn, data.into());
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
@@ -1272,9 +1252,8 @@ mod matrix_cases_should {
             .into(),
         };
         let mut attributes: RsTestAttributes = Default::default();
-        attributes.add_trace(ident("trace"));
         attributes.add_notraces(vec![ident("b_no_trace_me"), ident("c_no_trace_me")]);
-        let item_fn: ItemFn = r#"fn test(a_trace_me: u32, b_no_trace_me: u32, c_no_trace_me: u32, d_trace_me: u32) {}"#.ast();
+        let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_no_trace_me: u32, c_no_trace_me: u32, d_trace_me: u32) {}"#.ast();
 
         let tokens = matrix(item_fn, RsTestInfo { data, attributes });
 
