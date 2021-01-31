@@ -103,7 +103,18 @@ mod arg_2_fixture_should {
     }
 }
 
+fn trace_argument_code_string(arg_name: &str) -> String {
+    let arg_name = ident(arg_name);
+    let statment: Stmt = parse_quote! {
+        println!("{} = {:?}", stringify!(#arg_name) ,#arg_name);
+    };
+    statment.display_code()
+}
+
 mod single_test_should {
+    use quote::format_ident;
+    use rstest_test::{assert_in, assert_not_in};
+
     use crate::test::{assert_eq, *};
 
     use super::*;
@@ -183,6 +194,68 @@ mod single_test_should {
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         assert_eq!(result.attrs, attributes);
+    }
+
+    #[test]
+    fn trace_arguments_values() {
+        let input_fn: ItemFn = r#"fn test(s: String, a:i32) {} "#.ast();
+
+        let mut attributes = RsTestAttributes::default();
+        attributes.add_trace(format_ident!("trace"));
+
+        let item_fn: ItemFn = single(
+            input_fn.clone(),
+            RsTestInfo {
+                attributes,
+                ..Default::default()
+            },
+        )
+        .ast();
+
+        assert_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("s")
+        );
+        assert_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("a")
+        );
+    }
+
+    #[test]
+    fn trace_not_all_arguments_values() {
+        let input_fn: ItemFn =
+            r#"fn test(a_trace: i32, b_no_trace:i32, c_no_trace:i32, d_trace:i32) {} "#.ast();
+
+        let mut attributes = RsTestAttributes::default();
+        attributes.add_trace(ident("trace"));
+        attributes.add_notraces(vec![ident("b_no_trace"), ident("c_no_trace")]);
+
+        let item_fn: ItemFn = single(
+            input_fn.clone(),
+            RsTestInfo {
+                attributes,
+                ..Default::default()
+            },
+        )
+        .ast();
+
+        assert_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("a_trace")
+        );
+        assert_not_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("b_no_trace")
+        );
+        assert_not_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("c_no_trace")
+        );
+        assert_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("d_trace")
+        );
     }
 
     #[rstest(prefix, test_attribute,
@@ -403,6 +476,10 @@ impl From<TokenStream> for TestsGroup {
 }
 
 mod cases_should {
+    use std::iter::FromIterator;
+
+    use rstest_test::{assert_in, assert_not_in};
+
     use crate::parse::{
         rstest::{RsTestData, RsTestInfo, RsTestItem},
         testcase::TestCase,
@@ -451,6 +528,16 @@ mod cases_should {
 
         fn take(self) -> (ItemFn, RsTestInfo) {
             (self.item_fn, self.info)
+        }
+
+        fn set_trace(mut self) -> Self {
+            self.info.attributes.add_trace(ident("trace"));
+            self
+        }
+
+        fn add_notrace(mut self, idents: Vec<Ident>) -> Self {
+            self.info.attributes.add_notraces(idents);
+            self
         }
     }
 
@@ -780,9 +867,63 @@ mod cases_should {
 
         assert_eq!(use_await, last_stmt.is_await());
     }
+
+    #[test]
+    fn trace_arguments_value() {
+        let (item_fn, info) =
+            TestCaseBuilder::from(r#"fn test(a_trace_me: i32, b_trace_me: i32) {}"#)
+                .push_case(TestCase::from_iter(vec!["1", "2"]))
+                .push_case(TestCase::from_iter(vec!["3", "4"]))
+                .set_trace()
+                .take();
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert!(tests.len() > 0);
+        for test in tests {
+            for name in &["a_trace_me", "b_trace_me"] {
+                assert_in!(test.block.display_code(), trace_argument_code_string(name));
+            }
+        }
+    }
+
+    #[test]
+    fn trace_just_some_arguments_value() {
+        let (item_fn, info) =
+            TestCaseBuilder::from(r#"fn test(a_trace_me: i32, b_no_trace_me: i32, c_no_trace_me: i32, d_trace_me: i32) {}"#)
+                .push_case(TestCase::from_iter(vec!["1", "2"]))
+                .push_case(TestCase::from_iter(vec!["3", "4"]))
+                .set_trace()
+                .add_notrace(to_idents!(["b_no_trace_me", "c_no_trace_me"]))
+                .take();
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert!(tests.len() > 0);
+        for test in tests {
+            for should_be_present in &["a_trace_me", "d_trace_me"] {
+                assert_in!(
+                    test.block.display_code(),
+                    trace_argument_code_string(should_be_present)
+                );
+            }
+            for should_not_be_present in &["b_trace_me", "c_trace_me"] {
+                assert_not_in!(
+                    test.block.display_code(),
+                    trace_argument_code_string(should_not_be_present)
+                );
+            }
+        }
+    }
 }
 
 mod matrix_cases_should {
+    use rstest_test::{assert_in, assert_not_in};
+
     use crate::parse::vlist::ValueList;
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
@@ -1064,6 +1205,68 @@ mod matrix_cases_should {
         for test in tests {
             let last_stmt = test.block.stmts.last().unwrap();
             assert_eq!(use_await, last_stmt.is_await());
+        }
+    }
+
+    #[test]
+    fn trace_arguments_value() {
+        let data = RsTestData {
+            items: vec![
+                values_list("a_trace_me", &["1", "2"]).into(),
+                values_list("b_trace_me", &["3", "4"]).into(),
+            ]
+            .into(),
+        };
+        let mut attributes: RsTestAttributes = Default::default();
+        attributes.add_trace(ident("trace"));
+        let item_fn: ItemFn = r#"fn test(a_trace_me: u32, b_trace_me: u32) {}"#.ast();
+
+        let tokens = matrix(item_fn, RsTestInfo { data, attributes });
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert!(tests.len() > 0);
+        for test in tests {
+            for name in &["a_trace_me", "b_trace_me"] {
+                assert_in!(test.block.display_code(), trace_argument_code_string(name));
+            }
+        }
+    }
+
+    #[test]
+    fn trace_just_some_arguments_value() {
+        let data = RsTestData {
+            items: vec![
+                values_list("a_trace_me", &["1", "2"]).into(),
+                values_list("b_no_trace_me", &["3", "4"]).into(),
+                values_list("c_no_trace_me", &["5", "6"]).into(),
+                values_list("d_trace_me", &["7", "8"]).into(),
+            ]
+            .into(),
+        };
+        let mut attributes: RsTestAttributes = Default::default();
+        attributes.add_trace(ident("trace"));
+        attributes.add_notraces(vec![ident("b_no_trace_me"), ident("c_no_trace_me")]);
+        let item_fn: ItemFn = r#"fn test(a_trace_me: u32, b_no_trace_me: u32, c_no_trace_me: u32, d_trace_me: u32) {}"#.ast();
+
+        let tokens = matrix(item_fn, RsTestInfo { data, attributes });
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert!(tests.len() > 0);
+        for test in tests {
+            for should_be_present in &["a_trace_me", "d_trace_me"] {
+                assert_in!(
+                    test.block.display_code(),
+                    trace_argument_code_string(should_be_present)
+                );
+            }
+            for should_not_be_present in &["b_no_trace_me", "c_no_trace_me"] {
+                assert_not_in!(
+                    test.block.display_code(),
+                    trace_argument_code_string(should_not_be_present)
+                );
+            }
         }
     }
 

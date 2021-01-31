@@ -286,3 +286,13 @@ impl IsAwait for Stmt {
         }
     }
 }
+
+pub(crate) trait DisplayCode {
+    fn display_code(&self) -> String;
+}
+
+impl<T: ToTokens> DisplayCode for T {
+    fn display_code(&self) -> String {
+        self.to_token_stream().to_string()
+    }
+}
