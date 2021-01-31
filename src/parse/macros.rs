@@ -1,6 +1,6 @@
 macro_rules! wrap_attributes {
     ($ident:ident) => {
-        #[derive(Default, Debug, PartialEq)]
+        #[derive(Default, Debug, PartialEq, Clone)]
         pub(crate) struct $ident {
             inner: Attributes,
         }

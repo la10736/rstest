@@ -11,16 +11,19 @@ use syn::{
     WherePredicate,
 };
 
-use quote::quote;
+use quote::{format_ident, quote};
 
-use crate::parse::{
-    rstest::{RsTestAttributes, RsTestData, RsTestInfo},
-    testcase::TestCase,
-    vlist::ValueList,
-};
 use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
 use crate::utils::{attr_ends_with, fn_args_idents};
+use crate::{
+    parse::{
+        rstest::{RsTestAttributes, RsTestData, RsTestInfo},
+        testcase::TestCase,
+        vlist::ValueList,
+    },
+    utils::attr_is,
+};
 use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
@@ -295,7 +298,7 @@ fn generics_clean_up<'a>(
             }
         }
     }
-    let mut outs = Used::default();
+    let mut outs: Used = Default::default();
     outs.visit_return_type(output);
     inputs.for_each(|fn_arg| outs.visit_fn_arg(fn_arg));
     let mut result: Generics = original.clone();
@@ -342,7 +345,14 @@ impl<'a> TestCaseRender<'a> {
         let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
+        let (attrs, trace_me): (Vec<_>, Vec<_>) = attrs
+            .into_iter()
+            .partition(|a| !attr_is(a, "trace"));
         let asyncness = testfn.sig.asyncness.clone();
+        let mut attributes = attributes.clone();
+        if trace_me.len() > 0 {
+            attributes.add_trace(format_ident!("trace"));
+        }
 
         single_test_case(
             &self.name,
@@ -353,7 +363,7 @@ impl<'a> TestCaseRender<'a> {
             asyncness,
             None,
             self.resolver,
-            attributes,
+            &attributes,
         )
     }
 }

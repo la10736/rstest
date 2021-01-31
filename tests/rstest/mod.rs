@@ -486,6 +486,21 @@ mod cases {
             .assert(output);
     }
 
+    #[test]
+    fn trace_just_one_test() {
+        let (output, _) = run_test(res("dump_just_one_case.rs"));
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("cases::case_1_first_no_dump")
+            .fail("cases::case_2_dump_me")
+            .fail("cases::case_3_last_no_dump")
+            .assert(output);
+
+        assert_in!(out, r#"s = "Trace it!""#);
+        assert_not_in!(out, r#"s = "Please don't trace me""#);
+    }
+
     mod not_compile_if_missed_arguments {
         use super::*;
 

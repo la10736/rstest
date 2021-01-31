@@ -38,7 +38,7 @@ pub(crate) trait ExtendWithFunctionAttrs {
     ) -> std::result::Result<(), ErrorsVec>;
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub(crate) struct Attributes {
     pub(crate) attributes: Vec<Attribute>,
 }
@@ -52,7 +52,7 @@ impl Parse for Attributes {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum Attribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),

@@ -893,8 +893,8 @@ mod cases_should {
     fn trace_just_some_arguments_value() {
         let (item_fn, info) =
             TestCaseBuilder::from(r#"fn test(a_trace_me: i32, b_no_trace_me: i32, c_no_trace_me: i32, d_trace_me: i32) {}"#)
-                .push_case(TestCase::from_iter(vec!["1", "2"]))
-                .push_case(TestCase::from_iter(vec!["3", "4"]))
+                .push_case(TestCase::from_iter(vec!["1", "2", "1", "2"]))
+                .push_case(TestCase::from_iter(vec!["3", "4", "3", "4"]))
                 .set_trace()
                 .add_notrace(to_idents!(["b_no_trace_me", "c_no_trace_me"]))
                 .take();
@@ -918,6 +918,33 @@ mod cases_should {
                 );
             }
         }
+    }
+
+    #[test]
+    fn trace_just_one_case() {
+        let (item_fn, info) =
+            TestCaseBuilder::from(r#"fn test(a_no_trace_me: i32, b_trace_me: i32) {}"#)
+                .push_case(TestCase::from_iter(vec!["1", "2"]))
+                .push_case(TestCase::from_iter(vec!["3", "4"]).with_attrs(attrs("#[trace]")))
+                .add_notrace(to_idents!(["a_no_trace_me"]))
+                .take();
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        assert_not_in!(
+            tests[0].block.display_code(),
+            trace_argument_code_string("b_trace_me")
+        );
+        assert_in!(
+            tests[1].block.display_code(),
+            trace_argument_code_string("b_trace_me")
+        );
+        assert_not_in!(
+            tests[1].block.display_code(),
+            trace_argument_code_string("a_no_trace_me")
+        );
     }
 }
 
