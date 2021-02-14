@@ -62,6 +62,16 @@ fn import_from_mod() {
         .assert(output);
 }
 
+#[test]
+fn deny_docs() {
+    let (output, _) = run_test("deny_docs.rs");
+
+    TestResults::new()
+        .ok("it_works::case_1")
+        .ok("it_works::case_2")
+        .assert(output);
+}
+
 lazy_static! {
     static ref ROOT_DIR: TempDir = TempDir::new(std::env::temp_dir().join("rstest_reuse"), false);
     static ref ROOT_PROJECT: Project = Project::new(ROOT_DIR.as_ref());
