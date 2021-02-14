@@ -25,9 +25,9 @@ proc-macro = true
 
 
 [dependencies]
-quote = "1.0.7"
+quote = "1.0.9"
 # https://github.com/dtolnay/syn/issues/852 fixed in 1.0.32 (from 1.0.27 to 1.0.31 doesn't work)
-syn = { version = "1.0.32", features = ["full"] }
+syn = { version = "1.0.60", features = ["full"] }
 
 [dev-dependencies]
 temp_testdir = "0.2.3"
