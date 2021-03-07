@@ -536,12 +536,12 @@ mod test {
             #[test]
             fn should_collect_attributes() {
                 let mut item_fn = r#"
-                    #[global]
-                    #[case(42)]
                     #[first]
                     #[first2(42)]
-                    #[case(24)]
+                    #[case(42)]
                     #[second]
+                    #[case(24)]
+                    #[global]
                     fn test_fn(#[case] arg: u32) {
                     }
                 "#
@@ -574,12 +574,12 @@ mod test {
             #[test]
             fn should_consume_all_used_attributes() {
                 let mut item_fn = r#"
-                    #[global]
-                    #[case(42)]
                     #[first]
                     #[first2(42)]
-                    #[case(24)]
+                    #[case(42)]
                     #[second]
+                    #[case(24)]
+                    #[global]
                     fn test_fn(#[case] arg: u32) {
                     }
                 "#

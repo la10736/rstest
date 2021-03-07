@@ -368,35 +368,26 @@ struct CasesFunctionExtractor(Vec<TestCase>, Vec<syn::Error>);
 impl VisitMut for CasesFunctionExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
         let attrs = std::mem::take(&mut node.attrs);
-        let mut tc: Option<TestCase> = None;
+        let mut attrs_buffer = Default::default();
         let case: syn::PathSegment = parse_quote! { case };
         for attr in attrs.into_iter() {
             if attr_starts_with(&attr, &case) {
                 match attr.parse_args::<Expressions>() {
                     Ok(expressions) => {
                         let description = attr.path.segments.into_iter().nth(1).map(|p| p.ident);
-                        let t = TestCase {
+                        self.0.push(TestCase {
                             args: expressions.into(),
-                            attrs: Default::default(),
+                            attrs: std::mem::take(&mut attrs_buffer),
                             description,
-                        };
-                        match std::mem::replace(&mut tc, Some(t)) {
-                            Some(test_case) => self.0.push(test_case),
-                            None => {}
-                        }
+                        });
                     }
                     Err(err) => self.1.push(err),
                 };
             } else {
-                let dest = tc.as_mut().map(|t| &mut t.attrs).unwrap_or(&mut node.attrs);
-                dest.push(attr);
+                attrs_buffer.push(attr)
             }
         }
-        match tc {
-            Some(test_case) => self.0.push(test_case),
-            None => {}
-        }
-
+        node.attrs = std::mem::take(&mut attrs_buffer);
         syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
@@ -450,7 +441,7 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
     }
 }
 
-/// Simple struct used to visit function args attributes to extract the 
+/// Simple struct used to visit function args attributes to extract the
 /// excluded ones and eventualy parsing errors
 struct ExcludedTraceAttributesFunctionExtractor(Result<Vec<Ident>, ErrorsVec>);
 impl From<Result<Vec<Ident>, ErrorsVec>> for ExcludedTraceAttributesFunctionExtractor {

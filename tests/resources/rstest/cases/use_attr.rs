@@ -2,8 +2,8 @@ use rstest::rstest;
 
 #[rstest]
 #[case::ciao(4, "ciao")]
-#[case::panic(42, "Foo")]
 #[should_panic]
+#[case::panic(42, "Foo")]
 #[case::foo(3, "Foo")]
 fn all(#[case] expected: usize, #[case] input: &str) {
     assert_eq!(expected, input.len());
@@ -12,8 +12,8 @@ fn all(#[case] expected: usize, #[case] input: &str) {
 #[rstest(expected, input)]
 #[case::ciao(4, "ciao")]
 #[case::foo(3, "Foo")]
-#[case::panic(42, "Foo")]
 #[should_panic]
+#[case::panic(42, "Foo")]
 fn just_cases(expected: usize, input: &str) {
     assert_eq!(expected, input.len());
 }
@@ -29,9 +29,9 @@ fn just_args(#[case] expected: usize, #[case] input: &str) {
 }
 
 #[rstest]
-#[should_panic]
 #[case(0, "ciao")]
 #[case(0, "Foo")]
+#[should_panic]
 fn all_panic(#[case] expected: usize, #[case] input: &str) {
     assert_eq!(expected, input.len());
 }
