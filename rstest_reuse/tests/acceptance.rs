@@ -1,4 +1,4 @@
-use rstest_test::{sanitize_name, testname, Project, TestResults};
+use rstest_test::{Project, Stringable, TestResults, assert_not_in, sanitize_name, testname};
 
 use lazy_static::lazy_static;
 
@@ -38,6 +38,13 @@ fn simple_example() {
         .ok("it_fail_but_ok::case_1")
         .ok("it_fail_but_ok::case_2")
         .assert(output);
+}
+
+#[test]
+fn not_show_any_warning() {
+    let (output, _) = run_test("simple_example.rs");
+
+    assert_not_in!(output.stderr.str(), "warning:");
 }
 
 #[test]

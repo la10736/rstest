@@ -1,38 +1,34 @@
 [package]
-name = "rstest_reuse"
-version = "0.1.1"
 authors = ["Michele d'Amico <michele.damico@gmail.com>"]
-homepage = "https://github.com/la10736/rstest"
+categories = ["development-tools::testing"]
 description = """
 Reuse rstest attributes: create a set of tests and apply it 
 to every scenario you want to test.
 """
-repository = "https://github.com/la10736/rstest"
-license = "MIT/Apache-2.0"
-keywords = ["test", "fixture"]
-categories = ["development-tools::testing"]
-readme = "README.md"
 edition = "2018"
-exclude = [
-    "/playground",
-    "/rstest_fixtures"
-]
+homepage = "https://github.com/la10736/rstest"
+keywords = ["test", "fixture"]
+license = "MIT/Apache-2.0"
+name = "rstest_reuse"
+readme = "README.md"
+repository = "https://github.com/la10736/rstest"
+version = "0.1.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 proc-macro = true
 
-
 [dependencies]
 quote = "1.0.9"
-# https://github.com/dtolnay/syn/issues/852 fixed in 1.0.32 (from 1.0.27 to 1.0.31 doesn't work)
-syn = { version = "1.0.60", features = ["full"] }
+syn = {version = "1.0.60", features = ["full"]}
 
 [dev-dependencies]
-temp_testdir = "0.2.3"
 lazy_static = "1.4.0"
 rstest_test = "0.2.0"
+temp_testdir = "0.2.3"
 # To compile doc tests
 rstest = "0.6.4"
 
+[build-dependencies]
+rustc_version = "0.3.3"

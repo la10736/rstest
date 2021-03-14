@@ -156,6 +156,24 @@ impl Parse for MergeAttrs {
     }
 }
 
+#[cfg(sanitize_multiple_should_panic_compiler_bug)]
+fn is_should_panic(attr: &syn::Attribute) -> bool {
+    let should_panic: Ident = syn::parse_str("should_panic").unwrap();
+    attr.path.is_ident(&should_panic)
+}
+
+#[cfg(sanitize_multiple_should_panic_compiler_bug)]
+fn sanitize_should_panic_duplication_bug(
+    mut attributes: Vec<syn::Attribute>,
+) -> Vec<syn::Attribute> {
+    if attributes.len() != 2 || attributes[0] != attributes[1] || !is_should_panic(&attributes[0]) {
+        // Nothing to do
+        return attributes;
+    }
+    attributes.pop();
+    attributes
+}
+
 #[doc(hidden)]
 #[proc_macro]
 pub fn merge_attrs(item: TokenStream) -> TokenStream {
@@ -164,6 +182,11 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
         mut function,
     } = parse_macro_input!(item as MergeAttrs);
     let mut attrs = template.attrs;
+
+    #[cfg(sanitize_multiple_should_panic_compiler_bug)]
+    {
+        function.attrs = sanitize_should_panic_duplication_bug(function.attrs);
+    }
     attrs.append(&mut function.attrs);
     function.attrs = attrs;
 
@@ -182,7 +205,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     let macro_name = template.sig.ident.clone();
     let tokens = quote! {
         #[macro_export]
-        /// Apply #macro_name telmplate to given body 
+        /// Apply #macro_name telmplate to given body
         macro_rules! #macro_name {
             ( $test:item ) => {
                         $crate::rstest_reuse::merge_attrs! {
