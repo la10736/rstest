@@ -21,7 +21,7 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.9"
-syn = {version = "1.0.60", features = ["full"]}
+syn = { version = "1.0.64", features = ["full"] }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
