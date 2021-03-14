@@ -3,7 +3,6 @@
 [![Status][test-action-image]][test-action-link]
 [![Apache 2.0 Licensed][license-apache-image]][license-apache-link]
 [![MIT Licensed][license-mit-image]][license-mit-link]
-![Rust 1.32+][rustc-image]
 
 # Fixture-based test framework for Rust
 
@@ -340,5 +339,4 @@ at your option.
 [license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
 [license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0
 [license-MIT-link]: http://opensource.org/licenses/MIT
-[rustc-image]: https://img.shields.io/badge/rustc-1.32+-blue.svg
 [reuse-crate-link]: https://crates.io/crates/rstest_reuse
