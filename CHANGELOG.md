@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.5] Unreleasd
+## [0.7.0] Unreleasd
 
 ### Add
 - `async` fixtures (See #86, #96. Thanks to @rubdos).
