@@ -33,19 +33,19 @@ proc-macro = true
 [dependencies]
 cfg-if = "1.0.0"
 proc-macro2 = "1.0.24"
-quote = "1.0.7"
-syn = {version = "1.0.32", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]}
+quote = "1.0.9"
+syn = { version = "1.0.64", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"] }
 
 [dev-dependencies]
 actix-rt = "2.1.0"
-async-std = {version = "1.5", features = ["attributes"]}
+async-std = { version = "1.9.0", features = ["attributes"] }
 lazy_static = "1.4.0"
-mytest = {package = "rstest", version = "0.6.4"}
+mytest = { package = "rstest", version = "0.6.4" }
 pretty_assertions = "0.7.1"
 rstest_reuse = "0.1.1"
 rstest_test = "0.2.0"
 temp_testdir = "0.2.3"
-unindent = "0.1.6"
+unindent = "0.1.7"
 
 [build-dependencies]
 rustc_version = "0.3.3"
