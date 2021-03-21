@@ -8,13 +8,14 @@
   - [ ] Nightly: `RSTEST_TEST_CHANNEL=nightly; cargo +${RSTEST_TEST_CHANNEL} test`
 - [ ] Check Cargo.toml version
 - [ ] Create docs and checks links
-- [ ] Check CHANGELOG
+- [ ] Check CHANGELOG: **RELEASE DATE**
 - [ ] Check README
 - [ ] Create tag (Use github release)
 - [ ] prepare deploy `cargo publish --dry-run`
 - [ ] deploy `cargo publish`
 - [ ] Change next version
   - [ ] `Cargo.toml`
-  - [ ] `README.md`)
+  - [ ] `README.md`
+  - [ ] `CHANGELOG.md`
 - [ ] Change dependency (inner `rstest` and `rstest_ruse`)
 - [ ] Prepare next changelog
