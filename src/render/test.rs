@@ -148,16 +148,17 @@ mod single_test_should {
         assert_eq!(inner_fn, input_fn);
     }
 
-    #[rstest(
-        attributes => [
-            "#[test]", 
+    #[rstest]
+    fn not_copy_any_attributes(
+        #[values(
+            "#[test]",
             "#[very::complicated::path]",
-            "#[test]#[should_panic]", 
-            "#[should_panic]#[test]", 
-            "#[a]#[b]#[c]", 
-            ]
-    )]
-    fn not_copy_any_attributes(attributes: &str) {
+            "#[test]#[should_panic]",
+            "#[should_panic]#[test]",
+            "#[a]#[b]#[c]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let mut input_fn: ItemFn = r#"pub fn test(_s: String){}"#.ast();
         input_fn.attrs = attributes;
@@ -172,19 +173,21 @@ mod single_test_should {
         assert!(inner_fn.attrs.is_empty());
     }
 
-    #[rstest(is_async,
-        case::sync(false),
-        case::async_fn(true),
-        attributes => [
-            "#[test]", 
-            "#[other::test]", 
+    #[rstest]
+    #[case::sync(false)]
+    #[case::async_fn(true)]
+    fn use_injected_test_attribute_to_mark_test_functions_if_any(
+        #[case] is_async: bool,
+        #[values(
+            "#[test]",
+            "#[other::test]",
             "#[very::complicated::path::test]",
-            "#[prev]#[test]", 
-            "#[test]#[after]", 
-            "#[prev]#[other::test]", 
-            ]
-    )]
-    fn use_injected_test_attribute_to_mark_test_functions_if_any(is_async: bool, attributes: &str) {
+            "#[prev]#[test]",
+            "#[test]#[after]",
+            "#[prev]#[other::test]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let mut input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
         input_fn.set_async(is_async);
@@ -247,18 +250,21 @@ mod single_test_should {
         );
     }
 
-    #[rstest(prefix, test_attribute,
-        case::sync("", parse_quote! { #[test] }),
-        case::async_fn("async", parse_quote! { #[async_std::test] }),
-        attributes => [
-            "", 
+    #[rstest]
+    #[case::sync("", parse_quote! { #[test] })]
+    #[case::async_fn("async", parse_quote! { #[async_std::test] })]
+    fn add_default_test_attribute(
+        #[case] prefix: &str,
+        #[case] test_attribute: Attribute,
+        #[values(
+            "",
             "#[no_one]",
             "#[should_panic]",
             "#[should_panic]#[other]",
-            "#[a::b::c]#[should_panic]",
-            ]
-    )]
-    fn add_default_test_attribute(prefix: &str, test_attribute: Attribute, attributes: &str) {
+            "#[a::b::c]#[should_panic]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let mut input_fn: ItemFn = format!(r#"{} fn test(_s: String) {{}} "#, prefix).ast();
         input_fn.attrs = attributes.clone();
@@ -269,13 +275,10 @@ mod single_test_should {
         assert_eq!(&result.attrs[1..], attributes.as_slice());
     }
 
-    #[rstest(
-        is_async,
-        use_await,
-        case::sync(false, false),
-        case::async_fn(true, true)
-    )]
-    fn use_await_for_no_async_test_function(is_async: bool, use_await: bool) {
+    #[rstest]
+    #[case::sync(false, false)]
+    #[case::async_fn(true, true)]
+    fn use_await_for_no_async_test_function(#[case] is_async: bool, #[case] use_await: bool) {
         let mut input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
         input_fn.set_async(is_async);
 
@@ -597,12 +600,13 @@ mod cases_should {
         }
     }
 
-    #[rstest(fnattrs,
-        case::empty(""),
-        case::some_attrs("#[a]#[b::c]#[should_panic]"),
-        case_attrs => ["", "#[should_panic]", "#[first]#[second(arg)]"]
-    )]
-    fn should_add_attributes_given_in_the_test_case(fnattrs: &str, case_attrs: &str) {
+    #[rstest]
+    #[case::empty("")]
+    #[case::some_attrs("#[a]#[b::c]#[should_panic]")]
+    fn should_add_attributes_given_in_the_test_case(
+        #[case] fnattrs: &str,
+        #[values("", "#[should_panic]", "#[first]#[second(arg)]")] case_attrs: &str,
+    ) {
         let given_attrs = attrs(fnattrs);
         let case_attrs = attrs(case_attrs);
         let (mut item_fn, info) = TestCaseBuilder::from(r#"fn test(v: i32){}"#)
@@ -773,19 +777,21 @@ mod cases_should {
             .ends_with(&format!("_{}", description)));
     }
 
-    #[rstest(is_async,
-        case::sync(false),
-        case::async_fn(true),
-        attributes => [
-            "#[test]", 
-            "#[other::test]", 
+    #[rstest]
+    #[case::sync(false)]
+    #[case::async_fn(true)]
+    fn use_injected_test_attribute_to_mark_test_functions_if_any(
+        #[case] is_async: bool,
+        #[values(
+            "#[test]",
+            "#[other::test]",
             "#[very::complicated::path::test]",
-            "#[prev]#[test]", 
-            "#[test]#[after]", 
-            "#[prev]#[other::test]", 
-            ]
-    )]
-    fn use_injected_test_attribute_to_mark_test_functions_if_any(is_async: bool, attributes: &str) {
+            "#[prev]#[test]",
+            "#[test]#[after]",
+            "#[prev]#[other::test]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let (mut item_fn, info) = TestCaseBuilder::from(r#"fn test(s: String){}"#)
             .push_case(r#"String::from("3")"#)
@@ -801,18 +807,21 @@ mod cases_should {
         assert_eq!(attributes, test.attrs);
     }
 
-    #[rstest(is_async, test_attribute,
-        case::sync(false, parse_quote! { #[test] }),
-        case::async_fn(true, parse_quote! { #[async_std::test] }),
-        attributes => [
-            "", 
+    #[rstest]
+    #[case::sync(false, parse_quote! { #[test] })]
+    #[case::async_fn(true, parse_quote! { #[async_std::test] })]
+    fn add_default_test_attribute(
+        #[case] is_async: bool,
+        #[case] test_attribute: Attribute,
+        #[values(
+            "",
             "#[no_one]",
             "#[should_panic]",
             "#[should_panic]#[other]",
-            "#[a::b::c]#[should_panic]",
-            ]
-    )]
-    fn add_default_test_attribute(is_async: bool, test_attribute: Attribute, attributes: &str) {
+            "#[a::b::c]#[should_panic]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let (mut item_fn, info) = TestCaseBuilder::from(
             r#"fn should_be_the_module_name(mut fix: String) { println!("user code") }"#,
@@ -830,13 +839,10 @@ mod cases_should {
         assert_eq!(&tests[0].attrs[1..], attributes.as_slice());
     }
 
-    #[rstest(
-        is_async,
-        use_await,
-        case::sync(false, false),
-        case::async_fn(true, true)
-    )]
-    fn use_await_for_async_test_function(is_async: bool, use_await: bool) {
+    #[rstest]
+    #[case::sync(false, false)]
+    #[case::async_fn(true, true)]
+    fn use_await_for_async_test_function(#[case] is_async: bool, #[case] use_await: bool) {
         let (item_fn, info) =
             TestCaseBuilder::from(r#"fn test(mut fix: String) { println!("user code") }"#)
                 .set_async(is_async)
@@ -1123,19 +1129,21 @@ mod matrix_cases_should {
         assert!(&tests[0].sig.ident.to_string().starts_with("fix_"))
     }
 
-    #[rstest(is_async,
-        case::sync(false),
-        case::async_fn(true),
-        attributes => [
-            "#[test]", 
-            "#[other::test]", 
+    #[rstest]
+    #[case::sync(false)]
+    #[case::async_fn(true)]
+    fn use_injected_test_attribute_to_mark_test_functions_if_any(
+        #[case] is_async: bool,
+        #[values(
+            "#[test]",
+            "#[other::test]",
             "#[very::complicated::path::test]",
-            "#[prev]#[test]", 
-            "#[test]#[after]", 
-            "#[prev]#[other::test]", 
-            ]
-    )]
-    fn use_injected_test_attribute_to_mark_test_functions_if_any(is_async: bool, attributes: &str) {
+            "#[prev]#[test]",
+            "#[test]#[after]",
+            "#[prev]#[other::test]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let data = RsTestData {
             items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
@@ -1156,18 +1164,21 @@ mod matrix_cases_should {
         }
     }
 
-    #[rstest(is_async, test_attribute,
-        case::sync(false, parse_quote! { #[test] }),
-        case::async_fn(true, parse_quote! { #[async_std::test] }),
-        attributes => [
-            "", 
+    #[rstest]
+    #[case::sync(false, parse_quote! { #[test] })]
+    #[case::async_fn(true, parse_quote! { #[async_std::test] })]
+    fn add_default_test_attribute(
+        #[case] is_async: bool,
+        #[case] test_attribute: Attribute,
+        #[values(
+            "",
             "#[no_one]",
             "#[should_panic]",
             "#[should_panic]#[other]",
-            "#[a::b::c]#[should_panic]",
-            ]
-    )]
-    fn add_default_test_attribute(is_async: bool, test_attribute: Attribute, attributes: &str) {
+            "#[a::b::c]#[should_panic]"
+        )]
+        attributes: &str,
+    ) {
         let attributes = attrs(attributes);
         let data = RsTestData {
             items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
@@ -1190,13 +1201,10 @@ mod matrix_cases_should {
         }
     }
 
-    #[rstest(
-        is_async,
-        use_await,
-        case::sync(false, false),
-        case::async_fn(true, true)
-    )]
-    fn use_await_for_async_test_function(is_async: bool, use_await: bool) {
+    #[rstest]
+    #[case::sync(false, false)]
+    #[case::async_fn(true, true)]
+    fn use_await_for_async_test_function(#[case] is_async: bool, #[case] use_await: bool) {
         let data = RsTestData {
             items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
         };

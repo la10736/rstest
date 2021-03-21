@@ -181,15 +181,18 @@ mod should {
     }
 
     #[template]
-    #[rstest(is_async,
-        case::async_fn(true),
-        case::not_async_fn(false),
-        method => ["default", "get", "partial_1", "partial_2", "partial_3"]
-    )]
-    fn async_fixture_cases(is_async: bool, method: &str) {}
+    #[rstest(
+        method => ["default", "get", "partial_1", "partial_2", "partial_3"])
+    ]
+    #[case::async_fn(true)]
+    #[case::not_async_fn(false)]
+    fn async_fixture_cases(#[case] is_async: bool, method: &str) {}
 
     #[apply(async_fixture_cases)]
-    fn fixture_method_should_be_async_if_fixture_function_is_async(is_async: bool, method: &str) {
+    fn fixture_method_should_be_async_if_fixture_function_is_async(
+        #[case] is_async: bool,
+        method: &str,
+    ) {
         let prefix = if is_async { "async" } else { "" };
         let (_, out) = parse_fixture(&format!(
             r#"
@@ -206,7 +209,10 @@ mod should {
     }
 
     #[apply(async_fixture_cases)]
-    fn fixture_method_should_use_await_if_fixture_function_is_async(is_async: bool, method: &str) {
+    fn fixture_method_should_use_await_if_fixture_function_is_async(
+        #[case] is_async: bool,
+        method: &str,
+    ) {
         let prefix = if is_async { "async" } else { "" };
         let (_, out) = parse_fixture(&format!(
             r#"

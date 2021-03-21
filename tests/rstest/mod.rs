@@ -146,12 +146,10 @@ fn should_reject_no_item_function() {
 mod dump_input_values {
     use super::*;
 
-    #[rstest(
-        source,
-        case::compact_syntax("dump_debug_compact.rs"),
-        case::attr_syntax("dump_debug.rs")
-    )]
-    fn if_implements_debug(source: &str) {
+    #[rstest]
+    #[case::compact_syntax("dump_debug_compact.rs")]
+    #[case::attr_syntax("dump_debug.rs")]
+    fn if_implements_debug(#[case] source: &str) {
         let (output, _) = run_test(source);
         let out = output.stdout.str().to_string();
 
@@ -190,12 +188,10 @@ mod dump_input_values {
         assert_in!(out, r#"t = ("TT", -24)"#);
     }
 
-    #[rstest(
-        source,
-        case::compact_syntax("dump_not_debug_compact.rs"),
-        case::attr_syntax("dump_not_debug.rs")
-    )]
-    fn should_not_compile_if_not_implement_debug(source: &str) {
+    #[rstest]
+    #[case::compact_syntax("dump_not_debug_compact.rs")]
+    #[case::attr_syntax("dump_not_debug.rs")]
+    fn should_not_compile_if_not_implement_debug(#[case] source: &str) {
         let (output, name) = run_test(source);
 
         assert_in!(
@@ -238,12 +234,10 @@ mod dump_input_values {
         );
     }
 
-    #[rstest(
-        source,
-        case::compact_syntax("dump_exclude_some_inputs_compact.rs"),
-        case::attr_syntax("dump_exclude_some_inputs.rs")
-    )]
-    fn can_exclude_some_inputs(source: &str) {
+    #[rstest]
+    #[case::compact_syntax("dump_exclude_some_inputs_compact.rs")]
+    #[case::attr_syntax("dump_exclude_some_inputs.rs")]
+    fn can_exclude_some_inputs(#[case] source: &str) {
         let (output, _) = run_test(source);
         let out = output.stdout.str().to_string();
 

@@ -348,15 +348,12 @@ mod should {
             assert_eq!(expected, data);
         }
 
-        #[rstest(
-            input,
-            expected,
-            case("first(42),", 1),
-            case("first(42), second=42,", 2),
-            case(r#"fixture(42, "other"), :: trace"#, 1),
-            case(r#"second=42, fixture(42, "other"), :: trace"#, 2)
-        )]
-        fn should_accept_trailing_comma(input: &str, expected: usize) {
+        #[rstest]
+        #[case("first(42),", 1)]
+        #[case("first(42), second=42,", 2)]
+        #[case(r#"fixture(42, "other"), :: trace"#, 1)]
+        #[case(r#"second=42, fixture(42, "other"), :: trace"#, 2)]
+        fn should_accept_trailing_comma(#[case] input: &str, #[case] expected: usize) {
             let info: FixtureInfo = input.ast();
 
             assert_eq!(
