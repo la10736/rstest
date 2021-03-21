@@ -161,16 +161,15 @@
 //! ```
 //! use rstest::rstest;
 //!
-//! #[rstest(input, expected,
-//!     case(0, 0),
-//!     case(1, 1),
-//!     case(2, 1),
-//!     case(3, 2),
-//!     case(4, 3),
-//!     case(5, 5),
-//!     case(6, 8)
-//! )]
-//! fn fibonacci_test(input: u32, expected: u32) {
+//! #[rstest]
+//! #[case(0, 0)]
+//! #[case(1, 1)]
+//! #[case(2, 1)]
+//! #[case(3, 2)]
+//! #[case(4, 3)]
+//! #[case(5, 5)]
+//! #[case(6, 8)]
+//! fn fibonacci_test(#[case] input: u32,#[case] expected: u32) {
 //!     assert_eq!(expected, fibonacci(input))
 //! }
 //!
@@ -182,7 +181,7 @@
 //!     }
 //! }
 //! ```
-//! This will generate a bunch of tests, one for every `case()`.
+//! This will generate a bunch of tests, one for every `#[case(a, b)]`.
 //!
 //! ## Creating a test for each combinations of given values
 //!
@@ -198,11 +197,13 @@
 //! # enum Event { Error, Fatal }
 //! # impl State { fn process(self, event: Event) -> Self { self } }
 //!
-//! #[rstest(
-//!     state => [State::Init, State::Start, State::Processing],
-//!     event => [Event::Error, Event::Fatal]
-//! )]
-//! fn should_terminate(state: State, event: Event) {
+//! #[rstest]
+//! fn should_terminate(
+//!     #[values(State::Init, State::Start, State::Processing)]
+//!     state: State,
+//!     #[values(Event::Error, Event::Fatal)]
+//!     event: Event
+//! ) {
 //!     assert_eq!(State::Terminated, state.process(event))
 //! }
 //! ```
@@ -234,7 +235,7 @@ use parse::ExtendWithFunctionAttrs;
 use quote::ToTokens;
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
-/// function as `[fixture]` and then use it as a test's argument. Fixture functions can also
+/// function as `#[fixture]` and then use it as a test's argument. Fixture functions can also
 /// use other fixtures.
 ///
 /// Let's see a trivial example:
@@ -257,19 +258,24 @@ use quote::ToTokens;
 /// }
 /// ```
 ///
-/// If the test function is an [`async` function](#async) your fixture become an `async`
+/// If the fixture function is an [`async` function](#async) your fixture become an `async`
 /// fixture.
 ///
 /// # Default values
 ///
-/// If you need to define argument default value you can use the `name=expression`
-/// syntax in fixture attribute:
+/// If you need to define argument default value you can use `#[default = expression]`
+/// argument's attribute:
 ///
 /// ```
 /// use rstest::*;
 ///
-/// #[fixture(twenty_one=21, two=2)]
-/// fn injected(twenty_one: i32, two: i32) -> i32 { twenty_one * two }
+/// #[fixture]
+/// fn injected(
+///     #[default = 21]
+///     twenty_one: i32,
+///     #[default = 2]
+///     two: i32
+/// ) -> i32 { twenty_one * two }
 ///
 /// #[rstest]
 /// fn the_test(injected: i32) {
@@ -300,8 +306,7 @@ use quote::ToTokens;
 ///
 /// # Partial Injection
 ///
-/// You can also partialy inject fixture dependency simply indicate dependency value as fixture
-/// argument:
+/// You can also partialy inject fixture dependency using `#[with(v1, v2, ..)]` attribute:
 ///
 /// ```
 /// use rstest::*;
@@ -315,18 +320,22 @@ use quote::ToTokens;
 /// #[fixture]
 /// fn second(base: i32) -> i32 { 2 * base }
 ///
-/// #[fixture(second(-3))]
-/// fn injected(first: i32, second: i32) -> i32 { first * second }
+/// #[fixture]
+/// fn injected(first: i32, #[with(3)] second: i32) -> i32 { first * second }
 ///
 /// #[rstest]
 /// fn the_test(injected: i32) {
 ///     assert_eq!(-6, injected)
 /// }
 /// ```
-/// Note that injected value can be an arbitrary rust expression.
+/// Note that injected value can be an arbitrary rust expression. `#[with(v1, ..., vn)]`
+/// attribute will inject `v1, ..., vn` expression as fixture arguments: all remaining arguments
+/// will be resolved as fixtures.
+///
 ///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
-/// need to do it, you can use the `default<type>`, `partial_n<type>` attribute syntax to define it:
+/// need to do it, you can use the `#[default(type)]`, `#[partial_n(type)]` function attribute
+/// to define it:
 ///
 /// ```
 /// use rstest::*;
@@ -342,7 +351,9 @@ use quote::ToTokens;
 ///     -42
 /// }
 ///
-/// #[fixture(::default<impl Iterator<Item=(u32, i32)>>::partial_1<impl Iterator<Item=(I,i32)>>)]
+/// #[fixture]
+/// #[default(impl Iterator<Item=(u32, i32)>)]
+/// #[partial_1(impl Iterator<Item=(I,i32)>)]
 /// pub fn fx<I, J>(i: I, j: J) -> impl Iterator<Item=(I, J)> {
 ///     std::iter::once((i, j))
 /// }
@@ -352,12 +363,63 @@ use quote::ToTokens;
 ///     assert_eq!((42, -42), fx.next().unwrap())
 /// }
 ///
-/// #[rstest(fx(42.0))]
-/// fn resolve_partial<I: Debug + PartialEq>(mut fx: impl Iterator<Item=I>) {
+/// #[rstest]
+/// fn resolve_partial<I: Debug + PartialEq>(#[with(42.0)] mut fx: impl Iterator<Item=I>) {
 ///     assert_eq!((42.0, -42), fx.next().unwrap())
 /// }
 /// ```
 /// `partial_i` is the fixture used when you inject the first `i` arguments in test call.
+///
+/// # Old _compact_ syntax
+///
+/// There is also a compact form for all previous features. This will mantained for a long time
+/// but for `fixture` I strongly recomand to migrate your code because you'll pay a little
+/// verbosity but get back a more readable code.
+///
+/// Follow the previous examples in old _compact_ syntax.
+///
+/// ## Default
+/// ```
+/// # use rstest::*;
+/// #[fixture(twenty_one=21, two=2)]
+/// fn injected(twenty_one: i32, two: i32) -> i32 { twenty_one * two }
+/// ```
+/// ## Partial Injection
+/// ```
+/// # use rstest::*;
+/// # #[fixture]
+/// # fn base() -> i32 { 1 }
+/// #
+/// # #[fixture]
+/// # fn first(base: i32) -> i32 { 1 * base }
+/// #
+/// # #[fixture]
+/// # fn second(base: i32) -> i32 { 2 * base }
+/// #
+/// #[fixture(second(-3))]
+/// fn injected(first: i32, second: i32) -> i32 { first * second }
+/// ```
+/// ## Partial Type Injection
+/// ```
+/// # use rstest::*;
+/// # use std::fmt::Debug;
+/// #
+/// # #[fixture]
+/// # pub fn i() -> u32 {
+/// #     42
+/// # }
+/// #
+/// # #[fixture]
+/// # pub fn j() -> i32 {
+/// #     -42
+/// # }
+/// #
+/// #[fixture(::default<impl Iterator<Item=(u32, i32)>>::partial_1<impl Iterator<Item=(I,i32)>>)]
+/// pub fn fx<I, J>(i: I, j: J) -> impl Iterator<Item=(I, J)> {
+///     std::iter::once((i, j))
+/// }
+/// ```
+
 #[proc_macro_attribute]
 pub fn fixture(
     args: proc_macro::TokenStream,
@@ -389,35 +451,8 @@ pub fn fixture(
 /// [parametrized cases](attr.rstest.html#test-parametrized-cases)
 /// or by [value lists](attr.rstest.html#values-lists).
 ///
-/// ## General Syntax
-///
 /// `rstest` attribute can be applied to _any_ function and you can costumize its
-/// parameters by the follow syntax
-///
-/// ```text
-/// rstest(
-///     arg_1,
-///     ...,
-///     arg_n[,]
-///     [::attribute_1[:: ... [::attribute_k]]]
-/// )
-/// ```
-/// Where:
-///
-/// - `arg_i` could be one of the follow
-///   - `ident` that match to one of function arguments
-/// (see [parametrized cases](#test-parametrized-cases) for more details)
-///   - `case[::description](v1, ..., vl)` a test case
-/// (see [parametrized cases](#test-parametrized-cases) for more details)
-///   - `fixture(v1, ..., vl)` where fixture is one of function arguments
-/// that and `v1, ..., vl` is a partial list of fixture's arguments
-/// (see [injecting fixtures](#injecting-fixtures)] for more details)
-///   - `ident => [v1, ..., vl]` where `ident` is one of function arguments and
-/// `v1, ..., vl` is a list of values for ident (see [value lists](#values-lists)
-/// for more details)
-/// - `attribute_j` a test [attribute](#attributes)
-///
-/// Function's arguments can be present just once as case identity, fixture or value list.
+/// parameters by using function and arguments attributes.
 ///
 /// Your test function can use generics, `impl` or `dyn` and like any kind of rust tests:
 ///
@@ -427,6 +462,12 @@ pub fn fixture(
 /// If the test function is an [`async` function](#async) `rstest` will run all tests as `async`
 /// tests. You can use it just with `async-std` and you should include `attributes` in
 /// `async-std`'s features.
+///
+/// In your test function you can:
+///
+/// - [injecting fixtures](#injecting-fixtures)
+/// - Generate [parametrized test cases](#test-parametrized-cases)
+/// - Generate tests for each combination of [value lists](#values-lists)
 ///
 /// ## Injecting Fixtures
 ///
@@ -447,7 +488,7 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// [`[rstest]`](macro@rstest) proc_macro will desugar it to something that isn't
+/// [`[rstest]`](macro@rstest) procedural macro will desugar it to something that isn't
 /// so far from
 ///
 /// ```
@@ -460,19 +501,22 @@ pub fn fixture(
 ///
 /// Sometimes is useful to have some parametes in your fixtures but your test would
 /// override the fixture's default values in some cases. Like in
-/// [fixture partial injection](attr.fixture.html#partial-injection) you can indicate some
-/// fixture's arguments also in `rstest`.
+/// [fixture partial injection](attr.fixture.html#partial-injection) you use `#[with]`
+/// attribute to indicate some fixture's arguments also in `rstest`.
 ///
 /// ```
 /// # struct User(String, u8);
 /// # impl User { fn name(&self) -> &str {&self.0} }
 /// use rstest::*;
 ///
-/// #[fixture(name="Alice", age=22)]
-/// fn user(name: impl AsRef<str>, age: u8) -> User { User(name.as_ref().to_owned(), age) }
+/// #[fixture]
+/// fn user(
+///     #[default = "Alice"] name: impl AsRef<str>,
+///     #[default = 22] age: u8
+/// ) -> User { User(name.as_ref().to_owned(), age) }
 ///
-/// #[rstest(user("Bob"))]
-/// fn check_user(user: User) {
+/// #[rstest]
+/// fn check_user(#[with("Bob")] user: User) {
 ///     assert_eq("Bob", user.name())
 /// }
 /// ```
@@ -487,14 +531,13 @@ pub fn fixture(
 /// ```
 /// use rstest::rstest;
 ///
-/// #[rstest(input, expected,
-///     case(0, 0),
-///     case(1, 1),
-///     case(2, 1),
-///     case(3, 2),
-///     case(4, 3),
-/// )]
-/// fn fibonacci_test(input: u32, expected: u32) {
+/// #[rstest]
+/// #[case(0, 0)]
+/// #[case(1, 1)]
+/// #[case(2, 1)]
+/// #[case(3, 2)]
+/// #[case(4, 3)]
+/// fn fibonacci_test(#[case] input: u32,#[case] expected: u32) {
 ///     assert_eq!(expected, fibonacci(input))
 /// }
 ///
@@ -507,7 +550,7 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// `rstest` will produce a 5 indipendent tests and not just one that
+/// `rstest` will produce 5 indipendent tests and not just one that
 /// check every case. Every test can fail indipendently and `cargo test`
 /// will give follow output:
 ///
@@ -530,12 +573,11 @@ pub fn fixture(
 ///  
 /// fn sum(a: usize, b: usize) -> usize { a + b }
 ///
-/// #[rstest(s, len,
-///     case("foo", 3),
-///     case(String::from("foo"), 2 + 1),
-///     case(format!("foo"), sum(2, 1)),
-/// )]
-/// fn test_len(s: impl AsRef<str>, len: usize) {
+/// #[rstest]
+/// #[case("foo", 3)]
+/// #[case(String::from("foo"), 2 + 1)]
+/// #[case(format!("foo"), sum(2, 1))]
+/// fn test_len(#[case] s: impl AsRef<str>,#[case] len: usize) {
 ///     assert_eq!(s.as_ref().len(), len);
 /// }
 /// ```
@@ -546,13 +588,24 @@ pub fn fixture(
 /// with `::my_case_description` where `my_case_description` should be a a valid
 /// Rust ident.
 ///
-/// ```text
-/// #[rstest(input, expected,
-///     case::zero_base_case(0, 0),
-///     case::one_base_case(1, 1),
-///     case(2, 1),
-///     case(3, 2),
-/// )]
+/// ```
+/// # use rstest::*;
+/// #[rstest]
+/// #[case::zero_base_case(0, 0)]
+/// #[case::one_base_case(1, 1)]
+/// #[case(2, 1)]
+/// #[case(3, 2)]
+/// fn fibonacci_test(#[case] input: u32,#[case] expected: u32) {
+///     assert_eq!(expected, fibonacci(input))
+/// }
+///
+/// # fn fibonacci(input: u32) -> u32 {
+/// #     match input {
+/// #         0 => 0,
+/// #         1 => 1,
+/// #         n => fibonacci(n - 2) + fibonacci(n - 1)
+/// #     }
+/// # }
 /// ```
 ///
 /// Outuput will be
@@ -568,10 +621,12 @@ pub fn fixture(
 ///
 /// ### Use specific `case` attributes
 ///
-/// Every function's attributes that follow the `rstest` one will
-/// used in tests but you can also define a `case`'s attributes set.
+/// Every function's attributes that preceding a `#[case]` attribute will
+/// be used in this test case and all function's attributes that follow the
+/// last `#[case]` attribute will mark all test cases.
+///
 /// This feature can be use to mark just some cases as `should_panic`
-/// and chose to have a fine grain on expected panic messages.
+/// and choose to have a fine grain on expected panic messages.
 ///
 /// In follow example we run 3 tests where the first pass without any
 /// panic, in the second we catch a panic but we don't care about the message
@@ -580,15 +635,13 @@ pub fn fixture(
 /// ```
 /// use rstest::rstest;
 ///
-/// #[rstest(
-///     val,
-///     case::no_panic(0),
-///     #[should_panic]
-///     case::panic(1),
-///     #[should_panic(expected="expected")]
-///     case::panic_with_message(2),
-/// )]
-/// fn attribute_per_case(val: i32) {
+/// #[rstest]
+/// #[case::no_panic(0)]
+/// #[should_panic]
+/// #[case::panic(1)]
+/// #[should_panic(expected="expected")]
+/// #[case::panic_with_message(2)]
+/// fn attribute_per_case(#[case] val: i32) {
 ///     match val {
 ///         0 => assert!(true),
 ///         1 => panic!("No catch"),
@@ -609,6 +662,18 @@ pub fn fixture(
 /// test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
+/// To mark all your tests as `#[should_panic]` use:
+///
+/// ```
+/// # use rstest::rstest;
+/// #[rstest]
+/// #[case(1)]
+/// #[case(2)]
+/// #[case(3)]
+/// #[should_panic]
+/// fn fail(#[case] v: u32) { assert_eq!(0, v) }
+/// ```
+///
 /// ## Values Lists
 ///
 /// Another useful way to write a test and execute it for some values
@@ -619,8 +684,11 @@ pub fn fixture(
 /// # use rstest::*;
 /// # fn is_valid(input: &str) -> bool { true }
 ///
-/// #[rstest(input => ["Jhon", "alice", "My_Name", "Zigy_2001"])]
-/// fn should_be_valid(input: &str) {
+/// #[rstest]
+/// fn should_be_valid(
+///     #[values("Jhon", "alice", "My_Name", "Zigy_2001")]
+///     input: &str
+/// ) {
 ///     assert!(is_valid(input))
 /// }
 /// ```
@@ -631,11 +699,13 @@ pub fn fixture(
 /// # use rstest::*;
 /// # fn valid_user(name: &str, age: u8) -> bool { true }
 ///
-/// #[rstest(
-///     name => ["J", "A", "A________________________________________21"],
-///     age => [14, 100], // Maybe more than 100 is an error or joke
-/// )]
-/// fn should_accept_all_corner_cases(name: &str, age: u8) {
+/// #[rstest]
+/// fn should_accept_all_corner_cases(
+///     #[values("J", "A", "A________________________________________21")]
+///     name: &str,
+///     #[values(14, 100)]
+///     age: u8
+/// ) {
 ///     assert!(valid_user(name, age))
 /// }
 /// ```
@@ -664,15 +734,13 @@ pub fn fixture(
 /// use rstest_reuse::{self, *};
 ///
 /// #[template]
-/// #[rstest(a,  b,
-///     case(2, 2),
-///     case(4/2, 2),
-///     )
-/// ]
-/// fn two_simple_cases(a: u32, b: u32) {}
+/// #[rstest]
+/// #[case(2, 2)]
+/// #[case(4/2, 2)]
+/// fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
 ///
 /// #[apply(two_simple_cases)]
-/// fn it_works(a: u32, b: u32) {
+/// fn it_works(#[case] a: u32,#[case] b: u32) {
 ///     assert!(a == b);
 /// }
 /// ```
@@ -690,12 +758,11 @@ pub fn fixture(
 /// use rstest::*;
 /// # async fn async_sum(a: u32, b: u32) -> u32 { a + b }
 ///
-/// #[rstest(expected, a, b,
-///     case(5, 2, 3),
-///     #[should_panic]
-///     case(42, 40, 1)
-///  )]
-/// async fn my_async_test(expected: u32, a: u32, b: u32) {
+/// #[rstest]
+/// #[case(5, 2, 3)]
+/// #[should_panic]
+/// #[case(42, 40, 1)]
+/// async fn my_async_test(#[case] expected: u32, #[case] a: u32, #[case] b: u32) {
 ///     assert_eq!(expected, async_sum(a, b).await);
 /// }
 /// ```
@@ -723,16 +790,17 @@ pub fn fixture(
 /// use actix_rt;
 /// use std::future::Future;
 ///
-/// #[rstest(a, result,
-///     case(2, async { 4 }),
-///     case(21, async { 42 })
-/// )]
+/// #[rstest]
+/// #[case(2, async { 4 })]
+/// #[case(21, async { 42 })]
 /// #[actix_rt::test]
-/// async fn my_async_test(a: u32, result: impl Future<Output=u32>) {
+/// async fn my_async_test(#[case] a: u32, #[case] result: impl Future<Output=u32>) {
 ///     assert_eq!(2 * a, result.await);
 /// }
 /// ```
-/// Just the attributes that ends with `test` (last path segment) can be injected.
+/// Just the attributes that ends with `test` (last path segment) can be injected:
+/// in this case the `#[actix_rt::test]` attribute will replace the standard `#[test]`
+/// attribute.
 ///
 /// ## Putting all Together
 ///
@@ -762,22 +830,25 @@ pub fn fixture(
 ///     User::logged("Alice", "2001-10-04", "London", "UK")
 /// }
 ///
-/// #[rstest(user,
-///     case::authed_user(alice()), // We can use `fixture` also as standard function
-///     case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
-///     query => ["     ", "^%$#@!", "...." ]
-/// )]
+/// #[rstest]
+/// #[case::authed_user(alice())] // We can use `fixture` also as standard function
+/// #[case::guest(User::Guest)]   // We can give a name to every case : `guest` in this case
 /// #[should_panic(expected = "Invalid query error")] // We whould test a panic
-/// fn should_be_invalid_query_error(repository: impl Repository, user: User, query: &str) {
+/// fn should_be_invalid_query_error(
+///     repository: impl Repository,
+///     #[case] user: User,
+///     #[values("     ", "^%$#@!", "....")]
+///     query: &str
+/// ) {
 ///     repository.find_items(&user, query).unwrap();
 /// }
 /// ```
 ///
-/// ## Attributes
-/// ### Trace Input Arguments
+/// ## Trace Input Arguments
 ///
 /// Sometimes can be very helpful to print all test's input arguments. To
-/// do it you can use the `trace` parameter.
+/// do it you can use the `#[trace]` function attribute that you can apply
+/// to all cases or just to some of them.
 ///
 /// ```
 /// use rstest::*;
@@ -785,7 +856,8 @@ pub fn fixture(
 /// #[fixture]
 /// fn injected() -> i32 { 42 }
 ///
-/// #[rstest(::trace)]
+/// #[rstest]
+/// #[trace]
 /// fn the_test(injected: i32) {
 ///     assert_eq!(42, injected)
 /// }
@@ -803,9 +875,123 @@ pub fn fixture(
 /// Expected :42
 /// Actual   :43
 /// ```
+/// But
+/// ```
+/// # use rstest::*;
+/// #[rstest]
+/// #[case(1)]
+/// #[trace]
+/// #[case(2)]
+/// fn the_test(#[case] v: i32) {
+///     assert_eq!(0, v)
+/// }
+/// ```
+/// will trace just `case_2` input arguments.
+///
 /// If you want to trace input arguments but skip some of them that don't
 /// implement the `Debug` trait, you can also use the
-/// `notrace(list, of, inputs)` attribute:
+/// `#[notrace]` argument attribute to skip them:
+///
+/// ```
+/// # use rstest::*;
+/// # struct Xyz;
+/// # struct NoSense;
+/// #[rstest]
+/// #[trace]
+/// fn the_test(injected: i32, #[notrace] xyz: Xyz, #[notrace] have_no_sense: NoSense) {
+///     assert_eq!(42, injected)
+/// }
+/// ```
+/// # Old _compact_ syntax
+///
+/// `rstest` support also a syntax where all options and configuration can be write as
+/// `rstest` attribute arguments. This syntax is a little less verbose but make
+/// composition harder: for istance try to add some cases to a `rstest_reuse` template
+/// is really hard.
+///
+/// So we'll continue to maintain the old syntax for a long time but we strongly encourage
+/// to switch your test in the new form.
+///
+/// Anyway, here we recall this syntax and rewrite the previous example in the _compact_ form.
+///
+/// ```text
+/// rstest(
+///     arg_1,
+///     ...,
+///     arg_n[,]
+///     [::attribute_1[:: ... [::attribute_k]]]
+/// )
+/// ```
+/// Where:
+///
+/// - `arg_i` could be one of the follow
+///   - `ident` that match to one of function arguments for parametrized cases
+///   - `case[::description](v1, ..., vl)` a test case
+///   - `fixture(v1, ..., vl)` where fixture is one of function arguments
+/// that and `v1, ..., vl` is a partial list of fixture's arguments
+///   - `ident => [v1, ..., vl]` where `ident` is one of function arguments and
+/// `v1, ..., vl` is a list of values for ident
+/// - `attribute_j` a test attribute like `trace` or `notrace`
+///
+/// ## Fixture Arguments
+///
+/// ```
+/// # struct User(String, u8);
+/// # impl User { fn name(&self) -> &str {&self.0} }
+/// # use rstest::*;
+/// #
+/// # #[fixture]
+/// # fn user(
+/// #     #[default = "Alice"] name: impl AsRef<str>,
+/// #     #[default = 22] age: u8
+/// # ) -> User { User(name.as_ref().to_owned(), age) }
+/// #
+/// #[rstest(user("Bob"))]
+/// fn check_user(user: User) {
+///     assert_eq("Bob", user.name())
+/// }
+/// ```
+///
+/// ## Parametrized
+///
+/// ```
+/// # use rstest::*;
+/// #[rstest(input, expected,
+///     case::zero_base_case(0, 0),
+///     case::one_base_case(1, 1),
+///     case(2, 1),
+///     case(3, 2),
+///     #[should_panic]
+///     case(4, 42)
+/// )]
+/// fn fibonacci_test(input: u32, expected: u32) {
+///     assert_eq!(expected, fibonacci(input))
+/// }
+///
+/// # fn fibonacci(input: u32) -> u32 {
+/// #     match input {
+/// #         0 => 0,
+/// #         1 => 1,
+/// #         n => fibonacci(n - 2) + fibonacci(n - 1)
+/// #     }
+/// # }
+/// ```
+///
+/// ## Values Lists
+///
+/// ```
+/// # use rstest::*;
+/// # fn is_valid(input: &str) -> bool { true }
+///
+/// #[rstest(
+///     input => ["Jhon", "alice", "My_Name", "Zigy_2001"]
+/// )]
+/// fn should_be_valid(input: &str) {
+///     assert!(is_valid(input))
+/// }
+/// ```
+///
+/// ## `trace` and `notrace`
 ///
 /// ```
 /// # use rstest::*;
@@ -816,6 +1002,7 @@ pub fn fixture(
 ///     assert_eq!(42, injected)
 /// }
 /// ```
+///
 #[proc_macro_attribute]
 pub fn rstest(
     args: proc_macro::TokenStream,
