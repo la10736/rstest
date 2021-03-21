@@ -2,8 +2,16 @@
 
 ## [0.7.0] Unreleasd
 
+This version intruduce the new more composable syntax. And async 
+fixtures (thanks to @rubdos)
+
 ### Add
+- New syntax that leverage on function and argument attributes
+to implement all features (See #99, #100, #101, #103, #109 and #102)
 - `async` fixtures (See #86, #96. Thanks to @rubdos).
+
+### Changed
+- Moved integration tests resouces in `test` directory (See #97)
 
 ## [0.6.4] 2020/6/20
 
