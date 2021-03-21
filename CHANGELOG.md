@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0] Unreleasd
+## [0.7.0] 2021/3/21
 
 This version intruduce the new more composable syntax. And async 
 fixtures (thanks to @rubdos)
