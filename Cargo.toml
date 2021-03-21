@@ -16,7 +16,7 @@ license = "MIT/Apache-2.0"
 name = "rstest"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
-version = "0.7.0"
+version = "0.7.1"
 
 [workspace]
 exclude = [
@@ -34,13 +34,13 @@ proc-macro = true
 cfg-if = "1.0.0"
 proc-macro2 = "1.0.24"
 quote = "1.0.9"
-syn = { version = "1.0.64", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"] }
+syn = {version = "1.0.64", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]}
 
 [dev-dependencies]
 actix-rt = "2.1.0"
-async-std = { version = "1.9.0", features = ["attributes"] }
+async-std = {version = "1.9.0", features = ["attributes"]}
 lazy_static = "1.4.0"
-mytest = { package = "rstest", version = "0.6.4" }
+mytest = {package = "rstest", version = "0.7.0"}
 pretty_assertions = "0.7.1"
 rstest_reuse = "0.1.2"
 rstest_test = "0.2.0"
