@@ -50,14 +50,13 @@ case: `rstest` will generate an independent test for each case.
 ```rust
 use rstest::rstest;
 
-#[rstest(input, expected,
-    case(0, 0),
-    case(1, 1),
-    case(2, 1),
-    case(3, 2),
-    case(4, 3)
-)]
-fn fibonacci_test(input: u32, expected: u32) {
+#[rstest]
+#[case(0, 0)]
+#[case(1, 1)]
+#[case(2, 1)]
+#[case(3, 2)]
+#[case(4, 3)]
+fn fibonacci_test(#[case] input: u32, #[case] expected: u32) {
     assert_eq!(expected, fibonacci(input))
 }
 ```
@@ -76,16 +75,17 @@ test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 If you need to just providing a bunch of values for which you
-need to run your test, you can use `var => [list, of, values]`
-syntax:
+need to run your test, you can use `#[values(list, of, values)]`
+argument attribute:
 
 ```rust
 use rstest::rstest;
 
-#[rstest(
-    value => [None, Some(""), Some("    ")]
-)]
-fn should_be_invalid(value: Option<&str>) {
+#[rstest]
+fn should_be_invalid(
+    #[values(None, Some(""), Some("    "))]
+    value: Option<&str>
+) {
     assert!(!valid(value))
 }
 ```
@@ -104,12 +104,10 @@ use rstest::rstest;
 use rstest_reuse::{self, *};
 
 #[template]
-#[rstest(a,  b,
-    case(2, 2),
-    case(4/2, 2),
-    )
-]
-fn two_simple_cases(a: u32, b: u32) {}
+#[rstest]
+#[case(2, 2)]
+#[case(4/2, 2)]
+fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
 
 #[apply(two_simple_cases)]
 fn it_works(a: u32, b: u32) {
@@ -129,12 +127,11 @@ parametric tests using a tidy syntax:
 ```rust
 use rstest::*;
 
-#[rstest(expected, a, b,
-    case(5, 2, 3),
-    #[should_panic]
-    case(42, 40, 1)
-)]
-async fn my_async_test(expected: u32, a: u32, b: u32) {
+#[rstest]
+#[case(5, 2, 3)]
+#[should_panic]
+#[case(42, 40, 1)]
+async fn my_async_test(#[case] expected: u32, #[case] a: u32, #[case] b: u32) {
     assert_eq!(expected, async_sum(a, b).await);
 }
 ```
@@ -161,12 +158,11 @@ use rstest::*;
 use actix_rt;
 use std::future::Future;
 
-#[rstest(a, result,
-    case(2, async { 4 }),
-    case(21, async { 42 })
-)]
+#[rstest]
+#[case(2, async { 4 })]
+#[case(21, async { 42 })]
 #[actix_rt::test]
-async fn my_async_test(a: u32, result: impl Future<Output=u32>) {
+async fn my_async_test(#[case] a: u32, result: #[case] impl Future<Output=u32>) {
     assert_eq!(2 * a, result.await);
 }
 ```
@@ -193,14 +189,17 @@ fn alice() -> User {
     User::logged("Alice", "2001-10-04", "London", "UK")
 }
 
-#[rstest(user,
-    case::authed_user(alice()), // We can use `fixture` also as standard function
-    case::guest(User::Guest),   // We can give a name to every case : `guest` in this case
-                                // and `authed_user`
-    query => ["     ", "^%$#@!", "...." ]
-)]
+#[rstest]
+#[case::authed_user(alice())] // We can use `fixture` also as standard function
+#[case::guest(User::Guest)]   // We can give a name to every case : `guest` in this case
+                              // and `authed_user`
 #[should_panic(expected = "Invalid query error")] // We whould test a panic
-fn should_be_invalid_query_error(repository: impl Repository, user: User, query: &str) {
+fn should_be_invalid_query_error(
+    #[case] repository: impl Repository, 
+    #[case] user: User, 
+    #[values("     ", "^%$#@!", "....")]
+    query: &str
+) {
     repository.find_items(&user, query).unwrap();
 }
 ```
@@ -227,8 +226,8 @@ A fixture can be injected by another fixture and they can be called
 using just some of its arguments.
 
 ```rust
-#[fixture(name="Alice", age=22)]
-fn user(name: &str, age: u8) -> User {
+#[fixture]
+fn user(#[default="Alice"] name: &str, #[default=22] age: u8) -> User {
     User::new(name, age)
 }
 
@@ -242,13 +241,13 @@ fn is_22(user: User) {
     assert_eq!(user.age(), 22)
 }
 
-#[rstest(user("Bob"))]
-fn is_bob(user: User) {
+#[rstest]
+fn is_bob(#[with("Bob")] user: User) {
     assert_eq!(user.name(), "Bob")
 }
 
-#[rstest(user("", 42))]
-fn is_42(user: User) {
+#[rstest]
+fn is_42(#[with("", 42)] user: User) {
     assert_eq!(user.age(), 42)
 }
 ```
@@ -261,13 +260,11 @@ add the `trace` attribute to your test to enable the dump of all input
 variables.
 
 ```rust
-#[rstest(
-    number, name, tuple,
-    case(42, "FortyTwo", ("minus twelve", -12)),
-    case(24, "TwentyFour", ("minus twentyfour", -24))
-    ::trace //This attribute enable traceing
-)]
-fn should_fail(number: u32, name: &str, tuple: (&str, i32)) {
+#[rstest]
+#[case(42, "FortyTwo", ("minus twelve", -12))]
+#[case(24, "TwentyFour", ("minus twentyfour", -24))]
+#[trace] //This attribute enable traceing
+fn should_fail(#[case] number: u32, #[case] name: &str, #[case] tuple: (&str, i32)) {
     assert!(false); // <- stdout come out just for failed tests
 }
 ```
@@ -306,12 +303,10 @@ test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out
 
 In case one or more variables don't implement the `Debug` trait, an error
 is raised, but it's also possible to exclude a variable using the
-`notrace(var,list,that,not,implement,Debug)` attribute.
+`#[notrace]` argument attribute.
 
-You can learn more on [Docs][docs-link] and find more
-examples in [`resources`](resources) directory and in
-[`rs8080`](https://github.com/la10736/rs8080/blob/master/src/cpu/test.rs)
-which uses this module in-depth.
+You can learn more on [Docs][docs-link] and find more examples in 
+[`tests/resources`](tests/resources) directory.
 
 ## Changelog
 
