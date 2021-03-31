@@ -195,7 +195,7 @@ fn alice() -> User {
                               // and `authed_user`
 #[should_panic(expected = "Invalid query error")] // We whould test a panic
 fn should_be_invalid_query_error(
-    #[case] repository: impl Repository, 
+    repository: impl Repository, 
     #[case] user: User, 
     #[values("     ", "^%$#@!", "....")]
     query: &str
