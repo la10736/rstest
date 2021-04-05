@@ -1,6 +1,8 @@
 use rstest::*;
 #[fixture]
-pub fn fixture() -> u32 { 42 }
+pub fn fixture() -> u32 {
+    42
+}
 
 #[rstest(f, case(42))]
 fn error_inner(f: i32) {
@@ -24,8 +26,7 @@ fn error_in_arbitrary_rust_code_cases(condition: bool) {
 }
 
 #[rstest(f, case(42), not_a_fixture(24))]
-fn error_inject_an_invalid_fixture(f: u32) {
-}
+fn error_inject_an_invalid_fixture(f: u32) {}
 
 #[fixture]
 fn n() -> u32 {
@@ -34,20 +35,17 @@ fn n() -> u32 {
 
 #[fixture]
 fn f(n: u32) -> u32 {
-    2*n
+    2 * n
 }
 
 #[rstest(f, f(42), case(12))]
-fn error_inject_a_fixture_that_is_already_a_case(f: u32) {
-}
+fn error_inject_a_fixture_that_is_already_a_case(f: u32) {}
 
 #[rstest(f(42), f, case(12))]
-fn error_define_case_that_is_already_an_injected_fixture(f: u32) {
-}
+fn error_define_case_that_is_already_an_injected_fixture(f: u32) {}
 
 #[rstest(v, f(42), f(42), case(12))]
-fn error_inject_a_fixture_more_than_once(v: u32, f: u32) {
-}
+fn error_inject_a_fixture_more_than_once(v: u32, f: u32) {}
 
 #[rstest(f => [42])]
 fn error_matrix_wrong_type(f: &str) {}
@@ -65,12 +63,10 @@ fn error_empty_list(empty: &str) {}
 fn error_no_match_args() {}
 
 #[rstest(f => [41, 42], f(42))]
-fn error_inject_a_fixture_that_is_already_a_value_list(f: u32) {
-}
+fn error_inject_a_fixture_that_is_already_a_value_list(f: u32) {}
 
 #[rstest(f(42), f => [41, 42])]
-fn error_define_a_value_list_that_is_already_an_injected_fixture(f: u32) {
-}
+fn error_define_a_value_list_that_is_already_an_injected_fixture(f: u32) {}
 
 #[rstest(a, case(42), a => [42])]
 fn error_define_a_value_list_that_is_already_a_case_arg(a: u32) {}
@@ -79,8 +75,12 @@ fn error_define_a_value_list_that_is_already_a_case_arg(a: u32) {}
 fn error_define_a_case_arg_that_is_already_a_value_list(a: u32) {}
 
 #[rstest(a => [42, 24], a => [24, 42])]
-fn error_define_a_value_list_that_is_already_a_value_list(f: u32) {
-}
+fn error_define_a_value_list_that_is_already_a_value_list(f: u32) {}
 
 #[rstest(a, a, case(42))]
 fn error_define_a_case_arg_that_is_already_a_case_arg(a: u32) {}
+
+struct S;
+#[rstest]
+#[case("donald duck")]
+fn error_convert_to_type_that_not_implement_from_str(#[case] s: S) {}
