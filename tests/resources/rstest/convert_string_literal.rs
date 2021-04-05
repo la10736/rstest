@@ -24,3 +24,10 @@ fn values(
 ) {
     assert!(addr.is_ipv4())
 }
+
+#[rstest]
+#[case(b"12345")]
+fn not_convert_byte_array(#[case] cases: &[u8], #[values(b"abc")] values: &[u8]) {
+    assert_eq!(5, cases.len());
+    assert_eq!(3, values.len());
+}
