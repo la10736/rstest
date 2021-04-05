@@ -53,3 +53,23 @@ fn not_convert_impl(#[case] that_impl: impl MyTrait, #[case] s: &str) {
 fn not_convert_generics<S: AsRef<str>>(#[case] ip: S, #[case] addr: SocketAddr) {
     assert_eq!(addr.ip().to_string(), ip.as_ref());
 }
+
+struct MyType(String);
+struct E;
+impl core::str::FromStr for MyType {
+    type Err = E;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "error" => Err(E),
+            inner => Ok(MyType(inner.to_owned())),
+        }
+    }
+}
+
+#[rstest]
+#[case("hello", "hello")]
+#[case("doesn't mater", "error")]
+fn convert_without_debug(#[case] expected: &str, #[case] converted: MyType) {
+    assert_eq!(expected, converted.0);
+}

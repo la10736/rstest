@@ -832,6 +832,8 @@ mod matrix {
 fn convert_string_literal() {
     let (output, _) = run_test("convert_string_literal.rs");
 
+    assert_in!(output.stdout.str(), "Cannot parse 'error' to get MyType");
+
     TestResults::new()
         .ok("cases::case_1")
         .ok("cases::case_2")
@@ -847,6 +849,8 @@ fn convert_string_literal() {
         .ok("not_convert_impl::case_1")
         .ok("not_convert_generics::case_1")
         .ok("not_convert_generics::case_2")
+        .ok("convert_without_debug::case_1")
+        .fail("convert_without_debug::case_2")
         .assert(output);
 }
 
