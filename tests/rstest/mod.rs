@@ -839,6 +839,10 @@ fn convert_string_literal() {
         .ok("cases::case_4")
         .fail("cases::case_5")
         .fail("cases::case_6")
+        .ok("values::addr_1")
+        .ok("values::addr_2")
+        .fail("values::addr_3")
+        .fail("values::addr_4")
         .assert(output);
 }
 

@@ -11,3 +11,16 @@ use std::net::SocketAddr;
 fn cases(#[case] expected: bool, #[case] addr: SocketAddr) {
     assert_eq!(expected, addr.is_ipv4());
 }
+
+#[rstest]
+fn values(
+    #[values(
+        "1.2.3.4:42",
+        r#"4.3.2.1:24"#,
+        "this.is.not.a.socket.address",
+        r#"this.is.not.a.socket.address"#
+    )]
+    addr: SocketAddr,
+) {
+    assert!(addr.is_ipv4())
+}
