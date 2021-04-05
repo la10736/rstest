@@ -894,9 +894,9 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                  --> {}/src/lib.rs:11:33
+                  --> {}/src/lib.rs:13:33
                    |
-                11 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}",
+                13 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}",
                 name
             )
             .unindent()
@@ -912,9 +912,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Missed argument: 'not_a_fixture' should be a test function argument.
-                  --> {}/src/lib.rs:26:23
+                  --> {}/src/lib.rs:28:23
                    |
-                26 | #[rstest(f, case(42), not_a_fixture(24))]
+                28 | #[rstest(f, case(42), not_a_fixture(24))]
                    |                       ^^^^^^^^^^^^^
                 ",
                 name
@@ -932,9 +932,9 @@ mod should_show_correct_errors {
             format!(
                 r#"
                 error[E0308]: mismatched types
-                 --> {}/src/lib.rs:7:18
+                 --> {}/src/lib.rs:9:18
                   |
-                7 |     let a: u32 = "";
+                9 |     let a: u32 = "";
                 "#,
                 name
             )
@@ -951,9 +951,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:14:29
+                  --> {}/src/lib.rs:16:29
                    |
-                14 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
+                16 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
                    |                             ^^^^^^^
                    |                             |
                 ",
@@ -972,9 +972,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:17:26
+                  --> {}/src/lib.rs:19:26
                    |
-                17 | fn error_case_wrong_type(f: &str) {{}}",
+                19 | fn error_case_wrong_type(f: &str) {{}}",
                 name
             )
             .unindent()
@@ -990,9 +990,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:53:28
+                  --> {}/src/lib.rs:51:28
                    |
-                53 | fn error_matrix_wrong_type(f: &str) {{}}",
+                51 | fn error_matrix_wrong_type(f: &str) {{}}",
                 name
             )
             .unindent()
@@ -1008,9 +1008,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:20:31
+                  --> {}/src/lib.rs:22:31
                    |
-                20 |     case(vec![1,2,3].contains(2)))
+                22 |     case(vec![1,2,3].contains(2)))
                    |                               ^
                    |                               |",
                 name
@@ -1023,9 +1023,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:55:45
+                  --> {}/src/lib.rs:53:45
                    |
-                55 | #[rstest(condition => [vec![1,2,3].contains(2)] )]
+                53 | #[rstest(condition => [vec![1,2,3].contains(2)] )]
                    |                                             ^
                    |                                             |",
                 name
@@ -1043,9 +1043,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:40:13
+                  --> {}/src/lib.rs:41:13
                    |
-                40 | #[rstest(f, f(42), case(12))]
+                41 | #[rstest(f, f(42), case(12))]
                    |             ^",
                 name
             )
@@ -1081,9 +1081,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:48:20
+                  --> {}/src/lib.rs:47:20
                    |
-                48 | #[rstest(v, f(42), f(42), case(12))]
+                47 | #[rstest(v, f(42), f(42), case(12))]
                    |                    ^",
                 name
             )
@@ -1100,9 +1100,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Missed argument: 'not_exist_1' should be a test function argument.
-                  --> {}/src/lib.rs:63:10
+                  --> {}/src/lib.rs:61:10
                    |
-                63 | #[rstest(not_exist_1 => [42],
+                61 | #[rstest(not_exist_1 => [42],
                    |          ^^^^^^^^^^^",
                 name
             )
@@ -1114,9 +1114,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Missed argument: 'not_exist_2' should be a test function argument.
-                  --> {}/src/lib.rs:64:10
+                  --> {}/src/lib.rs:62:10
                    |
-                64 |          not_exist_2 => [42])]
+                62 |          not_exist_2 => [42])]
                    |          ^^^^^^^^^^^",
                 name
             )
@@ -1133,9 +1133,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:67:25
+                  --> {}/src/lib.rs:65:25
                    |
-                67 | #[rstest(f => [41, 42], f(42))]
+                65 | #[rstest(f => [41, 42], f(42))]
                    |                         ^",
                 name
             )
@@ -1152,9 +1152,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:81:25
+                  --> {}/src/lib.rs:77:25
                    |
-                81 | #[rstest(a => [42, 24], a => [24, 42])]
+                77 | #[rstest(a => [42, 24], a => [24, 42])]
                    |                         ^",
                 name
             )
@@ -1171,9 +1171,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:71:17
+                  --> {}/src/lib.rs:68:17
                    |
-                71 | #[rstest(f(42), f => [41, 42])]
+                68 | #[rstest(f(42), f => [41, 42])]
                    |                 ^",
                 name
             )
@@ -1190,9 +1190,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:75:23
+                  --> {}/src/lib.rs:71:23
                    |
-                75 | #[rstest(a, case(42), a => [42])]
+                71 | #[rstest(a, case(42), a => [42])]
                    |                       ^",
                 name
             )
@@ -1209,9 +1209,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:78:21
+                  --> {}/src/lib.rs:74:21
                    |
-                78 | #[rstest(a => [42], a, case(42))]
+                74 | #[rstest(a => [42], a, case(42))]
                    |                     ^",
                 name
             )
@@ -1228,9 +1228,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:85:13
+                  --> {}/src/lib.rs:80:13
                    |
-                85 | #[rstest(a, a, case(42))]
+                80 | #[rstest(a, a, case(42))]
                    |             ^",
                 name
             )
@@ -1247,16 +1247,16 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Values list should not be empty
-                  --> {}/src/lib.rs:60:19
+                  --> {}/src/lib.rs:58:19
                    |
-                60 | #[rstest(empty => [])]
+                58 | #[rstest(empty => [])]
                    |                   ^^",
                 name
             )
             .unindent()
         );
     }
-    
+
     #[test]
     fn if_try_to_convert_literal_string_to_a_type_that_not_implement_from_str() {
         let (output, name) = execute();
