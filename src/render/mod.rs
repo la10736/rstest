@@ -13,9 +13,7 @@ use syn::{
 
 use quote::{format_ident, quote};
 
-use crate::refident::MaybeIdent;
-use crate::resolver::{self, Resolver};
-use crate::utils::{attr_ends_with, fn_args_idents};
+use crate::utils::attr_ends_with;
 use crate::{
     parse::{
         rstest::{RsTestAttributes, RsTestData, RsTestInfo},
@@ -24,15 +22,26 @@ use crate::{
     },
     utils::attr_is,
 };
+use crate::{
+    refident::{MaybeIdent, MaybeType},
+    resolver::{self, Resolver},
+};
 use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
 
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(info.data.fixtures());
-    let args = fn_args_idents(&test).cloned().collect::<Vec<_>>();
+    let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::replace(&mut test.attrs, Default::default());
     let asyncness = test.sig.asyncness.clone();
+    let generic_types = test
+        .sig
+        .generics
+        .type_params()
+        .map(|tp| &tp.ident)
+        .cloned()
+        .collect::<Vec<_>>();
 
     single_test_case(
         &test.sig.ident,
@@ -44,6 +53,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         Some(&test),
         resolver,
         &info.attributes,
+        &generic_types,
     )
 }
 
@@ -184,13 +194,14 @@ fn render_exec_call(fn_path: Path, args: &[Ident], is_async: bool) -> TokenStrea
 fn single_test_case<'a>(
     name: &Ident,
     testfn_name: &Ident,
-    args: &[Ident],
+    args: &[FnArg],
     attrs: &[Attribute],
     output: &ReturnType,
     asyncness: Option<Async>,
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
     attributes: &'a RsTestAttributes,
+    generic_types: &[Ident],
 ) -> TokenStream {
     let (attrs, trace_me): (Vec<_>, Vec<_>) =
         attrs.iter().cloned().partition(|a| !attr_is(a, "trace"));
@@ -198,7 +209,12 @@ fn single_test_case<'a>(
     if trace_me.len() > 0 {
         attributes.add_trace(format_ident!("trace"));
     }
-    let inject = resolve_args(args.iter(), &resolver);
+    let inject = resolve_new_args(args.iter(), &resolver, generic_types);
+    let args = args
+        .iter()
+        .filter_map(MaybeIdent::maybe_ident)
+        .cloned()
+        .collect::<Vec<_>>();
     let trace_args = trace_arguments(args.iter(), &attributes);
 
     let is_async = asyncness.is_some();
@@ -211,7 +227,7 @@ fn single_test_case<'a>(
     } else {
         Some(resolve_default_test_attr(is_async))
     };
-    let execute = render_exec_call(testfn_name.clone().into(), args, is_async);
+    let execute = render_exec_call(testfn_name.clone().into(), &args, is_async);
 
     quote! {
         #test_attr
@@ -252,6 +268,101 @@ fn trace_arguments<'a>(
 fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
     Cow::Owned(parse_quote! { #ident::default() })
 }
+fn fnarg_2_fixture(arg: &FnArg, resolver: &impl Resolver, generic_types: &[Ident]) -> Option<Stmt> {
+    let ident = arg.maybe_ident()?;
+    let arg_type = arg.maybe_type()?;
+    let id_str = ident.to_string();
+    let fixture_name = if id_str.starts_with("_") && !id_str.starts_with("__") {
+        Cow::Owned(Ident::new(&id_str[1..], ident.span()))
+    } else {
+        Cow::Borrowed(ident)
+    };
+
+    let mut fixture = resolver
+        .resolve(&fixture_name)
+        .map(|e| e.clone())
+        .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
+
+    let is_explicit_type = match arg_type {
+        Type::ImplTrait(_)
+        | Type::TraitObject(_)
+        | Type::Infer(_)
+        | Type::Group(_)
+        | Type::Macro(_)
+        | Type::Never(_)
+        | Type::Paren(_)
+        | Type::Verbatim(_) => false,
+        _ => true,
+    };
+
+    let is_literal_str = match fixture.as_ref() {
+        &Expr::Lit(syn::ExprLit { ref lit, .. }) => match lit {
+            syn::Lit::Str(_) => true,
+            _ => false,
+        },
+        _ => false,
+    };
+    if is_literal_str
+        && is_explicit_type
+        && arg_type
+            .maybe_ident()
+            .map(|id| generic_types.iter().find(|&tp| tp == id).is_none())
+            .unwrap_or_default()
+    {
+        let new_fixture: Expr = parse_quote! {
+            {
+                struct __Wrap<T>(std::marker::PhantomData<T>);
+
+                trait __ViaParseDebug<'a, T> {
+                    fn magic_conversion(&self, input: &'a str) -> T;
+                }
+
+                impl<'a, T> __ViaParseDebug<'a, T> for &&__Wrap<T>
+                where
+                    T: std::str::FromStr,
+                    T::Err: std::fmt::Debug,
+                {
+                    fn magic_conversion(&self, input: &'a str) -> T {
+                        T::from_str(input).unwrap()
+                    }
+                }
+
+                trait __ViaParse<'a, T> {
+                    fn magic_conversion(&self, input: &'a str) -> T;
+                }
+
+                impl<'a, T> __ViaParse<'a, T> for &__Wrap<T>
+                where
+                    T: std::str::FromStr,
+                {
+                    fn magic_conversion(&self, input: &'a str) -> T {
+                        match T::from_str(input) {
+                            Ok(v) => v,
+                            Err(_) => {
+                                panic!("Cannot parse '{}' to get {}", input, std::stringify!(#arg_type));
+                            }
+                        }
+                    }
+                }
+
+                trait __ViaIdent<'a, T> {
+                    fn magic_conversion(&self, input: &'a str) -> T;
+                }
+
+                impl<'a> __ViaIdent<'a, &'a str> for &&__Wrap<&'a str> {
+                    fn magic_conversion(&self, input: &'a str) -> &'a str {
+                        input
+                    }
+                }
+                (&&&__Wrap::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
+            }
+        };
+        fixture = Cow::Owned(new_fixture);
+    }
+    Some(parse_quote! {
+        let #ident = #fixture;
+    })
+}
 
 fn arg_2_fixture(ident: &Ident, resolver: &impl Resolver) -> Stmt {
     let id_str = ident.to_string();
@@ -267,6 +378,17 @@ fn arg_2_fixture(ident: &Ident, resolver: &impl Resolver) -> Stmt {
         .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
     parse_quote! {
         let #ident = #fixture;
+    }
+}
+
+fn resolve_new_args<'a>(
+    args: impl Iterator<Item = &'a FnArg>,
+    resolver: &impl Resolver,
+    generic_types: &[Ident],
+) -> TokenStream {
+    let define_vars = args.map(|arg| fnarg_2_fixture(arg, resolver, generic_types));
+    quote! {
+        #(#define_vars)*
     }
 }
 
@@ -348,10 +470,17 @@ impl<'a> TestCaseRender<'a> {
     }
 
     fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
-        let args = fn_args_idents(&testfn).cloned().collect::<Vec<_>>();
+        let args = testfn.sig.inputs.iter().cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
         let asyncness = testfn.sig.asyncness.clone();
+        let generic_types = testfn
+            .sig
+            .generics
+            .type_params()
+            .map(|tp| &tp.ident)
+            .cloned()
+            .collect::<Vec<_>>();
 
         single_test_case(
             &self.name,
@@ -363,6 +492,7 @@ impl<'a> TestCaseRender<'a> {
             None,
             self.resolver,
             &attributes,
+            &generic_types
         )
     }
 }

@@ -1,7 +1,7 @@
 /// Provide `RefIdent` and `MaybeIdent` traits that give a shortcut to extract identity reference
 /// (`syn::Ident` struct).
 use proc_macro2::Ident;
-use syn::{FnArg, Pat, PatType};
+use syn::{FnArg, Pat, PatType, Type};
 
 pub trait RefIdent {
     /// Return the reference to ident if any
@@ -43,10 +43,24 @@ impl MaybeIdent for FnArg {
     }
 }
 
-impl MaybeIdent for syn::Type {
+impl MaybeIdent for Type {
     fn maybe_ident(&self) -> Option<&Ident> {
         match self {
-            syn::Type::Path(tp) if tp.qself.is_none() => tp.path.get_ident(),
+            Type::Path(tp) if tp.qself.is_none() => tp.path.get_ident(),
+            _ => None,
+        }
+    }
+}
+
+pub trait MaybeType {
+    /// Return the reference to type if any
+    fn maybe_type(&self) -> Option<&Type>;
+}
+
+impl MaybeType for FnArg {
+    fn maybe_type(&self) -> Option<&Type> {
+        match self {
+            FnArg::Typed(PatType { ty, .. }) => Some(ty.as_ref()),
             _ => None,
         }
     }

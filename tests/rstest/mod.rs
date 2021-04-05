@@ -829,6 +829,20 @@ mod matrix {
 }
 
 #[test]
+fn convert_string_literal() {
+    let (output, _) = run_test("convert_string_literal.rs");
+
+    TestResults::new()
+        .ok("cases::case_1")
+        .ok("cases::case_2")
+        .ok("cases::case_3")
+        .ok("cases::case_4")
+        .fail("cases::case_5")
+        .fail("cases::case_6")
+        .assert(output);
+}
+
+#[test]
 fn happy_path() {
     let (output, _) = run_test("happy_path.rs");
 
