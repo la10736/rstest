@@ -179,7 +179,10 @@ mod should {
     fn convert_literal_string_for_default_values() {
         let (output, _) = run_test("default_conversion.rs");
 
-        TestResults::new().ok("test_base").assert(output);
+        TestResults::new()
+            .ok("test_base")
+            .ok("test_byte_array")
+            .assert(output);
     }
 
     #[test]
