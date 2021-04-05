@@ -46,3 +46,10 @@ fn not_convert_impl(#[case] that_impl: impl MyTrait, #[case] s: &str) {
     assert_eq!(42, that_impl.my_trait());
     assert_eq!(42, s.my_trait());
 }
+
+#[rstest]
+#[case("1.2.3.4", "1.2.3.4:42")]
+#[case("1.2.3.4".to_owned(), "1.2.3.4:42")]
+fn not_convert_generics<S: AsRef<str>>(#[case] ip: S, #[case] addr: SocketAddr) {
+    assert_eq!(addr.ip().to_string(), ip.as_ref());
+}
