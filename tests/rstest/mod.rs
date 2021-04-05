@@ -844,6 +844,7 @@ fn convert_string_literal() {
         .fail("values::addr_3")
         .fail("values::addr_4")
         .ok("not_convert_byte_array::case_1::values_1")
+        .ok("not_convert_impl::case_1")
         .assert(output);
 }
 
