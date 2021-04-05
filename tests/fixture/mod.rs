@@ -2,6 +2,7 @@ use std::path::Path;
 pub use unindent::Unindent;
 
 use super::resources;
+use rstest::*;
 use rstest_test::{assert_in, assert_not_in, Project, Stringable, TestResults};
 
 fn prj(res: &str) -> Project {
@@ -159,9 +160,11 @@ mod should {
             .assert(output);
     }
 
-    #[test]
-    fn use_input_values_if_any() {
-        let (output, _) = run_test("default.rs");
+    #[rstest]
+    #[case::compact_form("default.rs")]
+    #[case::attrs_form("default_in_attrs.rs")]
+    fn use_input_values_if_any(#[case] file: &str) {
+        let (output, _) = run_test(file);
 
         TestResults::new()
             .ok("test_simple")
@@ -173,16 +176,10 @@ mod should {
     }
 
     #[test]
-    fn use_default_arguments_values_values_if_any() {
-        let (output, _) = run_test("default_in_attrs.rs");
+    fn convert_literal_string_for_default_values() {
+        let (output, _) = run_test("default_conversion.rs");
 
-        TestResults::new()
-            .ok("test_simple")
-            .ok("test_simple_changed")
-            .ok("test_double")
-            .ok("test_double_changed")
-            .ok("test_mixed")
-            .assert(output);
+        TestResults::new().ok("test_base").assert(output);
     }
 
     #[test]

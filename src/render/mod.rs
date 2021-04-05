@@ -364,39 +364,12 @@ fn fnarg_2_fixture(arg: &FnArg, resolver: &impl Resolver, generic_types: &[Ident
     })
 }
 
-fn arg_2_fixture(ident: &Ident, resolver: &impl Resolver) -> Stmt {
-    let id_str = ident.to_string();
-    let fixture_name = if id_str.starts_with("_") && !id_str.starts_with("__") {
-        Cow::Owned(Ident::new(&id_str[1..], ident.span()))
-    } else {
-        Cow::Borrowed(ident)
-    };
-
-    let fixture = resolver
-        .resolve(&fixture_name)
-        .map(|e| e.clone())
-        .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
-    parse_quote! {
-        let #ident = #fixture;
-    }
-}
-
 fn resolve_new_args<'a>(
     args: impl Iterator<Item = &'a FnArg>,
     resolver: &impl Resolver,
     generic_types: &[Ident],
 ) -> TokenStream {
     let define_vars = args.map(|arg| fnarg_2_fixture(arg, resolver, generic_types));
-    quote! {
-        #(#define_vars)*
-    }
-}
-
-fn resolve_args<'a>(
-    args: impl Iterator<Item = &'a Ident>,
-    resolver: &impl Resolver,
-) -> TokenStream {
-    let define_vars = args.map(|arg| arg_2_fixture(arg, resolver));
     quote! {
         #(#define_vars)*
     }
@@ -492,7 +465,7 @@ impl<'a> TestCaseRender<'a> {
             None,
             self.resolver,
             &attributes,
-            &generic_types
+            &generic_types,
         )
     }
 }
