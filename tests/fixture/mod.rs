@@ -179,9 +179,13 @@ mod should {
     fn convert_literal_string_for_default_values() {
         let (output, _) = run_test("default_conversion.rs");
 
+        assert_in!(output.stdout.str(), "Cannot parse 'error' to get MyType");
+
         TestResults::new()
             .ok("test_base")
             .ok("test_byte_array")
+            .ok("test_convert_custom")
+            .fail("test_fail_conversion")
             .assert(output);
     }
 
