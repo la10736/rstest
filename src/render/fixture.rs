@@ -3,7 +3,7 @@ use syn::{parse_quote, Ident, ItemFn};
 
 use quote::quote;
 
-use super::{generics_clean_up, render_exec_call, resolve_new_args};
+use super::{generics_clean_up, render_exec_call, resolve_aruments};
 use crate::parse::fixture::FixtureInfo;
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
@@ -35,7 +35,7 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = resolve_new_args(fixture.sig.inputs.iter(), &resolver, &generics_idents);
+    let inject = resolve_aruments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
 
@@ -86,7 +86,7 @@ fn render_partial_impl(
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = resolve_new_args(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
+    let inject = resolve_aruments(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
 
     let sign_args = fn_args(fixture).take(n);
     let fixture_args = fn_args_idents(fixture).cloned().collect::<Vec<_>>();
