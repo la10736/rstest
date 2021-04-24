@@ -145,3 +145,72 @@ fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
         }
     }
 }
+
+#[cfg(test)]
+mod should {
+    use super::*;
+    use crate::{
+        test::{assert_eq, *},
+        utils::fn_args,
+    };
+    use mytest::*;
+
+    #[rstest]
+    #[case::as_is("fix: String", "let fix = fix::default();")]
+    #[case::without_underscore("_fix: String", "let _fix = fix::default();")]
+    #[case::do_not_remove_inner_underscores("f_i_x: String", "let f_i_x = f_i_x::default();")]
+    #[case::do_not_remove_double_underscore("__fix: String", "let __fix = __fix::default();")]
+    #[case::without_mut("mut fix: String", "let fix = fix::default();")]
+    fn call_fixture(#[case] arg_str: &str, #[case] expected: &str) {
+        let arg = arg_str.ast();
+
+        let injected = ArgumentResolver::new(&EmptyResolver {}, &[])
+            .resolve(&arg)
+            .unwrap();
+
+        assert_eq!(injected, expected.ast());
+    }
+
+    #[rstest]
+    #[case::as_is("mut fix: String", ("fix", expr("bar()")), "let fix = bar();")]
+    #[case::without_undescore("_fix: String", ("fix", expr("bar()")), "let _fix = bar();")]
+    fn call_given_fixture(
+        #[case] arg_str: &str,
+        #[case] rule: (&str, Expr),
+        #[case] expected: &str,
+    ) {
+        let arg = arg_str.ast();
+        let mut resolver = std::collections::HashMap::new();
+        resolver.insert(rule.0.to_owned(), &rule.1);
+
+        let injected = ArgumentResolver::new(&resolver, &[]).resolve(&arg).unwrap();
+
+        assert_eq!(injected, expected.ast());
+    }
+
+    fn _mock_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
+        parse_quote! {
+            #fixture as #arg_type
+        }
+    }
+
+    #[test]
+    fn implement_magic_conversion() {
+        let function = "fn test(arg: MyType){}".ast();
+        let arg = fn_args(&function).nth(0).unwrap();
+
+        let mut resolver = std::collections::HashMap::new();
+        let expr = expr(r#""value to convert""#);
+        resolver.insert(arg.maybe_ident().unwrap().to_string(), &expr);
+
+        let ag = ArgumentResolver {
+            resolver: &resolver,
+            generic_types_names: &[],
+            magic_conversion: &_mock_conversion_code,
+        };
+
+        let injected = ag.resolve(&arg).unwrap();
+
+        assert_eq!(injected, r#"let arg = "value to convert" as MyType;"#.ast());
+    }
+}
