@@ -3,7 +3,7 @@ use quote::format_ident;
 
 /// Contains some unsorted functions used across others modules
 ///
-use syn::{Attribute, FnArg, Ident, ItemFn};
+use syn::{Attribute, Expr, FnArg, Ident, ItemFn};
 
 /// Return an iterator over fn arguments items.
 ///
@@ -33,6 +33,22 @@ pub(crate) fn attr_starts_with(attr: &Attribute, segment: &syn::PathSegment) -> 
 
 pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
     attr.path.is_ident(&format_ident!("{}", name))
+}
+
+pub(crate) trait IsLiteralExpression {
+    fn is_literal(&self) -> bool;
+}
+
+impl<E: AsRef<Expr>> IsLiteralExpression for E {
+    fn is_literal(&self) -> bool {
+        match self.as_ref() {
+            &Expr::Lit(syn::ExprLit { ref lit, .. }) => match lit {
+                syn::Lit::Str(_) => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]

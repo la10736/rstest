@@ -2,7 +2,7 @@ pub(crate) mod fixture;
 mod test;
 mod wrapper;
 
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
@@ -23,12 +23,13 @@ use crate::{
     utils::attr_is,
 };
 use crate::{
-    refident::{MaybeIdent, MaybeType},
+    refident::MaybeIdent,
     resolver::{self, Resolver},
 };
 use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
+pub(crate) mod inject;
 
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(info.data.fixtures());
@@ -209,7 +210,7 @@ fn single_test_case<'a>(
     if trace_me.len() > 0 {
         attributes.add_trace(format_ident!("trace"));
     }
-    let inject = resolve_aruments(args.iter(), &resolver, generic_types);
+    let inject = inject::resolve_aruments(args.iter(), &resolver, generic_types);
     let args = args
         .iter()
         .filter_map(MaybeIdent::maybe_ident)
@@ -262,151 +263,6 @@ fn trace_arguments<'a>(
         })
     } else {
         None
-    }
-}
-
-fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
-    Cow::Owned(parse_quote! { #ident::default() })
-}
-
-fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
-    parse_quote! {
-        {
-            struct __Wrap<T>(std::marker::PhantomData<T>);
-
-            trait __ViaParseDebug<'a, T> {
-                fn magic_conversion(&self, input: &'a str) -> T;
-            }
-
-            impl<'a, T> __ViaParseDebug<'a, T> for &&__Wrap<T>
-            where
-                T: std::str::FromStr,
-                T::Err: std::fmt::Debug,
-            {
-                fn magic_conversion(&self, input: &'a str) -> T {
-                    T::from_str(input).unwrap()
-                }
-            }
-
-            trait __ViaParse<'a, T> {
-                fn magic_conversion(&self, input: &'a str) -> T;
-            }
-
-            impl<'a, T> __ViaParse<'a, T> for &__Wrap<T>
-            where
-                T: std::str::FromStr,
-            {
-                fn magic_conversion(&self, input: &'a str) -> T {
-                    match T::from_str(input) {
-                        Ok(v) => v,
-                        Err(_) => {
-                            panic!("Cannot parse '{}' to get {}", input, std::stringify!(#arg_type));
-                        }
-                    }
-                }
-            }
-
-            trait __ViaIdent<'a, T> {
-                fn magic_conversion(&self, input: &'a str) -> T;
-            }
-
-            impl<'a> __ViaIdent<'a, &'a str> for &&__Wrap<&'a str> {
-                fn magic_conversion(&self, input: &'a str) -> &'a str {
-                    input
-                }
-            }
-            (&&&__Wrap::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
-        }
-    }
-}
-
-trait IsLiteralExpression {
-    fn is_literal(&self) -> bool;
-}
-
-impl<E: AsRef<Expr>> IsLiteralExpression for E {
-    fn is_literal(&self) -> bool {
-        match self.as_ref() {
-            &Expr::Lit(syn::ExprLit { ref lit, .. }) => match lit {
-                syn::Lit::Str(_) => true,
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-}
-
-trait IsExplicitType {
-    fn is_explicit(&self) -> bool;
-}
-
-impl IsExplicitType for &Type {
-    fn is_explicit(&self) -> bool {
-        match self {
-            Type::ImplTrait(_)
-            | Type::TraitObject(_)
-            | Type::Infer(_)
-            | Type::Group(_)
-            | Type::Macro(_)
-            | Type::Never(_)
-            | Type::Paren(_)
-            | Type::Verbatim(_) => false,
-            _ => true,
-        }
-    }
-}
-
-fn ident_contains(haystack: &[Ident], needle: &Ident) -> bool {
-    haystack.iter().find(|&id| id == needle).is_some()
-}
-
-fn type_can_be_get_from_literal_str(t: &Type, generics: &[Ident]) -> bool {
-    if !t.is_explicit() {
-        return false
-    }
-    match t.maybe_ident() {
-        Some(id) => !ident_contains(generics, id),
-        None => false
-    }
-}
-
-fn resolve_argument(
-    arg: &FnArg,
-    resolver: &impl Resolver,
-    generic_types: &[Ident],
-) -> Option<Stmt> {
-    let ident = arg.maybe_ident()?;
-    let arg_type = arg.maybe_type()?;
-    let id_str = ident.to_string();
-    let fixture_name = if id_str.starts_with("_") && !id_str.starts_with("__") {
-        Cow::Owned(Ident::new(&id_str[1..], ident.span()))
-    } else {
-        Cow::Borrowed(ident)
-    };
-
-    let mut fixture = resolver
-        .resolve(&fixture_name)
-        .map(|e| e.clone())
-        .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
-
-    if fixture.is_literal()
-        && type_can_be_get_from_literal_str(arg_type, generic_types)
-    {
-        fixture = Cow::Owned(handling_magic_conversion_code(fixture, arg_type));
-    }
-    Some(parse_quote! {
-        let #ident = #fixture;
-    })
-}
-
-fn resolve_aruments<'a>(
-    args: impl Iterator<Item = &'a FnArg>,
-    resolver: &impl Resolver,
-    generic_types: &[Ident],
-) -> TokenStream {
-    let define_vars = args.map(|arg| resolve_argument(arg, resolver, generic_types));
-    quote! {
-        #(#define_vars)*
     }
 }
 
