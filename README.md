@@ -119,8 +119,8 @@ See [`rstest_reuse`][reuse-crate-link] for more dettails.
 
 ### Magic Conversion
 
-If you need a value where it's type implement `FromStr()` trait you can assign it 
-by just use literl string.
+If you need a value where its type implement `FromStr()` trait you can use a literal 
+string to build it:
 
 ```rust
 # use rstest::rstest;

@@ -212,8 +212,8 @@
 //!
 //! ## Magic Conversion
 //!
-//! If you need a value where it's type implement `FromStr()` trait you
-//! can assign it by just use literl string.
+//! If you need a value where its type implement `FromStr()` trait you
+//! can use a literal string to build it.
 //!
 //! ```
 //! # use rstest::rstest;
@@ -299,8 +299,7 @@ use quote::ToTokens;
 /// }
 /// ```
 /// The `expression` could be any valid rust expression, even an `async` block if you need.
-///
-/// If the type implements `FromStr` trait you can define it with a literal string.
+/// Moreover, if the type implements `FromStr` trait you can use a literal string to build it.
 ///
 /// ```
 /// # use rstest::*;
@@ -316,7 +315,6 @@ use quote::ToTokens;
 /// }
 /// ```
 ///
-/// In this case is not so useful but
 /// # Async
 ///
 /// If you need you can write `async` fixtures to use in your `async` tests. Simply use `async`
@@ -617,8 +615,8 @@ pub fn fixture(
 ///
 /// ### Magic Conversion
 ///
-/// You can use the magic conversion feature every time you would define a varible
-/// where it's type define `FromStr` trat (so you can parse a string to build it).
+/// You can use the magic conversion feature every time you would define a variable
+/// where its type define `FromStr` trait: test will parse the string to build the value.
 ///
 /// ```
 /// # use rstest::rstest;
