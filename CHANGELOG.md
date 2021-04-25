@@ -9,7 +9,13 @@
 
 ### Changed
 
+- `#[default]` arg attribute cannot use key = arbitrary rust expression syntax 
+(is unstable https://github.com/rust-lang/rust/issues/78835). So we switched
+to `#[default(expression)]` syntax. (See #117) 
+
 ### Fixed
+
+- #117 introduced an unstable syntax
 
 ## [0.7.0] 2021/3/21
 

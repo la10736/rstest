@@ -14,7 +14,7 @@ following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.7.1"
+rstest = "0.8.0"
 ```
 
 ### Fixture
@@ -244,7 +244,7 @@ using just some of its arguments.
 
 ```rust
 #[fixture]
-fn user(#[default="Alice"] name: &str, #[default=22] age: u8) -> User {
+fn user(#[default("Alice")] name: &str, #[default(22)] age: u8) -> User {
     User::new(name, age)
 }
 

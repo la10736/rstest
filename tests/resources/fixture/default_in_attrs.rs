@@ -1,12 +1,12 @@
 use rstest::{fixture, rstest};
 
 #[fixture]
-pub fn simple(#[default = 42] value: u32) -> u32 {
+pub fn simple(#[default(42)] value: u32) -> u32 {
     value
 }
 
 #[fixture]
-pub fn double(#[default = 21] value: u32, #[default = 2] mult: u32) -> u32 {
+pub fn double(#[default(20 + 1)] value: u32, #[default(1 + 1)] mult: u32) -> u32 {
     value * mult
 }
 
@@ -16,7 +16,7 @@ pub fn middle() -> u32 {
 }
 
 #[fixture]
-pub fn mixed(#[default = 21] value: u32, middle: u32, #[default = 4] mult: u32) -> u32 {
+pub fn mixed(#[default(21)] value: u32, middle: u32, #[default(2 + 2)] mult: u32) -> u32 {
     value * mult / middle
 }
 

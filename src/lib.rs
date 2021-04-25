@@ -279,7 +279,7 @@ use quote::ToTokens;
 ///
 /// # Default values
 ///
-/// If you need to define argument default value you can use `#[default = expression]`
+/// If you need to define argument default value you can use `#[default(expression)]`
 /// argument's attribute:
 ///
 /// ```
@@ -287,9 +287,9 @@ use quote::ToTokens;
 ///
 /// #[fixture]
 /// fn injected(
-///     #[default = 21]
+///     #[default(21)]
 ///     twenty_one: i32,
-///     #[default = 2]
+///     #[default(1 + 1)]
 ///     two: i32
 /// ) -> i32 { twenty_one * two }
 ///
@@ -308,7 +308,7 @@ use quote::ToTokens;
 /// # struct DbConnection {}
 /// #[fixture]
 /// fn db_connection(
-///     #[default = "127.0.0.1:9000"]
+///     #[default("127.0.0.1:9000")]
 ///     addr: SocketAddr
 /// ) -> DbConnection {
 ///     // create connection
@@ -544,8 +544,8 @@ pub fn fixture(
 ///
 /// #[fixture]
 /// fn user(
-///     #[default = "Alice"] name: impl AsRef<str>,
-///     #[default = 22] age: u8
+///     #[default("Alice")] name: impl AsRef<str>,
+///     #[default(22)] age: u8
 /// ) -> User { User(name.as_ref().to_owned(), age) }
 ///
 /// #[rstest]
@@ -1004,8 +1004,8 @@ pub fn fixture(
 /// #
 /// # #[fixture]
 /// # fn user(
-/// #     #[default = "Alice"] name: impl AsRef<str>,
-/// #     #[default = 22] age: u8
+/// #     #[default("Alice")] name: impl AsRef<str>,
+/// #     #[default(22)] age: u8
 /// # ) -> User { User(name.as_ref().to_owned(), age) }
 /// #
 /// #[rstest(user("Bob"))]

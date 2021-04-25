@@ -15,17 +15,17 @@ impl core::str::FromStr for MyType {
 }
 
 #[fixture]
-fn base(#[default = "1.2.3.4"] ip: Ipv4Addr, #[default = r#"8080"#] port: u16) -> SocketAddr {
+fn base(#[default("1.2.3.4")] ip: Ipv4Addr, #[default(r#"8080"#)] port: u16) -> SocketAddr {
     SocketAddr::new(ip.into(), port)
 }
 
 #[fixture]
-fn fail(#[default = "error"] t: MyType) -> MyType {
+fn fail(#[default("error")] t: MyType) -> MyType {
     t
 }
 
 #[fixture]
-fn valid(#[default = "some"] t: MyType) -> MyType {
+fn valid(#[default("some")] t: MyType) -> MyType {
     t
 }
 
@@ -35,7 +35,7 @@ fn test_base(base: SocketAddr) {
 }
 
 #[fixture]
-fn byte_array(#[default = b"1234"] some: &[u8]) -> usize {
+fn byte_array(#[default(b"1234")] some: &[u8]) -> usize {
     some.len()
 }
 

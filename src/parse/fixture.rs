@@ -123,7 +123,7 @@ impl VisitMut for DefaultsFunctionExtractor {
             node,
             |a| attr_is(a, "default"),
             |a, name| {
-                syn::parse2::<DefValue>(a.tokens).map(|d| ArgumentValue::new(name.clone(), d.0))
+                a.parse_args::<Expr>().map(|e| ArgumentValue::new(name.clone(), e))
             },
         ) {
             match r {
@@ -400,7 +400,7 @@ mod extend {
         #[test]
         fn use_default_values_attributes() {
             let to_parse = r#"
-                fn my_fix(#[default = 2] f1: &str, #[default = (vec![1,2], "s")] f2: (Vec<u32>, &str)) {}
+                fn my_fix(#[default(2)] f1: &str, #[default((vec![1,2], "s"))] f2: (Vec<u32>, &str)) {}
             "#;
 
             let mut item_fn: ItemFn = to_parse.ast();
