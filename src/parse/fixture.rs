@@ -76,16 +76,6 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
     }
 }
 
-#[derive(Debug)]
-struct DefValue(Expr);
-
-impl Parse for DefValue {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<Token![ = ]>()?;
-        Ok(DefValue(input.parse::<Expr>()?))
-    }
-}
-
 /// Simple struct used to visit function attributes and extract Fixtures and
 /// eventualy parsing errors
 #[derive(Default)]
@@ -123,7 +113,8 @@ impl VisitMut for DefaultsFunctionExtractor {
             node,
             |a| attr_is(a, "default"),
             |a, name| {
-                a.parse_args::<Expr>().map(|e| ArgumentValue::new(name.clone(), e))
+                a.parse_args::<Expr>()
+                    .map(|e| ArgumentValue::new(name.clone(), e))
             },
         ) {
             match r {
@@ -441,7 +432,10 @@ mod extend {
                 info.attributes.extract_default_type(),
                 Some(parse_quote! { -> impl Iterator<Item=(u32, i32)> })
             );
-            assert_eq!(attrs("#[simple]#[first(comp)]#[second::default]#[last::more]"), item_fn.attrs);
+            assert_eq!(
+                attrs("#[simple]#[first(comp)]#[second::default]#[last::more]"),
+                item_fn.attrs
+            );
         }
 
         #[test]
@@ -469,7 +463,10 @@ mod extend {
                 info.attributes.extract_partial_type(2),
                 Some(parse_quote! { -> impl Iterator<Item=(u32, i32, K)> })
             );
-            assert_eq!(attrs("#[simple]#[first(comp)]#[second::default]#[last::more]"), item_fn.attrs);
+            assert_eq!(
+                attrs("#[simple]#[first(comp)]#[second::default]#[last::more]"),
+                item_fn.attrs
+            );
         }
 
         mod raise_error {
