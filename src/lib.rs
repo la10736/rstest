@@ -210,6 +210,22 @@
 //!
 //! This will generate a test for each combination of `state` and `event`.
 //!
+//! ## Magic Conversion
+//!
+//! If you need a value where it's type implement `FromStr()` trait you
+//! can assign it by just use literl string.
+//!
+//! ```
+//! # use rstest::rstest;
+//! # use std::net::SocketAddr;
+//! #[rstest]
+//! #[case("1.2.3.4:8080", 8080)]
+//! #[case("127.0.0.1:9000", 9000)]
+//! fn check_port(#[case] addr: SocketAddr, #[case] expected: u16) {
+//!     assert_eq!(expected, addr.port());
+//! }
+//! ```
+//! You can use this feature also in value list and in fixture default value.
 
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
@@ -284,6 +300,23 @@ use quote::ToTokens;
 /// ```
 /// The `expression` could be any valid rust expression, even an `async` block if you need.
 ///
+/// If the type implements `FromStr` trait you can define it with a literal string.
+///
+/// ```
+/// # use rstest::*;
+/// # use std::net::SocketAddr;
+/// # struct DbConnection {}
+/// #[fixture]
+/// fn db_connection(
+///     #[default = "127.0.0.1:9000"]
+///     addr: SocketAddr
+/// ) -> DbConnection {
+///     // create connection
+/// # DbConnection{}
+/// }
+/// ```
+///
+/// In this case is not so useful but
 /// # Async
 ///
 /// If you need you can write `async` fixtures to use in your `async` tests. Simply use `async`
@@ -582,6 +615,23 @@ pub fn fixture(
 /// }
 /// ```
 ///
+/// ### Magic Conversion
+///
+/// You can use the magic conversion feature every time you would define a varible
+/// where it's type define `FromStr` trat (so you can parse a string to build it).
+///
+/// ```
+/// # use rstest::rstest;
+/// # use std::path::PathBuf;
+/// # fn count_words(path: PathBuf) -> usize {0}
+/// #[rstest]
+/// #[case("resources/empty", 0)]
+/// #[case("resources/divine_commedy", 101.698)]
+/// fn test_count_words(#[case] path: PathBuf, #[case] expected: usize) {
+///     assert_eq!(expected, count_words(path))
+/// }
+/// ```
+///
 /// ### Optional case description
 ///
 /// Optionally you can give a _description_ to every case simple by follow `case`
@@ -723,11 +773,23 @@ pub fn fixture(
 /// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
+/// Also value list implements the magic conversion feature: every time the value type
+/// implements `FromStr` trait you can use a literal string to define it.
+///
 /// ## Use Parametrize definition in more tests
 ///
 /// If you need to use a test list for more than one test you can use
 /// [`rstest_reuse`](https://crates.io/crates/rstest_reuse) crate.
 /// With this helper crate you can define a template and use it everywhere.
+///
+/// ```
+/// # use rstest::rstest;
+/// # use std::net::SocketAddr;
+/// #[rstest]
+/// fn given_port(#[values("1.2.3.4:8000", "4.3.2.1:8000", "127.0.0.1:8000")] addr: SocketAddr) {
+///     assert_eq(8000, addr.port())
+/// }
+/// ```
 ///
 /// ```rust,ignore
 /// use rstest::rstest;

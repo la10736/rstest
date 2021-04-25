@@ -1,8 +1,11 @@
 # Changelog
 
-## [0.7.1] Unreleased
+## [0.8.0] Unreleased
 
 ### Add
+
+- Magic Conversion: use literal string for define values where type implements 
+`FromStr` trait (See #111)
 
 ### Changed
 

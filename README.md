@@ -117,6 +117,23 @@ fn it_works(a: u32, b: u32) {
 
 See [`rstest_reuse`][reuse-crate-link] for more dettails.
 
+### Magic Conversion
+
+If you need a value where it's type implement `FromStr()` trait you can assign it 
+by just use literl string.
+
+```rust
+# use rstest::rstest;
+# use std::net::SocketAddr;
+#[rstest]
+#[case("1.2.3.4:8080", 8080)]
+#[case("127.0.0.1:9000", 9000)]
+fn check_port(#[case] addr: SocketAddr, #[case] expected: u16) {
+    assert_eq!(expected, addr.port());
+}
+```
+You can use this feature also in value list and in fixture default value.
+
 ### Async
 
 `rstest` provides out of the box `async` support. Just mark your
