@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.0] Unreleased
+## [0.8.0] 2021/4/25
 
 ### Add
 
