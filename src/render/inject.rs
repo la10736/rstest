@@ -194,10 +194,32 @@ mod should {
         }
     }
 
-    #[test]
-    fn implement_magic_conversion() {
-        let function = "fn test(arg: MyType){}".ast();
-        let arg = fn_args(&function).nth(0).unwrap();
+    #[rstest]
+    #[case::implement_it(
+        "fn test(arg: MyType){}",
+        0,
+        r#"let arg = "value to convert" as MyType;"#
+    )]
+    #[case::discard_impl(
+        "fn test(arg: impl AsRef<str>){}",
+        0,
+        r#"let arg = "value to convert";"#
+    )]
+    #[case::discard_generic_type(
+        "fn test<S: AsRef<str>>(arg: S){}",
+        0,
+        r#"let arg = "value to convert";"#
+    )]
+    fn handle_magic_conversion(#[case] fn_str: &str, #[case] n_arg: usize, #[case] expected: &str) {
+        let function = fn_str.ast();
+        let arg = fn_args(&function).nth(n_arg).unwrap();
+        let generics = function
+            .sig
+            .generics
+            .type_params()
+            .map(|tp| &tp.ident)
+            .cloned()
+            .collect::<Vec<_>>();
 
         let mut resolver = std::collections::HashMap::new();
         let expr = expr(r#""value to convert""#);
@@ -205,12 +227,12 @@ mod should {
 
         let ag = ArgumentResolver {
             resolver: &resolver,
-            generic_types_names: &[],
+            generic_types_names: &generics,
             magic_conversion: &_mock_conversion_code,
         };
 
         let injected = ag.resolve(&arg).unwrap();
 
-        assert_eq!(injected, r#"let arg = "value to convert" as MyType;"#.ast());
+        assert_eq!(injected, expected.ast());
     }
 }
