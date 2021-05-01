@@ -102,9 +102,16 @@ impl VisitMut for FixturesFunctionExtractor {
 }
 
 #[derive(Default)]
-pub(crate) struct ReplacerFutureAttribute(pub(crate) Vec<syn::Error>);
+pub(crate) struct ReplaceFutureAttribute(Vec<syn::Error>);
 
-impl VisitMut for ReplacerFutureAttribute {
+impl ReplaceFutureAttribute {
+    pub(crate) fn replace(item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
+        Self::default().visit_item_fn_mut(item_fn);
+        Ok(())
+    }
+}
+
+impl VisitMut for ReplaceFutureAttribute {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         match node {
             FnArg::Typed(t) => {
