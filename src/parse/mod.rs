@@ -30,6 +30,7 @@ pub(crate) mod fixture;
 pub(crate) mod rstest;
 pub(crate) mod testcase;
 pub(crate) mod vlist;
+pub(crate) mod future;
 
 pub(crate) trait ExtendWithFunctionAttrs {
     fn extend_with_function_attrs(

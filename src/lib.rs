@@ -246,10 +246,7 @@ mod utils;
 
 use syn::{parse_macro_input, ItemFn};
 
-use crate::parse::{
-    fixture::{FixtureInfo, ReplaceFutureAttribute},
-    rstest::RsTestInfo,
-};
+use crate::parse::{fixture::FixtureInfo, future::ReplaceFutureAttribute, rstest::RsTestInfo};
 use parse::ExtendWithFunctionAttrs;
 use quote::ToTokens;
 
