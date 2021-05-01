@@ -460,6 +460,7 @@ mod cases {
             .fail("my_async_test::case_2_fail")
             .ok("my_async_test::case_3_pass_panic")
             .fail("my_async_test::case_4_fail_panic")
+            .ok("my_async_test_revert::case_1_pass")
             .assert(output);
     }
 
