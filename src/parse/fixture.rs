@@ -106,8 +106,13 @@ pub(crate) struct ReplaceFutureAttribute(Vec<syn::Error>);
 
 impl ReplaceFutureAttribute {
     pub(crate) fn replace(item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        Self::default().visit_item_fn_mut(item_fn);
-        Ok(())
+        let mut visitor = Self::default();
+        visitor.visit_item_fn_mut(item_fn);
+        if visitor.0.is_empty() {
+            Ok(())
+        } else {
+            Err(visitor.0.into())
+        }
     }
 }
 
