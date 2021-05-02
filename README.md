@@ -110,7 +110,7 @@ use rstest_reuse::{self, *};
 fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
 
 #[apply(two_simple_cases)]
-fn it_works(a: u32, b: u32) {
+fn it_works(#[case] a: u32, #[case] b: u32) {
     assert!(a == b);
 }
 ```
