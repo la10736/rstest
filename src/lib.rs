@@ -345,7 +345,7 @@ use quote::ToTokens;
 ///     assert_eq!(42, async_fixture.await)
 /// }
 /// ```
-/// If you need, you can use `#[future]` attribute also with an inplicit lifetime reference
+/// If you need, you can use `#[future]` attribute also with an implicit lifetime reference
 /// because the macro will replace the implicit lifetime with an explicit one.
 ///
 /// # Partial Injection
