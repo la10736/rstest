@@ -14,21 +14,12 @@ impl ReplaceFutureAttribute {
         let mut visitor = Self::default();
         visitor.visit_item_fn_mut(item_fn);
         if !visitor.lifetimes.is_empty() {
-            let mut generics = visitor
-                .lifetimes
-                .into_iter()
-                .map(|lt| {
-                    syn::GenericParam::Lifetime(syn::LifetimeDef {
-                        lifetime: lt,
-                        attrs: Default::default(),
-                        colon_token: None,
-                        bounds: Default::default(),
-                    })
-                })
-                .collect::<Vec<_>>();
-            generics.extend(item_fn.sig.generics.params.iter().cloned());
+            let all = visitor.lifetimes
+                    .iter()
+                    .map(|lt| lt as &dyn ToTokens)
+                    .chain(item_fn.sig.generics.params.iter().map(|gp| gp as &dyn ToTokens));
             item_fn.sig.generics = parse_quote! {
-                <#(#generics),*>
+                <#(#all),*>
             };
         }
         if visitor.errors.is_empty() {
@@ -39,15 +30,20 @@ impl ReplaceFutureAttribute {
     }
 }
 
+fn extract_arg_attributes(node: &mut syn::PatType, predicate: fn(a: &syn::Attribute) -> bool) -> Vec<syn::Attribute> {
+    let attrs = std::mem::take(&mut node.attrs);
+    let (extracted, attrs): (Vec<_>, Vec<_>) =
+        attrs.into_iter().partition(predicate);
+    node.attrs = attrs;
+    extracted
+}
+
 impl VisitMut for ReplaceFutureAttribute {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         let ident = node.maybe_ident().cloned().unwrap();
         match node {
             FnArg::Typed(t) => {
-                let attrs = std::mem::take(&mut t.attrs);
-                let (futures, attrs): (Vec<_>, Vec<_>) =
-                    attrs.into_iter().partition(|a| attr_is(a, "future"));
-                t.attrs = attrs;
+                let futures = extract_arg_attributes(t, |a| attr_is(a, "future"));
                 if futures.is_empty() {
                     return;
                 } else if futures.len() > 1 {
