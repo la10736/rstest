@@ -322,18 +322,31 @@ use quote::ToTokens;
 ///
 /// ```
 /// use rstest::*;
-/// # use std::future::Future;
 ///
 /// #[fixture]
 /// async fn async_fixture() -> i32 { 42 }
 ///
 ///
 /// #[rstest]
-/// async fn the_test(async_fixture: impl Future<Output = i32>) {
+/// async fn the_test(#[future] async_fixture: i32) {
 ///     assert_eq!(42, async_fixture.await)
 /// }
 /// ```
+/// The `#[future]` argument attribute helps to remove the `impl Future<Output = T>` boilerplate.
+/// In this case the macro expands it in:
 ///
+/// ```
+/// # use rstest::*;
+/// # use std::future::Future;
+/// # #[fixture]
+/// # async fn async_fixture() -> i32 { 42 }
+/// #[rstest]
+/// async fn the_test(async_fixture: impl std::future::Future<Output = i32>) {
+///     assert_eq!(42, async_fixture.await)
+/// }
+/// ```
+/// If you need, you can use `#[future]` attribute also with an inplicit lifetime reference
+/// because the macro will replace the implicit lifetime with an explicit one.
 ///
 /// # Partial Injection
 ///
@@ -843,6 +856,22 @@ pub fn fixture(
 /// async-std = { version = "1.5", features = ["attributes"] }
 /// ```
 ///
+/// If your test input is an async value (fixture or test parameter) you can use `#[future]`
+/// attribute to remove `impl Future<Output = T>` boilerplate and just use `T`:
+///
+/// ```
+/// use rstest::*;
+/// #[fixture]
+/// async fn base() -> u32 { 42 }
+///
+/// #[rstest]
+/// #[case(21, async { 2 })]
+/// #[case(6, async { 7 })]
+/// async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
+///     assert_eq!(expected, base.await / div.await);
+/// }
+/// ```
+///
 /// ## Inject Test Attribute
 ///
 /// If you would like to use another `test` attribute for your test you can simply
@@ -858,7 +887,7 @@ pub fn fixture(
 /// #[case(2, async { 4 })]
 /// #[case(21, async { 42 })]
 /// #[actix_rt::test]
-/// async fn my_async_test(#[case] a: u32, #[case] result: impl Future<Output=u32>) {
+/// async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
 ///     assert_eq!(2 * a, result.await);
 /// }
 /// ```

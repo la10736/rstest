@@ -164,6 +164,22 @@ features list in your `Cargo.toml`:
 async-std = { version = "1.5", features = ["attributes"] }
 ```
 
+If your test input is an async value (fixture or test parameter) you can use `#[future]`
+attribute to remove `impl Future<Output = T>` boilerplate and just use `T`:
+
+```rust
+use rstest::*;
+#[fixture]
+async fn base() -> u32 { 42 }
+
+#[rstest]
+#[case(21, async { 2 })]
+#[case(6, async { 7 })]
+async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
+    assert_eq!(expected, base.await / div.await);
+}
+```
+
 ### Inject Test Attribute
 
 If you would like to use another `test` attribute for your test you can simply 
@@ -179,7 +195,7 @@ use std::future::Future;
 #[case(2, async { 4 })]
 #[case(21, async { 42 })]
 #[actix_rt::test]
-async fn my_async_test(#[case] a: u32, result: #[case] impl Future<Output=u32>) {
+async fn my_async_test(#[case] a: u32, result: #[case] #[future] u32) {
     assert_eq!(2 * a, result.await);
 }
 ```
