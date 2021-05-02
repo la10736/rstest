@@ -14,10 +14,18 @@ impl ReplaceFutureAttribute {
         let mut visitor = Self::default();
         visitor.visit_item_fn_mut(item_fn);
         if !visitor.lifetimes.is_empty() {
-            let all = visitor.lifetimes
-                    .iter()
-                    .map(|lt| lt as &dyn ToTokens)
-                    .chain(item_fn.sig.generics.params.iter().map(|gp| gp as &dyn ToTokens));
+            let all = visitor
+                .lifetimes
+                .iter()
+                .map(|lt| lt as &dyn ToTokens)
+                .chain(
+                    item_fn
+                        .sig
+                        .generics
+                        .params
+                        .iter()
+                        .map(|gp| gp as &dyn ToTokens),
+                );
             item_fn.sig.generics = parse_quote! {
                 <#(#all),*>
             };
@@ -30,17 +38,19 @@ impl ReplaceFutureAttribute {
     }
 }
 
-fn extract_arg_attributes(node: &mut syn::PatType, predicate: fn(a: &syn::Attribute) -> bool) -> Vec<syn::Attribute> {
+fn extract_arg_attributes(
+    node: &mut syn::PatType,
+    predicate: fn(a: &syn::Attribute) -> bool,
+) -> Vec<syn::Attribute> {
     let attrs = std::mem::take(&mut node.attrs);
-    let (extracted, attrs): (Vec<_>, Vec<_>) =
-        attrs.into_iter().partition(predicate);
+    let (extracted, attrs): (Vec<_>, Vec<_>) = attrs.into_iter().partition(predicate);
     node.attrs = attrs;
     extracted
 }
 
 impl VisitMut for ReplaceFutureAttribute {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        let ident = node.maybe_ident().cloned().unwrap();
+        let ident = node.maybe_ident().cloned();
         match node {
             FnArg::Typed(t) => {
                 let futures = extract_arg_attributes(t, |a| attr_is(a, "future"));
@@ -69,6 +79,7 @@ impl VisitMut for ReplaceFutureAttribute {
                     _ => {}
                 };
                 if let Reference(tr) = ty.as_mut() {
+                    let ident = ident.unwrap();
                     if tr.lifetime.is_none() {
                         let lifetime = syn::Lifetime {
                             apostrophe: ident.span(),
