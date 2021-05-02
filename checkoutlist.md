@@ -8,7 +8,7 @@
   - [ ] Nightly: `RSTEST_TEST_CHANNEL=nightly; cargo +${RSTEST_TEST_CHANNEL} test`
 - [ ] Check Cargo.toml version
 - [ ] Create docs and checks links
-- [ ] Check CHANGELOG: **RELEASE DATE**
+- [ ] Check CHANGELOG: **RELEASE DATE** and remove empty blocks
 - [ ] Check README
 - [ ] Create tag (Use github release)
 - [ ] prepare deploy `cargo publish --dry-run`

@@ -28,7 +28,7 @@ lazy_static = "1.4.0"
 rstest_test = "0.2.0"
 temp_testdir = "0.2.3"
 # To compile doc tests
-rstest = "0.8.0"
+rstest = "0.9.0"
 
 [build-dependencies]
 rustc_version = "0.3.3"
