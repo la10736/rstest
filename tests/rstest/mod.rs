@@ -1276,4 +1276,42 @@ mod should_show_correct_errors {
             .unindent()
         );
     }
+
+    #[test]
+    fn if_try_to_use_future_on_an_impl() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
+                  --> {}/src/lib.rs:90:57
+                   |
+                90 | async fn error_future_on_impl_type(#[case] #[future] s: impl AsRef<str>) {{}}
+                   |                                                         ^^^^^^^^^^^^^^^
+                ",
+                name
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_try_to_use_future_more_that_once() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
+                  --> {}/src/lib.rs:94:54
+                   |
+                94 | async fn error_future_on_impl_type(#[case] #[future] #[future] a: i32) {{}}
+                   |                                                      ^^^^^^^^^
+                ",
+                name
+            )
+            .unindent()
+        );
+    }
 }
