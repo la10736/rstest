@@ -4,6 +4,8 @@
 
 ### Add
 
+- `#[future]` arg attribute to remove `impl Future<>` boilerplate. (See #98) 
+
 ### Changed
 
 ### Fixed
