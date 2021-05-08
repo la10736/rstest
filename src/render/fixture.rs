@@ -361,6 +361,20 @@ mod should {
             "fn partial_1<T: IntoIterator>(mut i: T) where T::Item: Copy {}",
         ]
     )]
+    #[case::not_remove_const_generics("fn test<const N:usize>(v: [u32; N]) -> [i32; N] {}",
+        vec![
+            "fn default<const N:usize>() -> [i32; N] {}",
+            "fn partial_1<const N:usize>(v: [u32; N]) -> [i32; N] {}",
+        ]
+    )]
+    #[case::remove_const_generics("fn test<const N:usize>(a: i32, v: [u32; N]) {}",
+        vec![
+            "fn default() {}",
+            "fn partial_1(a:i32) {}",
+            "fn partial_2<const N:usize>(a:i32, v: [u32; N]) {}",
+        ]
+    )]
+
     fn clean_generics(#[case] code: &str, #[case] expected: Vec<&str>) {
         let (item_fn, out) = parse_fixture(code);
         let n_args = item_fn.sig.inputs.iter().count();

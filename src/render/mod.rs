@@ -284,9 +284,17 @@ fn generics_clean_up<'a>(
     struct Used(std::collections::HashSet<proc_macro2::Ident>);
     impl<'ast> syn::visit::Visit<'ast> for Used {
         fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
-            if i.qself.is_none() && i.path.leading_colon.is_none() && i.path.segments.len() == 1 {
-                self.0
-                    .insert(i.path.segments.first().unwrap().ident.clone());
+            if let Some(id) = i.path.get_ident() {
+                self.0.insert(id.clone());
+            }
+        }
+        fn visit_type_array(&mut self, i: &'ast syn::TypeArray) {
+            let ep = match &i.len {
+                syn::Expr::Path(ep) => ep,
+                _ => return,
+            };
+            if let Some(id) = ep.path.get_ident() {
+                self.0.insert(id.clone());
             }
         }
     }
@@ -298,8 +306,9 @@ fn generics_clean_up<'a>(
         .params
         .into_iter()
         .filter(|p| match p {
-            syn::GenericParam::Type(tp) if !outs.0.contains(&tp.ident) => false,
-            _ => true,
+            syn::GenericParam::Type(syn::TypeParam { ident, .. })
+            | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => outs.0.contains(ident),
+            syn::GenericParam::Lifetime(_) => true,
         })
         .collect();
     result.where_clause.as_mut().map(|mut w| {
