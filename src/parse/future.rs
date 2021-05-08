@@ -9,26 +9,27 @@ pub(crate) struct ReplaceFutureAttribute {
     errors: Vec<syn::Error>,
 }
 
+fn extend_generics_with_lifetimes<'a, 'b>(
+    generics: impl Iterator<Item = &'a syn::GenericParam>,
+    lifetimes: impl Iterator<Item = &'b syn::Lifetime>,
+) -> syn::Generics {
+    let all = lifetimes
+        .map(|lt| lt as &dyn ToTokens)
+        .chain(generics.map(|gp| gp as &dyn ToTokens));
+    parse_quote! {
+                <#(#all),*>
+    }
+}
+
 impl ReplaceFutureAttribute {
     pub(crate) fn replace(item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
         let mut visitor = Self::default();
         visitor.visit_item_fn_mut(item_fn);
         if !visitor.lifetimes.is_empty() {
-            let all = visitor
-                .lifetimes
-                .iter()
-                .map(|lt| lt as &dyn ToTokens)
-                .chain(
-                    item_fn
-                        .sig
-                        .generics
-                        .params
-                        .iter()
-                        .map(|gp| gp as &dyn ToTokens),
-                );
-            item_fn.sig.generics = parse_quote! {
-                <#(#all),*>
-            };
+            item_fn.sig.generics = extend_generics_with_lifetimes(
+                item_fn.sig.generics.params.iter(),
+                visitor.lifetimes.iter(),
+            );
         }
         if visitor.errors.is_empty() {
             Ok(())
