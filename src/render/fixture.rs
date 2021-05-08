@@ -347,38 +347,38 @@ mod should {
         }
     }
 
-    #[test]
-    fn clean_generics_in_partial_methods() {
-        let (_, out) = parse_fixture(
-            r#"
-                    pub fn test<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
-                    { }
-                    "#,
-        );
+    #[rstest]
+    #[case::base("fn test<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F {}",
+        vec![
+            "fn default<F: ToString>() -> F {}",
+            "fn partial_1<S: AsRef<str>, F: ToString>(mut s: S) -> F {}",
+            "fn partial_2<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F {}",
+        ]
+    )]
+    #[case::associated_type("fn test<T: IntoIterator>(mut i: T) where T::Item: Copy {}",
+        vec![
+            "fn default() {}",
+            "fn partial_1<T: IntoIterator>(mut i: T) where T::Item: Copy {}",
+        ]
+    )]
+    fn clean_generics(#[case] code: &str, #[case] expected: Vec<&str>) {
+        let (item_fn, out) = parse_fixture(code);
+        let n_args = item_fn.sig.inputs.iter().count();
 
-        let partials = (1..=2)
-            .map(|n| {
-                select_method(out.core_impl.clone(), format!("partial_{}", n))
-                    .unwrap()
-                    .sig
-            })
+        let mut signatures = vec![select_method(out.core_impl.clone(), "default").unwrap().sig];
+        signatures.extend((1..=n_args).map(|n| {
+            select_method(out.core_impl.clone(), format!("partial_{}", n))
+                .unwrap()
+                .sig
+        }));
+
+        let expected = expected
+            .into_iter()
+            .map(parse_str::<ItemFn>)
+            .map(|f| f.unwrap().sig)
             .collect::<Vec<_>>();
 
-        let expected = vec![
-                    parse_str::<ItemFn>(
-                        r#"
-                        pub fn partial_1<S: AsRef<str>, F: ToString>(mut s: S) -> F
-                        { }
-                        "#
-                    ).unwrap().sig,
-                    parse_str::<ItemFn>(
-                        r#"
-                        pub fn partial_2<S: AsRef<str>, U: AsRef<u32>, F: ToString>(mut s: S, v: U) -> F
-                        { }
-                        "#
-                    ).unwrap().sig];
-
-        assert_eq!(expected, partials);
+        assert_eq!(expected, signatures);
     }
 
     #[test]

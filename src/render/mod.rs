@@ -309,13 +309,32 @@ fn generics_clean_up<'a>(
             .into_iter()
             .filter(|wp| {
                 where_predicate_bounded_type(wp)
-                    .and_then(MaybeIdent::maybe_ident)
+                    .and_then(|t| first_type_path_segment_ident(t))
                     .map(|t| outs.0.contains(t))
                     .unwrap_or(true)
             })
             .collect()
     });
     result
+}
+
+// If type is not self and doesn't starts with :: return the first ident
+// of its path segment: only if is a simple path.
+// If type is a simple ident just return the this ident. That is useful to
+// find the base type for associate type indication
+fn first_type_path_segment_ident(t: &Type) -> Option<&Ident> {
+    match t {
+        Type::Path(tp) if tp.qself.is_none() && tp.path.leading_colon.is_none() => tp
+            .path
+            .segments
+            .iter()
+            .nth(0)
+            .and_then(|ps| match ps.arguments {
+                syn::PathArguments::None => Some(&ps.ident),
+                _ => None,
+            }),
+        _ => None,
+    }
 }
 
 struct TestCaseRender<'a> {
