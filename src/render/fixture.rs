@@ -3,10 +3,10 @@ use syn::{parse_quote, Ident, ItemFn};
 
 use quote::quote;
 
-use super::{generics_clean_up, inject, render_exec_call};
-use crate::parse::fixture::FixtureInfo;
+use super::{inject, render_exec_call};
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
+use crate::{parse::fixture::FixtureInfo, utils::generics_clean_up};
 
 pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let name = &fixture.sig.ident;

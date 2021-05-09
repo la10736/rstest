@@ -65,3 +65,13 @@ impl MaybeType for FnArg {
         }
     }
 }
+
+impl MaybeIdent for syn::GenericParam {
+    fn maybe_ident(&self) -> Option<&Ident> {
+        match self {
+            syn::GenericParam::Type(syn::TypeParam { ident, .. })
+            | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => Some(ident),
+            syn::GenericParam::Lifetime(syn::LifetimeDef { lifetime, .. }) => Some(&lifetime.ident),
+        }
+    }
+}

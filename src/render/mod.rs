@@ -6,10 +6,7 @@ use std::collections::HashMap;
 use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
-use syn::{
-    parse_quote, Attribute, Expr, FnArg, Generics, Ident, ItemFn, Path, ReturnType, Stmt, Type,
-    WherePredicate,
-};
+use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt};
 
 use quote::{format_ident, quote};
 
@@ -263,86 +260,6 @@ fn trace_arguments<'a>(
         })
     } else {
         None
-    }
-}
-
-fn where_predicate_bounded_type(wp: &WherePredicate) -> Option<&Type> {
-    match wp {
-        syn::WherePredicate::Type(pt) => Some(&pt.bounded_ty),
-        _ => None,
-    }
-}
-
-//noinspection RsTypeCheck
-fn generics_clean_up<'a>(
-    original: &Generics,
-    inputs: impl Iterator<Item = &'a FnArg>,
-    output: &ReturnType,
-) -> syn::Generics {
-    use syn::visit::Visit;
-    #[derive(Default, Debug)]
-    struct Used(std::collections::HashSet<proc_macro2::Ident>);
-    impl<'ast> syn::visit::Visit<'ast> for Used {
-        fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
-            if let Some(id) = i.path.get_ident() {
-                self.0.insert(id.clone());
-            }
-        }
-        fn visit_type_array(&mut self, i: &'ast syn::TypeArray) {
-            let ep = match &i.len {
-                syn::Expr::Path(ep) => ep,
-                _ => return,
-            };
-            if let Some(id) = ep.path.get_ident() {
-                self.0.insert(id.clone());
-            }
-        }
-    }
-    let mut outs: Used = Default::default();
-    outs.visit_return_type(output);
-    inputs.for_each(|fn_arg| outs.visit_fn_arg(fn_arg));
-    let mut result: Generics = original.clone();
-    result.params = result
-        .params
-        .into_iter()
-        .filter(|p| match p {
-            syn::GenericParam::Type(syn::TypeParam { ident, .. })
-            | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => outs.0.contains(ident),
-            syn::GenericParam::Lifetime(_) => true,
-        })
-        .collect();
-    result.where_clause.as_mut().map(|mut w| {
-        w.predicates = w
-            .predicates
-            .clone()
-            .into_iter()
-            .filter(|wp| {
-                where_predicate_bounded_type(wp)
-                    .and_then(|t| first_type_path_segment_ident(t))
-                    .map(|t| outs.0.contains(t))
-                    .unwrap_or(true)
-            })
-            .collect()
-    });
-    result
-}
-
-// If type is not self and doesn't starts with :: return the first ident
-// of its path segment: only if is a simple path.
-// If type is a simple ident just return the this ident. That is useful to
-// find the base type for associate type indication
-fn first_type_path_segment_ident(t: &Type) -> Option<&Ident> {
-    match t {
-        Type::Path(tp) if tp.qself.is_none() && tp.path.leading_colon.is_none() => tp
-            .path
-            .segments
-            .iter()
-            .nth(0)
-            .and_then(|ps| match ps.arguments {
-                syn::PathArguments::None => Some(&ps.ident),
-                _ => None,
-            }),
-        _ => None,
     }
 }
 
