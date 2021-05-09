@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Wired behaviour in `#[fixture]` with generics types that have transitive
+reference (See #116)  
+
 ## [0.9.0] 2021/05/2
 
 ### Add
