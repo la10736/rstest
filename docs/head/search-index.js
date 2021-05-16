@@ -1,4 +1,4 @@
 var searchIndex = JSON.parse('{\
-"rstest":{"doc":"This crate will help you to write simpler tests by…","i":[[23,"fixture","rstest","Define a fixture that you can use in all `rstest`\'s test…",null,null],[23,"rstest","","The attribute that you should use for your tests. Your…",null,null]],"p":[]}\
+"rstest":{"doc":"This crate will help you to write simpler tests by …","t":[23,23],"n":["fixture","rstest"],"q":["rstest",""],"d":["Define a fixture that you can use in all <code>rstest</code>’s test …","The attribute that you should use for your tests. Your …"],"i":[0,0],"f":[null,null],"p":[]}\
 }');
-addSearchOptions(searchIndex);initSearch(searchIndex);
+if (window.initSearch) {window.initSearch(searchIndex)};

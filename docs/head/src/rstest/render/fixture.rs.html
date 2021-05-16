@@ -1,4 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/render/fixture.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fixture.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="../../../favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../rstest/index.html'><div class='logo-container'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/render/fixture.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fixture.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../rstest/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -344,19 +347,111 @@
 <span id="344">344</span>
 <span id="345">345</span>
 <span id="346">346</span>
-</pre><div class="example-wrap"><pre class="rust ">
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+</pre><pre class="rust">
 <span class="kw">use</span> <span class="ident">proc_macro2</span>::{<span class="ident">Span</span>, <span class="ident">TokenStream</span>};
-<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">Ident</span>, <span class="ident">ItemFn</span>};
+<span class="kw">use</span> <span class="ident">syn</span>::{<span class="ident">parse_quote</span>, <span class="ident">Ident</span>, <span class="ident">ItemFn</span>};
 
-<span class="kw">use</span> <span class="ident">quote</span>::<span class="ident">quote</span>;
+<span class="kw">use</span> <span class="ident">quote::quote</span>;
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">generics_clean_up</span>, <span class="ident">resolve_args</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::<span class="ident">fixture</span>::<span class="ident">FixtureInfo</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">resolver</span>::{<span class="self">self</span>, <span class="ident">Resolver</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::{<span class="ident">fn_args</span>, <span class="ident">fn_args_idents</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">inject</span>, <span class="ident">render_exec_call</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::resolver</span>::{<span class="self">self</span>, <span class="ident">Resolver</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::utils</span>::{<span class="ident">fn_args</span>, <span class="ident">fn_args_idents</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">parse::fixture::FixtureInfo</span>, <span class="ident">utils::generics_clean_up</span>};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">render</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">fixture</span>: <span class="ident">ItemFn</span>, <span class="ident">info</span>: <span class="ident">FixtureInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenStream</span> {
     <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">ident</span>;
+    <span class="kw">let</span> <span class="ident">asyncness</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">asyncness</span>.<span class="ident">clone</span>();
     <span class="kw">let</span> <span class="ident">vargs</span> <span class="op">=</span> <span class="ident">fn_args_idents</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>).<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">vargs</span>;
     <span class="kw">let</span> <span class="ident">orig_args</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">inputs</span>;
@@ -367,32 +462,41 @@
         .<span class="ident">extract_default_type</span>()
         .<span class="ident">unwrap_or</span>(<span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">output</span>.<span class="ident">clone</span>());
     <span class="kw">let</span> <span class="ident">default_generics</span> <span class="op">=</span>
-        <span class="ident">generics_clean_up</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">generics</span>, <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">empty</span>(), <span class="kw-2">&amp;</span><span class="ident">default_output</span>);
+        <span class="ident">generics_clean_up</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">generics</span>, <span class="ident">std::iter::empty</span>(), <span class="kw-2">&amp;</span><span class="ident">default_output</span>);
     <span class="kw">let</span> <span class="ident">default_where_clause</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">default_generics</span>.<span class="ident">where_clause</span>;
     <span class="kw">let</span> <span class="ident">where_clause</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">generics</span>.<span class="ident">where_clause</span>;
     <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">output</span>;
     <span class="kw">let</span> <span class="ident">visibility</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">vis</span>;
     <span class="kw">let</span> <span class="ident">resolver</span> <span class="op">=</span> (
-        <span class="ident">resolver</span>::<span class="ident">fixtures</span>::<span class="ident">get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">fixtures</span>()),
-        <span class="ident">resolver</span>::<span class="ident">values</span>::<span class="ident">get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">values</span>()),
+        <span class="ident">resolver::fixtures::get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">fixtures</span>()),
+        <span class="ident">resolver::values::get</span>(<span class="ident">info</span>.<span class="ident">data</span>.<span class="ident">values</span>()),
     );
-    <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">resolve_args</span>(<span class="ident">fn_args_idents</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>), <span class="kw-2">&amp;</span><span class="ident">resolver</span>);
+    <span class="kw">let</span> <span class="ident">generics_idents</span> <span class="op">=</span> <span class="ident">generics</span>
+        .<span class="ident">type_params</span>()
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">tp</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">tp</span>.<span class="ident">ident</span>)
+        .<span class="ident">cloned</span>()
+        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">inject::resolve_aruments</span>(<span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">inputs</span>.<span class="ident">iter</span>(), <span class="kw-2">&amp;</span><span class="ident">resolver</span>, <span class="kw-2">&amp;</span><span class="ident">generics_idents</span>);
     <span class="kw">let</span> <span class="ident">partials</span> <span class="op">=</span>
         (<span class="number">1</span>..<span class="op">=</span><span class="ident">orig_args</span>.<span class="ident">len</span>()).<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">render_partial_impl</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>, <span class="ident">n</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>, <span class="kw-2">&amp;</span><span class="ident">info</span>));
-    <span class="macro">quote</span><span class="macro">!</span> {
+
+    <span class="kw">let</span> <span class="ident">call_get</span> <span class="op">=</span> <span class="ident">render_exec_call</span>(<span class="macro">parse_quote!</span> { <span class="self">Self</span><span class="ident">::get</span> }, <span class="ident">args</span>, <span class="ident">asyncness</span>.<span class="ident">is_some</span>());
+    <span class="kw">let</span> <span class="ident">call_impl</span> <span class="op">=</span> <span class="ident">render_exec_call</span>(<span class="macro">parse_quote!</span> { #<span class="ident">name</span> }, <span class="ident">args</span>, <span class="ident">asyncness</span>.<span class="ident">is_some</span>());
+
+    <span class="macro">quote!</span> {
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
         #<span class="ident">visibility</span> <span class="kw">struct</span> #<span class="ident">name</span> {}
 
         <span class="kw">impl</span> #<span class="ident">name</span> {
             #(#<span class="ident">orig_attrs</span>)<span class="op">*</span>
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span> #<span class="ident">generics</span> (#<span class="ident">orig_args</span>) #<span class="ident">output</span> #<span class="ident">where_clause</span> {
-                #<span class="ident">name</span>(#(#<span class="ident">args</span>),<span class="kw-2">*</span>)
+            <span class="kw">pub</span> #<span class="ident">asyncness</span> <span class="kw">fn</span> <span class="ident">get</span> #<span class="ident">generics</span> (#<span class="ident">orig_args</span>) #<span class="ident">output</span> #<span class="ident">where_clause</span> {
+                #<span class="ident">call_impl</span>
             }
 
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">default</span> #<span class="ident">default_generics</span> () #<span class="ident">default_output</span> #<span class="ident">default_where_clause</span> {
+            <span class="kw">pub</span> #<span class="ident">asyncness</span> <span class="kw">fn</span> <span class="ident">default</span> #<span class="ident">default_generics</span> () #<span class="ident">default_output</span> #<span class="ident">default_where_clause</span> {
                 #<span class="ident">inject</span>
-                <span class="self">Self</span>::<span class="ident">get</span>(#(#<span class="ident">args</span>),<span class="kw-2">*</span>)
+                #<span class="ident">call_get</span>
             }
 
             #(#<span class="ident">partials</span>)<span class="op">*</span>
@@ -416,18 +520,31 @@
 
     <span class="kw">let</span> <span class="ident">generics</span> <span class="op">=</span> <span class="ident">generics_clean_up</span>(<span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">generics</span>, <span class="ident">fn_args</span>(<span class="ident">fixture</span>).<span class="ident">take</span>(<span class="ident">n</span>), <span class="kw-2">&amp;</span><span class="ident">output</span>);
     <span class="kw">let</span> <span class="ident">where_clause</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">generics</span>.<span class="ident">where_clause</span>;
+    <span class="kw">let</span> <span class="ident">asyncness</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">asyncness</span>;
 
-    <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">resolve_args</span>(<span class="ident">fn_args_idents</span>(<span class="ident">fixture</span>).<span class="ident">skip</span>(<span class="ident">n</span>), <span class="ident">resolver</span>);
+    <span class="kw">let</span> <span class="ident">genercs_idents</span> <span class="op">=</span> <span class="ident">generics</span>
+        .<span class="ident">type_params</span>()
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">tp</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">tp</span>.<span class="ident">ident</span>)
+        .<span class="ident">cloned</span>()
+        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span>
+        <span class="ident">inject::resolve_aruments</span>(<span class="ident">fixture</span>.<span class="ident">sig</span>.<span class="ident">inputs</span>.<span class="ident">iter</span>().<span class="ident">skip</span>(<span class="ident">n</span>), <span class="ident">resolver</span>, <span class="kw-2">&amp;</span><span class="ident">genercs_idents</span>);
 
     <span class="kw">let</span> <span class="ident">sign_args</span> <span class="op">=</span> <span class="ident">fn_args</span>(<span class="ident">fixture</span>).<span class="ident">take</span>(<span class="ident">n</span>);
-    <span class="kw">let</span> <span class="ident">fixture_args</span> <span class="op">=</span> <span class="ident">fn_args_idents</span>(<span class="ident">fixture</span>);
-    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">Ident</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;partial_{}&quot;</span>, <span class="ident">n</span>), <span class="ident">Span</span>::<span class="ident">call_site</span>());
+    <span class="kw">let</span> <span class="ident">fixture_args</span> <span class="op">=</span> <span class="ident">fn_args_idents</span>(<span class="ident">fixture</span>).<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">Ident::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;partial_{}&quot;</span>, <span class="ident">n</span>), <span class="ident">Span::call_site</span>());
 
-    <span class="macro">quote</span><span class="macro">!</span> {
+    <span class="kw">let</span> <span class="ident">call_get</span> <span class="op">=</span> <span class="ident">render_exec_call</span>(
+        <span class="macro">parse_quote!</span> { <span class="self">Self</span><span class="ident">::get</span> },
+        <span class="kw-2">&amp;</span><span class="ident">fixture_args</span>,
+        <span class="ident">asyncness</span>.<span class="ident">is_some</span>(),
+    );
+
+    <span class="macro">quote!</span> {
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> #<span class="ident">name</span> #<span class="ident">generics</span> (#(#<span class="ident">sign_args</span>),<span class="kw-2">*</span>) #<span class="ident">output</span> #<span class="ident">where_clause</span> {
+        <span class="kw">pub</span> #<span class="ident">asyncness</span> <span class="kw">fn</span> #<span class="ident">name</span> #<span class="ident">generics</span> (#(#<span class="ident">sign_args</span>),<span class="kw-2">*</span>) #<span class="ident">output</span> #<span class="ident">where_clause</span> {
             #<span class="ident">inject</span>
-            <span class="self">Self</span>::<span class="ident">get</span>(#(#<span class="ident">fixture_args</span>),<span class="kw-2">*</span>)
+            #<span class="ident">call_get</span>
         }
     }
 }
@@ -439,10 +556,12 @@
         <span class="ident">parse2</span>, <span class="ident">parse_str</span>, <span class="ident">ItemFn</span>, <span class="ident">ItemImpl</span>, <span class="ident">ItemStruct</span>, <span class="prelude-ty">Result</span>,
     };
 
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">parse</span>::{<span class="ident">Attribute</span>, <span class="ident">Attributes</span>};
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::parse</span>::{<span class="ident">Attribute</span>, <span class="ident">Attributes</span>};
 
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">test</span>::<span class="ident">assert_eq</span>;
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::test::assert_eq</span>;
+    <span class="kw">use</span> <span class="ident">mytest</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">rstest_reuse</span>::<span class="kw-2">*</span>;
 
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
     <span class="kw">struct</span> <span class="ident">FixtureOutput</span> {
@@ -464,23 +583,23 @@
     <span class="kw">fn</span> <span class="ident">parse_fixture</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">code</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ItemFn</span>, <span class="ident">FixtureOutput</span>) {
         <span class="kw">let</span> <span class="ident">item_fn</span> <span class="op">=</span> <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">ItemFn</span><span class="op">&gt;</span>(<span class="ident">code</span>.<span class="ident">as_ref</span>()).<span class="ident">unwrap</span>();
 
-        <span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="ident">render</span>(<span class="ident">item_fn</span>.<span class="ident">clone</span>(), <span class="ident">Default</span>::<span class="ident">default</span>());
+        <span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="ident">render</span>(<span class="ident">item_fn</span>.<span class="ident">clone</span>(), <span class="ident">Default::default</span>());
         (<span class="ident">item_fn</span>, <span class="ident">parse2</span>(<span class="ident">tokens</span>).<span class="ident">unwrap</span>())
     }
 
     <span class="kw">fn</span> <span class="ident">test_maintains_function_visibility</span>(<span class="ident">code</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
         <span class="kw">let</span> (<span class="ident">item_fn</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(<span class="ident">code</span>);
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">item_fn</span>.<span class="ident">vis</span>, <span class="ident">out</span>.<span class="ident">fixture</span>.<span class="ident">vis</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">item_fn</span>.<span class="ident">vis</span>, <span class="ident">out</span>.<span class="ident">orig</span>.<span class="ident">vis</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">item_fn</span>.<span class="ident">vis</span>, <span class="ident">out</span>.<span class="ident">fixture</span>.<span class="ident">vis</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">item_fn</span>.<span class="ident">vis</span>, <span class="ident">out</span>.<span class="ident">orig</span>.<span class="ident">vis</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">select_method</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">impl_code</span>: <span class="ident">ItemImpl</span>, <span class="ident">name</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">syn</span>::<span class="ident">ImplItemMethod</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">select_method</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">impl_code</span>: <span class="ident">ItemImpl</span>, <span class="ident">name</span>: <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">syn::ImplItemMethod</span><span class="op">&gt;</span> {
         <span class="ident">impl_code</span>
             .<span class="ident">items</span>
             .<span class="ident">into_iter</span>()
             .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">ii</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">ii</span> {
-                <span class="ident">syn</span>::<span class="ident">ImplItem</span>::<span class="ident">Method</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">f</span>),
+                <span class="ident">syn::ImplItem::Method</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">f</span>),
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
             })
             .<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">sig</span>.<span class="ident">ident</span> <span class="op">=</span><span class="op">=</span> <span class="ident">name</span>.<span class="ident">as_ref</span>())
@@ -510,7 +629,59 @@
 
         <span class="ident">signature</span>.<span class="ident">ident</span> <span class="op">=</span> <span class="ident">item_fn</span>.<span class="ident">sig</span>.<span class="ident">ident</span>.<span class="ident">clone</span>();
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">item_fn</span>.<span class="ident">sig</span>, <span class="ident">signature</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">item_fn</span>.<span class="ident">sig</span>, <span class="ident">signature</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">template</span>]</span>
+    <span class="attribute">#[<span class="ident">rstest</span>(
+        <span class="ident">method</span> <span class="op">=</span><span class="op">&gt;</span> [<span class="string">&quot;default&quot;</span>, <span class="string">&quot;get&quot;</span>, <span class="string">&quot;partial_1&quot;</span>, <span class="string">&quot;partial_2&quot;</span>, <span class="string">&quot;partial_3&quot;</span>]</span>)
+    ]
+    <span class="attribute">#[<span class="ident">case::async_fn</span>(<span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">case::not_async_fn</span>(<span class="bool-val">false</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">async_fixture_cases</span>(<span class="attribute">#[<span class="ident">case</span>]</span> <span class="ident">is_async</span>: <span class="ident">bool</span>, <span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {}
+
+    <span class="attribute">#[<span class="ident">apply</span>(<span class="ident">async_fixture_cases</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fixture_method_should_be_async_if_fixture_function_is_async</span>(
+        <span class="attribute">#[<span class="ident">case</span>]</span> <span class="ident">is_async</span>: <span class="ident">bool</span>,
+        <span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    ) {
+        <span class="kw">let</span> <span class="ident">prefix</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_async</span> { <span class="string">&quot;async&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;&quot;</span> };
+        <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">r#&quot;
+                    pub {} fn test(mut s: String, v: &amp;u32, a: &amp;mut [i32]) -&gt; u32
+                            where B: Borrow&lt;u32&gt;
+                    {{ }}
+                    &quot;#</span>,
+            <span class="ident">prefix</span>
+        ));
+
+        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="ident">method</span>).<span class="ident">unwrap</span>().<span class="ident">sig</span>;
+
+        <span class="macro">assert_eq!</span>(<span class="ident">is_async</span>, <span class="ident">signature</span>.<span class="ident">asyncness</span>.<span class="ident">is_some</span>());
+    }
+
+    <span class="attribute">#[<span class="ident">apply</span>(<span class="ident">async_fixture_cases</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">fixture_method_should_use_await_if_fixture_function_is_async</span>(
+        <span class="attribute">#[<span class="ident">case</span>]</span> <span class="ident">is_async</span>: <span class="ident">bool</span>,
+        <span class="ident">method</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    ) {
+        <span class="kw">let</span> <span class="ident">prefix</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_async</span> { <span class="string">&quot;async&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;&quot;</span> };
+        <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">r#&quot;
+                    pub {} fn test(mut s: String, v: &amp;u32, a: &amp;mut [i32]) -&gt; u32
+                    {{ }}
+                    &quot;#</span>,
+            <span class="ident">prefix</span>
+        ));
+
+        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="ident">method</span>).<span class="ident">unwrap</span>().<span class="ident">block</span>;
+        <span class="kw">let</span> <span class="ident">last_statment</span> <span class="op">=</span> <span class="ident">body</span>.<span class="ident">stmts</span>.<span class="ident">last</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">is_await</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">last_statment</span> {
+            <span class="ident">syn::Stmt::Expr</span>(<span class="ident">syn::Expr::Await</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
+        };
+
+        <span class="macro">assert_eq!</span>(<span class="ident">is_async</span>, <span class="ident">is_await</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -536,9 +707,9 @@
         )
         .<span class="ident">unwrap</span>();
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>.<span class="ident">sig</span>.<span class="ident">generics</span>, <span class="ident">default_decl</span>.<span class="ident">generics</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">item_fn</span>.<span class="ident">sig</span>.<span class="ident">output</span>, <span class="ident">default_decl</span>.<span class="ident">output</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">default_decl</span>.<span class="ident">inputs</span>.<span class="ident">is_empty</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">expected</span>.<span class="ident">sig</span>.<span class="ident">generics</span>, <span class="ident">default_decl</span>.<span class="ident">generics</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">item_fn</span>.<span class="ident">sig</span>.<span class="ident">output</span>, <span class="ident">default_decl</span>.<span class="ident">output</span>);
+        <span class="macro">assert!</span>(<span class="ident">default_decl</span>.<span class="ident">inputs</span>.<span class="ident">is_empty</span>());
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -557,18 +728,18 @@
             <span class="ident">item_fn</span>.<span class="ident">clone</span>(),
             <span class="ident">FixtureInfo</span> {
                 <span class="ident">attributes</span>: <span class="ident">Attributes</span> {
-                    <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">Type</span>(
+                    <span class="ident">attributes</span>: <span class="macro">vec!</span>[<span class="ident">Attribute::Type</span>(
                         <span class="ident">parse_str</span>(<span class="string">&quot;default&quot;</span>).<span class="ident">unwrap</span>(),
                         <span class="ident">parse_str</span>(<span class="string">&quot;(impl Iterator&lt;Item=u32&gt;, B)&quot;</span>).<span class="ident">unwrap</span>(),
                     )],
                 }
                 .<span class="ident">into</span>(),
-                ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                ..<span class="ident">Default::default</span>()
             },
         );
         <span class="kw">let</span> <span class="ident">out</span>: <span class="ident">FixtureOutput</span> <span class="op">=</span> <span class="ident">parse2</span>(<span class="ident">tokens</span>).<span class="ident">unwrap</span>();
 
-        <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">syn</span>::<span class="ident">ItemFn</span><span class="op">&gt;</span>(
+        <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">syn::ItemFn</span><span class="op">&gt;</span>(
             <span class="string">r#&quot;
                     pub fn default&lt;B&gt;() -&gt; (impl Iterator&lt;Item=u32&gt;, B)
                             where B: Borrow&lt;u32&gt;
@@ -579,7 +750,7 @@
 
         <span class="kw">let</span> <span class="ident">default_decl</span> <span class="op">=</span> <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="string">&quot;default&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">sig</span>;
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>.<span class="ident">sig</span>, <span class="ident">default_decl</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">expected</span>.<span class="ident">sig</span>, <span class="ident">default_decl</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -593,7 +764,7 @@
 
         <span class="kw">let</span> <span class="ident">partials</span> <span class="op">=</span> (<span class="number">1</span>..<span class="op">=</span><span class="number">3</span>)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> {
-                <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>.<span class="ident">clone</span>(), <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;partial_{}&quot;</span>, <span class="ident">n</span>))
+                <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>.<span class="ident">clone</span>(), <span class="macro">format!</span>(<span class="string">&quot;partial_{}&quot;</span>, <span class="ident">n</span>))
                     .<span class="ident">unwrap</span>()
                     .<span class="ident">sig</span>
             })
@@ -601,7 +772,7 @@
 
         <span class="comment">// All 3 methods found</span>
 
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="string">&quot;partial_4&quot;</span>).<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="string">&quot;partial_4&quot;</span>).<span class="ident">is_none</span>());
 
         <span class="kw">let</span> <span class="ident">expected_1</span> <span class="op">=</span> <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">ItemFn</span><span class="op">&gt;</span>(
             <span class="string">r#&quot;
@@ -611,44 +782,58 @@
         )
         .<span class="ident">unwrap</span>();
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected_1</span>.<span class="ident">sig</span>, <span class="ident">partials</span>[<span class="number">0</span>]);
+        <span class="macro">assert_eq!</span>(<span class="ident">expected_1</span>.<span class="ident">sig</span>, <span class="ident">partials</span>[<span class="number">0</span>]);
         <span class="kw">for</span> <span class="ident">p</span> <span class="kw">in</span> <span class="ident">partials</span> {
-            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">item_fn</span>.<span class="ident">sig</span>.<span class="ident">output</span>, <span class="ident">p</span>.<span class="ident">output</span>);
+            <span class="macro">assert_eq!</span>(<span class="ident">item_fn</span>.<span class="ident">sig</span>.<span class="ident">output</span>, <span class="ident">p</span>.<span class="ident">output</span>);
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">clean_generics_in_partial_methods</span>() {
-        <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(
-            <span class="string">r#&quot;
-                    pub fn test&lt;S: AsRef&lt;str&gt;, U: AsRef&lt;u32&gt;, F: ToString&gt;(mut s: S, v: U) -&gt; F
-                    { }
-                    &quot;#</span>,
-        );
+    <span class="attribute">#[<span class="ident">rstest</span>]</span>
+    <span class="attribute">#[<span class="ident">case::base</span>(<span class="string">&quot;fn test&lt;S: AsRef&lt;str&gt;, U: AsRef&lt;u32&gt;, F: ToString&gt;(mut s: S, v: U) -&gt; F {}&quot;</span>,
+        <span class="macro">vec!</span>[
+            <span class="string">&quot;fn default&lt;F: ToString&gt;() -&gt; F {}&quot;</span>,
+            <span class="string">&quot;fn partial_1&lt;S: AsRef&lt;str&gt;, F: ToString&gt;(mut s: S) -&gt; F {}&quot;</span>,
+            <span class="string">&quot;fn partial_2&lt;S: AsRef&lt;str&gt;, U: AsRef&lt;u32&gt;, F: ToString&gt;(mut s: S, v: U) -&gt; F {}&quot;</span>,
+        ]</span>
+    )]
+    <span class="attribute">#[<span class="ident">case::associated_type</span>(<span class="string">&quot;fn test&lt;T: IntoIterator&gt;(mut i: T) where T::Item: Copy {}&quot;</span>,
+        <span class="macro">vec!</span>[
+            <span class="string">&quot;fn default() {}&quot;</span>,
+            <span class="string">&quot;fn partial_1&lt;T: IntoIterator&gt;(mut i: T) where T::Item: Copy {}&quot;</span>,
+        ]</span>
+    )]
+    <span class="attribute">#[<span class="ident">case::not_remove_const_generics</span>(<span class="string">&quot;fn test&lt;const N:usize&gt;(v: [u32; N]) -&gt; [i32; N] {}&quot;</span>,
+        <span class="macro">vec!</span>[
+            <span class="string">&quot;fn default&lt;const N:usize&gt;() -&gt; [i32; N] {}&quot;</span>,
+            <span class="string">&quot;fn partial_1&lt;const N:usize&gt;(v: [u32; N]) -&gt; [i32; N] {}&quot;</span>,
+        ]</span>
+    )]
+    <span class="attribute">#[<span class="ident">case::remove_const_generics</span>(<span class="string">&quot;fn test&lt;const N:usize&gt;(a: i32, v: [u32; N]) {}&quot;</span>,
+        <span class="macro">vec!</span>[
+            <span class="string">&quot;fn default() {}&quot;</span>,
+            <span class="string">&quot;fn partial_1(a:i32) {}&quot;</span>,
+            <span class="string">&quot;fn partial_2&lt;const N:usize&gt;(a:i32, v: [u32; N]) {}&quot;</span>,
+        ]</span>
+    )]
 
-        <span class="kw">let</span> <span class="ident">partials</span> <span class="op">=</span> (<span class="number">1</span>..<span class="op">=</span><span class="number">2</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> {
-                <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>.<span class="ident">clone</span>(), <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;partial_{}&quot;</span>, <span class="ident">n</span>))
-                    .<span class="ident">unwrap</span>()
-                    .<span class="ident">sig</span>
-            })
+    <span class="kw">fn</span> <span class="ident">clean_generics</span>(<span class="attribute">#[<span class="ident">case</span>]</span> <span class="ident">code</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="attribute">#[<span class="ident">case</span>]</span> <span class="ident">expected</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>) {
+        <span class="kw">let</span> (<span class="ident">item_fn</span>, <span class="ident">out</span>) <span class="op">=</span> <span class="ident">parse_fixture</span>(<span class="ident">code</span>);
+        <span class="kw">let</span> <span class="ident">n_args</span> <span class="op">=</span> <span class="ident">item_fn</span>.<span class="ident">sig</span>.<span class="ident">inputs</span>.<span class="ident">iter</span>().<span class="ident">count</span>();
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>.<span class="ident">clone</span>(), <span class="string">&quot;default&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">sig</span>];
+        <span class="ident">signatures</span>.<span class="ident">extend</span>((<span class="number">1</span>..<span class="op">=</span><span class="ident">n_args</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">n</span><span class="op">|</span> {
+            <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>.<span class="ident">clone</span>(), <span class="macro">format!</span>(<span class="string">&quot;partial_{}&quot;</span>, <span class="ident">n</span>))
+                .<span class="ident">unwrap</span>()
+                .<span class="ident">sig</span>
+        }));
+
+        <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">expected</span>
+            .<span class="ident">into_iter</span>()
+            .<span class="ident">map</span>(<span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">ItemFn</span><span class="op">&gt;</span>)
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">unwrap</span>().<span class="ident">sig</span>)
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-        <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">ItemFn</span><span class="op">&gt;</span>(
-                        <span class="string">r#&quot;
-                        pub fn partial_1&lt;S: AsRef&lt;str&gt;, F: ToString&gt;(mut s: S) -&gt; F
-                        { }
-                        &quot;#</span>
-                    ).<span class="ident">unwrap</span>().<span class="ident">sig</span>,
-                    <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">ItemFn</span><span class="op">&gt;</span>(
-                        <span class="string">r#&quot;
-                        pub fn partial_2&lt;S: AsRef&lt;str&gt;, U: AsRef&lt;u32&gt;, F: ToString&gt;(mut s: S, v: U) -&gt; F
-                        { }
-                        &quot;#</span>
-                    ).<span class="ident">unwrap</span>().<span class="ident">sig</span>];
-
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>, <span class="ident">partials</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">expected</span>, <span class="ident">signatures</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -667,18 +852,18 @@
             <span class="ident">item_fn</span>.<span class="ident">clone</span>(),
             <span class="ident">FixtureInfo</span> {
                 <span class="ident">attributes</span>: <span class="ident">Attributes</span> {
-                    <span class="ident">attributes</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Attribute</span>::<span class="ident">Type</span>(
+                    <span class="ident">attributes</span>: <span class="macro">vec!</span>[<span class="ident">Attribute::Type</span>(
                         <span class="ident">parse_str</span>(<span class="string">&quot;partial_1&quot;</span>).<span class="ident">unwrap</span>(),
                         <span class="ident">parse_str</span>(<span class="string">&quot;(H, impl Iterator&lt;Item=u32&gt;)&quot;</span>).<span class="ident">unwrap</span>(),
                     )],
                 }
                 .<span class="ident">into</span>(),
-                ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                ..<span class="ident">Default::default</span>()
             },
         );
         <span class="kw">let</span> <span class="ident">out</span>: <span class="ident">FixtureOutput</span> <span class="op">=</span> <span class="ident">parse2</span>(<span class="ident">tokens</span>).<span class="ident">unwrap</span>();
 
-        <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">syn</span>::<span class="ident">ItemFn</span><span class="op">&gt;</span>(
+        <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">parse_str</span>::<span class="op">&lt;</span><span class="ident">syn::ItemFn</span><span class="op">&gt;</span>(
             <span class="string">r#&quot;
                     pub fn partial_1&lt;H: Iterator&lt;Item=u32&gt;&gt;(h: H) -&gt; (H, impl Iterator&lt;Item=u32&gt;)
                     { }
@@ -688,8 +873,9 @@
 
         <span class="kw">let</span> <span class="ident">partial</span> <span class="op">=</span> <span class="ident">select_method</span>(<span class="ident">out</span>.<span class="ident">core_impl</span>, <span class="string">&quot;partial_1&quot;</span>).<span class="ident">unwrap</span>();
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">expected</span>.<span class="ident">sig</span>, <span class="ident">partial</span>.<span class="ident">sig</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">expected</span>.<span class="ident">sig</span>, <span class="ident">partial</span>.<span class="ident">sig</span>);
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "rstest";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="rstest" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>
