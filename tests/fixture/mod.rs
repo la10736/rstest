@@ -2,7 +2,7 @@ use std::path::Path;
 pub use unindent::Unindent;
 
 use super::resources;
-use rstest::*;
+use mytest::*;
 use rstest_test::{assert_in, assert_not_in, Project, Stringable, TestResults};
 
 fn prj(res: &str) -> Project {
@@ -52,6 +52,15 @@ mod should {
         let (output, _) = run_test("no_warning.rs");
 
         assert_not_in!(output.stderr.str(), "warning:");
+    }
+
+    #[test]
+    fn rename() {
+        let (output, _) = run_test("rename.rs");
+
+        TestResults::new()
+            .ok("test")
+            .assert(output);
     }
 
     mod accept_and_return {

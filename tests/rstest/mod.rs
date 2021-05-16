@@ -2,7 +2,7 @@ use std::path::Path;
 
 use super::resources;
 
-use rstest::*;
+use mytest::*;
 use rstest_test::*;
 use unindent::Unindent;
 
@@ -868,6 +868,18 @@ fn happy_path() {
         .ok("happy::case_2_second::expected_1::input_2")
         .ok("happy::case_2_second::expected_2::input_1")
         .ok("happy::case_2_second::expected_2::input_2")
+        .assert(output);
+}
+
+#[test]
+fn rename() {
+    let (output, _) = run_test("rename.rs");
+
+    TestResults::new()
+        .ok("compact")
+        .ok("compact_injected")
+        .ok("attribute")
+        .ok("attribute_injected")
         .assert(output);
 }
 

@@ -6,6 +6,7 @@
 use std::borrow::Cow;
 use std::iter::FromIterator;
 
+pub(crate) use mytest::{fixture, rstest};
 pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
@@ -130,8 +131,8 @@ pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
     .attrs
 }
 
-pub(crate) fn fixture(name: impl AsRef<str>, args: Vec<&str>) -> Fixture {
-    Fixture::new(ident(name), Positional(to_exprs!(args)))
+pub(crate) fn fixture(name: impl AsRef<str>, args: &[&str]) -> Fixture {
+    Fixture::new(ident(name), None, Positional(to_exprs!(args)))
 }
 
 pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> ArgumentValue {
@@ -208,6 +209,13 @@ impl RsTestInfo {
 
     pub fn extend(&mut self, cases: impl Iterator<Item = TestCase>) {
         self.data.items.extend(cases.map(RsTestItem::TestCase));
+    }
+}
+
+impl Fixture {
+    pub fn with_resolve(mut self, resolve_ident: &str) -> Self {
+        self.resolve = Some(ident(resolve_ident));
+        self
     }
 }
 

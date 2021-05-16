@@ -5,12 +5,14 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use proc_macro2::{Ident, Span};
+use proc_macro2::Ident;
 use syn::{parse_quote, Expr};
 
 use crate::parse::Fixture;
 
 pub(crate) mod fixtures {
+    use quote::format_ident;
+
     use super::*;
 
     pub(crate) fn get<'a>(fixtures: impl Iterator<Item = &'a Fixture>) -> impl Resolver + 'a {
@@ -20,11 +22,13 @@ pub(crate) mod fixtures {
     }
 
     fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
-        let name = &fixture.name;
+        let resolve = fixture.resolve.as_ref().unwrap_or(&fixture.name);
         let positional = &fixture.positional.0;
-        let pname = format!("partial_{}", positional.len());
-        let partial = Ident::new(&pname, Span::call_site());
-        parse_quote! { #name::#partial(#(#positional), *) }
+        let f_name = match positional.len() {
+            0 => format_ident!("default"),
+            l => format_ident!("partial_{}", l),
+        };
+        parse_quote! { #resolve::#f_name(#(#positional), *) }
     }
 
     #[cfg(test)]
@@ -32,14 +36,30 @@ pub(crate) mod fixtures {
         use super::*;
         use crate::test::{assert_eq, *};
 
-        #[test]
-        fn resolve_by_use_the_given_name() {
-            let data = vec![fixture("pippo", vec![])];
+        #[rstest]
+        #[case(&[], "default()")]
+        #[case(&["my_expression"], "partial_1(my_expression)")]
+        #[case(&["first", "other"], "partial_2(first, other)")]
+        fn resolve_by_use_the_given_name(#[case] args: &[&str], #[case] expected: &str) {
+            let data = vec![fixture("pippo", args)];
             let resolver = get(data.iter());
 
             let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
 
-            assert_eq!(resolved, "pippo::partial_0()".ast());
+            assert_eq!(resolved, format!("pippo::{}", expected).ast());
+        }
+
+        #[rstest]
+        #[case(&[], "default()")]
+        #[case(&["my_expression"], "partial_1(my_expression)")]
+        #[case(&["first", "other"], "partial_2(first, other)")]
+        fn resolve_by_use_the_resolve_field(#[case] args: &[&str], #[case] expected: &str) {
+            let data = vec![fixture("pippo", args).with_resolve("pluto")];
+            let resolver = get(data.iter());
+
+            let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
+
+            assert_eq!(resolved, format!("pluto::{}", expected).ast());
         }
     }
 }

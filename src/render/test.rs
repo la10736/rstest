@@ -10,7 +10,6 @@ use syn::{
 use super::*;
 use crate::test::{assert_eq, fixture, *};
 use crate::utils::*;
-use mytest::*;
 
 trait SetAsync {
     fn set_async(&mut self, is_async: bool);
@@ -1388,7 +1387,7 @@ mod complete_should {
         .ast();
         let data = RsTestData {
             items: vec![
-                fixture("fix", vec!["2"]).into(),
+                fixture("fix", &["2"]).into(),
                 ident("a").into(),
                 ident("b").into(),
                 vec!["1f64", "2f32"]

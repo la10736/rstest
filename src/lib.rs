@@ -348,6 +348,24 @@ use quote::ToTokens;
 /// If you need, you can use `#[future]` attribute also with an implicit lifetime reference
 /// because the macro will replace the implicit lifetime with an explicit one.
 ///
+/// # Rename
+///
+/// Sometimes you want to have long and descriptive name for your fixture but you prefer to use a much
+/// shorter name for argument that represent it in your fixture or test. You can rename the fixture
+/// using `#[from(short_name)]` attribute like following example:
+///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn long_and_boring_descriptive_name() -> i32 { 42 }
+///
+/// #[rstest]
+/// fn the_test(#[from(long_and_boring_descriptive_name)] short: i32) {
+///     assert_eq!(42, short)
+/// }
+/// ```
+///
 /// # Partial Injection
 ///
 /// You can also partialy inject fixture dependency using `#[with(v1, v2, ..)]` attribute:
@@ -375,7 +393,6 @@ use quote::ToTokens;
 /// Note that injected value can be an arbitrary rust expression. `#[with(v1, ..., vn)]`
 /// attribute will inject `v1, ..., vn` expression as fixture arguments: all remaining arguments
 /// will be resolved as fixtures.
-///
 ///
 /// Sometimes the return type cannot be infered so you must define it: For the few times you may
 /// need to do it, you can use the `#[default(type)]`, `#[partial_n(type)]` function attribute
@@ -428,6 +445,19 @@ use quote::ToTokens;
 /// #[fixture(twenty_one=21, two=2)]
 /// fn injected(twenty_one: i32, two: i32) -> i32 { twenty_one * two }
 /// ```
+///
+/// ## Rename
+/// ```
+/// # use rstest::*;
+/// #[fixture]
+/// fn long_and_boring_descriptive_name() -> i32 { 42 }
+///
+/// #[rstest(long_and_boring_descriptive_name as short)]
+/// fn the_test(short: i32) {
+///     assert_eq!(42, short)
+/// }
+/// ```
+///
 /// ## Partial Injection
 /// ```
 /// # use rstest::*;
@@ -544,6 +574,22 @@ pub fn fixture(
 /// fn the_test() {
 ///     let injected=injected();
 ///     assert_eq!(42, injected)
+/// }
+/// ```
+///
+/// If you want to use long and descriptive names for your fixture but prefer to use
+/// shorter names inside your tests you use rename feature described in 
+/// [fixture rename](attr.fixture.html#rename):
+///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn long_and_boring_descriptive_name() -> i32 { 42 }
+///
+/// #[rstest]
+/// fn the_test(#[from(long_and_boring_descriptive_name)] short: i32) {
+///     assert_eq!(42, short)
 /// }
 /// ```
 ///
@@ -1020,7 +1066,8 @@ pub fn fixture(
 /// - `arg_i` could be one of the follow
 ///   - `ident` that match to one of function arguments for parametrized cases
 ///   - `case[::description](v1, ..., vl)` a test case
-///   - `fixture(v1, ..., vl)` where fixture is one of function arguments
+///   - `fixture(v1, ..., vl) [as argument_name]` where fixture is the injected
+/// fixture and argument_name (default use fixture) is one of function arguments
 /// that and `v1, ..., vl` is a partial list of fixture's arguments
 ///   - `ident => [v1, ..., vl]` where `ident` is one of function arguments and
 /// `v1, ..., vl` is a list of values for ident
@@ -1042,6 +1089,18 @@ pub fn fixture(
 /// #[rstest(user("Bob"))]
 /// fn check_user(user: User) {
 ///     assert_eq("Bob", user.name())
+/// }
+/// ```
+///
+/// ## Fixture Rename
+/// ```
+/// # use rstest::*;
+/// #[fixture]
+/// fn long_and_boring_descriptive_name() -> i32 { 42 }
+///
+/// #[rstest(long_and_boring_descriptive_name as short)]
+/// fn the_test(short: i32) {
+///     assert_eq!(42, short)
 /// }
 /// ```
 ///

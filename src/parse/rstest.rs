@@ -5,7 +5,7 @@ use syn::{
 
 use super::testcase::TestCase;
 use super::{
-    extract_case_args, extract_cases, extract_fixtures, extract_excluded_trace, extract_value_list,
+    extract_case_args, extract_cases, extract_excluded_trace, extract_fixtures, extract_value_list,
     parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
     Fixture,
 };
@@ -280,7 +280,7 @@ mod test {
             let fixtures = parse_rstest_data("my_fixture(42)");
 
             let expected = RsTestData {
-                items: vec![Fixture::new(ident("my_fixture"), vec![expr("42")].into()).into()],
+                items: vec![fixture("my_fixture", &["42"]).into()],
             };
 
             assert_eq!(expected, fixtures);
@@ -304,8 +304,8 @@ mod test {
 
             let expected = RsTestInfo {
                 data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                    fixture("other", vec!["vec![42]"]).into(),
+                    fixture("my_fixture", &["42", r#""other""#]).into(),
+                    fixture("other", &["vec![42]"]).into(),
                 ]
                 .into(),
                 attributes: Attributes {
@@ -320,28 +320,85 @@ mod test {
             assert_eq!(expected, data);
         }
 
-        #[test]
-        fn fixtures_defined_via_with_attributes() {
-            let mut item_fn = r#"
-            fn test_fn(#[with(42, "other")] my_fixture: u32, #[with(vec![42])] other: &str) {
+        mod fixture_extraction {
+            use super::{assert_eq, *};
+
+            #[test]
+            fn rename() {
+                let data = parse_rstest(
+                    r#"long_fixture_name(42, "other") as short, simple as s, no_change()"#,
+                );
+
+                let expected = RsTestInfo {
+                    data: vec![
+                        fixture("short", &["42", r#""other""#])
+                            .with_resolve("long_fixture_name")
+                            .into(),
+                        fixture("s", &[]).with_resolve("simple").into(),
+                        fixture("no_change", &[]).into(),
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
+
+                assert_eq!(expected, data);
             }
-            "#
-            .ast();
 
-            let expected = RsTestInfo {
-                data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                    fixture("other", vec!["vec![42]"]).into(),
-                ]
-                .into(),
-                ..Default::default()
-            };
+            #[test]
+            fn rename_with_attributes() {
+                let mut item_fn = r#"
+                    fn test_fn(
+                        #[from(long_fixture_name)] 
+                        #[with(42, "other")] short: u32, 
+                        #[from(simple)]
+                        s: &str,
+                        no_change: i32) {
+                    }
+                    "#
+                .ast();
 
-            let mut data = RsTestInfo::default();
+                let expected = RsTestInfo {
+                    data: vec![
+                        fixture("short", &["42", r#""other""#])
+                            .with_resolve("long_fixture_name")
+                            .into(),
+                        fixture("s", &[]).with_resolve("simple").into()
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
 
-            data.extend_with_function_attrs(&mut item_fn).unwrap();
+                let mut data = RsTestInfo::default();
 
-            assert_eq!(expected, data);
+                data.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                assert_eq!(expected, data);
+            }
+            
+
+            #[test]
+            fn defined_via_with_attributes() {
+                let mut item_fn = r#"
+                    fn test_fn(#[with(42, "other")] my_fixture: u32, #[with(vec![42])] other: &str) {
+                    }
+                    "#
+                .ast();
+
+                let expected = RsTestInfo {
+                    data: vec![
+                        fixture("my_fixture", &["42", r#""other""#]).into(),
+                        fixture("other", &["vec![42]"]).into(),
+                    ]
+                    .into(),
+                    ..Default::default()
+                };
+
+                let mut data = RsTestInfo::default();
+
+                data.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                assert_eq!(expected, data);
+            }
         }
 
         #[test]
@@ -367,7 +424,7 @@ mod test {
             let data = parse_rstest(r#"my_fixture(42, "other")"#);
 
             let expected = RsTestInfo {
-                data: vec![fixture("my_fixture", vec!["42", r#""other""#]).into()].into(),
+                data: vec![fixture("my_fixture", &["42", r#""other""#]).into()].into(),
                 ..Default::default()
             };
 
@@ -437,7 +494,7 @@ mod test {
             let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
 
             assert_eq!(
-                vec![fixture("my_fixture", vec!["42", r#""foo""#])],
+                vec![fixture("my_fixture", &["42", r#""foo""#])],
                 fixtures
             );
             assert_eq!(
@@ -723,8 +780,8 @@ mod test {
 
             assert_eq!(
                 vec![
-                    fixture("fixture_1", vec!["42", r#""foo""#]),
-                    fixture("fixture_2", vec![r#""bar""#])
+                    fixture("fixture_1", &["42", r#""foo""#]),
+                    fixture("fixture_2", &[r#""bar""#])
                 ],
                 fixtures
             );
@@ -787,7 +844,7 @@ mod test {
             .data;
 
             let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
-            assert_eq!(vec![fixture("the_fixture", vec!["42"])], fixtures);
+            assert_eq!(vec![fixture("the_fixture", &["42"])], fixtures);
 
             assert_eq!(
                 to_strs!(vec!["u", "a", "d"]),

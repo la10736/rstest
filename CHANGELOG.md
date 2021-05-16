@@ -4,6 +4,8 @@
 
 ### Add
 
+- Rename fixture (See #107 and #108)  
+
 ### Changed
 
 ### Fixed

@@ -3,7 +3,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_quote,
     punctuated::Punctuated,
-    token,
+    token::{self, Paren},
     visit_mut::VisitMut,
     FnArg, Ident, ItemFn, Token,
 };
@@ -27,10 +27,10 @@ pub(crate) mod macros;
 
 pub(crate) mod expressions;
 pub(crate) mod fixture;
+pub(crate) mod future;
 pub(crate) mod rstest;
 pub(crate) mod testcase;
 pub(crate) mod vlist;
-pub(crate) mod future;
 
 pub(crate) trait ExtendWithFunctionAttrs {
     fn extend_with_function_attrs(
@@ -117,7 +117,7 @@ pub(crate) fn drain_stream(input: ParseStream) {
     });
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 pub(crate) struct Positional(pub(crate) Vec<syn::Expr>);
 
 impl Parse for Positional {
@@ -133,22 +133,44 @@ impl Parse for Positional {
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) struct Fixture {
     pub(crate) name: Ident,
+    pub(crate) resolve: Option<Ident>,
     pub(crate) positional: Positional,
 }
 
 impl Fixture {
-    pub(crate) fn new(name: Ident, positional: Positional) -> Self {
-        Self { name, positional }
+    pub(crate) fn new(name: Ident, resolve: Option<Ident>, positional: Positional) -> Self {
+        Self {
+            name,
+            resolve,
+            positional,
+        }
     }
 }
 
 impl Parse for Fixture {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
-        let content;
-        let _ = syn::parenthesized!(content in input);
-        let positional = content.parse()?;
-        Ok(Self::new(name, positional))
+        let resolve = input.parse()?;
+        if input.peek(Paren) || input.peek(Token![as]) {
+            let positional = if input.peek(Paren) {
+                let content;
+                let _ = syn::parenthesized!(content in input);
+                content.parse()?
+            } else {
+                Default::default()
+            };
+
+            if input.peek(Token![as]) {
+                let _: Token![as] = input.parse()?;
+                Ok(Self::new(input.parse()?, Some(resolve), positional))
+            } else {
+                Ok(Self::new(resolve, None, positional))
+            }
+        } else {
+            Err(syn::Error::new(
+                input.span(),
+                "fixture need arguments or 'as new_name' format",
+            ))
+        }
     }
 }
 

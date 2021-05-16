@@ -9,10 +9,10 @@ use syn::{
 use super::{
     extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
     extract_partials_return_type, parse_vector_trailing_till_double_comma, Attributes,
-    ExtendWithFunctionAttrs, Fixture, Positional,
+    ExtendWithFunctionAttrs, Fixture,
 };
-use crate::parse::Attribute;
 use crate::{error::ErrorsVec, refident::RefIdent, utils::attr_is};
+use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
 
@@ -76,6 +76,34 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
     }
 }
 
+fn parse_attribute_args_just_once<'a, T: Parse>(
+    attributes: impl Iterator<Item = &'a syn::Attribute>,
+    name: &str,
+) -> (Option<T>, Vec<syn::Error>) {
+    let mut errors = Vec::new();
+    let val = attributes
+        .filter(|&a| attr_is(a, name))
+        .map(|a| (a, a.parse_args::<T>()))
+        .fold(None, |first, (a, res)| match (first, res) {
+            (None, Ok(parsed)) => Some(parsed),
+            (first, Err(err)) => {
+                errors.push(err);
+                first
+            }
+            (first, _) => {
+                errors.push(syn::Error::new_spanned(
+                    a,
+                    format!(
+                        "You cannot use '{}' attribute more than once for the same argument",
+                        name
+                    ),
+                ));
+                first
+            }
+        });
+    (val, errors)
+}
+
 /// Simple struct used to visit function attributes and extract Fixtures and
 /// eventualy parsing errors
 #[derive(Default)]
@@ -83,17 +111,23 @@ pub(crate) struct FixturesFunctionExtractor(pub(crate) Vec<Fixture>, pub(crate) 
 
 impl VisitMut for FixturesFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        for r in extract_argument_attrs(
-            node,
-            |a| attr_is(a, "with"),
-            |a, name| {
-                a.parse_args::<Positional>()
-                    .map(|p| Fixture::new(name.clone(), p))
-            },
-        ) {
-            match r {
-                Ok(fixture) => self.0.push(fixture),
-                Err(err) => self.1.push(err),
+        if let FnArg::Typed(ref mut arg) = node {
+            let name = match arg.pat.as_ref() {
+                syn::Pat::Ident(ident) => ident.ident.clone(),
+                _ => return,
+            };
+            let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
+                .into_iter()
+                .partition(|attr| attr_in(attr, &["with", "from"]));
+            arg.attrs = remain;
+
+            let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
+            self.1.extend(errors.into_iter());
+            let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
+            self.1.extend(errors.into_iter());
+            if pos.is_some() || resolve.is_some() {
+                self.0
+                    .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
             }
         }
     }
@@ -282,8 +316,8 @@ mod should {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("my_fixture", vec!["42", r#""other""#]).into(),
-                    fixture("other", vec!["vec![42]"]).into(),
+                    fixture("my_fixture", &["42", r#""other""#]).into(),
+                    fixture("other", &["vec![42]"]).into(),
                     arg_value("value", "42").into(),
                     arg_value("other_value", "vec![1.0]").into(),
                 ]
@@ -332,7 +366,7 @@ mod should {
             let data = parse_fixture(r#"my_fixture(42, "other")"#);
 
             let expected = FixtureInfo {
-                data: vec![fixture("my_fixture", vec!["42", r#""other""#]).into()].into(),
+                data: vec![fixture("my_fixture", &["42", r#""other""#]).into()].into(),
                 ..Default::default()
             };
 
@@ -377,8 +411,8 @@ mod extend {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("f1", vec!["2"]).into(),
-                    fixture("f2", vec!["vec![1,2]", r#""s""#]).into(),
+                    fixture("f1", &["2"]).into(),
+                    fixture("f2", &["vec![1,2]", r#""s""#]).into(),
                 ]
                 .into(),
                 ..Default::default()
@@ -386,6 +420,36 @@ mod extend {
 
             assert!(!format!("{:?}", item_fn).contains("with"));
             assert_eq!(expected, info);
+        }
+
+        #[test]
+        fn rename_with_attributes() {
+            let mut item_fn = r#"
+                    fn test_fn(
+                        #[from(long_fixture_name)] 
+                        #[with(42, "other")] short: u32, 
+                        #[from(simple)]
+                        s: &str,
+                        no_change: i32) {
+                    }
+                    "#
+            .ast();
+
+            let expected = FixtureInfo {
+                data: vec![
+                    fixture("short", &["42", r#""other""#])
+                        .with_resolve("long_fixture_name")
+                        .into(),
+                    fixture("s", &[]).with_resolve("simple").into(),
+                ]
+                .into(),
+                ..Default::default()
+            };
+
+            let mut data = FixtureInfo::default();
+            data.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(expected, data);
         }
 
         #[test]
@@ -500,6 +564,36 @@ mod extend {
                     .unwrap_err();
 
                 assert_eq!(1, errors.len());
+            }
+
+            #[test]
+            fn with_used_more_than_once() {
+                let mut item_fn: ItemFn = r#"
+                    fn my_fix(#[with(1)] #[with(2)] fixture1: &str, #[with(1)] #[with(2)] #[with(3)] fixture2: &str) {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .err()
+                    .unwrap_or_default();
+
+                assert_eq!(3, errors.len());
+            }
+
+            #[test]
+            fn from_used_more_than_once() {
+                let mut item_fn: ItemFn = r#"
+                    fn my_fix(#[from(a)] #[from(b)] fixture1: &str, #[from(c)] #[from(d)] #[from(e)] fixture2: &str) {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .err()
+                    .unwrap_or_default();
+
+                assert_eq!(3, errors.len());
             }
 
             #[test]

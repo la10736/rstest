@@ -153,8 +153,7 @@ mod should {
         test::{assert_eq, *},
         utils::fn_args,
     };
-    use mytest::*;
-
+    
     #[rstest]
     #[case::as_is("fix: String", "let fix = fix::default();")]
     #[case::without_underscore("_fix: String", "let _fix = fix::default();")]

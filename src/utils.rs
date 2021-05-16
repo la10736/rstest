@@ -36,6 +36,12 @@ pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
     attr.path.is_ident(&format_ident!("{}", name))
 }
 
+pub(crate) fn attr_in(attr: &Attribute, names: &[&str]) -> bool {
+    names
+        .into_iter()
+        .any(|name| attr.path.is_ident(&format_ident!("{}", name)))
+}
+
 pub(crate) trait IsLiteralExpression {
     fn is_literal(&self) -> bool;
 }
