@@ -89,9 +89,9 @@ impl From<Vec<syn::Error>> for ErrorsVec {
     }
 }
 
-impl Into<Vec<syn::Error>> for ErrorsVec {
-    fn into(self) -> Vec<syn::Error> {
-        self.0
+impl From<ErrorsVec> for Vec<syn::Error> {
+    fn from(v: ErrorsVec) -> Self {
+        v.0
     }
 }
 
@@ -101,10 +101,10 @@ impl quote::ToTokens for ErrorsVec {
     }
 }
 
-impl Into<proc_macro::TokenStream> for ErrorsVec {
-    fn into(self) -> proc_macro::TokenStream {
+impl From<ErrorsVec> for proc_macro::TokenStream {
+    fn from(v: ErrorsVec) -> Self {
         use quote::ToTokens;
-        self.into_token_stream().into()
+        v.into_token_stream().into()
     }
 }
 

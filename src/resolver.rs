@@ -17,7 +17,7 @@ pub(crate) mod fixtures {
 
     pub(crate) fn get<'a>(fixtures: impl Iterator<Item = &'a Fixture>) -> impl Resolver + 'a {
         fixtures
-            .map(|f| (f.name.to_string(), extract_resolve_expression(f).into()))
+            .map(|f| (f.name.to_string(), extract_resolve_expression(f)))
             .collect::<HashMap<_, Expr>>()
     }
 
@@ -138,7 +138,7 @@ impl<R: Resolver + ?Sized> Resolver for Box<R> {
 
 impl Resolver for (String, Expr) {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        if self.0 == ident.to_string() {
+        if *ident == self.0 {
             Some(Cow::Borrowed(&self.1))
         } else {
             None

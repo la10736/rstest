@@ -212,10 +212,7 @@ impl RsTestAttributes {
 
     pub(crate) fn trace_me(&self, ident: &Ident) -> bool {
         if self.should_trace() {
-            self.iter()
-                .filter(|&m| Self::is_notrace(ident, m))
-                .next()
-                .is_none()
+            !self.iter().any(|m| Self::is_notrace(ident, m))
         } else {
             false
         }
@@ -224,14 +221,14 @@ impl RsTestAttributes {
     fn is_notrace(ident: &Ident, m: &Attribute) -> bool {
         match m {
             Attribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR => {
-                args.iter().find(|&a| a == ident).is_some()
+                args.iter().any(|a| a == ident)
             }
             _ => false,
         }
     }
 
     pub(crate) fn should_trace(&self) -> bool {
-        self.iter().filter(|&m| Self::is_trace(m)).next().is_some()
+        self.iter().any(Self::is_trace)
     }
 
     pub(crate) fn add_trace(&mut self, trace: Ident) {
@@ -249,10 +246,7 @@ impl RsTestAttributes {
     }
 
     fn is_trace(m: &Attribute) -> bool {
-        match m {
-            Attribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR => true,
-            _ => false,
-        }
+        matches!(m, Attribute::Attr(i) if i == Self::TRACE_VARIABLE_ATTR)
     }
 }
 
@@ -362,7 +356,7 @@ mod test {
                         fixture("short", &["42", r#""other""#])
                             .with_resolve("long_fixture_name")
                             .into(),
-                        fixture("s", &[]).with_resolve("simple").into()
+                        fixture("s", &[]).with_resolve("simple").into(),
                     ]
                     .into(),
                     ..Default::default()
@@ -374,7 +368,6 @@ mod test {
 
                 assert_eq!(expected, data);
             }
-            
 
             #[test]
             fn defined_via_with_attributes() {
@@ -493,10 +486,7 @@ mod test {
             let data = info.data;
             let fixtures = data.fixtures().cloned().collect::<Vec<_>>();
 
-            assert_eq!(
-                vec![fixture("my_fixture", &["42", r#""foo""#])],
-                fixtures
-            );
+            assert_eq!(vec![fixture("my_fixture", &["42", r#""foo""#])], fixtures);
             assert_eq!(
                 to_strs!(vec!["arg1", "arg2", "arg3"]),
                 data.case_args()

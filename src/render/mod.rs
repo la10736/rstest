@@ -31,8 +31,8 @@ pub(crate) mod inject;
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(info.data.fixtures());
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
-    let attrs = std::mem::replace(&mut test.attrs, Default::default());
-    let asyncness = test.sig.asyncness.clone();
+    let attrs = std::mem::take(&mut test.attrs);
+    let asyncness = test.sig.asyncness;
     let generic_types = test
         .sig
         .generics
@@ -111,13 +111,13 @@ fn _matrix_recursive<'a>(
     attrs: &'a [syn::Attribute],
     attributes: &RsTestAttributes,
 ) -> TokenStream {
-    if list_values.len() == 0 {
+    if list_values.is_empty() {
         return Default::default();
     }
     let vlist = list_values[0];
     let list_values = &list_values[1..];
 
-    if list_values.len() == 0 {
+    if list_values.is_empty() {
         vlist.render(test, resolver, attrs, attributes)
     } else {
         let span = test.sig.ident.span();
@@ -184,10 +184,12 @@ fn render_exec_call(fn_path: Path, args: &[Ident], is_async: bool) -> TokenStrea
 /// * `testfn_name` - The name of test function to call
 /// * `args` - The arguments of the test function
 /// * `attrs` - The expected test attributes
-/// * `output` - The expected test return type  
+/// * `output` - The expected test return type
+/// * `asyncness` - The `async` fn token
 /// * `test_impl` - If you want embed test function (should be the one called by `testfn_name`)
 /// * `resolver` - The resolver used to resolve injected values
 /// * `attributes` - Test attributes to select test behaviour
+/// * `generic_types` - The genrics type used in signature
 ///
 fn single_test_case<'a>(
     name: &Ident,
@@ -204,7 +206,7 @@ fn single_test_case<'a>(
     let (attrs, trace_me): (Vec<_>, Vec<_>) =
         attrs.iter().cloned().partition(|a| !attr_is(a, "trace"));
     let mut attributes = attributes.clone();
-    if trace_me.len() > 0 {
+    if !trace_me.is_empty() {
         attributes.add_trace(format_ident!("trace"));
     }
     let inject = inject::resolve_aruments(args.iter(), &resolver, generic_types);
@@ -247,11 +249,11 @@ fn trace_arguments<'a>(
     let mut statements = args
         .filter(|&arg| attributes.trace_me(arg))
         .map(|arg| {
-            parse_quote! {
+            let s: Stmt = parse_quote! {
                 println!("{} = {:?}", stringify!(#arg), #arg);
-            }
+            };
+            s
         })
-        .map(|stmt: Stmt| stmt)
         .peekable();
     if statements.peek().is_some() {
         Some(quote! {
@@ -282,7 +284,7 @@ impl<'a> TestCaseRender<'a> {
         let args = testfn.sig.inputs.iter().cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
-        let asyncness = testfn.sig.asyncness.clone();
+        let asyncness = testfn.sig.asyncness;
         let generic_types = testfn
             .sig
             .generics

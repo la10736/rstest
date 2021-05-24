@@ -15,7 +15,7 @@ pub(crate) fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item = &Ident> {
 /// Return if function declaration has an ident
 ///
 pub(crate) fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
-    fn_args_idents(fn_decl).find(|&id| id == ident).is_some()
+    fn_args_idents(fn_decl).any(|id| id == ident)
 }
 
 /// Return an iterator over fn arguments.
@@ -25,11 +25,11 @@ pub(crate) fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item = &FnArg> {
 }
 
 pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
-    &attr.path.segments.iter().last() == &Some(segment)
+    attr.path.segments.iter().last() == Some(segment)
 }
 
 pub(crate) fn attr_starts_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
-    &attr.path.segments.iter().nth(0) == &Some(segment)
+    attr.path.segments.iter().next() == Some(segment)
 }
 
 pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
@@ -38,7 +38,7 @@ pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
 
 pub(crate) fn attr_in(attr: &Attribute, names: &[&str]) -> bool {
     names
-        .into_iter()
+        .iter()
         .any(|name| attr.path.is_ident(&format_ident!("{}", name)))
 }
 
@@ -48,13 +48,13 @@ pub(crate) trait IsLiteralExpression {
 
 impl<E: AsRef<Expr>> IsLiteralExpression for E {
     fn is_literal(&self) -> bool {
-        match self.as_ref() {
-            &Expr::Lit(syn::ExprLit { ref lit, .. }) => match lit {
-                syn::Lit::Str(_) => true,
-                _ => false,
-            },
-            _ => false,
-        }
+        matches!(
+            self.as_ref(),
+            Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(_),
+                ..
+            })
+        )
     }
 }
 
@@ -251,7 +251,7 @@ fn first_type_path_segment_ident(t: &Type) -> Option<&Ident> {
             .path
             .segments
             .iter()
-            .nth(0)
+            .next()
             .and_then(|ps| match ps.arguments {
                 syn::PathArguments::None => Some(&ps.ident),
                 _ => None,
@@ -263,7 +263,7 @@ fn first_type_path_segment_ident(t: &Type) -> Option<&Ident> {
 pub(crate) fn fn_arg_mutability(arg: &FnArg) -> Option<syn::token::Mut> {
     match arg {
         FnArg::Typed(syn::PatType { pat, .. }) => match pat.as_ref() {
-            syn::Pat::Ident(syn::PatIdent { mutability, .. }) => mutability.clone(),
+            syn::Pat::Ident(syn::PatIdent { mutability, .. }) => *mutability,
             _ => None,
         },
         _ => None,

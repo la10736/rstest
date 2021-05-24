@@ -61,7 +61,7 @@ impl VisitMut for ReplaceFutureAttribute {
                     self.errors.extend(futures.iter().skip(1).map(|attr| {
                         syn::Error::new_spanned(
                             attr.into_token_stream(),
-                            format!("Cannot use #[future] more than once."),
+                            "Cannot use #[future] more than once.".to_owned(),
                         )
                     }));
                     return;
@@ -73,7 +73,7 @@ impl VisitMut for ReplaceFutureAttribute {
                     | TraitObject(_) | Verbatim(_) => {
                         self.errors.push(syn::Error::new_spanned(
                             ty.into_token_stream(),
-                            format!("This type cannot used to generete impl Future."),
+                            "This type cannot used to generete impl Future.".to_owned(),
                         ));
                         return;
                     }

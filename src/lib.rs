@@ -515,7 +515,7 @@ pub fn fixture(
     }
 
     if errors.is_empty() {
-        render::fixture(fixture, info).into()
+        render::fixture(fixture, info)
     } else {
         errors
     }
@@ -578,7 +578,7 @@ pub fn fixture(
 /// ```
 ///
 /// If you want to use long and descriptive names for your fixture but prefer to use
-/// shorter names inside your tests you use rename feature described in 
+/// shorter names inside your tests you use rename feature described in
 /// [fixture rename](attr.fixture.html#rename):
 ///
 /// ```

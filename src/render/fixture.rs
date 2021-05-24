@@ -8,7 +8,7 @@ use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
 use crate::{parse::fixture::FixtureInfo, utils::generics_clean_up};
 
-pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
+pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
@@ -19,7 +19,7 @@ pub(crate) fn render<'a>(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let default_output = info
         .attributes
         .extract_default_type()
-        .unwrap_or(fixture.sig.output.clone());
+        .unwrap_or_else(|| fixture.sig.output.clone());
     let default_generics =
         generics_clean_up(&fixture.sig.generics, std::iter::empty(), &default_output);
     let default_where_clause = &default_generics.where_clause;
@@ -75,7 +75,7 @@ fn render_partial_impl(
     let output = info
         .attributes
         .extract_partial_type(n)
-        .unwrap_or(fixture.sig.output.clone());
+        .unwrap_or_else(|| fixture.sig.output.clone());
 
     let generics = generics_clean_up(&fixture.sig.generics, fn_args(fixture).take(n), &output);
     let where_clause = &generics.where_clause;

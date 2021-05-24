@@ -2,6 +2,7 @@
 
 - [ ] Update rustup
 - [ ] Update dependency `cargo upgrade`
+- [ ] Run `cargo clippy`
 - [ ] Run all test
   - [ ] Stable: `RSTEST_TEST_CHANNEL=stable; cargo +${RSTEST_TEST_CHANNEL} test`
   - [ ] Beta: `RSTEST_TEST_CHANNEL=beta; cargo +${RSTEST_TEST_CHANNEL} test`

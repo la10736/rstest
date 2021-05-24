@@ -57,7 +57,7 @@ impl Parse for Attributes {
 pub(crate) enum Attribute {
     Attr(Ident),
     Tagged(Ident, Vec<Ident>),
-    Type(Ident, syn::Type),
+    Type(Ident, Box<syn::Type>),
 }
 
 impl Parse for Attribute {
@@ -96,11 +96,11 @@ where
             if input_tokens.is_empty() || input_tokens.peek(Token![::]) {
                 Ok(None)
             } else {
-                T::parse(input_tokens).map(|inner| Some(inner))
+                T::parse(input_tokens).map(Some)
             }
         })?
         .into_iter()
-        .filter_map(|it| it)
+        .flatten()
         .collect(),
     )
 }
@@ -190,10 +190,10 @@ pub(crate) fn extract_fixtures(item_fn: &mut ItemFn) -> Result<Vec<Fixture>, Err
     let mut fixtures_extractor = FixturesFunctionExtractor::default();
     fixtures_extractor.visit_item_fn_mut(item_fn);
 
-    if fixtures_extractor.1.len() > 0 {
-        Err(fixtures_extractor.1.into())
-    } else {
+    if fixtures_extractor.1.is_empty() {
         Ok(fixtures_extractor.0)
+    } else {
+        Err(fixtures_extractor.1.into())
     }
 }
 
@@ -201,10 +201,10 @@ pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue
     let mut defaults_extractor = DefaultsFunctionExtractor::default();
     defaults_extractor.visit_item_fn_mut(item_fn);
 
-    if defaults_extractor.1.len() > 0 {
-        Err(defaults_extractor.1.into())
-    } else {
+    if defaults_extractor.1.is_empty() {
         Ok(defaults_extractor.0)
+    } else {
+        Err(defaults_extractor.1.into())
     }
 }
 
@@ -277,7 +277,7 @@ impl VisitMut for DefaultTypeFunctionExtractor {
         let mut defaults = defaults.into_iter();
         let mut data = None;
         let mut errors = ErrorsVec::default();
-        match defaults.nth(0).map(|def| def.parse_args::<syn::Type>()) {
+        match defaults.next().map(|def| def.parse_args::<syn::Type>()) {
             Some(Ok(t)) => data = Some(t),
             Some(Err(e)) => errors.push(e),
             None => {}
@@ -376,10 +376,10 @@ pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Ident>, Erro
     let mut case_args_extractor = CaseArgsFunctionExtractor::default();
     case_args_extractor.visit_item_fn_mut(item_fn);
 
-    if case_args_extractor.1.len() > 0 {
-        Err(case_args_extractor.1.into())
-    } else {
+    if case_args_extractor.1.is_empty() {
         Ok(case_args_extractor.0)
+    } else {
+        Err(case_args_extractor.1.into())
     }
 }
 
@@ -419,10 +419,10 @@ pub(crate) fn extract_cases(item_fn: &mut ItemFn) -> Result<Vec<TestCase>, Error
     let mut cases_extractor = CasesFunctionExtractor::default();
     cases_extractor.visit_item_fn_mut(item_fn);
 
-    if cases_extractor.1.len() > 0 {
-        Err(cases_extractor.1.into())
-    } else {
+    if cases_extractor.1.is_empty() {
         Ok(cases_extractor.0)
+    } else {
+        Err(cases_extractor.1.into())
     }
 }
 
@@ -457,10 +457,10 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
     let mut vlist_extractor = ValueListFunctionExtractor::default();
     vlist_extractor.visit_item_fn_mut(item_fn);
 
-    if vlist_extractor.1.len() > 0 {
-        Err(vlist_extractor.1.into())
-    } else {
+    if vlist_extractor.1.is_empty() {
         Ok(vlist_extractor.0)
+    } else {
+        Err(vlist_extractor.1.into())
     }
 }
 
@@ -483,13 +483,12 @@ impl ExcludedTraceAttributesFunctionExtractor {
             Ok(_) => self.0 = Err(errors),
             Err(err) => err.append(&mut errors),
         }
-        .into()
     }
 
     fn update_excluded(&mut self, value: Ident) {
-        self.0.iter_mut().next().map(|inner| {
+        if let Some(inner) = self.0.iter_mut().next() {
             inner.push(value);
-        });
+        }
     }
 }
 

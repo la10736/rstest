@@ -54,7 +54,6 @@ where
         let mut fixture = self
             .resolver
             .resolve(&fixture_name)
-            .map(|e| e.clone())
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
@@ -68,7 +67,7 @@ where
 
     fn fixture_name<'a>(&self, ident: &'a Ident) -> Cow<'a, Ident> {
         let id_str = ident.to_string();
-        if id_str.starts_with("_") && !id_str.starts_with("__") {
+        if id_str.starts_with('_') && !id_str.starts_with("__") {
             Cow::Owned(Ident::new(&id_str[1..], ident.span()))
         } else {
             Cow::Borrowed(ident)

@@ -21,8 +21,8 @@ impl Parse for Expressions {
     }
 }
 
-impl Into<Vec<Expr>> for Expressions {
-    fn into(self) -> Vec<Expr> {
-        self.0
+impl From<Expressions> for Vec<Expr> {
+    fn from(expressions: Expressions) -> Self {
+        expressions.0
     }
 }

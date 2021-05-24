@@ -174,7 +174,7 @@ impl FixtureData {
 
     pub(crate) fn values(&self) -> impl Iterator<Item = &ArgumentValue> {
         self.items.iter().filter_map(|f| match f {
-            FixtureItem::ArgumentValue(ref value) => Some(value),
+            FixtureItem::ArgumentValue(ref value) => Some(value.as_ref()),
             _ => None,
         })
     }
@@ -207,7 +207,7 @@ impl ArgumentValue {
 #[derive(PartialEq, Debug)]
 pub(crate) enum FixtureItem {
     Fixture(Fixture),
-    ArgumentValue(ArgumentValue),
+    ArgumentValue(Box<ArgumentValue>),
 }
 
 impl From<Fixture> for FixtureItem {
@@ -230,7 +230,7 @@ impl RefIdent for FixtureItem {
     fn ident(&self) -> &Ident {
         match self {
             FixtureItem::Fixture(Fixture { ref name, .. }) => name,
-            FixtureItem::ArgumentValue(ArgumentValue { ref name, .. }) => name,
+            FixtureItem::ArgumentValue(ref av) => &av.name,
         }
     }
 }
@@ -243,7 +243,7 @@ impl ToTokens for FixtureItem {
 
 impl From<ArgumentValue> for FixtureItem {
     fn from(av: ArgumentValue) -> Self {
-        FixtureItem::ArgumentValue(av)
+        FixtureItem::ArgumentValue(Box::new(av))
     }
 }
 
@@ -273,14 +273,14 @@ impl FixtureModifiers {
     pub(crate) fn set_default_return_type(&mut self, return_type: syn::Type) {
         self.inner.attributes.push(Attribute::Type(
             format_ident!("{}", Self::DEFAULT_RET_ATTR),
-            return_type,
+            Box::new(return_type),
         ))
     }
 
     pub(crate) fn set_partial_return_type(&mut self, id: usize, return_type: syn::Type) {
         self.inner.attributes.push(Attribute::Type(
             format_ident!("{}{}", Self::PARTIAL_RET_ATTR, id),
-            return_type,
+            Box::new(return_type),
         ))
     }
 

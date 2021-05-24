@@ -27,7 +27,7 @@ impl Parse for ValueList {
             arg,
             values: values.take(),
         };
-        if ret.values.len() == 0 {
+        if ret.values.is_empty() {
             Err(syn::Error::new(
                 paren.span,
                 "Values list should not be empty",
