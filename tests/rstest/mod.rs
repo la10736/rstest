@@ -94,6 +94,15 @@ fn impl_input() {
 }
 
 #[test]
+fn use_mutable_fixture_in_parametric_argumnts() {
+    let (output, _) = run_test("use_mutable_fixture_in_parametric_argumnts.rs");
+
+    TestResults::new()
+        .ok("use_mutate_fixture::case_1::b_1")
+        .assert(output);
+}
+
+#[test]
 fn should_reject_no_item_function() {
     let (output, name) = run_test("reject_no_item_function.rs");
 

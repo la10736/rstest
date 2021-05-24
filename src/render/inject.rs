@@ -7,7 +7,7 @@ use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
 use crate::{
     refident::{MaybeIdent, MaybeType},
     resolver::Resolver,
-    utils::IsLiteralExpression,
+    utils::{fn_arg_mutability, IsLiteralExpression},
 };
 
 pub(crate) fn resolve_aruments<'a>(
@@ -44,6 +44,10 @@ where
 
     fn resolve(&self, arg: &FnArg) -> Option<Stmt> {
         let ident = arg.maybe_ident()?;
+        let mutability = fn_arg_mutability(arg);
+        let unused_mut: Option<syn::Attribute> = mutability
+            .as_ref()
+            .map(|_| parse_quote! {#[allow(unused_mut)]});
         let arg_type = arg.maybe_type()?;
         let fixture_name = self.fixture_name(ident);
 
@@ -57,7 +61,8 @@ where
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
         }
         Some(parse_quote! {
-            let #ident = #fixture;
+            #unused_mut
+            let #mutability #ident = #fixture;
         })
     }
 
@@ -153,13 +158,16 @@ mod should {
         test::{assert_eq, *},
         utils::fn_args,
     };
-    
+
     #[rstest]
     #[case::as_is("fix: String", "let fix = fix::default();")]
     #[case::without_underscore("_fix: String", "let _fix = fix::default();")]
     #[case::do_not_remove_inner_underscores("f_i_x: String", "let f_i_x = f_i_x::default();")]
     #[case::do_not_remove_double_underscore("__fix: String", "let __fix = __fix::default();")]
-    #[case::without_mut("mut fix: String", "let fix = fix::default();")]
+    #[case::preserve_mut_but_annotate_as_allow_unused_mut(
+        "mut fix: String",
+        "#[allow(unused_mut)] let mut fix = fix::default();"
+    )]
     fn call_fixture(#[case] arg_str: &str, #[case] expected: &str) {
         let arg = arg_str.ast();
 
@@ -171,7 +179,8 @@ mod should {
     }
 
     #[rstest]
-    #[case::as_is("mut fix: String", ("fix", expr("bar()")), "let fix = bar();")]
+    #[case::as_is("fix: String", ("fix", expr("bar()")), "let fix = bar();")]
+    #[case::with_allow_unused_mut("mut fix: String", ("fix", expr("bar()")), "#[allow(unused_mut)] let mut fix = bar();")]
     #[case::without_undescore("_fix: String", ("fix", expr("bar()")), "let _fix = bar();")]
     fn call_given_fixture(
         #[case] arg_str: &str,

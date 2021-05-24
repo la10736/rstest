@@ -260,6 +260,16 @@ fn first_type_path_segment_ident(t: &Type) -> Option<&Ident> {
     }
 }
 
+pub(crate) fn fn_arg_mutability(arg: &FnArg) -> Option<syn::token::Mut> {
+    match arg {
+        FnArg::Typed(syn::PatType { pat, .. }) => match pat.as_ref() {
+            syn::Pat::Ident(syn::PatIdent { mutability, .. }) => mutability.clone(),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use syn::parse_quote;

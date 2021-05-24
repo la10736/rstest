@@ -8,13 +8,13 @@
 
 ### Fixed
 
+- use mutable fixture in in cases and value list (See #121)
+
 ## [0.10.0] 2021/05/16
 
 ### Add
 
 - Rename fixture (See #107 and #108)  
-
-### Changed
 
 ### Fixed
 
