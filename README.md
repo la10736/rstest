@@ -14,7 +14,7 @@ following lines to your `Cargo.toml` file:
 
 ```
 [dev-dependencies]
-rstest = "0.11.0"
+rstest = "0.10.0"
 ```
 
 ### Fixture
