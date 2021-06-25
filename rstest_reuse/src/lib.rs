@@ -200,11 +200,26 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
 /// attributes. The function signature don't really mater but to make it clear is better that you
 /// use a signature like if you're wrinting a standard `rstest`.
 #[proc_macro_attribute]
-pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
+pub fn template(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
+    let args: Option<Ident> = parse(args).unwrap();
     let template: ItemFn = parse(input).unwrap();
+
+    let mut tokens = quote! {};
+
+    let local = if let Some(local) = args {
+        local.to_string() == "local"
+    } else {
+        false
+    };
+
+    if !local {
+        tokens.extend(quote! {
+            #[macro_export]
+        });
+    }
+
     let macro_name = template.sig.ident.clone();
-    let tokens = quote! {
-        #[macro_export]
+    tokens.extend(quote! {
         /// Apply #macro_name telmplate to given body
         macro_rules! #macro_name {
             ( $test:item ) => {
@@ -214,7 +229,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                         }
                     }
         }
-    };
+    });
     tokens.into()
 }
 
