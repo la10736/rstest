@@ -21,14 +21,14 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.9"
-syn = {version = "1.0.71", features = ["full"]}
+syn = {version = "1.0.72", features = ["full"]}
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-rstest_test = "0.2.0"
+rstest_test = "0.3.0"
 temp_testdir = "0.2.3"
 # To compile doc tests
 rstest = "0.10.0"
 
 [build-dependencies]
-rustc_version = "0.3.3"
+rustc_version = "0.4.0"
