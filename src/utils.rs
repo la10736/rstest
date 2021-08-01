@@ -9,7 +9,7 @@ use syn::{Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Type, Whe
 /// Return an iterator over fn arguments items.
 ///
 pub(crate) fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item = &Ident> {
-    fn_args(&test).filter_map(MaybeIdent::maybe_ident)
+    fn_args(test).filter_map(MaybeIdent::maybe_ident)
 }
 
 /// Return if function declaration has an ident

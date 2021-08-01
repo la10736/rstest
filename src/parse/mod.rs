@@ -271,7 +271,7 @@ impl VisitMut for DefaultTypeFunctionExtractor {
         let attrs = std::mem::take(&mut node.attrs);
         let (defaults, remain): (Vec<_>, Vec<_>) = attrs
             .into_iter()
-            .partition(|attr| attr_is(&attr, FixtureModifiers::DEFAULT_RET_ATTR));
+            .partition(|attr| attr_is(attr, FixtureModifiers::DEFAULT_RET_ATTR));
 
         node.attrs = remain;
         let mut defaults = defaults.into_iter();

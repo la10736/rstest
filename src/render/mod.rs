@@ -81,7 +81,7 @@ impl ValueList {
         let test_cases = self
             .argument_data(resolver)
             .map(|(name, r)| TestCaseRender::new(Ident::new(&name, span), attrs, r))
-            .map(|test_case| test_case.render(&test, &attributes));
+            .map(|test_case| test_case.render(test, attributes));
 
         quote! { #(#test_cases)* }
     }
@@ -191,6 +191,8 @@ fn render_exec_call(fn_path: Path, args: &[Ident], is_async: bool) -> TokenStrea
 /// * `attributes` - Test attributes to select test behaviour
 /// * `generic_types` - The genrics type used in signature
 ///
+// Ok I need some refactoring here but now that not a real issue
+#[allow(clippy::too_many_arguments)]
 fn single_test_case<'a>(
     name: &Ident,
     testfn_name: &Ident,
@@ -302,7 +304,7 @@ impl<'a> TestCaseRender<'a> {
             asyncness,
             None,
             self.resolver,
-            &attributes,
+            attributes,
             &generic_types,
         )
     }
