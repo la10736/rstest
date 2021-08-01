@@ -65,28 +65,53 @@ macro_rules! assert_not_in {
         });
 }
 
+#[macro_export]
+macro_rules! assert_regex {
+    ($regex:expr, $text:expr) => ({
+        match (&$text, &$regex) {
+            (text_val, regex_val) => {
+                use $crate::regex::Regex;
+                if !Regex::new(regex_val).unwrap().is_match(text_val) {
+                    panic!(r#"assertion failed: `text don't satisfy regex`
+         regex: `{}`,
+         text: `{}`"#, regex_val, text_val)
+                }
+            }
+        }
+        });
+    ($regex:expr, $message:expr, ) => (
+        assert_regex_in!($regex, $message)
+    );
+    ($regex:expr, $text:expr, $($arg:tt)+) => ({
+        match (&$text, &$regex) {
+            (text_val, regex_val) => {
+                use $crate::regex::Regex;
+                if !!Regex::new(regex_val).unwrap().is_match(text_val) {
+                    panic!(r#"assertion failed: `text don't satisfy regex`
+         regex: `{}`,
+         text: `{}`: {}"#, regex_val, text_val, format_args!($($arg)+))
+                }
+            }
+        }
+        });
+}
+
 impl<S: AsRef<str>> TestResult<S> {
     pub fn is_fail(&self) -> bool {
         use self::TestResult::*;
-        match *self {
-            Fail(_) => true,
-            _ => false,
-        }
+        matches!(*self, Fail(_))
     }
 
     pub fn is_ok(&self) -> bool {
         use self::TestResult::*;
-        match *self {
-            Ok(_) => true,
-            _ => false,
-        }
+        matches!(*self, Ok(_))
     }
 
     pub fn name(&self) -> String {
         use self::TestResult::*;
-        match self {
-            &Ok(ref s) => s.as_ref().to_owned(),
-            &Fail(ref s) => s.as_ref().to_owned(),
+        match *self {
+            Ok(ref s) => s.as_ref().to_owned(),
+            Fail(ref s) => s.as_ref().to_owned(),
         }
     }
 
@@ -151,24 +176,29 @@ where
 
         assert_in!(output, format!("running {} test", tests.len()));
 
-        self.for_each(|t| assert_in!(output, format!("test {} ... {}", t.name(), t.msg())));
+        self.for_each(|t| {
+            assert_regex!(
+                format!("test {}( - should panic)? ... {}", t.name(), t.msg()),
+                output
+            )
+        });
 
         if self.should_fail() {
-            assert_in!(output, format!("failures:"));
+            assert_in!(output, "failures:".to_string());
         }
 
         self.for_each_failed(|t| assert_in!(output, format!("    {}", t.name())));
     }
 
     fn should_fail(&self) -> bool {
-        self.0.iter().filter(|r| r.is_fail()).next().is_some()
+        self.0.iter().any(|r| r.is_fail())
     }
 
-    fn for_each<F: FnMut(&TestResult<S>) -> ()>(&self, action: F) {
+    fn for_each<F: FnMut(&TestResult<S>)>(&self, action: F) {
         self.0.iter().for_each(action)
     }
 
-    fn for_each_failed<F: FnMut(&TestResult<S>) -> ()>(&self, action: F) {
+    fn for_each_failed<F: FnMut(&TestResult<S>)>(&self, action: F) {
         self.0.iter().filter(|r| r.is_fail()).for_each(action)
     }
 }

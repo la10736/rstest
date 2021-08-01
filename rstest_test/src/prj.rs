@@ -21,16 +21,15 @@ pub enum Channel {
 }
 
 pub static CHANNEL_DEFAULT: Channel = Channel::Stable;
-pub static ENV_CHANNEL: &'static str = "RSTEST_TEST_CHANNEL";
+pub static ENV_CHANNEL: &str = "RSTEST_TEST_CHANNEL";
 
 impl From<String> for Channel {
     fn from(value: String) -> Self {
-        let s = value.to_string();
-        match s.to_lowercase().as_str() {
+        match value.to_lowercase().as_str() {
             "stable" => Channel::Stable,
             "beta" => Channel::Beta,
             "nightly" => Channel::Nightly,
-            _ => Channel::Custom(s),
+            _ => Channel::Custom(value),
         }
     }
 }
@@ -40,7 +39,7 @@ impl Default for Channel {
         std::env::var(ENV_CHANNEL)
             .ok()
             .map(Channel::from)
-            .unwrap_or(CHANNEL_DEFAULT.clone())
+            .unwrap_or_else(|| CHANNEL_DEFAULT.clone())
     }
 }
 
@@ -133,9 +132,9 @@ impl Project {
     }
 
     fn has_test_global_attribute(&self, path: impl AsRef<Path>) -> bool {
-        return read_to_string(&path)
+        read_to_string(&path)
             .unwrap()
-            .starts_with(Self::GLOBAL_TEST_ATTR);
+            .starts_with(Self::GLOBAL_TEST_ATTR)
     }
 
     fn add_test_global_attribute(&self, path: impl AsRef<Path>) {
@@ -194,7 +193,7 @@ impl Project {
     }
 
     fn cargo_toml_path(&self) -> PathBuf {
-        let mut path = self.path().clone();
+        let mut path = self.path();
         path.push("Cargo.toml");
         path
     }
@@ -212,7 +211,7 @@ impl Project {
     fn save_cargo_toml(&self, doc: &Document) {
         File::create(self.cargo_toml_path())
             .expect("cannot update Cargo.toml")
-            .write(doc.to_string().as_bytes())
+            .write_all(doc.to_string().as_bytes())
             .expect("cannot write Cargo.toml");
     }
 

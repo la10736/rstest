@@ -1,3 +1,5 @@
+pub use regex;
+
 pub mod prj;
 pub mod utils;
 

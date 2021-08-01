@@ -86,6 +86,30 @@ fn more_tests() {
 }
 
 #[test]
+fn tests_with_should_panic() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        #[should_panic]
+        fn success() {
+            assert!(false);
+        }
+        #[test]
+        #[should_panic]
+        fn fail() {
+            assert!(true);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+
+    TestResults::new().ok("success").fail("fail").assert(output);
+}
+
+#[test]
 fn add_local_dependency() {
     let project = prj();
     project.add_local_dependency("rstest_test");
