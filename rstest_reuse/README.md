@@ -109,14 +109,57 @@ definition should be allways before the `apply`.
 
 ### Tag modules with `#[macro_use]`
 
-If you define a `template` in a module and you want to use it outside the module you should _lift_ it by mark the module with the `#[macro_use]` attribute. This attribute make your `template` visibe outside this module but not at the upper level. When a `template` is defined you can use it in all submodules that follow the definition.
+If you define a `template` in a module and you plan to use it outside the module, you should _lift_ it by marking the module with the `#[macro_use]` attribute.
+This attribute makes your `template` visible outside this module but not at the upper level ([Rust's macro docs](https://doc.rust-lang.org/reference/macros-by-example.html#scoping-exporting-and-importing)).
+When a `template` is defined, you can use it in all submodules that **follow** the definition!
 
-If you plan to spread your templates in some modules and you use a dirrerent name for each template consider to add the global attribute `!#[macro_use]` at crate level: this put all your templates available everywhere: you should just take care that a `template` should be defined before the `apply` call.
+Let's take a look at this example, which **won't work**: \\
+`lib.rs`:
+```
+/// This module contains some test.
+mod run_tests;
+
+#[template]
+#[rstest(a,  b,
+    case(2, 2),
+    case(4/2, 2),
+    )
+]
+fn two_simple_cases(a: u32, b: u32) {}
+```
+
+The following won't work, since the declaration of the `two_simple_cases` macro happened after the definition of the module: \\
+`run_tests.rs`:
+```
+use super::*;
+
+#[apply(two_simple_cases)]
+fn it_works(a: u32, b: u32) {
+    assert!(a == b);
+}
+```
+
+If we move `mod run_tests;` below the template, everything works fine.
+```
+#[template]
+#[rstest(a,  b,
+    case(2, 2),
+    case(4/2, 2),
+    )
+]
+fn two_simple_cases(a: u32, b: u32) {}
+
+mod run_tests;
+```
+
+If you plan to spread your templates accross multiple modules and you use different names for each template, you can also consider to add the global attribute `!#[macro_use]` at crate level.
+This puts all templates to the crate's root and makes them available everywhere.
+Since macros with colliding names can overwrite each other, different names are a necessity.
+Additionally, the same rule as above applies and you should take care that templates are defined before they're used in `apply` calls.
 
 ## Disclamer
 
-This crate is in developer stage. I don't know if I'll include it in `rstest` or changing some syntax in
-the future.
+This crate is in a development stage. I don't know if I'll include it in `rstest` or change some syntax in the future.
 
 I did't test it in a lot of cases: if you have some cases where it doesn't works file a ticket on [`rstest`][rstest-link]
 
