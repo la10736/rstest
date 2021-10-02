@@ -203,43 +203,25 @@ mod dump_input_values {
     fn should_not_compile_if_not_implement_debug(#[case] source: &str) {
         let (output, name) = run_test(source);
 
-        assert_in!(
+        assert_all_in!(
             output.stderr.str(),
-            format!(
-                "
-             --> {}/src/lib.rs:10:11
-              |
-           10 | fn single(fixture: S) {{}}
-              |           ^^^^^^^ `S` cannot be formatted using `{{:?}}`",
-                name
-            )
-            .unindent()
+            format!("--> {}/src/lib.rs:10:11", name),
+            "fn single(fixture: S) {}",
+            "^^^^^^^ `S` cannot be formatted using `{:?}`"
         );
 
         assert_in!(
             output.stderr.str(),
-            format!(
-                "
-              --> {}/src/lib.rs:15:10
-               |
-            15 | fn cases(s: S) {{}}
-               |          ^ `S` cannot be formatted using `{{:?}}`",
-                name
-            )
-            .unindent()
+            format!("--> {}/src/lib.rs:15:10", name),
+            "fn cases(s: S) {}",
+            "^ `S` cannot be formatted using `{:?}`"
         );
 
         assert_in!(
-            output.stderr.str().to_string(),
-            format!(
-                "
-              --> {}/src/lib.rs:20:11
-               |
-            20 | fn matrix(s: S) {{}}
-               |           ^ `S` cannot be formatted using `{{:?}}`",
-                name
-            )
-            .unindent()
+            output.stderr.str(),
+            format!("--> {}/src/lib.rs:20:11", name),
+            "fn matrix(s: S) {}",
+            "^ `S` cannot be formatted using `{:?}`"
         );
     }
 
