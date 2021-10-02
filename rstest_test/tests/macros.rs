@@ -1,4 +1,4 @@
-use rstest_test::{assert_in, assert_not_in, assert_regex};
+use rstest_test::{assert_all_in, assert_in, assert_not_in, assert_regex};
 
 #[test]
 fn assert_in_should_find_string() {
@@ -38,6 +38,23 @@ fn assert_in_should_yield_text_if_fail() {
 #[should_panic(expected = "xxx")]
 fn assert_in_should_yield_message_if_fail() {
     assert_in!("supercalifragili", "xxx");
+}
+
+#[test]
+fn assert_all_in_should_check_all_clause() {
+    assert_all_in!("supercalifragili", "ercal", "alifrag", "percal");
+}
+
+#[test]
+#[should_panic(expected = "xxx")]
+fn assert_all_in_should_check_all_clause_and_fail() {
+    assert_all_in!("supercalifragili", "ercal", "alifrag", "xxx");
+}
+
+#[test]
+#[should_panic(expected = "xxx")]
+fn assert_all_in_should_raise_the_first_that_didnt_match() {
+    assert_all_in!("supercalifragili", "ercal", "xxx", "yyy", "lifragi");
 }
 
 #[test]

@@ -11,11 +11,11 @@ license = "MIT/Apache-2.0"
 name = "rstest_test"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
-version = "0.3.1"
+version = "0.4.0"
 
 [dependencies]
 regex = "1.5.4"
-toml_edit = "0.2.0"
+toml_edit = "0.5.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"

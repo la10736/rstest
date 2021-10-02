@@ -112,6 +112,7 @@ impl Project {
         match Command::new("cargo")
             .current_dir(&self.root)
             .arg("init")
+            .args(vec!["--edition", "2018"])
             .arg(&self.name)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
