@@ -110,6 +110,24 @@ fn tests_with_should_panic() {
 }
 
 #[test]
+fn nocapture_in_tests() {
+    let project = prj().with_nocapture();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn success() {
+            println!("Some output");
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+
+    assert_in!(output.stdout.str(), "Some output")
+}
+
+#[test]
 fn add_local_dependency() {
     let project = prj();
     project.add_local_dependency("rstest_test");

@@ -47,6 +47,7 @@ pub struct Project {
     pub name: OsString,
     root: PathBuf,
     channel: Channel,
+    nocapture: bool,
     ws: Arc<std::sync::RwLock<()>>,
 }
 
@@ -58,6 +59,7 @@ impl Project {
             root: root.as_ref().to_owned(),
             name: "project".into(),
             channel: Default::default(),
+            nocapture: false,
             ws: Arc::new(std::sync::RwLock::new(())),
         }
         .create()
@@ -67,6 +69,11 @@ impl Project {
         self.name.to_string_lossy()
     }
 
+    pub fn with_nocapture(mut self) -> Self {
+        self.nocapture = true;
+        self
+    }
+
     pub fn subproject<O: AsRef<OsStr>>(&self, name: O) -> Self {
         let _guard = self.ws.write().expect("Cannot lock workspace resource");
         self.workspace_add(name.as_ref().to_str().unwrap());
@@ -74,6 +81,7 @@ impl Project {
             root: self.path(),
             name: name.as_ref().to_owned(),
             channel: self.channel.clone(),
+            nocapture: self.nocapture,
             ws: self.ws.clone(),
         }
         .create()
@@ -93,11 +101,17 @@ impl Project {
         if !self.has_test_global_attribute(self.code_path()) {
             self.add_test_global_attribute(self.code_path())
         }
-        Command::new("cargo")
-            .current_dir(&self.path())
+        let mut cmd = Command::new("cargo");
+
+        cmd.current_dir(&self.path())
             .arg(&self.cargo_channel_arg())
-            .arg("test")
-            .output()
+            .arg("test");
+
+        if self.nocapture {
+            cmd.args(["--", "--nocapture"]);
+        }
+
+        cmd.output()
     }
 
     pub fn compile(&self) -> Result<std::process::Output, std::io::Error> {
