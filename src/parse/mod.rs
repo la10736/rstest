@@ -224,6 +224,12 @@ pub(crate) fn extract_partials_return_type(
     partials_type_extractor.take()
 }
 
+pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<bool, ErrorsVec> {
+    let mut extractor = IsOnceAttributeFunctionExtractor::default();
+    extractor.visit_item_fn_mut(item_fn);
+    extractor.take()
+}
+
 fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
     node: &mut FnArg,
     is_valid_attr: fn(&syn::Attribute) -> bool,
@@ -350,6 +356,43 @@ impl VisitMut for PartialsTypeFunctionExtractor {
             Ok(data)
         };
 
+        syn::visit_mut::visit_item_fn_mut(self, node);
+    }
+}
+
+/// Simple struct used to visit function attributes and extract once
+/// type
+struct IsOnceAttributeFunctionExtractor(Result<bool, ErrorsVec>);
+
+impl IsOnceAttributeFunctionExtractor {
+    fn take(self) -> Result<bool, ErrorsVec> {
+        self.0
+    }
+}
+
+impl Default for IsOnceAttributeFunctionExtractor {
+    fn default() -> Self {
+        Self(Ok(false))
+    }
+}
+
+impl VisitMut for IsOnceAttributeFunctionExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let (onces, remain): (Vec<_>, Vec<_>) =
+            attrs.into_iter().partition(|attr| attr_is(attr, "once"));
+
+        node.attrs = remain;
+        if onces.len() == 1 {
+            self.0 = Ok(true);
+        } else if onces.len() > 1 {
+            self.0 = Err(onces
+                .into_iter()
+                .skip(1)
+                .map(|attr| syn::Error::new_spanned(attr, "You cannot use #[once] more than once"))
+                .collect::<Vec<_>>()
+                .into());
+        }
         syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }

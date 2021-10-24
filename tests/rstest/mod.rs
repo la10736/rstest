@@ -958,9 +958,7 @@ mod should_show_correct_errors {
                   --> {}/src/lib.rs:16:29
                    |
                 16 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
-                   |                             ^^^^^^^
-                   |                             |
-                ",
+                   |                             ^^^^^^^",
                 name
             )
             .unindent()

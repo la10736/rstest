@@ -19,6 +19,8 @@ fn run_test(res: &str) -> (std::process::Output, String) {
 }
 
 mod should {
+    use rstest_test::CountMessageOccurrence;
+
     use super::*;
 
     #[test]
@@ -58,9 +60,7 @@ mod should {
     fn rename() {
         let (output, _) = run_test("rename.rs");
 
-        TestResults::new()
-            .ok("test")
-            .assert(output);
+        TestResults::new().ok("test").assert(output);
     }
 
     mod accept_and_return {
@@ -199,6 +199,20 @@ mod should {
     }
 
     #[test]
+    fn accept_once_attribute_and_call_fixture_just_once() {
+        let project = prj("once.rs").with_nocapture();
+
+        let output = project.run_tests().unwrap();
+
+        // Just to see the errors if fixture doesn't compile
+        assert_in!(output.stderr.str(), "Exec fixture() just once");
+
+        let occurences = output.stderr.str().count("Exec fixture() just once");
+
+        assert_eq!(1, occurences);
+    }
+
+    #[test]
     fn show_correct_errors() {
         let prj = prj("errors.rs");
         let output = prj.run_tests().unwrap();
@@ -239,9 +253,7 @@ mod should {
                   --> {}/src/lib.rs:16:29
                    |
                 16 | fn error_fixture_wrong_type(fixture: String) {{
-                   |                             ^^^^^^^
-                   |                             |
-        ",
+                   |                             ^^^^^^^",
                 name
             )
             .unindent()

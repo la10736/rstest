@@ -16,5 +16,12 @@ macro_rules! wrap_attributes {
                 self.inner.attributes.iter()
             }
         }
+
+        #[cfg(test)]
+        impl $ident {
+            pub(crate) fn append(&mut self, attr: Attribute) {
+                self.inner.attributes.push(attr)
+            }
+        }
     };
 }

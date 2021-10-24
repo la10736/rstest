@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Ident, ItemFn};
+use syn::{parse_quote, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
@@ -7,6 +7,22 @@ use super::{inject, render_exec_call};
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
 use crate::{parse::fixture::FixtureInfo, utils::generics_clean_up};
+
+fn wrap_return_type_as_static_ref(rt: ReturnType) -> ReturnType {
+    match rt {
+        syn::ReturnType::Type(_, t) => parse_quote! {
+           -> &'static #t
+        },
+        o => o,
+    }
+}
+
+fn output_type(rt: &ReturnType) -> syn::Type {
+    match rt {
+        syn::ReturnType::Type(_, t) => *t.clone(),
+        _o => parse_quote! { () },
+    }
+}
 
 pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let name = &fixture.sig.ident;
@@ -16,7 +32,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let orig_args = &fixture.sig.inputs;
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.sig.generics;
-    let default_output = info
+    let mut default_output = info
         .attributes
         .extract_default_type()
         .unwrap_or_else(|| fixture.sig.output.clone());
@@ -24,7 +40,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         generics_clean_up(&fixture.sig.generics, std::iter::empty(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let where_clause = &fixture.sig.generics.where_clause;
-    let output = &fixture.sig.output;
+    let mut output = fixture.sig.output.clone();
     let visibility = &fixture.vis;
     let resolver = (
         resolver::fixtures::get(info.data.fixtures()),
@@ -40,7 +56,19 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
 
     let call_get = render_exec_call(parse_quote! { Self::get }, args, asyncness.is_some());
-    let call_impl = render_exec_call(parse_quote! { #name }, args, asyncness.is_some());
+    let mut call_impl = render_exec_call(parse_quote! { #name }, args, asyncness.is_some());
+
+    if info.attributes.is_once() {
+        let return_type = output_type(&output);
+        call_impl = parse_quote! {
+            static mut S: Option<#return_type> = None;
+            static CELL: std::sync::Once = std::sync::Once::new();
+            CELL.call_once(|| unsafe { S = Some(#call_impl) });
+            unsafe { S.as_ref().unwrap() }
+        };
+        output = wrap_return_type_as_static_ref(output);
+        default_output = wrap_return_type_as_static_ref(default_output);
+    }
 
     quote! {
         #[allow(non_camel_case_types)]
@@ -118,7 +146,7 @@ mod should {
     use crate::parse::{Attribute, Attributes};
 
     use super::*;
-    use crate::test::assert_eq;
+    use crate::test::{assert_eq, *};
     use mytest::*;
     use rstest_reuse::*;
 
@@ -189,6 +217,22 @@ mod should {
         signature.ident = item_fn.sig.ident.clone();
 
         assert_eq!(item_fn.sig, signature);
+    }
+
+    #[test]
+    fn return_a_static_reference_if_once_attribute() {
+        let item_fn = parse_str::<ItemFn>(r#"
+                pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
+                            where B: Borrow<u32>
+                    { }    
+        "#).unwrap();
+        let info = FixtureInfo::default().with_once();
+
+        let out: FixtureOutput = parse2(render(item_fn.clone(), info)).unwrap();
+
+        let signature = select_method(out.core_impl, "get").unwrap().sig;
+
+        assert_eq!(signature.output, "-> &'static (u32, B, String, &str)".ast())
     }
 
     #[template]

@@ -11,7 +11,7 @@ use super::{
     extract_partials_return_type, parse_vector_trailing_till_double_comma, Attributes,
     ExtendWithFunctionAttrs, Fixture,
 };
-use crate::{error::ErrorsVec, refident::RefIdent, utils::attr_is};
+use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};
 use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
@@ -53,12 +53,14 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
             fixtures,
             defaults,
             default_return_type,
-            partials_return_type
+            partials_return_type,
+            is_once
         ) = merge_errors!(
             extract_fixtures(item_fn),
             extract_defaults(item_fn),
             extract_default_return_type(item_fn),
-            extract_partials_return_type(item_fn)
+            extract_partials_return_type(item_fn),
+            extract_once(item_fn)
         )?;
         self.data.items.extend(
             fixtures
@@ -71,6 +73,9 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         }
         for (id, return_type) in partials_return_type {
             self.attributes.set_partial_return_type(id, return_type);
+        }
+        if is_once {
+            self.attributes.set_once();
         }
         Ok(())
     }
@@ -282,6 +287,18 @@ impl FixtureModifiers {
             format_ident!("{}{}", Self::PARTIAL_RET_ATTR, id),
             Box::new(return_type),
         ))
+    }
+
+    pub(crate) fn set_once(&mut self) {
+        self.inner
+            .attributes
+            .push(Attribute::Attr(format_ident!("once")))
+    }
+
+    pub(crate) fn is_once(&self) -> bool {
+        self.iter()
+            .find(|&a| a == &Attribute::Attr(format_ident!("once")))
+            .is_some()
     }
 
     fn extract_type(&self, attr_name: &str) -> Option<syn::ReturnType> {
@@ -533,6 +550,39 @@ mod extend {
             );
         }
 
+        #[test]
+        fn find_once_attribute() {
+            let mut item_fn: ItemFn = r#"
+                #[simple]
+                #[first(comp)]
+                #[second::default]
+                #[once]
+                #[last::more]
+                fn my_fix<I, J, K>(f1: I, f2: J, f3: K) -> impl Iterator<Item=(I, J, K)> {}
+            "#
+            .ast();
+
+            let mut info = FixtureInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert!(info.attributes.is_once(),);
+        }
+
+        #[test]
+        fn no_once_attribute() {
+            let mut item_fn: ItemFn = r#"
+                fn my_fix<I, J, K>(f1: I, f2: J, f3: K) -> impl Iterator<Item=(I, J, K)> {}
+            "#
+            .ast();
+
+            let mut info = FixtureInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert!(!info.attributes.is_once(),);
+        }
+
         mod raise_error {
             use super::{assert_eq, *};
             use rstest_test::assert_in;
@@ -594,6 +644,25 @@ mod extend {
                     .unwrap_or_default();
 
                 assert_eq!(3, errors.len());
+            }
+
+            #[test]
+            fn if_once_is_defined_more_than_once() {
+                let mut item_fn: ItemFn = r#"
+                    #[once]
+                    #[once]
+                    fn my_fix<I>() -> I {}
+                    "#
+                .ast();
+
+                let mut info = FixtureInfo::default();
+
+                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+                assert_in!(
+                    format!("{:?}", error).to_lowercase(),
+                    "cannot use #[once] more than once"
+                );
             }
 
             #[test]

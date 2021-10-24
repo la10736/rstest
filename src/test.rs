@@ -304,3 +304,17 @@ impl<T: ToTokens> DisplayCode for T {
         self.to_token_stream().to_string()
     }
 }
+
+impl crate::parse::fixture::FixtureInfo {
+    pub(crate) fn with_once(mut self) -> Self {
+        self.attributes = self.attributes.with_once();
+        self
+    }
+}
+
+impl crate::parse::fixture::FixtureModifiers {
+    pub(crate) fn with_once(mut self) -> Self {
+        self.append(Attribute::attr("once"));
+        self
+    }
+}
