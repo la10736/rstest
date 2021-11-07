@@ -17,10 +17,18 @@ fn wrap_return_type_as_static_ref(rt: ReturnType) -> ReturnType {
     }
 }
 
-fn output_type(rt: &ReturnType) -> syn::Type {
+fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -> TokenStream {
     match rt {
-        syn::ReturnType::Type(_, t) => *t.clone(),
-        _o => parse_quote! { () },
+        syn::ReturnType::Type(_, t) => parse_quote! {
+            static mut S: Option<#t> = None;
+            static CELL: std::sync::Once = std::sync::Once::new();
+            CELL.call_once(|| unsafe { S = Some(#call_impl) });
+            unsafe { S.as_ref().unwrap() }
+        },
+        _ => parse_quote! {
+            static CELL: std::sync::Once = std::sync::Once::new();
+            CELL.call_once(|| #call_impl );
+        },
     }
 }
 
@@ -59,13 +67,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let mut call_impl = render_exec_call(parse_quote! { #name }, args, asyncness.is_some());
 
     if info.attributes.is_once() {
-        let return_type = output_type(&output);
-        call_impl = parse_quote! {
-            static mut S: Option<#return_type> = None;
-            static CELL: std::sync::Once = std::sync::Once::new();
-            CELL.call_once(|| unsafe { S = Some(#call_impl) });
-            unsafe { S.as_ref().unwrap() }
-        };
+        call_impl = wrap_call_impl_with_call_once_impl(call_impl, &output);
         output = wrap_return_type_as_static_ref(output);
         default_output = wrap_return_type_as_static_ref(default_output);
     }
@@ -147,7 +149,6 @@ mod should {
 
     use super::*;
     use crate::test::{assert_eq, *};
-    use mytest::*;
     use rstest_reuse::*;
 
     #[derive(Clone)]

@@ -17,8 +17,8 @@ macro_rules! wrap_attributes {
             }
         }
 
-        #[cfg(test)]
         impl $ident {
+            #[allow(dead_code)]
             pub(crate) fn append(&mut self, attr: Attribute) {
                 self.inner.attributes.push(attr)
             }

@@ -198,9 +198,11 @@ mod should {
             .assert(output);
     }
 
-    #[test]
-    fn accept_once_attribute_and_call_fixture_just_once() {
-        let project = prj("once.rs").with_nocapture();
+    #[rstest]
+    #[case("once.rs")]
+    #[case::no_return("once_no_return.rs")]
+    fn accept_once_attribute_and_call_fixture_just_once(#[case] fname: &str) {
+        let project = prj(fname).with_nocapture();
 
         let output = project.run_tests().unwrap();
 
