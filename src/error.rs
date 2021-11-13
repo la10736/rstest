@@ -25,8 +25,19 @@ pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
 pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
     missed_arguments(test, info.data.items.iter())
         .chain(duplicate_arguments(info.data.items.iter()))
+        .chain(async_once(test, &info))
         .map(|e| e.to_compile_error())
         .collect()
+}
+
+fn async_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
+    match (test.sig.asyncness, info.attributes.get_once()) {
+        (Some(_asyncness), Some(once)) => Box::new(std::iter::once(syn::Error::new(
+            once.span(),
+            "Cannot apply #[once] to async fixture.",
+        ))),
+        _ => Box::new(std::iter::empty()),
+    }
 }
 
 #[derive(Debug, Default)]

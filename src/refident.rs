@@ -75,3 +75,12 @@ impl MaybeIdent for syn::GenericParam {
         }
     }
 }
+
+impl MaybeIdent for crate::parse::Attribute {
+    fn maybe_ident(&self) -> Option<&Ident> {
+        use crate::parse::Attribute::*;
+        match self {
+            Attr(ident) | Tagged(ident, _) | Type(ident, _) => Some(ident),
+        }
+    }
+}

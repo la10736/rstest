@@ -224,7 +224,7 @@ pub(crate) fn extract_partials_return_type(
     partials_type_extractor.take()
 }
 
-pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<bool, ErrorsVec> {
+pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<Ident>, ErrorsVec> {
     let mut extractor = IsOnceAttributeFunctionExtractor::default();
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
@@ -362,17 +362,17 @@ impl VisitMut for PartialsTypeFunctionExtractor {
 
 /// Simple struct used to visit function attributes and extract once
 /// type
-struct IsOnceAttributeFunctionExtractor(Result<bool, ErrorsVec>);
+struct IsOnceAttributeFunctionExtractor(Result<Option<Ident>, ErrorsVec>);
 
 impl IsOnceAttributeFunctionExtractor {
-    fn take(self) -> Result<bool, ErrorsVec> {
+    fn take(self) -> Result<Option<Ident>, ErrorsVec> {
         self.0
     }
 }
 
 impl Default for IsOnceAttributeFunctionExtractor {
     fn default() -> Self {
-        Self(Ok(false))
+        Self(Ok(None))
     }
 }
 
@@ -384,7 +384,7 @@ impl VisitMut for IsOnceAttributeFunctionExtractor {
 
         node.attrs = remain;
         if onces.len() == 1 {
-            self.0 = Ok(true);
+            self.0 = Ok(onces[0].path.get_ident().cloned());
         } else if onces.len() > 1 {
             self.0 = Err(onces
                 .into_iter()

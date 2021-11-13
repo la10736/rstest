@@ -290,5 +290,20 @@ mod should {
             )
             .unindent()
         );
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Cannot apply #[once] to async fixture.
+                  --> {}/src/lib.rs:38:3
+                   |
+                38 | #[once]
+                   |   ^^^^
+                "#,
+                name
+            )
+            .unindent()
+        );
     }
 }

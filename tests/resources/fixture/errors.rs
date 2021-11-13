@@ -33,3 +33,8 @@ fn f(name: &str) -> String {
 #[fixture(f("first"), f("second"))]
 fn error_inject_a_fixture_more_than_once(f: String) {
 }
+
+#[fixture]
+#[once]
+async fn error_async_once_fixture() {
+}
