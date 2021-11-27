@@ -102,10 +102,14 @@ fn render_partial_impl(
     resolver: &impl Resolver,
     info: &FixtureInfo,
 ) -> TokenStream {
-    let output = info
+    let mut output = info
         .attributes
         .extract_partial_type(n)
         .unwrap_or_else(|| fixture.sig.output.clone());
+
+    if info.attributes.is_once() {
+        output = wrap_return_type_as_static_ref(output);
+    }
 
     let generics = generics_clean_up(&fixture.sig.generics, fn_args(fixture).take(n), &output);
     let where_clause = &generics.where_clause;
