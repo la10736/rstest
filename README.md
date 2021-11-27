@@ -201,6 +201,26 @@ async fn my_async_test(#[case] a: u32, result: #[case] #[future] u32) {
 ```
 Just the attributes that ends with `test` (last path segment) can be injected.
 
+### Use `#[once]` Fixture
+
+If you need to a fixture that should be inizialized just once for all tests
+you can use `#[once]` attribute. `rstest` call your fixture function just once and  
+return a reference to your function result to all your tests:
+
+```rust
+#[fixture]
+#[once]
+fn once_fixture() -> i32 { 42 }
+
+#[rstest]
+fn single(once_fixture: &i32) {
+    // All tests that use once_fixture will share the same reference to once_fixture() 
+    // function result.
+    assert_eq!(&42, once_fixture)
+}
+```
+
+
 ## Complete Example
 
 All these features can be used together with a mixture of fixture variables,
