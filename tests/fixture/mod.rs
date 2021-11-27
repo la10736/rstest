@@ -201,7 +201,7 @@ mod should {
     #[rstest]
     #[case("once.rs")]
     #[case::no_return("once_no_return.rs")]
-    #[case::no_return("once_defined_type.rs")]
+    #[case::defined_type("once_defined_type.rs")]
     fn accept_once_attribute_and_call_fixture_just_once(#[case] fname: &str) {
         let project = prj(fname).with_nocapture();
 
