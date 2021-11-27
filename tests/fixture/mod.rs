@@ -306,5 +306,35 @@ mod should {
             )
             .unindent()
         );
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Cannot apply #[once] on generic fixture.
+                  --> {}/src/lib.rs:43:3
+                   |
+                43 | #[once]
+                   |   ^^^^
+                "#,
+                name
+            )
+            .unindent()
+        );
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Cannot apply #[once] on generic fixture.
+                  --> {}/src/lib.rs:49:3
+                   |
+                49 | #[once]
+                   |   ^^^^
+                "#,
+                name
+            )
+            .unindent()
+        );
     }
 }

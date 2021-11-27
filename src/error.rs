@@ -2,8 +2,8 @@
 use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
-use syn::spanned::Spanned;
-use syn::ItemFn;
+use syn::{spanned::Spanned, visit::Visit};
+use syn::{visit, ItemFn};
 
 use crate::parse::{
     fixture::FixtureInfo,
@@ -26,6 +26,7 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
     missed_arguments(test, info.data.items.iter())
         .chain(duplicate_arguments(info.data.items.iter()))
         .chain(async_once(test, &info))
+        .chain(generics_once(test, &info))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -35,6 +36,44 @@ fn async_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
         (Some(_asyncness), Some(once)) => Box::new(std::iter::once(syn::Error::new(
             once.span(),
             "Cannot apply #[once] to async fixture.",
+        ))),
+        _ => Box::new(std::iter::empty()),
+    }
+}
+
+#[derive(Default)]
+struct SearchImpl(bool);
+
+impl<'ast> Visit<'ast> for SearchImpl {
+    fn visit_type(&mut self, i: &'ast syn::Type) {
+        if self.0 {
+            return;
+        }
+        match i {
+            syn::Type::ImplTrait(_) => self.0 = true,
+            _ => {}
+        }
+        visit::visit_type(self, i);
+    }
+}
+
+impl SearchImpl {
+    fn function_has_some_impl(f: &ItemFn) -> bool {
+        let mut s = SearchImpl::default();
+        visit::visit_item_fn(&mut s, f);
+        s.0
+    }
+}
+
+fn has_some_generics(test: &ItemFn) -> bool {
+    test.sig.generics.params.len() > 0 || SearchImpl::function_has_some_impl(test)
+}
+
+fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
+    match (has_some_generics(test), info.attributes.get_once()) {
+        (true, Some(once)) => Box::new(std::iter::once(syn::Error::new(
+            once.span(),
+            "Cannot apply #[once] on generic fixture.",
         ))),
         _ => Box::new(std::iter::empty()),
     }
@@ -188,4 +227,49 @@ fn case_args_without_cases(params: &RsTestData) -> Errors {
         );
     }
     Box::new(std::iter::empty())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::test::{assert_eq, *};
+    use rstest_test::assert_in;
+
+    use super::*;
+
+    #[rstest]
+    #[case::generics("fn f<G: SomeTrait>(){}")]
+    #[case::const_generics("fn f<const N: usize>(){}")]
+    #[case::lifetimes("fn f<'a>(){}")]
+    #[case::use_impl_in_answer("fn f() -> impl Iterator<Item=u32>{}")]
+    #[case::use_impl_in_argumets("fn f(it: impl Iterator<Item=u32>){}")]
+    #[should_panic]
+    #[case::sanity_check_with_no_generics("fn f() {}")]
+    fn generics_once_should_return_error(#[case] f: &str) {
+        let f: ItemFn = f.ast();
+        let info = FixtureInfo::default().with_once();
+
+        let errors = generics_once(&f, &info);
+
+        let out = errors
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+            .join("-----------------------\n");
+
+        assert_in!(out, "Cannot apply #[once] on generic fixture.");
+    }
+
+    #[rstest]
+    #[case::generics("fn f<G: SomeTrait>(){}")]
+    #[case::const_generics("fn f<const N: usize>(){}")]
+    #[case::lifetimes("fn f<'a>(){}")]
+    #[case::use_impl_in_answer("fn f() -> impl Iterator<Item=u32>{}")]
+    #[case::use_impl_in_argumets("fn f(it: impl Iterator<Item=u32>){}")]
+    fn generics_once_should_not_return_if_no_once(#[case] f: &str) {
+        let f: ItemFn = f.ast();
+        let info = FixtureInfo::default();
+
+        let errors = generics_once(&f, &info);
+
+        assert_eq!(0, errors.count());
+    }
 }
