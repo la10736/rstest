@@ -420,12 +420,12 @@ use quote::ToTokens;
 /// }
 ///
 /// #[rstest]
-/// fn resolve_by_default<I: Debug + PartialEq>(mut fx: impl Iterator<Item=I>) {
+/// fn resolve_by_default(mut fx: impl Iterator<Item=(u32, i32)>) {
 ///     assert_eq!((42, -42), fx.next().unwrap())
 /// }
 ///
 /// #[rstest]
-/// fn resolve_partial<I: Debug + PartialEq>(#[with(42.0)] mut fx: impl Iterator<Item=I>) {
+/// fn resolve_partial(#[with(42.0)] mut fx: impl Iterator<Item=(f32, i32)>) {
 ///     assert_eq!((42.0, -42), fx.next().unwrap())
 /// }
 /// ```
