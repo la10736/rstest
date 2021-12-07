@@ -1267,10 +1267,10 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                  --> {}/src/lib.rs:84:1
-                   |
-                83 | struct S;
-                   | --------- doesn't satisfy `S: FromStr`
+                   --> {}/src/lib.rs:84:1
+                    |
+                83  | struct S;
+                    | --------- doesn't satisfy `S: FromStr`
                 ",
                 name
             )
