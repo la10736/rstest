@@ -53,7 +53,8 @@ where
 
         let mut fixture = self
             .resolver
-            .resolve(&fixture_name)
+            .resolve(ident)
+            .or_else(|| self.resolver.resolve(&fixture_name))
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
@@ -181,6 +182,7 @@ mod should {
     #[case::as_is("fix: String", ("fix", expr("bar()")), "let fix = bar();")]
     #[case::with_allow_unused_mut("mut fix: String", ("fix", expr("bar()")), "#[allow(unused_mut)] let mut fix = bar();")]
     #[case::without_undescore("_fix: String", ("fix", expr("bar()")), "let _fix = bar();")]
+    #[case::without_remove_underscore_if_value("_orig: S", ("_orig", expr("S{}")), r#"let _orig = S{};"#)]
     fn call_given_fixture(
         #[case] arg_str: &str,
         #[case] rule: (&str, Expr),

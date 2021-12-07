@@ -874,6 +874,22 @@ fn rename() {
         .assert(output);
 }
 
+#[test]
+fn ignore_underscore_args() {
+    let (output, _) = run_test("ignore_args.rs");
+
+    TestResults::new()
+        .ok("test::case_1::_ignore3_1")
+        .ok("test::case_1::_ignore3_2")
+        .ok("test::case_1::_ignore3_3")
+        .ok("test::case_1::_ignore3_4")
+        .ok("test::case_2::_ignore3_1")
+        .ok("test::case_2::_ignore3_2")
+        .ok("test::case_2::_ignore3_3")
+        .ok("test::case_2::_ignore3_4")
+        .assert(output);
+}
+
 mod should_show_correct_errors {
     use std::process::Output;
 
