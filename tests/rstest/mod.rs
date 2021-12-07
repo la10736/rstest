@@ -1279,18 +1279,10 @@ mod should_show_correct_errors {
     fn if_try_to_convert_literal_string_to_a_type_that_not_implement_from_str() {
         let (output, name) = execute();
 
+        assert_in!(output.stderr.str(), format!("--> {}/src/lib.rs:84:1", name));
         assert_in!(
             output.stderr.str(),
-            format!(
-                "
-                   --> {}/src/lib.rs:84:1
-                    |
-                83  | struct S;
-                    | --------- doesn't satisfy `S: FromStr`
-                ",
-                name
-            )
-            .unindent()
+            "| --------- doesn't satisfy `S: FromStr`"
         );
     }
 
