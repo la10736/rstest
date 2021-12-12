@@ -1,12 +1,14 @@
 # Changelog
 
-## [0.12.0] Unreleased
+## [0.12.0] 2021/12/12
 
 ### Add
 
-### Changed
+- Add `#[once]` fixture attribute to create static fixtures (See #119)
 
 ### Fixed
+
+- Fixed check of available features before to enable macro diagnostic (See #126)
 
 ## [0.11.0] 2021/08/01
 
