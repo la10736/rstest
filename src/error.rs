@@ -25,8 +25,8 @@ pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
 pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
     missed_arguments(test, info.data.items.iter())
         .chain(duplicate_arguments(info.data.items.iter()))
-        .chain(async_once(test, &info))
-        .chain(generics_once(test, &info))
+        .chain(async_once(test, info))
+        .chain(generics_once(test, info))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -49,9 +49,8 @@ impl<'ast> Visit<'ast> for SearchImpl {
         if self.0 {
             return;
         }
-        match i {
-            syn::Type::ImplTrait(_) => self.0 = true,
-            _ => {}
+        if let syn::Type::ImplTrait(_) = i {
+            self.0 = true
         }
         visit::visit_type(self, i);
     }
@@ -66,7 +65,7 @@ impl SearchImpl {
 }
 
 fn has_some_generics(test: &ItemFn) -> bool {
-    test.sig.generics.params.len() > 0 || SearchImpl::function_has_some_impl(test)
+    !test.sig.generics.params.is_empty() || SearchImpl::function_has_some_impl(test)
 }
 
 fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {

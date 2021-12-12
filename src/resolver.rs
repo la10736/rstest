@@ -114,7 +114,7 @@ impl<'a> Resolver for HashMap<String, &'a Expr> {
 impl<'a> Resolver for HashMap<String, Expr> {
     fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
         let ident = ident.to_string();
-        self.get(&ident).map(|c| Cow::Borrowed(c))
+        self.get(&ident).map(Cow::Borrowed)
     }
 }
 

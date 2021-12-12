@@ -79,9 +79,8 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         for (id, return_type) in partials_return_type {
             self.attributes.set_partial_return_type(id, return_type);
         }
-        match once {
-            Some(ident) => self.attributes.set_once(ident),
-            None => {}
+        if let Some(ident) = once {
+            self.attributes.set_once(ident)
         };
         Ok(())
     }

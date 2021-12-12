@@ -244,8 +244,7 @@ fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
     if let FnArg::Typed(ref mut arg) = node {
         // Extract interesting attributes
         let attrs = std::mem::take(&mut arg.attrs);
-        let (extracted, remain): (Vec<_>, Vec<_>) =
-            attrs.into_iter().partition(|attr| is_valid_attr(attr));
+        let (extracted, remain): (Vec<_>, Vec<_>) = attrs.into_iter().partition(is_valid_attr);
 
         arg.attrs = remain;
 
@@ -383,16 +382,16 @@ impl VisitMut for IsOnceAttributeFunctionExtractor {
             attrs.into_iter().partition(|attr| attr_is(attr, "once"));
 
         node.attrs = remain;
-        if onces.len() == 1 {
-            self.0 = Ok(onces[0].path.get_ident().cloned());
-        } else if onces.len() > 1 {
-            self.0 = Err(onces
+        self.0 = match onces.len() {
+            1 => Ok(onces[0].path.get_ident().cloned()),
+            0 => Ok(None),
+            _ => Err(onces
                 .into_iter()
                 .skip(1)
                 .map(|attr| syn::Error::new_spanned(attr, "You cannot use #[once] more than once"))
                 .collect::<Vec<_>>()
-                .into());
-        }
+                .into()),
+        };
         syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
