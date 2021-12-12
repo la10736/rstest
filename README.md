@@ -204,7 +204,7 @@ Just the attributes that ends with `test` (last path segment) can be injected.
 ### Use `#[once]` Fixture
 
 If you need to a fixture that should be inizialized just once for all tests
-you can use `#[once]` attribute. `rstest` call your fixture function just once and  
+you can use `#[once]` attribute. `rstest` call your fixture function just once and
 return a reference to your function result to all your tests:
 
 ```rust
