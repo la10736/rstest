@@ -206,16 +206,12 @@ pub fn template(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
     let mut tokens = quote! {};
 
-    let local = if let Some(local) = args {
-        local.to_string() == "local"
-    } else {
-        false
-    };
-
-    if !local {
-        tokens.extend(quote! {
-            #[macro_export]
-        });
+    if let Some(args) = args {
+        if args != "local" {
+            tokens.extend(quote! {
+                #[macro_export]
+            });
+        }
     }
 
     let macro_name = template.sig.ident.clone();

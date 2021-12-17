@@ -1,4 +1,4 @@
-use rstest_test::{Project, Stringable, TestResults, assert_not_in, sanitize_name, testname};
+use rstest_test::{assert_not_in, sanitize_name, testname, Project, Stringable, TestResults};
 
 use lazy_static::lazy_static;
 
@@ -66,6 +66,16 @@ fn import_from_mod() {
     TestResults::new()
         .ok("user::it_works::case_1")
         .ok("user::it_works::case_2")
+        .assert(output);
+}
+
+#[test]
+fn local_templates() {
+    let (output, _) = run_test("local_templates.rs");
+
+    TestResults::new()
+        .ok("foo::bar::it_works::case_1")
+        .ok("foo::baz::it_works::case_1")
         .assert(output);
 }
 
