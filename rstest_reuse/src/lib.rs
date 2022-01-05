@@ -220,7 +220,7 @@ pub fn template(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
     let macro_name = template.sig.ident.clone();
     tokens.extend(quote! {
-        /// Apply #macro_name telmplate to given body
+        /// Apply #macro_name template to given body
         macro_rules! #macro_name {
             ( $test:item ) => {
                         $crate::rstest_reuse::merge_attrs! {
