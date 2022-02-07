@@ -570,7 +570,7 @@ pub fn fixture(
 /// [parametrized cases](attr.rstest.html#test-parametrized-cases)
 /// or by [value lists](attr.rstest.html#values-lists).
 ///
-/// `rstest` attribute can be applied to _any_ function and you can costumize its
+/// `rstest` attribute can be applied to _any_ function and you can customize its
 /// parameters by using function and arguments attributes.
 ///
 /// Your test function can use generics, `impl` or `dyn` and like any kind of rust tests:
