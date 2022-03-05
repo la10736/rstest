@@ -117,7 +117,7 @@ When a `template` is defined, you can use it in all submodules that **follow** t
 
 Let's take a look at this example, which **won't work**: \\
 `lib.rs`:
-```
+```rust
 /// This module contains some test.
 mod run_tests;
 
@@ -132,7 +132,7 @@ fn two_simple_cases(a: u32, b: u32) {}
 
 The following won't work, since the declaration of the `two_simple_cases` macro happened after the definition of the module: \\
 `run_tests.rs`:
-```
+```rust
 use super::*;
 
 #[apply(two_simple_cases)]
@@ -142,7 +142,7 @@ fn it_works(a: u32, b: u32) {
 ```
 
 If we move `mod run_tests;` below the template, everything works fine.
-```
+```rust
 #[template]
 #[rstest(a,  b,
     case(2, 2),
