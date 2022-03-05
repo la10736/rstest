@@ -5,7 +5,7 @@
  
 # Reuse `rstest`'s parametrized cases
 
-:warning: [**Version 0.2.0 introduce a breaking change**](export-attribute)
+:warning: [**Version 0.2.0 introduce a breaking change**](#export-attribute)
 
 This crate give a way to define a tests set and apply them to every case you need to
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
