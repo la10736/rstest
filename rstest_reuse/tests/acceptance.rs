@@ -70,6 +70,17 @@ fn import_from_mod() {
 }
 
 #[test]
+fn copy_case_attributes_from_template() {
+    let (output, _) = run_test("copy_args_attributes_from_template.rs");
+
+    TestResults::new()
+        .ok("user::it_works::case_1")
+        .ok("user::it_works::case_2")
+        .assert(output);
+
+}
+
+#[test]
 fn deny_docs() {
     let (output, _) = run_test("deny_docs.rs");
 

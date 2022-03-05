@@ -138,9 +138,13 @@
 //! [`rstest`](https://github.com/la10736/rstest)
 
 extern crate proc_macro;
+use std::collections::HashMap;
+
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{self, parse, parse::Parse, parse_macro_input, Attribute, ItemFn, Path, Token};
+use syn::{
+    self, parse, parse::Parse, parse_macro_input, Attribute, ItemFn, PatIdent, PatType, Path, Token,
+};
 
 struct MergeAttrs {
     template: ItemFn,
@@ -174,6 +178,36 @@ fn sanitize_should_panic_duplication_bug(
     attributes
 }
 
+fn collect_template_args(template: &ItemFn) -> HashMap<&PatIdent, &PatType> {
+    template
+        .sig
+        .inputs
+        .iter()
+        .filter_map(|arg| match arg {
+            syn::FnArg::Typed(a) => Some(a),
+            _ => None,
+        })
+        .filter_map(|arg| match *arg.pat {
+            syn::Pat::Ident(ref id) => Some((id, arg)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
+    let to_merge_args = collect_template_args(&source);
+
+    for arg in dest.sig.inputs.iter_mut() {
+        if let syn::FnArg::Typed(a) = arg {
+            if let syn::Pat::Ident(ref id) = *a.pat {
+                if let Some(&source_arg) = to_merge_args.get(id) {
+                    a.attrs.extend(source_arg.attrs.iter().cloned());
+                }
+            }
+        }
+    }
+}
+
 #[doc(hidden)]
 #[proc_macro]
 pub fn merge_attrs(item: TokenStream) -> TokenStream {
@@ -181,8 +215,10 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
         template,
         mut function,
     } = parse_macro_input!(item as MergeAttrs);
-    let mut attrs = template.attrs;
 
+    expand_function_arguments(&mut function, &template);
+
+    let mut attrs = template.attrs;
     #[cfg(sanitize_multiple_should_panic_compiler_bug)]
     {
         function.attrs = sanitize_should_panic_duplication_bug(function.attrs);
@@ -207,7 +243,7 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
 /// use a signature like if you're wrinting a standard `rstest`.
 ///
 /// If you need to export the template at the root of your crate or use it from another crate you
-/// should annotate it with `#[export]` attribute. This attribute add #[macro_export] attribute to 
+/// should annotate it with `#[export]` attribute. This attribute add #[macro_export] attribute to
 /// the template macro and make possible to use it from another crate.
 ///
 #[proc_macro_attribute]
