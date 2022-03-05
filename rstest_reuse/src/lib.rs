@@ -205,6 +205,11 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
 /// Define a template where the name is given from the function name. This attribute register all
 /// attributes. The function signature don't really mater but to make it clear is better that you
 /// use a signature like if you're wrinting a standard `rstest`.
+///
+/// If you need to export the template at the root of your crate or use it from another crate you
+/// should annotate it with `#[export]` attribute. This attribute add #[macro_export] attribute to 
+/// the template macro and make possible to use it from another crate.
+///
 #[proc_macro_attribute]
 pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
     let mut template: ItemFn = parse(input).unwrap();
