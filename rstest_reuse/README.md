@@ -5,7 +5,7 @@
  
 # Reuse `rstest`'s parametrized cases
 
-:warning: [**Version 0.2.0 introduce a breaking change**](export-Attribute)
+:warning: [**Version 0.2.0 introduce a breaking change**](export-attribute)
 
 This crate give a way to define a tests set and apply them to every case you need to
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
@@ -159,7 +159,7 @@ This puts all templates to the crate's root and makes them available everywhere.
 Since macros with colliding names can overwrite each other, different names are a necessity.
 Additionally, the same rule as above applies and you should take care that templates are defined before they're used in `apply` calls.
 
-## export Attribute
+## `#[export]` Attribute
 
 :warning: **Version 0.2.0 introduce a breaking change**
 
