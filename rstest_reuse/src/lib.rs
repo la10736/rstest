@@ -139,8 +139,8 @@
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{self, parse, parse::Parse, parse_macro_input, Ident, ItemFn, Token};
+use quote::{format_ident, quote};
+use syn::{self, parse, parse::Parse, parse_macro_input, Attribute, ItemFn, Path, Token};
 
 struct MergeAttrs {
     template: ItemFn,
@@ -196,27 +196,39 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
     tokens.into()
 }
 
+fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
+    attributes
+        .into_iter()
+        .find(|&attr| attr.path.is_ident(&format_ident!("export")))
+}
+
 /// Define a template where the name is given from the function name. This attribute register all
 /// attributes. The function signature don't really mater but to make it clear is better that you
 /// use a signature like if you're wrinting a standard `rstest`.
 #[proc_macro_attribute]
-pub fn template(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
-    let args: Option<Ident> = parse(args).unwrap();
-    let template: ItemFn = parse(input).unwrap();
+pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
+    let mut template: ItemFn = parse(input).unwrap();
 
-    let mut tokens = quote! {};
+    let rstest_index = template
+        .attrs
+        .iter()
+        .position(|attr| attr.path.is_ident(&format_ident!("rstest")));
 
-    let local = if let Some(local) = args {
-        local.to_string() == "local"
-    } else {
-        false
+    let mut attributes = template.attrs;
+
+    template.attrs = match rstest_index {
+        Some(idx) => attributes.split_off(idx),
+        None => std::mem::take(&mut attributes),
     };
 
-    if !local {
-        tokens.extend(quote! {
-            #[macro_export]
-        });
-    }
+    let mut tokens = match get_export(&attributes) {
+        Some(_) => {
+            quote! {
+                #[macro_export]
+            }
+        }
+        None => quote! {},
+    };
 
     let macro_name = template.sig.ident.clone();
     tokens.extend(quote! {
@@ -263,7 +275,7 @@ pub fn template(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
 #[proc_macro_attribute]
 pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
-    let template: Ident = parse(args).unwrap();
+    let template: Path = parse(args).unwrap();
     let test: ItemFn = parse(input).unwrap();
     let tokens = quote! {
         #template! {
