@@ -5,6 +5,8 @@
  
 # Reuse `rstest`'s parametrized cases
 
+:warning: [**Version 0.2.0 introduce a breaking change**](export-Attribute)
+
 This crate give a way to define a tests set and apply them to every case you need to
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
 to another test function you must rewrite all cases or write some macros that do the job.
@@ -156,6 +158,41 @@ If you plan to spread your templates accross multiple modules and you use differ
 This puts all templates to the crate's root and makes them available everywhere.
 Since macros with colliding names can overwrite each other, different names are a necessity.
 Additionally, the same rule as above applies and you should take care that templates are defined before they're used in `apply` calls.
+
+## export Attribute
+
+:warning: **Version 0.2.0 introduce a breaking change**
+
+If you want to export your template at the root of your crate you can annotate it by 
+`#[export]` attribute. You should use `#[export]` attribute also if you need to use the
+template from another crate.
+
+This was the default behaviour in the 0.1.x versions.
+
+Example: note that we don't use `#[macro_use]` attribute.
+
+```rust
+mod inner {
+    mod sub {
+        use rstest_reuse::*;
+        #[template]
+        #[export]
+        #[rstest(a,  b,
+            case(2, 2),
+            case(4/2, 2),
+            )
+        ]
+        fn two_simple_cases(a: u32, b: u32) {}
+    }
+}
+use rstest_reuse::*;
+use rstest::*;
+
+#[apply(two_simple_cases)]
+fn it_works(a: u32, b: u32) {
+    assert!(a == b);
+}
+```
 
 ## Disclamer
 
