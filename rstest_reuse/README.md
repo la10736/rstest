@@ -163,8 +163,8 @@ Additionally, the same rule as above applies and you should take care that templ
 
 :warning: **Version 0.2.0 introduce a breaking change**
 
-If you want to export your template at the root of your crate you can annotate it by 
-`#[export]` attribute. You should use `#[export]` attribute also if you need to use the
+If you want to export your template at the root of your crate you should annotate it by 
+`#[export]` attribute. Use `#[export]` attribute also if you need to use the
 template from another crate.
 
 This was the default behaviour in the 0.1.x versions.
