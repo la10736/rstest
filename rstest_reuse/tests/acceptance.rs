@@ -1,6 +1,4 @@
-use rstest_test::{
-    assert_in, assert_not_in, sanitize_name, testname, Project, Stringable, TestResults,
-};
+use rstest_test::{assert_not_in, sanitize_name, testname, Project, Stringable, TestResults};
 
 use lazy_static::lazy_static;
 
