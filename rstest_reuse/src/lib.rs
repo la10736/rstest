@@ -7,7 +7,7 @@
 //! to another test function you must rewrite all cases or write some macros that do the job.
 //! Both solutions have some drawbreak:
 //!
-//! - rewrite create duplication
+//! - introduce duplication
 //! - macros makes code harder to read and shift out the focus from tests core
 //!
 //! The aim of this crate is solve this problem. `rstest_resuse` expose two attributes:
@@ -25,20 +25,16 @@
 //! // * The test list name to `two_simple_cases`
 //! // * cases: here two cases that feed the `a`, `b` values
 //! #[template]
-//! #[rstest(a,  b,
-//!     case(2, 2),
-//!     case(4/2, 2),
-//!     )
-//! ]
-//! fn two_simple_cases(a: u32, b: u32) {}
+//! #[rstest]
+//! #[case(2, 2)]
+//! #[case(4/2, 2)]
+//! fn two_simple_cases(#[case] a: u32,#[case] b: u32) {}
 //!
 //! // Here we apply the `two_simple_cases` template: That is expanded in
-//! // #[rstest(a,  b,
-//! //     case(2, 2),
-//! //     case(4/2, 2),
-//! //     )
-//! // ]
-//! // fn it_works(a: u32, b: u32) {
+//! // #[rstest]
+//! // #[case(2, 2)]
+//! // #[case(4/2, 2)]
+//! // fn it_works(#[case] a: u32,#[case] b: u32) {
 //! //     assert!(a == b);
 //! // }
 //! #[apply(two_simple_cases)]
@@ -88,6 +84,84 @@
 //! ```
 //!
 //! Simple and neat!
+//!
+//! Note that if the test arguments names match the template's ones you can don't
+//! repeate the arguments attributes.
+//!
+//! ## Composition and Values
+//!
+//! If you need to add some cases or values when apply a template you can leverage on
+//! composition. Here a simple example:
+//!
+//! ```
+//! use rstest::rstest;
+//! use rstest_reuse::{self, *};
+//!
+//! #[template]
+//! #[rstest]
+//! #[case(2, 2)]
+//! #[case(4/2, 2)]
+//! fn base(#[case] a: u32, #[case] b: u32) {}
+//!
+//! // Here we add a new case and an argument in a value list:
+//! #[apply(base)]
+//! #[case(9/3, 3)]
+//! fn it_works(a: u32, b: u32, #[values("a", "b")] t: &str) {
+//!     assert!(a == b);
+//!     assert!("abcd".contains(t))
+//! }
+//! ```
+//!
+//! `cargo test` runs 6 tests:
+//!
+//! ```text
+//! running 6 tests
+//! test it_works::case_1::t_2 ... ok
+//! test it_works::case_2::t_2 ... ok
+//! test it_works::case_2::t_1 ... ok
+//! test it_works::case_3::t_2 ... ok
+//! test it_works::case_3::t_1 ... ok
+//! test it_works::case_1::t_1 ... ok
+//! ```
+//!
+//! Template can also used for `#[values]` and `#[with] arguments if you need:
+//!
+//! ```
+//! use rstest::*;
+//! use rstest_reuse::{self, *};
+//!
+//! #[template]
+//! #[rstest]
+//! fn base(#[with(42)] fix: u32, #[values(1,2,3)] v: u32) {}
+//!
+//! #[fixture]
+//! fn fix(#[default(0)] inner: u32) -> u32 {
+//!     inner
+//! }
+//!
+//! #[apply(base)]
+//! fn use_it_with_fixture(fix: u32, v: u32) {
+//!     assert!(fix%v == 0);
+//! }
+//!
+//! #[apply(base)]
+//! fn use_it_without_fixture(v: u32) {
+//!     assert!(24 % v == 0);
+//! }
+//! ```
+//!
+//! `cargo test` runs 6 tests:
+//!
+//! ```text
+//! running 6 tests
+//! test use_it_with_fixture::v_1 ... ok
+//! test use_it_without_fixture::v_1 ... ok
+//! test use_it_with_fixture::v_3 ... ok
+//! test use_it_without_fixture::v_2 ... ok
+//! test use_it_without_fixture::v_3 ... ok
+//! test use_it_with_fixture::v_2 ... ok
+//! ```
+//!
 //!
 //! ## Cavelets
 //!
@@ -266,6 +340,9 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
 /// should annotate it with `#[export]` attribute. This attribute add #[macro_export] attribute to
 /// the template macro and make possible to use it from another crate.
 ///
+/// When define a template you can also set the arguments attributes like `#[case]`, `#[values]`
+/// and `#[with]`: when you apply it attributes will be copied to the matched by name arguments.
+///
 #[proc_macro_attribute]
 pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
     let mut template: ItemFn = parse(input).unwrap();
@@ -320,12 +397,10 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 /// }
 ///
 /// #[template]
-/// #[rstest(a,  b,
-///     case(2, 2),
-///     case(4/2, 2),
-///     )
-/// ]
-/// fn two_simple_cases(a: u32, b: u32) {}
+/// #[rstest]
+/// #[case(2, 2)]
+/// #[case(4/2, 2)]
+/// fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
 ///
 /// #[apply(two_simple_cases)]
 /// fn it_works(mut empty: Vec<u32>, a: u32, b: u32) {
@@ -333,6 +408,40 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 ///     assert!(empty.last() == b);
 /// }
 /// ```
+/// When use `#[apply]` you can also
+/// 1. Ignore an argument by underscore
+/// 2. add some cases
+/// 3. add some values
+///
+///
+/// ```
+/// use rstest::{rstest, fixture};
+/// use rstest_reuse::{self, *};
+///
+/// #[fixture]
+/// fn fix (#[default(0)] inner: u32) -> u32 {
+///     inner
+/// }
+///
+/// #[template]
+/// #[rstest]
+/// #[case(2, 2)]
+/// #[case(4/2, 2)]
+/// fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
+///
+/// #[apply(two_simple_cases)]
+/// // Add a case
+/// #[case(9/3, 3)]
+/// // Use fixture with 42 as argument
+/// // Ignore b case values
+/// // add 2 cases with other in 4, 5 for each case
+/// fn lot_of_tests(fix: u32, a: u32, _b: u32, #[values(4, 5)] other: u32) {
+///     assert_eq!(fix, 42);
+///     assert_eq!(a, 2);
+///     assert!([4, 5].contains(other));
+/// }
+/// ```
+///
 
 #[proc_macro_attribute]
 pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
