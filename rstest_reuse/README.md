@@ -12,7 +12,7 @@ test. With `rstest` crate you can define a tests list but if you want to apply t
 to another test function you must rewrite all cases or write some macros that do the job.
 
 Both solutions have some drawbreak:
-- rewrite create duplication
+- intruduce duplication
 - macros makes code harder to read and shift out the focus from tests core
 
 The aim of this crate is solve this problem. `rstest_resuse` expose two attributes:
@@ -26,22 +26,19 @@ use rstest::rstest;
 use rstest_reuse::{self, *};
 // Here we define the template. This define
 // * The test list name to `two_simple_cases`
-// * cases: here two cases that feed the `a`, `b` values
+// * cases: here two cases
 #[template]
-#[rstest(a,  b,
-    case(2, 2),
-    case(4/2, 2),
-    )
-]
-fn two_simple_cases(a: u32, b: u32) {}
+#[rstest]
+#[case(2, 2)]
+#[case(4/2, 2)]
+// Define a and b as cases arguments
+fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
 // Here we apply the `two_simple_cases` template: That is expanded in
 // #[template]
-// #[rstest(a,  b,
-//     case(2, 2),
-//     case(4/2, 2),
-//     )
-// ]
-// fn it_works(a: u32, b: u32) {
+// #[rstest]
+// #[case(2, 2)]
+// #[case(4/2, 2)]
+// fn it_works(#[case] a: u32,#[case] b: u32) {
 //     assert!(a == b);
 // }
 #[apply(two_simple_cases)]
@@ -82,6 +79,77 @@ error: test failed, to rerun pass '--bin playground'
 ```
 
 Simple and neat!
+
+Note that if the test arguments names match the template's ones you can don't 
+repeate the arguments attributes.
+
+## Composition and Values
+
+If you need to add some cases or values when apply a template you can leverage on
+composition. Here a simple example:
+
+```rust
+#[template]
+#[rstest]
+#[case(2, 2)]
+#[case(4/2, 2)]
+fn base(#[case] a: u32, #[case] b: u32) {}
+
+// Here we add a new case and an argument in a value list:
+#[apply(base)]
+#[case(9/3, 3)]
+fn it_works(a: u32, b: u32, #[values("a", "b")] t: &str) {
+    assert!(a == b);
+    assert!("abcd".contains(t))
+}
+```
+
+run 6 tests:
+
+```
+running 6 tests
+test it_works::case_1::t_2 ... ok
+test it_works::case_2::t_2 ... ok
+test it_works::case_2::t_1 ... ok
+test it_works::case_3::t_2 ... ok
+test it_works::case_3::t_1 ... ok
+test it_works::case_1::t_1 ... ok
+```
+
+Template can also used for values and with arguments if you need:
+
+```rust
+#[template]
+#[rstest]
+fn base(#[with(42)] fix: u32, #[values(1,2,3)] v: u32) {}
+
+#[fixture]
+fn fix(#[default(0)] inner: u32) -> u32 {
+    inner
+}
+
+#[apply(base)]
+fn use_it_with_fixture(fix: u32, v: u32) {
+    assert!(fix%v == 0);
+}
+
+#[apply(base)]
+fn use_it_without_fixture(v: u32) {
+    assert!(24 % v == 0);
+}
+```
+
+Run also 6 tests:
+
+```
+running 6 tests
+test use_it_with_fixture::v_1 ... ok
+test use_it_without_fixture::v_1 ... ok
+test use_it_with_fixture::v_3 ... ok
+test use_it_without_fixture::v_2 ... ok
+test use_it_without_fixture::v_3 ... ok
+test use_it_with_fixture::v_2 ... ok
+```
 
 ## Cavelets
 
