@@ -143,7 +143,7 @@ use std::collections::HashMap;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    self, parse, parse::Parse, parse_macro_input, Attribute, ItemFn, PatIdent, PatType, Path, Token,
+    self, parse, parse::Parse, parse_macro_input, Attribute, Ident, ItemFn, PatType, Path, Token,
 };
 
 struct MergeAttrs {
@@ -178,7 +178,7 @@ fn sanitize_should_panic_duplication_bug(
     attributes
 }
 
-fn collect_template_args(template: &ItemFn) -> HashMap<&PatIdent, &PatType> {
+fn collect_template_args(template: &ItemFn) -> HashMap<&Ident, &PatType> {
     template
         .sig
         .inputs
@@ -188,7 +188,7 @@ fn collect_template_args(template: &ItemFn) -> HashMap<&PatIdent, &PatType> {
             _ => None,
         })
         .filter_map(|arg| match *arg.pat {
-            syn::Pat::Ident(ref id) => Some((id, arg)),
+            syn::Pat::Ident(ref id) => Some((&id.ident, arg)),
             _ => None,
         })
         .collect()
@@ -202,13 +202,25 @@ fn merge_arg_attributes(dest: &mut Vec<Attribute>, source: &Vec<Attribute>) {
     }
 }
 
+fn resolve_template_arg<'a>(
+    template: &HashMap<&'a Ident, &'a PatType>,
+    arg: &Ident,
+) -> Option<&'a PatType> {
+    let id_name = arg.to_string();
+    match (template.get(arg), id_name.starts_with("_")) {
+        (Some(&arg), _) => Some(arg),
+        (None, true) => template.get(&format_ident!("{}", id_name[1..])).map(|&r| r),
+        _ => None,
+    }
+}
+
 fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
     let to_merge_args = collect_template_args(&source);
 
     for arg in dest.sig.inputs.iter_mut() {
         if let syn::FnArg::Typed(a) = arg {
             if let syn::Pat::Ident(ref id) = *a.pat {
-                if let Some(&source_arg) = to_merge_args.get(id) {
+                if let Some(source_arg) = resolve_template_arg(&to_merge_args, &id.ident) {
                     merge_arg_attributes(&mut a.attrs, &source_arg.attrs);
                 }
             }

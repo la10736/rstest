@@ -76,8 +76,20 @@ fn copy_case_attributes_from_template() {
     TestResults::new()
         .ok("it_works::case_1")
         .ok("it_works::case_2")
+        .ok("should_not_copy_attributes_if_already_present::case_1")
+        .ok("should_not_copy_attributes_if_already_present::case_2")
+        .ok("should_copy_cases_also_from_underscored_attrs::case_1")
+        .ok("should_copy_cases_also_from_underscored_attrs::case_2")
+        .ok("should_add_a_case::case_1")
+        .ok("should_add_a_case::case_2")
+        .ok("should_add_a_case::case_3_more")
+        .ok("can_add_values::case_1::_add_some_tests_1")
+        .ok("can_add_values::case_1::_add_some_tests_2")
+        .ok("can_add_values::case_1::_add_some_tests_3")
+        .ok("can_add_values::case_2::_add_some_tests_1")
+        .ok("can_add_values::case_2::_add_some_tests_2")
+        .ok("can_add_values::case_2::_add_some_tests_3")
         .assert(output);
-
 }
 
 #[test]
