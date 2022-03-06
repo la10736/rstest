@@ -194,6 +194,14 @@ fn collect_template_args(template: &ItemFn) -> HashMap<&PatIdent, &PatType> {
         .collect()
 }
 
+fn merge_arg_attributes(dest: &mut Vec<Attribute>, source: &Vec<Attribute>) {
+    for s in source.iter() {
+        if !dest.contains(s) {
+            dest.push(s.clone())
+        }
+    }
+}
+
 fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
     let to_merge_args = collect_template_args(&source);
 
@@ -201,7 +209,7 @@ fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
         if let syn::FnArg::Typed(a) = arg {
             if let syn::Pat::Ident(ref id) = *a.pat {
                 if let Some(&source_arg) = to_merge_args.get(id) {
-                    a.attrs.extend(source_arg.attrs.iter().cloned());
+                    merge_arg_attributes(&mut a.attrs, &source_arg.attrs);
                 }
             }
         }

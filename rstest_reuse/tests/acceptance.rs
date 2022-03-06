@@ -74,8 +74,8 @@ fn copy_case_attributes_from_template() {
     let (output, _) = run_test("copy_args_attributes_from_template.rs");
 
     TestResults::new()
-        .ok("user::it_works::case_1")
-        .ok("user::it_works::case_2")
+        .ok("it_works::case_1")
+        .ok("it_works::case_2")
         .assert(output);
 
 }
