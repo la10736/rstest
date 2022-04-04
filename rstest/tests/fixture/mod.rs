@@ -19,7 +19,7 @@ fn run_test(res: &str) -> (std::process::Output, String) {
 }
 
 mod should {
-    use rstest_test::CountMessageOccurrence;
+    use rstest_test::{assert_regex, CountMessageOccurrence};
 
     use super::*;
 
@@ -188,7 +188,10 @@ mod should {
     fn convert_literal_string_for_default_values() {
         let (output, _) = run_test("default_conversion.rs");
 
-        assert_in!(output.stdout.str(), "Cannot parse 'error' to get MyType");
+        assert_regex!(
+            "Cannot parse 'error' to get [a-z:_0-9]*MyType",
+            output.stdout.str()
+        );
 
         TestResults::new()
             .ok("test_base")

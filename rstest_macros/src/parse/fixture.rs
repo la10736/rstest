@@ -325,7 +325,6 @@ mod should {
 
     mod parse {
         use super::{assert_eq, *};
-        use mytest::rstest;
 
         fn parse_fixture<S: AsRef<str>>(fixture_data: S) -> FixtureInfo {
             parse_meta(fixture_data)

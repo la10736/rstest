@@ -103,50 +103,8 @@ fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
 fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
     parse_quote! {
         {
-            struct __Wrap<T>(std::marker::PhantomData<T>);
-
-            trait __ViaParseDebug<'a, T> {
-                fn magic_conversion(&self, input: &'a str) -> T;
-            }
-
-            impl<'a, T> __ViaParseDebug<'a, T> for &&__Wrap<T>
-            where
-                T: std::str::FromStr,
-                T::Err: std::fmt::Debug,
-            {
-                fn magic_conversion(&self, input: &'a str) -> T {
-                    T::from_str(input).unwrap()
-                }
-            }
-
-            trait __ViaParse<'a, T> {
-                fn magic_conversion(&self, input: &'a str) -> T;
-            }
-
-            impl<'a, T> __ViaParse<'a, T> for &__Wrap<T>
-            where
-                T: std::str::FromStr,
-            {
-                fn magic_conversion(&self, input: &'a str) -> T {
-                    match T::from_str(input) {
-                        Ok(v) => v,
-                        Err(_) => {
-                            panic!("Cannot parse '{}' to get {}", input, std::stringify!(#arg_type));
-                        }
-                    }
-                }
-            }
-
-            trait __ViaIdent<'a, T> {
-                fn magic_conversion(&self, input: &'a str) -> T;
-            }
-
-            impl<'a> __ViaIdent<'a, &'a str> for &&__Wrap<&'a str> {
-                fn magic_conversion(&self, input: &'a str) -> &'a str {
-                    input
-                }
-            }
-            (&&&__Wrap::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
+            use rstest::magic_conversion::*;
+            (&&&Magic::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
         }
     }
 }

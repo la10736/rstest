@@ -824,7 +824,10 @@ mod matrix {
 fn convert_string_literal() {
     let (output, _) = run_test("convert_string_literal.rs");
 
-    assert_in!(output.stdout.str(), "Cannot parse 'error' to get MyType");
+    assert_regex!(
+        "Cannot parse 'error' to get [a-z:_0-9]*MyType",
+        output.stdout.str()
+    );
 
     TestResults::new()
         .ok("cases::case_1")

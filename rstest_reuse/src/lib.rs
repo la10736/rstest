@@ -124,7 +124,7 @@
 //! test it_works::case_1::t_1 ... ok
 //! ```
 //!
-//! Template can also used for `#[values]` and `#[with] arguments if you need:
+//! Template can also used for `#[values]` and `#[with]` arguments if you need:
 //!
 //! ```
 //! use rstest::*;
@@ -337,7 +337,7 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
 /// use a signature like if you're wrinting a standard `rstest`.
 ///
 /// If you need to export the template at the root of your crate or use it from another crate you
-/// should annotate it with `#[export]` attribute. This attribute add #[macro_export] attribute to
+/// should annotate it with `#[export]` attribute. This attribute add `#[macro_export]` attribute to
 /// the template macro and make possible to use it from another crate.
 ///
 /// When define a template you can also set the arguments attributes like `#[case]`, `#[values]`
