@@ -229,5 +229,7 @@
 
 #[doc(hidden)]
 pub mod magic_conversion;
+#[doc(hidden)]
+pub mod timeout;
 
 pub use rstest_macros::{fixture, rstest};
