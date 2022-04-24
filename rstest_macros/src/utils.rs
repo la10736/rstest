@@ -276,7 +276,6 @@ mod test {
 
     use super::*;
     use crate::test::{assert_eq, *};
-    use mytest::rstest;
 
     #[test]
     fn fn_args_idents_should() {

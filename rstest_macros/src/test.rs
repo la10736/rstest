@@ -6,7 +6,7 @@
 use std::borrow::Cow;
 use std::iter::FromIterator;
 
-pub(crate) use mytest::{fixture, rstest};
+pub(crate) use rstest::{fixture, rstest};
 pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;

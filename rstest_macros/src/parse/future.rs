@@ -104,7 +104,6 @@ impl VisitMut for ReplaceFutureAttribute {
 mod should {
     use super::*;
     use crate::test::{assert_eq, *};
-    use mytest::rstest;
     use rstest_test::assert_in;
 
     #[rstest]
