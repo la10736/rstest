@@ -11,7 +11,7 @@ pub fn execute_with_timeout_sync<T: 'static + Send, F: Fn() -> T + Send + 'stati
     std::thread::spawn(move || sender.send(code()));
     receiver
         .recv_timeout(timeout)
-        .unwrap_or_else(|_| panic!("Timeout {:?} Expired", timeout))
+        .unwrap_or_else(|_| panic!("Timeout {:?} expired", timeout))
 }
 
 pub async fn execute_with_timeout_async<T, Fut: Future<Output = T>, F: Fn() -> Fut>(
@@ -52,16 +52,18 @@ mod tests {
             async fn should_fail() {
                 execute_with_timeout_async(
                     || test(Duration::from_millis(20)),
-                    Duration::from_millis(10)
-                ).await
+                    Duration::from_millis(10),
+                )
+                .await
             }
 
             #[async_std::test]
             async fn should_pass() {
                 execute_with_timeout_async(
                     || test(Duration::from_millis(10)),
-                    Duration::from_millis(20)
-                ).await
+                    Duration::from_millis(20),
+                )
+                .await
             }
         }
 
@@ -73,16 +75,18 @@ mod tests {
             async fn should_fail() {
                 execute_with_timeout_async(
                     || test(Duration::from_millis(20)),
-                    Duration::from_millis(10)
-                ).await
+                    Duration::from_millis(10),
+                )
+                .await
             }
 
             #[tokio::test]
             async fn should_pass() {
                 execute_with_timeout_async(
                     || test(Duration::from_millis(10)),
-                    Duration::from_millis(20)
-                ).await
+                    Duration::from_millis(20),
+                )
+                .await
             }
         }
     }
