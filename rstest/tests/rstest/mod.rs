@@ -893,6 +893,46 @@ fn ignore_underscore_args() {
         .assert(output);
 }
 
+#[test]
+fn timeout() {
+    let prj = prj("timeout.rs");
+    prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+    let output = prj.run_tests().unwrap();
+
+    TestResults::new()
+        .ok("thread::single_pass")
+        .fail("thread::single_fail_value")
+        .fail("thread::single_fail_timeout")
+        .ok("thread::one_pass::case_1")
+        .fail("thread::one_fail_value::case_1")
+        .fail("thread::one_fail_timeout::case_1")
+        .ok("thread::group_same_timeout::case_1_pass")
+        .fail("thread::group_same_timeout::case_2_fail_timeout")
+        .fail("thread::group_same_timeout::case_3_fail_value")
+        .ok("thread::group_single_timeout::case_1_pass")
+        .fail("thread::group_single_timeout::case_2_fail_timeout")
+        .fail("thread::group_single_timeout::case_3_fail_value")
+        .ok("thread::group_one_timeout_override::case_1_pass")
+        .fail("thread::group_one_timeout_override::case_2_fail_timeout")
+        .fail("thread::group_one_timeout_override::case_3_fail_value")
+        .ok("async_std_cases::single_pass")
+        .fail("async_std_cases::single_fail_value")
+        .fail("async_std_cases::single_fail_timeout")
+        .ok("async_std_cases::one_pass::case_1")
+        .fail("async_std_cases::one_fail_value::case_1")
+        .fail("async_std_cases::one_fail_timeout::case_1")
+        .ok("async_std_cases::group_same_timeout::case_1_pass")
+        .fail("async_std_cases::group_same_timeout::case_2_fail_timeout")
+        .fail("async_std_cases::group_same_timeout::case_3_fail_value")
+        .ok("async_std_cases::group_single_timeout::case_1_pass")
+        .fail("async_std_cases::group_single_timeout::case_2_fail_timeout")
+        .fail("async_std_cases::group_single_timeout::case_3_fail_value")
+        .ok("async_std_cases::group_one_timeout_override::case_1_pass")
+        .fail("async_std_cases::group_one_timeout_override::case_2_fail_timeout")
+        .fail("async_std_cases::group_one_timeout_override::case_3_fail_value")
+        .assert(output);
+}
+
 mod should_show_correct_errors {
     use std::process::Output;
 
@@ -1320,6 +1360,66 @@ mod should_show_correct_errors {
                    |
                 94 | async fn error_future_on_impl_type(#[case] #[future] #[future] a: i32) {{}}
                    |                                                      ^^^^^^^^^
+                ",
+                name
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_use_timeout_without_arg() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
+                error: expected attribute arguments in parentheses: #[timeout(...)]
+                  --> {}/src/lib.rs:97:1
+                   |
+                97 | #[timeout]
+                   | ^^^^^^^^^^
+                ",
+                name
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_timeout_is_not_an_expression() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
+                error: expected expression
+                   --> {}/src/lib.rs:101:16
+                    |
+                101 | #[timeout(some -> strange -> invalid -> expression)]
+                    |                ^^
+                ",
+                name
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_timeout_is_not_a_duration() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
+                error[E0308]: mismatched types
+                   --> {}/src/lib.rs:105:11
+                    |
+                105 | #[timeout(42)]
+                    |           ^^ expected struct `Duration`, found integer
                 ",
                 name
             )

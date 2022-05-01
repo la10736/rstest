@@ -92,3 +92,15 @@ async fn error_future_on_impl_type(#[case] #[future] s: impl AsRef<str>) {}
 #[rstest]
 #[case(async { 42 } )]
 async fn error_future_on_impl_type(#[case] #[future] #[future] a: i32) {}
+
+#[rstest]
+#[timeout]
+fn error_timeout_without_arg() {}
+
+#[rstest]
+#[timeout(some -> strange -> invalid -> expression)]
+fn error_timeout_without_expression_arg() {}
+
+#[rstest]
+#[timeout(42)]
+fn error_timeout_without_duration() {}

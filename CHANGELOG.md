@@ -4,8 +4,11 @@
 
 ### Add
 
+- `#[timeout(duration)]` test implementation for both sync and async tests (See #136)
+
 ### Changed
 
+- Split rstest in separated crates for macro and libs (See #32)
 ### Fixed
 
 ## [0.12.0] 2021/12/12

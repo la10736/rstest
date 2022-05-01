@@ -5,9 +5,9 @@ use syn::{
 
 use super::testcase::TestCase;
 use super::{
-    extract_case_args, extract_cases, extract_excluded_trace, extract_fixtures, extract_value_list,
-    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
-    Fixture,
+    check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
+    extract_fixtures, extract_value_list, parse_vector_trailing_till_double_comma, Attribute,
+    Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::parse::vlist::ValueList;
 use crate::{
@@ -41,9 +41,10 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (_, excluded) = merge_errors!(
+        let (_, (excluded, _)) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
-            extract_excluded_trace(item_fn)
+            extract_excluded_trace(item_fn),
+            check_timeout_attrs(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
         Ok(())
@@ -259,7 +260,7 @@ impl Parse for RsTestAttributes {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::*;
+    use crate::test::{assert_eq, *};
 
     mod parse_rstest_data {
         use super::assert_eq;
@@ -279,6 +280,25 @@ mod test {
 
             assert_eq!(expected, fixtures);
         }
+    }
+
+    #[test]
+    fn should_check_all_timeout_to_catch_the_right_errors() {
+        let mut item_fn = r#"
+            #[timeout(<some>)]
+            #[timeout(42)]
+            #[timeout]
+            #[timeout(Duration::from_millis(20))]
+            fn test_fn(#[case] arg: u32) {
+            }
+        "#
+        .ast();
+
+        let mut info = RsTestInfo::default();
+
+        let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+        assert_eq!(2, errors.len());
     }
 
     fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {

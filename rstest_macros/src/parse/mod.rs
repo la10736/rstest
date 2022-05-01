@@ -561,6 +561,47 @@ pub(crate) fn extract_excluded_trace(item_fn: &mut ItemFn) -> Result<Vec<Ident>,
     excluded_trace_extractor.take()
 }
 
+/// Simple struct used to visit function args attributes to check timeout syntax
+struct CheckTimeoutAttributesFunction(Result<(), ErrorsVec>);
+impl From<ErrorsVec> for CheckTimeoutAttributesFunction {
+    fn from(errors: ErrorsVec) -> Self {
+        Self(Err(errors))
+    }
+}
+
+impl CheckTimeoutAttributesFunction {
+    pub(crate) fn take(self) -> Result<(), ErrorsVec> {
+        self.0
+    }
+}
+
+impl Default for CheckTimeoutAttributesFunction {
+    fn default() -> Self {
+        Self(Ok(Default::default()))
+    }
+}
+
+impl VisitMut for CheckTimeoutAttributesFunction {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let errors = node
+            .attrs
+            .iter()
+            .filter(|&a| attr_is(a, "timeout"))
+            .map(|attr| attr.parse_args::<syn::Expr>())
+            .filter_map(Result::err)
+            .collect::<Vec<_>>();
+        if !errors.is_empty() {
+            *self = Self(Err(errors.into()));
+        }
+    }
+}
+
+pub(crate) fn check_timeout_attrs(item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
+    let mut checker = CheckTimeoutAttributesFunction::default();
+    checker.visit_item_fn_mut(item_fn);
+    checker.take()
+}
+
 #[cfg(test)]
 mod should {
     use super::*;

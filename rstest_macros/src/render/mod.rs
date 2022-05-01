@@ -178,6 +178,25 @@ fn render_exec_call(fn_path: Path, args: &[Ident], is_async: bool) -> TokenStrea
     }
 }
 
+fn render_test_call(
+    fn_path: Path,
+    args: &[Ident],
+    timeout: Option<Expr>,
+    is_async: bool,
+) -> TokenStream {
+    match (timeout, is_async) {
+        (Some(to_expr), true) => quote! {
+            use rstest::timeout::*;
+            execute_with_timeout_async(move || #fn_path(#(#args),*), #to_expr).await
+        },
+        (Some(to_expr), false) => quote! {
+            use rstest::timeout::*;
+            execute_with_timeout_sync(move || #fn_path(#(#args),*), #to_expr)
+        },
+        _ => render_exec_call(fn_path, args, is_async),
+    }
+}
+
 /// Render a single test case:
 ///
 /// * `name` - Test case name
@@ -220,6 +239,14 @@ fn single_test_case<'a>(
     let trace_args = trace_arguments(args.iter(), &attributes);
 
     let is_async = asyncness.is_some();
+    let (attrs, timeouts): (Vec<_>, Vec<_>) =
+        attrs.iter().cloned().partition(|a| !attr_is(a, "timeout"));
+
+    let timeout = timeouts
+        .into_iter()
+        .last()
+        .map(|attribute| attribute.parse_args::<Expr>().unwrap());
+
     // If no injected attribut provided use the default one
     let test_attr = if attrs
         .iter()
@@ -229,7 +256,7 @@ fn single_test_case<'a>(
     } else {
         Some(resolve_default_test_attr(is_async))
     };
-    let execute = render_exec_call(testfn_name.clone().into(), &args, is_async);
+    let execute = render_test_call(testfn_name.clone().into(), &args, timeout, is_async);
 
     quote! {
         #test_attr

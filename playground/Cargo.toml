@@ -1,8 +1,8 @@
 [package]
-name = "playground"
-version = "0.1.0"
 authors = ["michele <michele.damico@gmail.com>"]
 edition = "2018"
+name = "playground"
+version = "0.1.0"
 
 [features]
 default = []
@@ -10,11 +10,11 @@ default = []
 trace_all = []
 
 [dependencies]
+async-std = {version = "1.5", features = ["attributes"]}
 lazy_static = "*"
-async-std = { version="1.5", features = ["attributes"] }
 
 [dependencies.rstest]
-path = "../"
+path = "../rstest"
 version = "*"
 
 [dependencies.rstest_reuse]
