@@ -180,6 +180,52 @@ async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[c
 }
 ```
 
+### Test `#[timeout()]`
+
+You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
+works both for sync and async tests and is runtime agnostic. `#[timeout(<duration>)]` take an 
+expression that should return a `std::time::Duration`. Follow a simple async example:
+
+```rust
+use rstest::*;
+use std::time::Duration;
+
+async fn delayed_sum(a: u32, b: u32,delay: Duration) -> u32 {
+    async_std::task::sleep(delay).await;
+    a + b
+}
+
+#[rstest]
+#[timeout(Duration::from_millis(80))]
+async fn single_pass() {
+    assert_eq!(4, delayed_sum(2, 2, ms(10)).await);
+}
+```
+In this case test pass because the delay is just 10 milliseconds and timeout is
+80 milliseconds.
+
+You can use `timeout` attribute like any other attibute in your tests and you can
+override a group timeout with a case specific one. In the follow example we have
+3 tests where first and third use 100 millis but the second one use 10 millis. 
+Another valuable point in this example is to use an expression to compute the
+duration. 
+
+```rust
+fn ms(ms: u32) -> Duration {
+    Duration::from_millis(ms.into())
+}
+
+#[rstest]
+#[case::pass(ms(1), 4)]
+#[timeout(ms(10))]
+#[case::fail_timeout(ms(60), 4)]
+#[case::fail_value(ms(1), 5)]
+#[timeout(ms(100))]
+async fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u32) {
+    assert_eq!(expected, delayed_sum(2, 2, delay).await);
+}
+```
+
 ### Inject Test Attribute
 
 If you would like to use another `test` attribute for your test you can simply 
