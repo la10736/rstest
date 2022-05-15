@@ -760,6 +760,13 @@ pub fn fixture(
 /// duration.
 ///
 /// ```rust
+/// # use rstest::*;
+/// # use std::time::Duration;
+/// #
+/// # async fn delayed_sum(a: u32, b: u32,delay: Duration) -> u32 {
+/// #     async_std::task::sleep(delay).await;
+/// #     a + b
+/// # }
 /// fn ms(ms: u32) -> Duration {
 ///     Duration::from_millis(ms.into())
 /// }
