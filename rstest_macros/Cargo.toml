@@ -11,7 +11,7 @@ keywords = ["test", "fixture"]
 license = "MIT/Apache-2.0"
 name = "rstest_macros"
 repository = "https://github.com/la10736/rstest"
-version = "0.13.0"
+version = "0.14.0"
 
 [lib]
 proc-macro = true
@@ -25,12 +25,12 @@ quote = "1.0.9"
 syn = {version = "1.0.72", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]}
 
 [dev-dependencies]
-rstest = "0.12.0"
-pretty_assertions = "1.0.0"
-rstest_test = "0.5.0"
-rstest_reuse = "0.3.0"
 actix-rt = "2.2.0"
 async-std = {version = "1.9.0", features = ["attributes"]}
+pretty_assertions = "1.0.0"
+rstest = {version = "0.14.0", path = "../rstest"}
+rstest_reuse = {version = "0.3.0", path = "../rstest_reuse"}
+rstest_test = {version = "0.7.0", path = "../rstest_test"}
 
 [build-dependencies]
 rustc_version = "0.4.0"

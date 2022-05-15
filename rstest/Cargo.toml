@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 name = "rstest"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
-version = "0.13.0"
+version = "0.14.0"
 
 [lib]
 
@@ -20,16 +20,16 @@ version = "0.13.0"
 async-std = {version = "1.9.0", features = ["attributes"]}
 futures = "0.3.15"
 futures-timer = "3.0.2"
-rstest_macros = {version = "0.13.0", path = "../rstest_macros"}
+rstest_macros = {version = "0.14.0", path = "../rstest_macros"}
 
 [dev-dependencies]
 actix-rt = "2.2.0"
 async-std = {version = "1.9.0", features = ["attributes"]}
 lazy_static = "1.4.0"
-mytest = {package = "rstest", version = "0.12.0"}
+mytest = {package = "rstest", version = "0.13.0"}
 pretty_assertions = "1.0.0"
 rstest_reuse = {version = "0.3", path = "../rstest_reuse"}
-rstest_test = {version = "0.6", path = "../rstest_test"}
+rstest_test = {version = "0.7", path = "../rstest_test"}
 temp_testdir = "0.2.3"
 tokio = {version = "1.6.1", features = ["rt", "macros"]}
 unindent = "0.1.7"
