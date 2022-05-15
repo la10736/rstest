@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.13.0] Unreleased
+## [0.13.0] 2022/05/15
 
 ### Add
 
@@ -9,7 +9,6 @@
 ### Changed
 
 - Split rstest in separated crates for macro and libs (See #32)
-### Fixed
 
 ## [0.12.0] 2021/12/12
 
