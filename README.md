@@ -226,6 +226,9 @@ async fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u
 }
 ```
 
+If you want to use `timeout` for `async` test you need to use `async-timeout`
+feature (enabled by default).
+
 ### Inject Test Attribute
 
 If you would like to use another `test` attribute for your test you can simply 

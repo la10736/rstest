@@ -782,6 +782,9 @@ pub fn fixture(
 /// }
 /// ```
 ///
+/// If you want to use `timeout` for `async` test you need to use `async-timeout`
+/// feature (enabled by default).
+///
 /// ## Inject Test Attribute
 ///
 /// If you would like to use another `test` attribute for your test you can simply

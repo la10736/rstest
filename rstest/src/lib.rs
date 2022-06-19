@@ -226,6 +226,14 @@
 //! }
 //! ```
 //! You can use this feature also in value list and in fixture default value.
+//!
+//! # Optional features
+//!
+//! `rstest` Enable all fetures by default. You can disable them if you need to
+//! speed up compilation.
+//!
+//! - **`async-timeout`** *(enabled by default)* — Implement timeout for async
+//! tests.
 
 #[doc(hidden)]
 pub mod magic_conversion;
