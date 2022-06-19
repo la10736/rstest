@@ -3,7 +3,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_quote,
     punctuated::Punctuated,
-    token::{self, Paren},
+    token::{self, Async, Paren},
     visit_mut::VisitMut,
     FnArg, Ident, ItemFn, Token,
 };
@@ -573,6 +573,23 @@ impl CheckTimeoutAttributesFunction {
     pub(crate) fn take(self) -> Result<(), ErrorsVec> {
         self.0
     }
+
+    fn check_if_can_implement_timeous<'a, 'b, 'c>(
+        &self,
+        timeouts: &'c [&'a syn::Attribute],
+        asyncness: Option<&'b Async>,
+    ) -> Option<syn::Error> {
+        if cfg!(feature = "async-timeout") || timeouts.is_empty() {
+            None
+        } else {
+            asyncness.map(|a| {
+                syn::Error::new(
+                    a.span,
+                    "Enable async-timeout feature to use timeout in async tests",
+                )
+            })
+        }
+    }
 }
 
 impl Default for CheckTimeoutAttributesFunction {
@@ -583,13 +600,22 @@ impl Default for CheckTimeoutAttributesFunction {
 
 impl VisitMut for CheckTimeoutAttributesFunction {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let errors = node
+        let timeouts = node
             .attrs
             .iter()
             .filter(|&a| attr_is(a, "timeout"))
-            .map(|attr| attr.parse_args::<syn::Expr>())
+            .collect::<Vec<_>>();
+        let mut errors = timeouts
+            .iter()
+            .map(|&attr| attr.parse_args::<syn::Expr>())
             .filter_map(Result::err)
             .collect::<Vec<_>>();
+
+        if let Some(e) =
+            self.check_if_can_implement_timeous(timeouts.as_slice(), node.sig.asyncness.as_ref())
+        {
+            errors.push(e);
+        }
         if !errors.is_empty() {
             *self = Self(Err(errors.into()));
         }

@@ -1,6 +1,8 @@
 use std::{sync::mpsc, time::Duration};
 
+#[cfg(feature = "async-timeout")]
 use futures::{select, Future, FutureExt};
+#[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
 
 pub fn execute_with_timeout_sync<T: 'static + Send, F: Fn() -> T + Send + 'static>(
@@ -14,6 +16,7 @@ pub fn execute_with_timeout_sync<T: 'static + Send, F: Fn() -> T + Send + 'stati
         .unwrap_or_else(|_| panic!("Timeout {:?} expired", timeout))
 }
 
+#[cfg(feature = "async-timeout")]
 pub async fn execute_with_timeout_async<T, Fut: Future<Output = T>, F: Fn() -> Fut>(
     code: F,
     timeout: Duration,
@@ -29,6 +32,7 @@ pub async fn execute_with_timeout_async<T, Fut: Future<Output = T>, F: Fn() -> F
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "async-timeout")]
     mod async_version {
 
         use super::*;

@@ -301,6 +301,39 @@ mod test {
         assert_eq!(2, errors.len());
     }
 
+    #[cfg(feature = "async-timeout")]
+    #[test]
+    fn should_parse_async_timeout() {
+        let mut item_fn = r#"
+            #[timeout(Duration::from_millis(20))]
+            async fn test_fn(#[case] arg: u32) {
+            }
+        "#
+        .ast();
+
+        let mut info = RsTestInfo::default();
+
+        info.extend_with_function_attrs(&mut item_fn).unwrap();
+    }
+
+    #[cfg(not(feature = "async-timeout"))]
+    #[test]
+    fn should_return_error_for_async_timeout() {
+        let mut item_fn = r#"
+            #[timeout(Duration::from_millis(20))]
+            async fn test_fn(#[case] arg: u32) {
+            }
+        "#
+        .ast();
+
+        let mut info = RsTestInfo::default();
+
+        let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+        assert_eq!(1, errors.len());
+        assert!(format!("{:?}", errors).contains("async-timeout feature"))
+    }
+
     fn parse_rstest<S: AsRef<str>>(rstest_data: S) -> RsTestInfo {
         parse_meta(rstest_data)
     }
