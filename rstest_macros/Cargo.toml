@@ -32,7 +32,7 @@ async-std = {version = "1.9.0", features = ["attributes"]}
 pretty_assertions = "1.0.0"
 rstest = {version = "0.14.0", path = "../rstest", default-features = false}
 rstest_reuse = {version = "0.3.0", path = "../rstest_reuse"}
-rstest_test = {version = "0.7.0", path = "../rstest_test"}
+rstest_test = {version = "0.8.0", path = "../rstest_test"}
 
 [build-dependencies]
 rustc_version = "0.4.0"

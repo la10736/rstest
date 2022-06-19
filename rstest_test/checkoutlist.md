@@ -13,4 +13,7 @@
 - [ ] Change next version
   - [ ] `Cargo.toml`
   - [ ] `README.md`)
-- [ ] Change `rstest` and `rstest_reuse` dev-dependency version on `rstest_test`
+- [ ] Change dev-dependency version on `rstest_test`
+  - [ ] `rstest`
+  - [ ] `rstest_macro`
+  - [ ] `rstest_reuse`
