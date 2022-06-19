@@ -16,6 +16,12 @@ lazy_static! {
     static ref ROOT_PROJECT: Project = Project::new(ROOT_DIR.as_ref());
 }
 
+pub fn base_prj() -> Project {
+    let prj_name = sanitize_name(testname());
+
+    ROOT_PROJECT.subproject(&prj_name)
+}
+
 pub fn prj() -> Project {
     let prj_name = sanitize_name(testname());
 

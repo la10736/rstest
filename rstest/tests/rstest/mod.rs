@@ -1,14 +1,16 @@
 use std::path::Path;
 
-use super::resources;
-
 use mytest::*;
 use rstest_test::*;
 use unindent::Unindent;
 
-fn prj(res: impl AsRef<Path>) -> Project {
+pub fn resources(res: impl AsRef<Path>) -> std::path::PathBuf {
     let path = Path::new("rstest").join(res.as_ref());
-    crate::prj().set_code_file(resources(path))
+    super::resources(path)
+}
+
+fn prj(res: impl AsRef<Path>) -> Project {
+    crate::prj().set_code_file(resources(res))
 }
 
 fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
@@ -931,6 +933,51 @@ fn timeout() {
         .fail("async_std_cases::group_one_timeout_override::case_2_fail_timeout")
         .fail("async_std_cases::group_one_timeout_override::case_3_fail_value")
         .assert(output);
+}
+
+mod async_timeout_feature {
+    use super::*;
+
+    fn build_prj(features: &[&str]) -> Project {
+        let prj = crate::base_prj();
+        let features = match features.is_empty() {
+            true => String::new(),
+            false => format!(r#", features=["{}"]"#, features.join(r#"",""#)),
+        };
+        prj.add_dependency(
+            "rstest",
+            &format!(
+                r#"{{path="{}", default-features = false {}}}"#,
+                prj.exec_dir_str().as_str(),
+                features
+            ),
+        );
+        prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+        prj
+    }
+
+    #[test]
+    fn should_not_compile_if_feature_disable() {
+        let prj = build_prj(&[]);
+        let output = prj
+            .set_code_file(resources("timeout_async.rs"))
+            .run_tests()
+            .unwrap();
+
+        assert_in!(output.stderr.str(), "error: Enable async-timeout feature");
+    }
+
+    #[test]
+    fn should_work_if_feature_enabled() {
+        let prj = build_prj(&["async-timeout"]);
+
+        let output = prj
+            .set_code_file(resources("timeout_async.rs"))
+            .run_tests()
+            .unwrap();
+
+        TestResults::new().ok("single_pass").assert(output);
+    }
 }
 
 mod should_show_correct_errors {
