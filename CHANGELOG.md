@@ -2,11 +2,12 @@
 
 ## [0.14.0] Unreleased
 
-### Add
-
 ### Changed
+- Feature gated async timeout via `async-timeout` feature [see #148]
 
 ### Fixed
+
+- Removed `async-std` build dependency [see #148]
 
 ## [0.13.0] 2022/05/15
 
