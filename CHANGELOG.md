@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.14.0] Unreleased
+## [0.14.0] 2022/06/19
 
 ### Changed
 - Feature gated async timeout via `async-timeout` feature [see #148]
