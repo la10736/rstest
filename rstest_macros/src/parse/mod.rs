@@ -574,10 +574,10 @@ impl CheckTimeoutAttributesFunction {
         self.0
     }
 
-    fn check_if_can_implement_timeous<'a, 'b, 'c>(
+    fn check_if_can_implement_timeous(
         &self,
-        timeouts: &'c [&'a syn::Attribute],
-        asyncness: Option<&'b Async>,
+        timeouts: &[&syn::Attribute],
+        asyncness: Option<&Async>,
     ) -> Option<syn::Error> {
         if cfg!(feature = "async-timeout") || timeouts.is_empty() {
             None
@@ -594,7 +594,7 @@ impl CheckTimeoutAttributesFunction {
 
 impl Default for CheckTimeoutAttributesFunction {
     fn default() -> Self {
-        Self(Ok(Default::default()))
+        Self(Ok(()))
     }
 }
 

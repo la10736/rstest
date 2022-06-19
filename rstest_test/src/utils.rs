@@ -276,5 +276,5 @@ mod test {
 }
 
 pub fn sanitize_name<S: AsRef<str>>(s: S) -> String {
-    s.as_ref().replace(":", "_").replace("__", "_")
+    s.as_ref().replace(':', "_").replace("__", "_")
 }

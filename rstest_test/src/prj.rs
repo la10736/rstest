@@ -204,10 +204,12 @@ impl Project {
 
         let members: Array = Array::default();
 
-        doc["workspace"].or_insert(Item::Table(Table::new()))["members"]
+        if let Some(members) = doc["workspace"].or_insert(Item::Table(Table::new()))["members"]
             .or_insert(Item::Value(members.into()))
             .as_array_mut()
-            .map(|members| members.push(prj));
+        {
+            members.push(prj)
+        }
 
         self.save_cargo_toml(&doc);
     }

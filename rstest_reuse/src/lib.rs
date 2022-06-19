@@ -268,7 +268,7 @@ fn collect_template_args(template: &ItemFn) -> HashMap<&Ident, &PatType> {
         .collect()
 }
 
-fn merge_arg_attributes(dest: &mut Vec<Attribute>, source: &Vec<Attribute>) {
+fn merge_arg_attributes(dest: &mut Vec<Attribute>, source: &[Attribute]) {
     for s in source.iter() {
         if !dest.contains(s) {
             dest.push(s.clone())
@@ -281,15 +281,15 @@ fn resolve_template_arg<'a>(
     arg: &Ident,
 ) -> Option<&'a PatType> {
     let id_name = arg.to_string();
-    match (template.get(arg), id_name.starts_with("_")) {
+    match (template.get(arg), id_name.starts_with('_')) {
         (Some(&arg), _) => Some(arg),
-        (None, true) => template.get(&format_ident!("{}", id_name[1..])).map(|&r| r),
+        (None, true) => template.get(&format_ident!("{}", id_name[1..])).copied(),
         _ => None,
     }
 }
 
 fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
-    let to_merge_args = collect_template_args(&source);
+    let to_merge_args = collect_template_args(source);
 
     for arg in dest.sig.inputs.iter_mut() {
         if let syn::FnArg::Typed(a) = arg {
@@ -328,7 +328,7 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
 
 fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
     attributes
-        .into_iter()
+        .iter()
         .find(|&attr| attr.path.is_ident(&format_ident!("export")))
 }
 
