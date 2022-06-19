@@ -186,8 +186,17 @@ impl Project {
     pub fn add_local_dependency(&self, name: &str) {
         self.add_dependency(
             name,
-            format!(r#"{{path="{}"}}"#, self.current_dir_str()).as_str(),
+            format!(r#"{{path="{}"}}"#, self.exec_dir_str()).as_str(),
         );
+    }
+
+    pub fn exec_dir_str(&self) -> String {
+        std::env::current_dir()
+            .unwrap()
+            .as_os_str()
+            .to_str()
+            .unwrap()
+            .to_owned()
     }
 
     fn workspace_add(&self, prj: &str) {
@@ -228,15 +237,6 @@ impl Project {
             .expect("cannot update Cargo.toml")
             .write_all(doc.to_string().as_bytes())
             .expect("cannot write Cargo.toml");
-    }
-
-    fn current_dir_str(&self) -> String {
-        std::env::current_dir()
-            .unwrap()
-            .as_os_str()
-            .to_str()
-            .unwrap()
-            .to_owned()
     }
 
     fn cargo_channel_arg(&self) -> String {
