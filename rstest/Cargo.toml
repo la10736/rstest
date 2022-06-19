@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 name = "rstest"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
-version = "0.14.0"
+version = "0.15.0"
 
 [features]
 async-timeout = ["dep:futures", "dep:futures-timer", "rstest_macros/async-timeout"]
@@ -23,13 +23,13 @@ default = ["async-timeout"]
 [dependencies]
 futures = {version = "0.3.15", optional = true}
 futures-timer = {version = "3.0.2", optional = true}
-rstest_macros = {version = "0.14.0", path = "../rstest_macros", default-features = false}
+rstest_macros = {version = "0.15.0", path = "../rstest_macros", default-features = false}
 
 [dev-dependencies]
 actix-rt = "2.2.0"
 async-std = {version = "1.9.0", features = ["attributes"]}
 lazy_static = "1.4.0"
-mytest = {package = "rstest", version = "0.13.0"}
+mytest = {package = "rstest", version = "0.14.0", default-features = false}
 pretty_assertions = "1.0.0"
 rstest_reuse = {version = "0.3", path = "../rstest_reuse"}
 rstest_test = {version = "0.8", path = "../rstest_test"}
