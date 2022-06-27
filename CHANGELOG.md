@@ -7,6 +7,8 @@
 ### Changed
 
 ### Fixed
+ - Timeout not compile if one of its test arguments il not a copy
+   type [see #154]
 
 ## [0.14.0] 2022/06/19
 
