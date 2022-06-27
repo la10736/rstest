@@ -81,6 +81,25 @@ mod thread {
     fn group_one_timeout_override(#[case] delay: Duration,#[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay));
     }
+    
+    struct S {}
+
+    #[rstest]
+    #[case(S{})]
+    fn compile_with_no_copy_arg(#[case] _s: S) {
+        assert!(true);
+    }
+
+    #[fixture]
+    fn no_copy() -> S {
+        S{}
+    }
+
+    #[rstest]
+    fn compile_with_no_copy_fixture(no_copy: S) {
+        assert!(true);
+    }
+
 }
 
 mod async_std_cases {
@@ -158,5 +177,33 @@ mod async_std_cases {
     #[timeout(ms(100))]
     async fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay).await);
+    }
+
+    struct S {}
+
+    #[rstest]
+    #[case(S{})]
+    async fn compile_with_no_copy_arg(#[case] _s: S) {
+        assert!(true);
+    }
+
+    #[fixture]
+    fn no_copy() -> S{
+        S{}
+    }
+
+    #[rstest]
+    fn compile_with_no_copy_fixture(_no_copy: S) {
+        assert!(true);
+    }
+
+    #[fixture]
+    async fn a_fix() -> S{
+        S{}
+    }
+
+    #[rstest]
+    fn compile_with_async_fixture(#[future] a_fix: S) {
+        assert!(true);
     }
 }

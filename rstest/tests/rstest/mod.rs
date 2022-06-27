@@ -917,6 +917,8 @@ fn timeout() {
         .ok("thread::group_one_timeout_override::case_1_pass")
         .fail("thread::group_one_timeout_override::case_2_fail_timeout")
         .fail("thread::group_one_timeout_override::case_3_fail_value")
+        .ok("thread::compile_with_no_copy_arg::case_1")
+        .ok("thread::compile_with_no_copy_fixture")
         .ok("async_std_cases::single_pass")
         .fail("async_std_cases::single_fail_value")
         .fail("async_std_cases::single_fail_timeout")
@@ -932,6 +934,9 @@ fn timeout() {
         .ok("async_std_cases::group_one_timeout_override::case_1_pass")
         .fail("async_std_cases::group_one_timeout_override::case_2_fail_timeout")
         .fail("async_std_cases::group_one_timeout_override::case_3_fail_value")
+        .ok("async_std_cases::compile_with_no_copy_arg::case_1")
+        .ok("async_std_cases::compile_with_no_copy_fixture")
+        .ok("async_std_cases::compile_with_async_fixture")
         .assert(output);
 }
 

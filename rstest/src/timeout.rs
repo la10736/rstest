@@ -5,7 +5,7 @@ use futures::{select, Future, FutureExt};
 #[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
 
-pub fn execute_with_timeout_sync<T: 'static + Send, F: Fn() -> T + Send + 'static>(
+pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 'static>(
     code: F,
     timeout: Duration,
 ) -> T {
@@ -17,7 +17,7 @@ pub fn execute_with_timeout_sync<T: 'static + Send, F: Fn() -> T + Send + 'stati
 }
 
 #[cfg(feature = "async-timeout")]
-pub async fn execute_with_timeout_async<T, Fut: Future<Output = T>, F: Fn() -> Fut>(
+pub async fn execute_with_timeout_async<T, Fut: Future<Output = T>, F: FnOnce() -> Fut>(
     code: F,
     timeout: Duration,
 ) -> T {
@@ -68,6 +68,17 @@ mod tests {
                     Duration::from_millis(20),
                 )
                 .await
+            }
+
+            #[async_std::test]
+            async fn should_compile_also_with_no_copy_move() {
+                struct S {}
+                async fn test(_s: S) {
+                    assert!(true);
+                }
+                let s = S {};
+
+                execute_with_timeout_async(move || test(s), Duration::from_millis(20)).await
             }
         }
 
@@ -123,6 +134,16 @@ mod tests {
                 || test(Duration::from_millis(70)),
                 Duration::from_millis(30),
             )
+        }
+        #[test]
+        fn should_compile_also_with_no_copy_move() {
+            struct S {}
+            fn test(_s: S) {
+                assert!(true);
+            }
+            let s = S {};
+
+            execute_with_timeout_sync(move || test(s), Duration::from_millis(20))
         }
     }
 }
