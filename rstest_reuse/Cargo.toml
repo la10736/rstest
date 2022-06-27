@@ -28,7 +28,7 @@ lazy_static = "1.4.0"
 rstest_test = {version = "0.8.0", path = "../rstest_test"}
 temp_testdir = "0.2.3"
 # To compile doc tests
-rstest = {version = "0.14.0"}
+rstest = {version = "0.15.0"}
 
 [build-dependencies]
 rustc_version = "0.4.0"
