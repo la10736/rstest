@@ -10,8 +10,8 @@ default = []
 trace_all = []
 
 [dependencies]
-async-std = {version = "1.5", features = ["attributes"]}
-lazy_static = "*"
+async-std = { version = "1.12.0", features = ["attributes"] }
+lazy_static = "1.4.0"
 
 [dependencies.rstest]
 path = "../rstest"
