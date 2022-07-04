@@ -10,7 +10,7 @@
 //! - introduce duplication
 //! - macros makes code harder to read and shift out the focus from tests core
 //!
-//! The aim of this crate is solve this problem. `rstest_resuse` expose two attributes:
+//! The aim of this crate is solve this problem. `rstest_reuse` expose two attributes:
 //!
 //! - `#[template]`: to define a template
 //! - `#[apply]`: to apply a defined template to create tests
@@ -165,16 +165,16 @@
 //!
 //! ## Cavelets
 //!
-//! ### `use rstest_resuse` at the top of your crate
+//! ### `use rstest_reuse` at the top of your crate
 //!
-//! You **should** add `use rstest_resuse` at the top of your crate:
+//! You **should** add `use rstest_reuse` at the top of your crate:
 //!
 //! ```
 //! #[cfg(test)]
 //! use rstest_reuse;
 //! ```
 //!
-//! This is due `rstest_reuse::template` define a macro that need to call a `rstest_resuse`'s macro.
+//! This is due `rstest_reuse::template` define a macro that need to call a `rstest_reuse`'s macro.
 //! I hope to remove this in the future but for now we should live with it.
 //!
 //! Note that
@@ -182,26 +182,6 @@
 //! use rstest_reuse::*;
 //! ```
 //! is not enougth: this statment doesn't include `rstest_reuse` but just its public items.
-//!
-//!
-//! ### Define `template` before `apply` it
-//!
-//! `template` attribute define a macro that `apply` will use. Macro in rust are expanded in
-//! a single depth-first, lexical-order traversal of a crate’s source, that means the template
-//! definition should be allways before the `apply`.
-//!
-//! ### Tag modules with `#[macro_use]`
-//!
-//! If you define a `template` in a module and you want to use it outside the module you should
-//! _lift_ it by mark the module with the `#[macro_use]` attribute. This attribute make your
-//! `template` visibe outside this module but not at the upper level. When a `template` is
-//! defined you can use it in all submodules that follow the definition.
-//!
-//! If you plan to spread your templates in some modules and you use a unique name for each template
-//! consider to add the global attribute `!#[macro_use]` at crate level: this put all your templates
-//! available everywhere: you should
-//! just take care that a `template` should be defined before the `apply` call.
-//!
 //!
 //! ## Disclamer
 //!
@@ -379,6 +359,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                         }
                     }
         }
+        pub(crate) use #macro_name as #macro_name;
     });
     tokens.into()
 }
@@ -409,9 +390,10 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 /// }
 /// ```
 /// When use `#[apply]` you can also
-/// 1. Ignore an argument by underscore
-/// 2. add some cases
-/// 3. add some values
+/// 1. Use a path for template
+/// 2. Ignore an argument by underscore
+/// 3. add some cases
+/// 4. add some values
 ///
 ///
 /// ```
@@ -423,13 +405,20 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 ///     inner
 /// }
 ///
-/// #[template]
-/// #[rstest]
-/// #[case(2, 2)]
-/// #[case(4/2, 2)]
-/// fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
+/// mod outer {
+///     pub(crate) mod inner {
+///         use rstest_reuse::template;
 ///
-/// #[apply(two_simple_cases)]
+///         #[template]
+///         #[rstest]
+///         #[case(2, 2)]
+///         #[case(4/2, 2)]
+///         fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
+///     }
+/// }
+///
+///
+/// #[apply(outer::inner::two_simple_cases)]
 /// // Add a case
 /// #[case(9/3, 3)]
 /// // Use fixture with 42 as argument

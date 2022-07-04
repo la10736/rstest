@@ -6,9 +6,9 @@ mod inner1 {
 
     #[template]
     #[rstest(a,  b, case(2, 2), case(4/2, 2))]
-    fn template(a: u32, b: u32) {}
+    fn my_template(a: u32, b: u32) {}
 
-    #[apply(template)]
+    #[apply(my_template)]
     fn it_works(a: u32, b: u32) {
         assert!(a == b);
     }
@@ -20,8 +20,8 @@ mod inner2 {
 
     #[template]
     #[rstest(a, case(2), case(4))]
-    fn template(a: u32) {}
+    fn my_template(a: u32) {}
 
-    #[apply(template)]
+    #[apply(my_template)]
     fn it_works(a: u32) {}
 }

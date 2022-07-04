@@ -171,62 +171,6 @@ use rstest_reuse::*;
 ```
 is not enougth: this statment doesn't include `rstest_reuse` but just its public items.
 
-### Define `template` before `apply` it
-
-`template` attribute define a macro that `apply` will use. Macro in rust are expanded in
-a single depth-first, lexical-order traversal of a crate’s source, that means the template
-definition should be allways before the `apply`.
-
-### Tag modules with `#[macro_use]`
-
-If you define a `template` in a module and you plan to use it outside the module, you should _lift_ it by marking the module with the `#[macro_use]` attribute.
-This attribute makes your `template` visible outside this module but not at the upper level ([Rust's macro docs](https://doc.rust-lang.org/reference/macros-by-example.html#scoping-exporting-and-importing)).
-When a `template` is defined, you can use it in all submodules that **follow** the definition!
-
-Let's take a look at this example, which **won't work**: \\
-`lib.rs`:
-```rust
-/// This module contains some test.
-mod run_tests;
-
-#[template]
-#[rstest(a,  b,
-    case(2, 2),
-    case(4/2, 2),
-    )
-]
-fn two_simple_cases(a: u32, b: u32) {}
-```
-
-The following won't work, since the declaration of the `two_simple_cases` macro happened after the definition of the module: \\
-`run_tests.rs`:
-```rust
-use super::*;
-
-#[apply(two_simple_cases)]
-fn it_works(a: u32, b: u32) {
-    assert!(a == b);
-}
-```
-
-If we move `mod run_tests;` below the template, everything works fine.
-```rust
-#[template]
-#[rstest(a,  b,
-    case(2, 2),
-    case(4/2, 2),
-    )
-]
-fn two_simple_cases(a: u32, b: u32) {}
-
-mod run_tests;
-```
-
-If you plan to spread your templates accross multiple modules and you use different names for each template, you can also consider to add the global attribute `!#[macro_use]` at crate level.
-This puts all templates to the crate's root and makes them available everywhere.
-Since macros with colliding names can overwrite each other, different names are a necessity.
-Additionally, the same rule as above applies and you should take care that templates are defined before they're used in `apply` calls.
-
 ## `#[export]` Attribute
 
 :warning: **Version 0.2.0 introduce a breaking change**

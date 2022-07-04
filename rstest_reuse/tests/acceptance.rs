@@ -41,6 +41,16 @@ fn simple_example() {
 }
 
 #[test]
+fn use_before_define() {
+    let (output, _) = run_test("use_before_define.rs");
+
+    TestResults::new()
+        .ok("it_works::case_1")
+        .ok("it_works::case_2")
+        .assert(output);
+}
+
+#[test]
 fn not_show_any_warning() {
     let (output, _) = run_test("simple_example.rs");
 
@@ -60,12 +70,24 @@ fn in_mod() {
 }
 
 #[test]
-fn import_from_mod() {
+fn import_from_mod_by_macro_use() {
     let (output, _) = run_test("import_from_mod.rs");
 
     TestResults::new()
         .ok("user::it_works::case_1")
         .ok("user::it_works::case_2")
+        .assert(output);
+}
+
+#[test]
+fn import_from_mod() {
+    let (output, _) = run_test("qualify_template_use.rs");
+
+    TestResults::new()
+        .ok("user::it_works::case_1")
+        .ok("user::it_works::case_2")
+        .ok("qualify::it_works::case_1")
+        .ok("qualify::it_works::case_2")
         .assert(output);
 }
 
