@@ -142,7 +142,7 @@ use quote::ToTokens;
 /// Expecially in integration tests there are cases where you need a fixture that is called just once
 /// for every tests. `rstest` provides `#[once]` attribute for these cases.
 ///
-/// If you mark your fixture with this attribute and `rstest` will compute a static reference to your
+/// If you mark your fixture with this attribute, then `rstest` will compute a static reference to your
 /// fixture result and return this reference to all your tests that need this fixture.
 ///
 /// In follow example all tests share the same reference to the `42` static value.
