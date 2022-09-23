@@ -176,7 +176,7 @@ use quote::ToTokens;
 /// - `async` function
 /// - Generic function (both with generic types or use `impl` trait)
 ///
-/// Take care that the `#[once]` fixture value will **never dropped**.
+/// Take care that the `#[once]` fixture value will **never be dropped**.
 ///
 /// # Partial Injection
 ///
