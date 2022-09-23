@@ -154,13 +154,13 @@ use quote::ToTokens;
 /// #[once]
 /// fn once_fixture() -> i32 { 42 }
 ///
-/// // Take care!!! You need tu use a reference to fixture value
+/// // Take care!!! You need to use a reference to the fixture value
 ///
 /// #[rstest]
 /// #[case(1)]
 /// #[case(2)]
 /// fn cases_tests(once_fixture: &i32, #[case] v: i32) {
-///     // Take care!!! You need tu use a reference to fixture value
+///     // Take care!!! You need to use a reference to the fixture value
 ///     assert_eq!(&42, once_fixture)
 /// }
 ///
