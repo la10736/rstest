@@ -142,7 +142,7 @@ use quote::ToTokens;
 /// Expecially in integration tests there are cases where you need a fixture that is called just once
 /// for every tests. `rstest` provides `#[once]` attribute for these cases.
 ///
-/// If you mark your fixture with this attribute and `rstest` will compute a static reference to your
+/// If you mark your fixture with this attribute, then `rstest` will compute a static reference to your
 /// fixture result and return this reference to all your tests that need this fixture.
 ///
 /// In follow example all tests share the same reference to the `42` static value.
@@ -154,13 +154,13 @@ use quote::ToTokens;
 /// #[once]
 /// fn once_fixture() -> i32 { 42 }
 ///
-/// // Take care!!! You need tu use a reference to fixture value
+/// // Take care!!! You need to use a reference to the fixture value
 ///
 /// #[rstest]
 /// #[case(1)]
 /// #[case(2)]
 /// fn cases_tests(once_fixture: &i32, #[case] v: i32) {
-///     // Take care!!! You need tu use a reference to fixture value
+///     // Take care!!! You need to use a reference to the fixture value
 ///     assert_eq!(&42, once_fixture)
 /// }
 ///
@@ -176,7 +176,7 @@ use quote::ToTokens;
 /// - `async` function
 /// - Generic function (both with generic types or use `impl` trait)
 ///
-/// Take care that the `#[once]` fixture value will **never dropped**.
+/// Take care that the `#[once]` fixture value will **never be dropped**.
 ///
 /// # Partial Injection
 ///
