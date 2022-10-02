@@ -257,12 +257,17 @@ mod should {
                 "
                 error[E0308]: mismatched types
                   --> {}/src/lib.rs:16:29
-                   |
-                16 | fn error_fixture_wrong_type(fixture: String) {{
-                   |                             ^^^^^^^",
+                ",
                 name
             )
             .unindent()
+        );
+        assert_in!(
+            output.stderr.str(),
+            "
+            16 | fn error_fixture_wrong_type(fixture: String) {
+               |                             ^^^^^^"
+                .unindent()
         );
 
         assert_in!(
