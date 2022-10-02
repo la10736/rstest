@@ -1069,7 +1069,7 @@ mod should_show_correct_errors {
                   --> {}/src/lib.rs:16:29
                    |
                 16 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
-                   |                             ^^^^^^^",
+                ",
                 name
             )
             .unindent()
@@ -1116,34 +1116,32 @@ mod should_show_correct_errors {
     fn if_arbitrary_rust_code_has_some_errors() {
         let (output, name) = execute();
 
-        assert_in!(
-            output.stderr.str(),
+        assert_regex!(
             format!(
-                "
-                error[E0308]: mismatched types
-                  --> {}/src/lib.rs:22:31
-                   |
-                22 |     case(vec![1,2,3].contains(2)))
-                   |                               ^
-                   |                               |",
+                r#"error\[E0308\]: mismatched types
+                \s+--> {}/src/lib\.rs:22:31"#,
                 name
             )
-            .unindent()
+            .unindent(),
+            output.stderr.str()
+        );
+        assert_regex!(
+            r#"22\s+|\s+case\(vec!\[1,2,3\]\.contains\(2\)\)\)"#,
+            output.stderr.str()
         );
 
-        assert_in!(
-            output.stderr.str(),
+        assert_regex!(
             format!(
-                "
-                error[E0308]: mismatched types
-                  --> {}/src/lib.rs:53:45
-                   |
-                53 | #[rstest(condition => [vec![1,2,3].contains(2)] )]
-                   |                                             ^
-                   |                                             |",
+                r#"error\[E0308\]: mismatched types
+                \s+--> {}/src/lib\.rs:53:45"#,
                 name
             )
-            .unindent()
+            .unindent(),
+            output.stderr.str()
+        );
+        assert_regex!(
+            r#"53\s+|\s+#\[rstest\(condition => \[vec!\[1,2,3\]\.contains\(2\)\] \)\]"#,
+            output.stderr.str()
         );
     }
 
@@ -1377,7 +1375,7 @@ mod should_show_correct_errors {
         assert_in!(output.stderr.str(), format!("--> {}/src/lib.rs:84:1", name));
         assert_in!(
             output.stderr.str(),
-            "| --------- doesn't satisfy `S: FromStr`"
+            "| -------- doesn't satisfy `S: FromStr`"
         );
     }
 
@@ -1468,13 +1466,18 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                   --> {}/src/lib.rs:105:11
-                    |
-                105 | #[timeout(42)]
-                    |           ^^ expected struct `Duration`, found integer
-                ",
+                   --> {}/src/lib.rs:105:11",
                 name
             )
+            .unindent()
+        );
+
+        assert_in!(
+            output.stderr.str(),
+            "
+            105 | #[timeout(42)]
+                |           ^^ expected struct `Duration`, found integer
+            "
             .unindent()
         );
     }
