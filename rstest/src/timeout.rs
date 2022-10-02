@@ -89,7 +89,7 @@ mod tests {
             #[should_panic]
             async fn should_fail() {
                 execute_with_timeout_async(
-                    || test(Duration::from_millis(20)),
+                    || test(Duration::from_millis(40)),
                     Duration::from_millis(10),
                 )
                 .await
