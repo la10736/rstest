@@ -65,11 +65,9 @@ test it_works::case_2 ... ok
 test it_fail::case_2 ... FAILED
 failures:
 ---- it_fail::case_1 stdout ----
--------------- TEST START --------------
 thread 'it_fail::case_1' panicked at 'assertion failed: a != b', src/main.rs:34:5
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ---- it_fail::case_2 stdout ----
--------------- TEST START --------------
 thread 'it_fail::case_2' panicked at 'assertion failed: a != b', src/main.rs:34:5
 failures:
     it_fail::case_1

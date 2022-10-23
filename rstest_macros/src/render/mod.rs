@@ -265,7 +265,6 @@ fn single_test_case<'a>(
             #test_impl
             #inject
             #trace_args
-            println!("{:-^40}", " TEST START ");
             #execute
         }
     }
@@ -288,6 +287,7 @@ fn trace_arguments<'a>(
         Some(quote! {
             println!("{:-^40}", " TEST ARGUMENTS ");
             #(#statements)*
+            println!("{:-^40}", " TEST START ");
         })
     } else {
         None

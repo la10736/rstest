@@ -166,8 +166,11 @@ mod dump_input_values {
 
         TestResults::new()
             .fail("single_fail")
+            .fail("no_trace_single_fail")
             .fail("cases_fail::case_1")
             .fail("cases_fail::case_2")
+            .fail("no_trace_cases_fail::case_1")
+            .fail("no_trace_cases_fail::case_2")
             .fail("matrix_fail::u_1::s_1::t_1")
             .fail("matrix_fail::u_1::s_1::t_2")
             .fail("matrix_fail::u_1::s_2::t_1")
@@ -176,6 +179,14 @@ mod dump_input_values {
             .fail("matrix_fail::u_2::s_1::t_2")
             .fail("matrix_fail::u_1::s_2::t_1")
             .fail("matrix_fail::u_2::s_2::t_2")
+            .fail("no_trace_matrix_fail::u_1::s_1::t_1")
+            .fail("no_trace_matrix_fail::u_1::s_1::t_2")
+            .fail("no_trace_matrix_fail::u_1::s_2::t_1")
+            .fail("no_trace_matrix_fail::u_1::s_2::t_2")
+            .fail("no_trace_matrix_fail::u_2::s_1::t_1")
+            .fail("no_trace_matrix_fail::u_2::s_1::t_2")
+            .fail("no_trace_matrix_fail::u_1::s_2::t_1")
+            .fail("no_trace_matrix_fail::u_2::s_2::t_2")
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
@@ -197,6 +208,15 @@ mod dump_input_values {
         assert_in!(out, "u = 2");
         assert_in!(out, r#"s = "srt""#);
         assert_in!(out, r#"t = ("TT", -24)"#);
+
+        let expected = 11;
+        for marker in ["TEST START", "TEST ARGUMENTS"] {
+            let n_found = out.lines().filter(|l| l.contains(marker)).count();
+            assert_eq!(
+                n_found, expected,
+                "Should contain {expected} '{marker}' but found {n_found}. [Should not enclose output if no trace]"
+            );
+        }
     }
 
     #[rstest]
@@ -259,10 +279,11 @@ mod dump_input_values {
             .take_while(|l| !l.contains("TEST START"))
             .collect::<Vec<_>>();
 
+        let expected = 4;
         assert_eq!(
-            4,
+            expected,
             lines.len(),
-            "Not contains 3 lines but {}: '{}'",
+            "Not contains {expected} lines but {}: '{}'",
             lines.len(),
             lines.join("\n")
         );

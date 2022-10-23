@@ -23,6 +23,11 @@ fn single_fail(fu32: u32, fstring: String, ftuple: (A, String, i32)) {
 }
 
 #[rstest]
+fn no_trace_single_fail(fu32: u32, fstring: String, ftuple: (A, String, i32)) {
+    assert!(false);
+}
+
+#[rstest]
 #[case(42, "str", ("ss", -12))]
 #[case(24, "trs", ("tt", -24))]
 #[trace]
@@ -31,8 +36,24 @@ fn cases_fail(#[case] u: u32, #[case] s: &str, #[case] t: (&str, i32)) {
 }
 
 #[rstest]
+#[case(42, "str", ("ss", -12))]
+#[case(24, "trs", ("tt", -24))]
+fn no_trace_cases_fail(#[case] u: u32, #[case] s: &str, #[case] t: (&str, i32)) {
+    assert!(false);
+}
+
+#[rstest]
 #[trace]
 fn matrix_fail(
+    #[values(1, 3)] u: u32,
+    #[values("rst", "srt")] s: &str,
+    #[values(("SS", -12), ("TT", -24))] t: (&str, i32),
+) {
+    assert!(false);
+}
+
+#[rstest]
+fn no_trace_matrix_fail(
     #[values(1, 3)] u: u32,
     #[values("rst", "srt")] s: &str,
     #[values(("SS", -12), ("TT", -24))] t: (&str, i32),

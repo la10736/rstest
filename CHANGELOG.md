@@ -5,7 +5,11 @@
 
 ### Changed
 
+- Now we show `TEST START` banner only when trace some argument: See #158 for details. 
+
 ### Fixed
+
+- Updated test fixtures to 1.64.0 compiler's error messages.
 
 ## [0.15.0] 2022/06/27
 
