@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+  schedule:
+    - cron: '0 6 * * SAT'
   pull_request:
     branches:
       - master
