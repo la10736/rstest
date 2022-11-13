@@ -141,16 +141,30 @@ impl<S: AsRef<str>> TestResult<S> {
 }
 
 #[derive(Default, Clone)]
-pub struct TestResults<S>(Vec<TestResult<S>>)
+pub struct TestResults<S>
 where
-    S: AsRef<str> + Clone;
+    S: AsRef<str> + Clone,
+{
+    results: Vec<TestResult<S>>,
+    only_contains: bool,
+}
 
 impl<S> TestResults<S>
 where
     S: AsRef<str> + Clone,
 {
     pub fn new() -> Self {
-        TestResults(vec![])
+        TestResults {
+            results: vec![],
+            only_contains: false,
+        }
+    }
+
+    pub fn with_only_contains(self, only_contains: bool) -> Self {
+        Self {
+            results: self.results,
+            only_contains,
+        }
     }
 
     pub fn ok(self, name: S) -> Self {
@@ -162,12 +176,12 @@ where
     }
 
     pub fn append(mut self, test: TestResult<S>) -> Self {
-        self.0.push(test);
+        self.results.push(test);
         self
     }
 
     pub fn assert(&self, output: ::std::process::Output) {
-        let tests = &self.0;
+        let tests = &self.results;
 
         let (expected_code, msg) = if !self.should_fail() {
             (0, "Unexpected fails!")
@@ -193,10 +207,12 @@ where
         assert_in!(output, format!("running {} test", tests.len()));
 
         self.for_each(|t| {
-            assert_regex!(
-                format!("test {}( - should panic)? ... {}", t.name(), t.msg()),
-                output
-            )
+            let regex = if self.only_contains {
+                format!("test .*{}.*( - should panic)? ... {}", t.name(), t.msg())
+            } else {
+                format!("test {}( - should panic)? ... {}", t.name(), t.msg())
+            };
+            assert_regex!(regex, output)
         });
 
         if self.should_fail() {
@@ -207,15 +223,15 @@ where
     }
 
     fn should_fail(&self) -> bool {
-        self.0.iter().any(|r| r.is_fail())
+        self.results.iter().any(|r| r.is_fail())
     }
 
     fn for_each<F: FnMut(&TestResult<S>)>(&self, action: F) {
-        self.0.iter().for_each(action)
+        self.results.iter().for_each(action)
     }
 
     fn for_each_failed<F: FnMut(&TestResult<S>)>(&self, action: F) {
-        self.0.iter().filter(|r| r.is_fail()).for_each(action)
+        self.results.iter().filter(|r| r.is_fail()).for_each(action)
     }
 }
 
