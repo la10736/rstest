@@ -17,7 +17,7 @@ fn prj() -> Project {
 
 #[rstest]
 #[case::default_conf(TestResults::new())]
-#[case::only_contains(TestResults::new().with_only_contains(true))]
+#[case::contains(TestResults::new().with_contains(true))]
 fn one_success(#[case] results: TestResults<&str>) {
     let project = prj();
 
@@ -37,7 +37,7 @@ fn one_success(#[case] results: TestResults<&str>) {
 
 #[rstest]
 #[case::default_conf(TestResults::new())]
-#[case::only_contains(TestResults::new().with_only_contains(true))]
+#[case::contains(TestResults::new().with_contains(true))]
 fn one_fail(#[case] results: TestResults<&str>) {
     let project = prj();
 
@@ -57,7 +57,7 @@ fn one_fail(#[case] results: TestResults<&str>) {
 
 #[rstest]
 #[case::default_conf(TestResults::new())]
-#[case::only_contains(TestResults::new().with_only_contains(true))]
+#[case::contains(TestResults::new().with_contains(true))]
 fn more_tests(#[case] results: TestResults<&str>) {
     let project = prj();
 
@@ -94,7 +94,7 @@ fn more_tests(#[case] results: TestResults<&str>) {
 
 #[rstest]
 #[case::default_conf(TestResults::new())]
-#[case::only_contains(TestResults::new().with_only_contains(true))]
+#[case::contains(TestResults::new().with_contains(true))]
 fn tests_with_should_panic(#[case] results: TestResults<&str>) {
     let project = prj();
 
