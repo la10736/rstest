@@ -8,7 +8,8 @@ use syn::token::Async;
 use proc_macro2::{Span, TokenStream};
 use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt};
 
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
+use unicode_ident::is_xid_continue;
 
 use crate::utils::attr_ends_with;
 use crate::{
@@ -92,8 +93,9 @@ impl ValueList {
     ) -> impl Iterator<Item = (String, Box<(&'a dyn Resolver, (String, Expr))>)> + 'a {
         let max_len = self.values.len();
         self.values.iter().enumerate().map(move |(index, expr)| {
+            let sanitized_expr = sanitize_ident(expr);
             let name = format!(
-                "{}_{:0len$}",
+                "{}_{:0len$}_{sanitized_expr:.64}",
                 self.arg,
                 index + 1,
                 len = max_len.display_len()
@@ -397,4 +399,49 @@ fn cases_data(
             )
         }
     })
+}
+
+fn sanitize_ident(expr: &Expr) -> String {
+    expr.to_token_stream()
+        .to_string()
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '"' | '\'' => "__".to_owned(),
+            ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' => "_".to_owned(),
+            _ => c.to_string(),
+        })
+        .collect::<String>()
+        .chars()
+        .filter(|&c| is_xid_continue(c))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::ToAst;
+
+    use super::*;
+    use crate::test::{assert_eq, *};
+
+    #[rstest]
+    #[case("1", "1")]
+    #[case(r#""1""#, "__1__")]
+    #[case(r#"Some::SomeElse"#, "Some__SomeElse")]
+    #[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
+    #[case(
+        r#"vec![1 ,   2, 
+    3]"#,
+        "vec_1_2_3_"
+    )]
+    #[case(
+        r#"some_macro!("first", {second}, [third])"#,
+        "some_macro___first____second___third__"
+    )]
+    #[case(r#"'x'"#, "__x__")]
+    fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
+        let expression: Expr = expression.as_ref().ast();
+
+        assert_eq!(expected.as_ref(), sanitize_ident(&expression));
+    }
 }
