@@ -1,12 +1,6 @@
 use std::borrow::Cow;
 use std::thread;
 
-#[derive(Clone)]
-pub enum TestResult<S: AsRef<str>> {
-    Ok(S),
-    Fail(S),
-}
-
 #[macro_export]
 macro_rules! assert_in {
     ($text:expr, $message:expr) => ({
@@ -112,63 +106,187 @@ macro_rules! assert_regex {
         });
 }
 
+#[derive(Clone)]
+pub(crate) struct TestInfo {
+    exactly: bool,
+    times: usize,
+}
+
+impl Default for TestInfo {
+    fn default() -> Self {
+        Self {
+            exactly: true,
+            times: 1,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(crate) enum TestResult<S: AsRef<str>> {
+    Ok(S, TestInfo),
+    Fail(S, TestInfo),
+}
+
 impl<S: AsRef<str>> TestResult<S> {
-    pub fn is_fail(&self) -> bool {
-        use self::TestResult::*;
-        matches!(*self, Fail(_))
+    fn assert(&self, output: impl AsRef<str>) {
+        let regex = if self.exactly() {
+            format!("test {}( - should panic)? ... {}", self.name(), self.msg())
+        } else {
+            format!(
+                "test .*{}.*( - should panic)? ... {}",
+                self.name(),
+                self.msg()
+            )
+        };
+        match self.times() {
+            0 => {}
+            1 => {
+                assert_regex!(regex, output.as_ref());
+            }
+            n => {
+                assert_regex!(regex, output.as_ref());
+                assert_eq!(
+                    n,
+                    output.count_regex(regex),
+                    "test {} is present but wrong count",
+                    self.name()
+                );
+            }
+        }
     }
 
+    fn ok(name: S, exactly: bool, occurence: usize) -> Self {
+        Self::Ok(
+            name,
+            TestInfo {
+                exactly,
+                times: occurence,
+            },
+        )
+    }
+
+    fn fail(name: S, exactly: bool, occurence: usize) -> Self {
+        Self::Fail(
+            name,
+            TestInfo {
+                exactly,
+                times: occurence,
+            },
+        )
+    }
+
+    pub fn is_fail(&self) -> bool {
+        use TestResult::*;
+        matches!(*self, Fail(_, _))
+    }
+
+    #[allow(dead_code)]
     pub fn is_ok(&self) -> bool {
         use self::TestResult::*;
-        matches!(*self, Ok(_))
+        matches!(*self, Ok(_, _))
     }
 
     pub fn name(&self) -> String {
         use self::TestResult::*;
         match *self {
-            Ok(ref s) => s.as_ref().to_owned(),
-            Fail(ref s) => s.as_ref().to_owned(),
+            Ok(ref s, _) => s.as_ref().to_owned(),
+            Fail(ref s, _) => s.as_ref().to_owned(),
         }
     }
 
     pub fn msg(&self) -> &'static str {
         use self::TestResult::*;
         match *self {
-            Ok(_) => "ok",
-            Fail(_) => "FAILED",
+            Ok(_, _) => "ok",
+            Fail(_, _) => "FAILED",
         }
+    }
+
+    fn info(&self) -> &TestInfo {
+        match self {
+            TestResult::Ok(_, o) => o,
+            TestResult::Fail(_, o) => o,
+        }
+    }
+
+    fn exactly(&self) -> bool {
+        self.info().exactly
+    }
+
+    fn times(&self) -> usize {
+        self.info().times
     }
 }
 
 #[derive(Default, Clone)]
-pub struct TestResults<S>(Vec<TestResult<S>>)
+pub struct TestResults<S>
 where
-    S: AsRef<str> + Clone;
+    S: AsRef<str> + Clone,
+{
+    results: Vec<TestResult<S>>,
+    contains: bool,
+}
 
 impl<S> TestResults<S>
 where
     S: AsRef<str> + Clone,
 {
     pub fn new() -> Self {
-        TestResults(vec![])
+        TestResults {
+            results: vec![],
+            contains: false,
+        }
+    }
+
+    pub fn with_contains(self, contains: bool) -> Self {
+        Self {
+            results: self.results,
+            contains,
+        }
+    }
+
+    pub fn ok_with(self, name: S, exactly: bool, occurence: usize) -> Self {
+        self.append(TestResult::ok(name, exactly, occurence))
+    }
+
+    pub fn fail_with(self, name: S, exactly: bool, occurence: usize) -> Self {
+        self.append(TestResult::fail(name, exactly, occurence))
     }
 
     pub fn ok(self, name: S) -> Self {
-        self.append(TestResult::Ok(name))
+        let contains = self.contains;
+        self.ok_with(name, !contains, 1)
     }
 
     pub fn fail(self, name: S) -> Self {
-        self.append(TestResult::Fail(name))
+        let contains = self.contains;
+        self.fail_with(name, !contains, 1)
     }
 
-    pub fn append(mut self, test: TestResult<S>) -> Self {
-        self.0.push(test);
+    pub fn ok_in(self, name: S) -> Self {
+        self.ok_with(name, false, 1)
+    }
+
+    pub fn fail_in(self, name: S) -> Self {
+        self.fail_with(name, false, 1)
+    }
+
+    pub fn ok_times(self, name: S, occurence: usize) -> Self {
+        let contains = self.contains;
+        self.ok_with(name, !contains, occurence)
+    }
+
+    pub fn fail_times(self, name: S, occurence: usize) -> Self {
+        let contains = self.contains;
+        self.fail_with(name, !contains, occurence)
+    }
+
+    pub(crate) fn append(mut self, test: TestResult<S>) -> Self {
+        self.results.push(test);
         self
     }
 
     pub fn assert(&self, output: ::std::process::Output) {
-        let tests = &self.0;
-
         let (expected_code, msg) = if !self.should_fail() {
             (0, "Unexpected fails!")
         } else {
@@ -190,14 +308,9 @@ where
             panic!("Empty stdout!");
         }
 
-        assert_in!(output, format!("running {} test", tests.len()));
+        assert_in!(output, format!("running {} test", self.count_tests()));
 
-        self.for_each(|t| {
-            assert_regex!(
-                format!("test {}( - should panic)? ... {}", t.name(), t.msg()),
-                output
-            )
-        });
+        self.for_each(|t| t.assert(output.as_ref()));
 
         if self.should_fail() {
             assert_in!(output, "failures:".to_string());
@@ -207,15 +320,19 @@ where
     }
 
     fn should_fail(&self) -> bool {
-        self.0.iter().any(|r| r.is_fail())
+        self.results.iter().any(|r| r.is_fail())
     }
 
     fn for_each<F: FnMut(&TestResult<S>)>(&self, action: F) {
-        self.0.iter().for_each(action)
+        self.results.iter().for_each(action)
     }
 
     fn for_each_failed<F: FnMut(&TestResult<S>)>(&self, action: F) {
-        self.0.iter().filter(|r| r.is_fail()).for_each(action)
+        self.results.iter().filter(|r| r.is_fail()).for_each(action)
+    }
+
+    fn count_tests(&self) -> usize {
+        self.results.iter().map(|t| t.times()).sum()
     }
 }
 
@@ -235,6 +352,8 @@ pub fn testname() -> String {
 
 pub trait CountMessageOccurrence {
     fn count<S: AsRef<str>>(&self, message: S) -> usize;
+
+    fn count_regex<S: AsRef<str>>(&self, message: S) -> usize;
 }
 
 impl<ST> CountMessageOccurrence for ST
@@ -245,6 +364,14 @@ where
         self.as_ref()
             .lines()
             .filter(|line| line.contains(message.as_ref()))
+            .count()
+    }
+
+    fn count_regex<S: AsRef<str>>(&self, regex: S) -> usize {
+        let regex = regex::Regex::new(regex.as_ref()).unwrap();
+        self.as_ref()
+            .lines()
+            .filter(|line| regex.is_match(line))
             .count()
     }
 }
@@ -265,6 +392,20 @@ mod test {
         .count("foo");
 
         assert_eq!(3, foo_occurences);
+    }
+
+    #[test]
+    fn should_count_regex_occurence() {
+        let message = "
+        123
+        aa2bb
+        abc
+        2aa
+        foo
+        "
+        .count_regex(r"\d+");
+
+        assert_eq!(3, message);
     }
 
     #[test]

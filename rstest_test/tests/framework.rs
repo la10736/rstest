@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use temp_testdir::TempDir;
 
+use rstest::rstest;
 use rstest_test::*;
 
 lazy_static! {
@@ -14,8 +15,10 @@ fn prj() -> Project {
     ROOT_PROJECT.subproject(&prj_name)
 }
 
-#[test]
-fn one_success() {
+#[rstest]
+#[case::default_conf(TestResults::new())]
+#[case::contains(TestResults::new().with_contains(true))]
+fn one_success(#[case] results: TestResults<&str>) {
     let project = prj();
 
     project.append_code(
@@ -29,11 +32,13 @@ fn one_success() {
 
     let output = project.run_tests().unwrap();
 
-    TestResults::new().ok("success").assert(output);
+    results.ok("success").assert(output);
 }
 
-#[test]
-fn one_fail() {
+#[rstest]
+#[case::default_conf(TestResults::new())]
+#[case::contains(TestResults::new().with_contains(true))]
+fn one_fail(#[case] results: TestResults<&str>) {
     let project = prj();
 
     project.append_code(
@@ -47,11 +52,13 @@ fn one_fail() {
 
     let output = project.run_tests().unwrap();
 
-    TestResults::new().fail("fail").assert(output);
+    results.fail("fail").assert(output);
 }
 
-#[test]
-fn more_tests() {
+#[rstest]
+#[case::default_conf(TestResults::new())]
+#[case::contains(TestResults::new().with_contains(true))]
+fn more_tests(#[case] results: TestResults<&str>) {
     let project = prj();
 
     project.append_code(
@@ -77,7 +84,7 @@ fn more_tests() {
 
     let output = project.run_tests().unwrap();
 
-    TestResults::new()
+    results
         .ok("success")
         .ok("eq")
         .fail("fail")
@@ -85,8 +92,10 @@ fn more_tests() {
         .assert(output);
 }
 
-#[test]
-fn tests_with_should_panic() {
+#[rstest]
+#[case::default_conf(TestResults::new())]
+#[case::contains(TestResults::new().with_contains(true))]
+fn tests_with_should_panic(#[case] results: TestResults<&str>) {
     let project = prj();
 
     project.append_code(
@@ -106,7 +115,178 @@ fn tests_with_should_panic() {
 
     let output = project.run_tests().unwrap();
 
-    TestResults::new().ok("success").fail("fail").assert(output);
+    results.ok("success").fail("fail").assert(output);
+}
+
+#[test]
+fn should_check_just_contains_conf() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn success() {
+            assert!(true);
+        }
+        #[test]
+        fn fail() {
+            assert!(false);
+        }
+        #[test]
+        fn eq() {
+            assert_eq!(1, 1);
+        }
+        #[test]
+        fn two_eq() {
+            assert_eq!(2, 2);
+        }
+        #[test]
+        fn enq() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        fn two_enq() {
+            assert_eq!(1, 3);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new().with_contains(true);
+
+    results
+        .ok("suc")
+        .ok_times("eq", 2)
+        .fail("fai")
+        .fail_times("enq", 2)
+        .assert(output);
+}
+
+#[test]
+fn should_check_just_contains_on_some_test() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn success() {
+            assert!(true);
+        }
+        #[test]
+        fn fail() {
+            assert!(false);
+        }
+        #[test]
+        fn eq() {
+            assert_eq!(1, 1);
+        }
+        #[test]
+        fn two_eq() {
+            assert_eq!(2, 2);
+        }
+        #[test]
+        fn enq() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        fn two_enq() {
+            assert_eq!(1, 3);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results
+        .ok("success")
+        .ok_with("eq", false, 2)
+        .fail("fail")
+        .fail("enq")
+        .fail("two_enq")
+        .assert(output);
+}
+
+#[test]
+fn should_check_some_tests_as_contains() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn case_1() {
+            assert!(true);
+        }
+        #[test]
+        fn case_2_aa() {
+            assert!(true);
+        }
+        #[test]
+        fn case_3_b() {
+            assert!(false);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results
+        .ok("case_1")
+        .ok_in("case_2")
+        .fail_in("case_3")
+        .assert(output);
+}
+
+#[test]
+#[should_panic]
+fn should_dont_wrongly_check_contains() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn case_1_aa() {
+            assert!(true);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results.ok("case_1").assert(output);
+}
+
+#[test]
+#[should_panic(expected = "but wrong count")]
+fn should_detect_wrong_contains() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn case_1() {
+            assert!(true);
+        }
+        #[test]
+        fn case_2() {
+            assert!(true);
+        }
+        #[test]
+        fn case_3() {
+            assert!(true);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results
+        .ok("case_3")
+        .ok_with("case", false, 2)
+        .assert(output);
 }
 
 #[test]

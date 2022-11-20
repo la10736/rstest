@@ -1244,7 +1244,10 @@ mod matrix_cases_should {
                 .map(|i| format!("{}_{}", names[0], i))
                 .collect::<Vec<_>>();
 
-            assert_eq!(expected, modules);
+            assert_eq!(expected.len(), modules.len());
+            for (e, m) in expected.into_iter().zip(modules.into_iter()) {
+                assert_in!(m, e);
+            }
         }
 
         #[test]
@@ -1289,7 +1292,10 @@ mod matrix_cases_should {
                 .map(|i| format!("{}_{}", names[1], i))
                 .collect::<Vec<_>>();
 
-            assert_eq!(expected, tests);
+            assert_eq!(expected.len(), tests.len());
+            for (e, m) in expected.into_iter().zip(tests.into_iter()) {
+                assert_in!(m, e);
+            }
         }
     }
 
@@ -1356,18 +1362,18 @@ mod matrix_cases_should {
 
         let mods = tg.get_modules().names();
 
-        assert_eq!(mods[0], "first_001");
-        assert_eq!(mods[99], "first_100");
+        assert_in!(mods[0], "first_001");
+        assert_in!(mods[99], "first_100");
 
         let mods = tg.get_modules()[0].get_modules().names();
 
-        assert_eq!(mods[0], "second_01");
-        assert_eq!(mods[9], "second_10");
+        assert_in!(mods[0], "second_01");
+        assert_in!(mods[9], "second_10");
 
         let functions = tg.get_modules()[0].get_modules()[1].get_tests().names();
 
-        assert_eq!(functions[0], "third_1");
-        assert_eq!(functions[1], "third_2");
+        assert_in!(functions[0], "third_1");
+        assert_in!(functions[1], "third_2");
     }
 }
 
