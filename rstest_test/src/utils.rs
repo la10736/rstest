@@ -263,6 +263,14 @@ where
         self.fail_with(name, !contains, 1)
     }
 
+    pub fn ok_in(self, name: S) -> Self {
+        self.ok_with(name, false, 1)
+    }
+
+    pub fn fail_in(self, name: S) -> Self {
+        self.fail_with(name, false, 1)
+    }
+
     pub fn ok_times(self, name: S, occurence: usize) -> Self {
         let contains = self.contains;
         self.ok_with(name, !contains, occurence)

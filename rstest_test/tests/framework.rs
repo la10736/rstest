@@ -208,6 +208,57 @@ fn should_check_just_contains_on_some_test() {
 }
 
 #[test]
+fn should_check_some_tests_as_contains() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn case_1() {
+            assert!(true);
+        }
+        #[test]
+        fn case_2_aa() {
+            assert!(true);
+        }
+        #[test]
+        fn case_3_b() {
+            assert!(false);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results
+        .ok("case_1")
+        .ok_in("case_2")
+        .fail_in("case_3")
+        .assert(output);
+}
+
+#[test]
+#[should_panic]
+fn should_dont_wrongly_check_contains() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn case_1_aa() {
+            assert!(true);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results.ok("case_1").assert(output);
+}
+
+#[test]
 #[should_panic(expected = "but wrong count")]
 fn should_detect_wrong_contains() {
     let project = prj();
