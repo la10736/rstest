@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::process::Output;
 use std::thread;
 
 #[macro_export]
@@ -108,33 +107,29 @@ macro_rules! assert_regex {
 }
 
 #[derive(Clone)]
-pub(crate) struct TestOccurence {
+pub(crate) struct TestInfo {
     exactly: bool,
-    occurence: usize,
+    times: usize,
 }
 
-impl Default for TestOccurence {
+impl Default for TestInfo {
     fn default() -> Self {
         Self {
             exactly: true,
-            occurence: 1,
+            times: 1,
         }
     }
 }
 
 #[derive(Clone)]
 pub(crate) enum TestResult<S: AsRef<str>> {
-    Ok(S, TestOccurence),
-    Fail(S, TestOccurence),
+    Ok(S, TestInfo),
+    Fail(S, TestInfo),
 }
 
 impl<S: AsRef<str>> TestResult<S> {
     fn assert(&self, output: impl AsRef<str>) {
-        let (name, occurence) = match self {
-            TestResult::Ok(n, o) => (n, o),
-            TestResult::Fail(n, o) => (n, o),
-        };
-        let regex = if occurence.exactly {
+        let regex = if self.exactly() {
             format!("test {}( - should panic)? ... {}", self.name(), self.msg())
         } else {
             format!(
@@ -143,7 +138,7 @@ impl<S: AsRef<str>> TestResult<S> {
                 self.msg()
             )
         };
-        match occurence.occurence {
+        match self.times() {
             0 => {}
             1 => {
                 assert_regex!(regex, output.as_ref());
@@ -161,20 +156,31 @@ impl<S: AsRef<str>> TestResult<S> {
     }
 
     fn ok(name: S, exactly: bool, occurence: usize) -> Self {
-        Self::Ok(name, TestOccurence { exactly, occurence })
+        Self::Ok(
+            name,
+            TestInfo {
+                exactly,
+                times: occurence,
+            },
+        )
     }
 
     fn fail(name: S, exactly: bool, occurence: usize) -> Self {
-        Self::Fail(name, TestOccurence { exactly, occurence })
+        Self::Fail(
+            name,
+            TestInfo {
+                exactly,
+                times: occurence,
+            },
+        )
     }
-}
 
-impl<S: AsRef<str>> TestResult<S> {
     pub fn is_fail(&self) -> bool {
-        use self::TestResult::*;
+        use TestResult::*;
         matches!(*self, Fail(_, _))
     }
 
+    #[allow(dead_code)]
     pub fn is_ok(&self) -> bool {
         use self::TestResult::*;
         matches!(*self, Ok(_, _))
@@ -194,6 +200,21 @@ impl<S: AsRef<str>> TestResult<S> {
             Ok(_, _) => "ok",
             Fail(_, _) => "FAILED",
         }
+    }
+
+    fn info(&self) -> &TestInfo {
+        match self {
+            TestResult::Ok(_, o) => o,
+            TestResult::Fail(_, o) => o,
+        }
+    }
+
+    fn exactly(&self) -> bool {
+        self.info().exactly
+    }
+
+    fn times(&self) -> usize {
+        self.info().times
     }
 }
 
@@ -224,14 +245,32 @@ where
         }
     }
 
+    pub fn ok_with(self, name: S, exactly: bool, occurence: usize) -> Self {
+        self.append(TestResult::ok(name, exactly, occurence))
+    }
+
+    pub fn fail_with(self, name: S, exactly: bool, occurence: usize) -> Self {
+        self.append(TestResult::fail(name, exactly, occurence))
+    }
+
     pub fn ok(self, name: S) -> Self {
         let contains = self.contains;
-        self.append(TestResult::ok(name, !contains, 1))
+        self.ok_with(name, !contains, 1)
     }
 
     pub fn fail(self, name: S) -> Self {
         let contains = self.contains;
-        self.append(TestResult::fail(name, !contains, 1))
+        self.fail_with(name, !contains, 1)
+    }
+
+    pub fn ok_times(self, name: S, occurence: usize) -> Self {
+        let contains = self.contains;
+        self.ok_with(name, !contains, occurence)
+    }
+
+    pub fn fail_times(self, name: S, occurence: usize) -> Self {
+        let contains = self.contains;
+        self.fail_with(name, !contains, occurence)
     }
 
     pub(crate) fn append(mut self, test: TestResult<S>) -> Self {
@@ -240,8 +279,6 @@ where
     }
 
     pub fn assert(&self, output: ::std::process::Output) {
-        let tests = &self.results;
-
         let (expected_code, msg) = if !self.should_fail() {
             (0, "Unexpected fails!")
         } else {
@@ -263,7 +300,7 @@ where
             panic!("Empty stdout!");
         }
 
-        assert_in!(output, format!("running {} test", tests.len()));
+        assert_in!(output, format!("running {} test", self.count_tests()));
 
         self.for_each(|t| t.assert(output.as_ref()));
 
@@ -284,6 +321,10 @@ where
 
     fn for_each_failed<F: FnMut(&TestResult<S>)>(&self, action: F) {
         self.results.iter().filter(|r| r.is_fail()).for_each(action)
+    }
+
+    fn count_tests(&self) -> usize {
+        self.results.iter().map(|t| t.times()).sum()
     }
 }
 

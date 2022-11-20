@@ -119,6 +119,126 @@ fn tests_with_should_panic(#[case] results: TestResults<&str>) {
 }
 
 #[test]
+fn should_check_just_contains_conf() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn success() {
+            assert!(true);
+        }
+        #[test]
+        fn fail() {
+            assert!(false);
+        }
+        #[test]
+        fn eq() {
+            assert_eq!(1, 1);
+        }
+        #[test]
+        fn two_eq() {
+            assert_eq!(2, 2);
+        }
+        #[test]
+        fn enq() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        fn two_enq() {
+            assert_eq!(1, 3);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new().with_contains(true);
+
+    results
+        .ok("suc")
+        .ok_times("eq", 2)
+        .fail("fai")
+        .fail_times("enq", 2)
+        .assert(output);
+}
+
+#[test]
+fn should_check_just_contains_on_some_test() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn success() {
+            assert!(true);
+        }
+        #[test]
+        fn fail() {
+            assert!(false);
+        }
+        #[test]
+        fn eq() {
+            assert_eq!(1, 1);
+        }
+        #[test]
+        fn two_eq() {
+            assert_eq!(2, 2);
+        }
+        #[test]
+        fn enq() {
+            assert_eq!(1, 2);
+        }
+        #[test]
+        fn two_enq() {
+            assert_eq!(1, 3);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results
+        .ok("success")
+        .ok_with("eq", false, 2)
+        .fail("fail")
+        .fail("enq")
+        .fail("two_enq")
+        .assert(output);
+}
+
+#[test]
+#[should_panic(expected = "but wrong count")]
+fn should_detect_wrong_contains() {
+    let project = prj();
+
+    project.append_code(
+        r#"
+        #[test]
+        fn case_1() {
+            assert!(true);
+        }
+        #[test]
+        fn case_2() {
+            assert!(true);
+        }
+        #[test]
+        fn case_3() {
+            assert!(true);
+        }
+        "#,
+    );
+
+    let output = project.run_tests().unwrap();
+    let results = TestResults::new();
+
+    results
+        .ok("case_3")
+        .ok_with("case", false, 2)
+        .assert(output);
+}
+
+#[test]
 fn nocapture_in_tests() {
     let project = prj().with_nocapture();
 
