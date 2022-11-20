@@ -100,6 +100,7 @@ fn use_mutable_fixture_in_parametric_argumnts() {
     let (output, _) = run_test("use_mutable_fixture_in_parametric_argumnts.rs");
 
     TestResults::new()
+        .with_contains(true)
         .ok("use_mutate_fixture::case_1::b_1")
         .assert(output);
 }
@@ -171,22 +172,8 @@ mod dump_input_values {
             .fail("cases_fail::case_2")
             .fail("no_trace_cases_fail::case_1")
             .fail("no_trace_cases_fail::case_2")
-            .fail("matrix_fail::u_1::s_1::t_1")
-            .fail("matrix_fail::u_1::s_1::t_2")
-            .fail("matrix_fail::u_1::s_2::t_1")
-            .fail("matrix_fail::u_1::s_2::t_2")
-            .fail("matrix_fail::u_2::s_1::t_1")
-            .fail("matrix_fail::u_2::s_1::t_2")
-            .fail("matrix_fail::u_1::s_2::t_1")
-            .fail("matrix_fail::u_2::s_2::t_2")
-            .fail("no_trace_matrix_fail::u_1::s_1::t_1")
-            .fail("no_trace_matrix_fail::u_1::s_1::t_2")
-            .fail("no_trace_matrix_fail::u_1::s_2::t_1")
-            .fail("no_trace_matrix_fail::u_1::s_2::t_2")
-            .fail("no_trace_matrix_fail::u_2::s_1::t_1")
-            .fail("no_trace_matrix_fail::u_2::s_1::t_2")
-            .fail("no_trace_matrix_fail::u_1::s_2::t_1")
-            .fail("no_trace_matrix_fail::u_2::s_2::t_2")
+            .fail_with("matrix_fail::u_1", false, 8)
+            .fail_with("matrix_fail::u_2", false, 8)
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
@@ -257,7 +244,7 @@ mod dump_input_values {
         TestResults::new()
             .fail("simple")
             .fail("cases::case_1")
-            .fail("matrix::a_1::b_1::dd_1")
+            .fail_in("matrix::a_1")
             .assert(output);
 
         assert_in!(out, "fu32 = 42");
@@ -745,10 +732,11 @@ mod matrix {
         let (output, _) = run_test(res("simple.rs"));
 
         TestResults::new()
-            .ok("strlen_test::expected_1::input_1")
-            .ok("strlen_test::expected_1::input_2")
-            .ok("strlen_test::expected_2::input_1")
-            .ok("strlen_test::expected_2::input_2")
+            .with_contains(true)
+            .ok("strlen_test::expected_1_4::input_1___ciao__")
+            .ok("strlen_test::expected_1_4::input_2___buzz__")
+            .ok("strlen_test::expected_2_2_3_2::input_1___ciao__")
+            .ok("strlen_test::expected_2_2_3_2::input_2___buzz__")
             .assert(output);
     }
 
@@ -757,34 +745,26 @@ mod matrix {
         let (output, _) = run_test(res("partial.rs"));
 
         TestResults::new()
-            .ok("default::a_1::b_1")
-            .ok("default::a_1::b_2")
-            .ok("default::a_2::b_1")
-            .ok("partial_2::a_2::b_2")
-            .ok("partial_attr_2::a_2::b_2")
-            .ok("complete::a_2::b_2")
-            .ok("complete_attr::a_2::b_2")
-            .fail("default::a_2::b_2")
-            .fail("partial_1::a_1::b_1")
-            .fail("partial_1::a_1::b_2")
-            .fail("partial_1::a_2::b_1")
-            .fail("partial_1::a_2::b_2")
-            .fail("partial_2::a_1::b_1")
-            .fail("partial_2::a_1::b_2")
-            .fail("partial_2::a_2::b_1")
-            .fail("complete::a_1::b_1")
-            .fail("complete::a_1::b_2")
-            .fail("complete::a_2::b_1")
-            .fail("partial_attr_1::a_1::b_1")
-            .fail("partial_attr_1::a_1::b_2")
-            .fail("partial_attr_1::a_2::b_1")
-            .fail("partial_attr_1::a_2::b_2")
-            .fail("partial_attr_2::a_1::b_1")
-            .fail("partial_attr_2::a_1::b_2")
-            .fail("partial_attr_2::a_2::b_1")
-            .fail("complete_attr::a_1::b_1")
-            .fail("complete_attr::a_1::b_2")
-            .fail("complete_attr::a_2::b_1")
+            .with_contains(true)
+            .ok_times("default::a_1", 2)
+            .ok("default::a_2")
+            .ok("partial_2::a_2")
+            .ok("partial_attr_2::a_2")
+            .ok("complete::a_2")
+            .ok("complete_attr::a_2")
+            .fail("default::a_2")
+            .fail_times("partial_1::a_1", 2)
+            .fail_times("partial_1::a_2", 2)
+            .fail_times("partial_2::a_1", 2)
+            .fail("partial_2::a_2")
+            .fail_times("complete::a_1", 2)
+            .fail("complete::a_2")
+            .fail_times("partial_attr_1::a_1", 2)
+            .fail_times("partial_attr_1::a_2", 2)
+            .fail_times("partial_attr_2::a_1", 2)
+            .fail("partial_attr_2::a_2")
+            .fail_times("complete_attr::a_1", 2)
+            .fail("complete_attr::a_2")
             .assert(output);
     }
 
@@ -796,10 +776,11 @@ mod matrix {
         let output = prj.run_tests().unwrap();
 
         TestResults::new()
-            .ok("my_async_test::first_1::second_1")
-            .fail("my_async_test::first_1::second_2")
-            .fail("my_async_test::first_2::second_1")
-            .ok("my_async_test::first_2::second_2")
+            .with_contains(true)
+            .ok("my_async_test::first_1")
+            .fail("my_async_test::first_1")
+            .fail("my_async_test::first_2")
+            .ok("my_async_test::first_2")
             .assert(output);
     }
 
@@ -811,14 +792,15 @@ mod matrix {
         let output = prj.run_tests().unwrap();
 
         TestResults::new()
-            .ok("sync::first_1::second_1")
-            .fail("sync::first_1::second_2")
-            .fail("sync::first_2::second_1")
-            .ok("sync::first_2::second_2")
-            .ok("fn_async::first_1::second_1")
-            .fail("fn_async::first_1::second_2")
-            .fail("fn_async::first_2::second_1")
-            .ok("fn_async::first_2::second_2")
+            .with_contains(true)
+            .ok("sync::first_1")
+            .fail("sync::first_1")
+            .fail("sync::first_2")
+            .ok("sync::first_2")
+            .ok("fn_async::first_1")
+            .fail("fn_async::first_1")
+            .fail("fn_async::first_2")
+            .ok("fn_async::first_2")
             .assert(output);
     }
 
@@ -827,18 +809,18 @@ mod matrix {
         let (output, _) = run_test(res("use_attr.rs"));
 
         TestResults::new()
-            .ok("both::expected_1::input_1")
-            .ok("both::expected_1::input_2")
-            .ok("both::expected_2::input_1")
-            .ok("both::expected_2::input_2")
-            .ok("first::input_1::expected_1")
-            .ok("first::input_2::expected_1")
-            .ok("first::input_1::expected_2")
-            .ok("first::input_2::expected_2")
-            .ok("second::expected_1::input_1")
-            .ok("second::expected_1::input_2")
-            .ok("second::expected_2::input_1")
-            .ok("second::expected_2::input_2")
+            .ok("both::expected_1_4::input_1___ciao__")
+            .ok("both::expected_1_4::input_2___buzz__")
+            .ok("both::expected_2_2_3_2::input_1___ciao__")
+            .ok("both::expected_2_2_3_2::input_2___buzz__")
+            .ok("first::input_1___ciao__::expected_1_4")
+            .ok("first::input_2___buzz__::expected_1_4")
+            .ok("first::input_1___ciao__::expected_2_2_3_2")
+            .ok("first::input_2___buzz__::expected_2_2_3_2")
+            .ok("second::expected_1_4::input_1___ciao__")
+            .ok("second::expected_1_4::input_2___buzz__")
+            .ok("second::expected_2_2_3_2::input_1___ciao__")
+            .ok("second::expected_2_2_3_2::input_2___buzz__")
             .assert(output);
     }
 }
@@ -859,11 +841,11 @@ fn convert_string_literal() {
         .ok("cases::case_4")
         .fail("cases::case_5")
         .fail("cases::case_6")
-        .ok("values::addr_1")
-        .ok("values::addr_2")
-        .fail("values::addr_3")
-        .fail("values::addr_4")
-        .ok("not_convert_byte_array::case_1::values_1")
+        .ok_in("values::addr_1")
+        .ok_in("values::addr_2")
+        .fail_in("values::addr_3")
+        .fail_in("values::addr_4")
+        .ok_in("not_convert_byte_array::case_1::values_1")
         .ok("not_convert_impl::case_1")
         .ok("not_convert_generics::case_1")
         .ok("not_convert_generics::case_2")
@@ -877,14 +859,14 @@ fn happy_path() {
     let (output, _) = run_test("happy_path.rs");
 
     TestResults::new()
-        .ok("happy::case_1::expected_1::input_1")
-        .ok("happy::case_1::expected_1::input_2")
-        .ok("happy::case_1::expected_2::input_1")
-        .ok("happy::case_1::expected_2::input_2")
-        .ok("happy::case_2_second::expected_1::input_1")
-        .ok("happy::case_2_second::expected_1::input_2")
-        .ok("happy::case_2_second::expected_2::input_1")
-        .ok("happy::case_2_second::expected_2::input_2")
+        .ok("happy::case_1::expected_1_4::input_1___ciao__")
+        .ok("happy::case_1::expected_1_4::input_2___buzz__")
+        .ok("happy::case_1::expected_2_2_3_2::input_1___ciao__")
+        .ok("happy::case_1::expected_2_2_3_2::input_2___buzz__")
+        .ok("happy::case_2_second::expected_1_4::input_1___ciao__")
+        .ok("happy::case_2_second::expected_1_4::input_2___buzz__")
+        .ok("happy::case_2_second::expected_2_2_3_2::input_1___ciao__")
+        .ok("happy::case_2_second::expected_2_2_3_2::input_2___buzz__")
         .assert(output);
 }
 
@@ -905,6 +887,7 @@ fn ignore_underscore_args() {
     let (output, _) = run_test("ignore_args.rs");
 
     TestResults::new()
+        .with_contains(true)
         .ok("test::case_1::_ignore3_1")
         .ok("test::case_1::_ignore3_2")
         .ok("test::case_1::_ignore3_3")

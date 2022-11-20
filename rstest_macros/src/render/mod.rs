@@ -408,7 +408,8 @@ fn sanitize_ident(expr: &Expr) -> String {
         .filter(|c| !c.is_whitespace())
         .map(|c| match c {
             '"' | '\'' => "__".to_owned(),
-            ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' => "_".to_owned(),
+            ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '*' | '+' | '/' | '-' | '%'
+            | '^' | '!' | '&' | '|' => "_".to_owned(),
             _ => c.to_string(),
         })
         .collect::<String>()
@@ -432,13 +433,14 @@ mod tests {
     #[case(
         r#"vec![1 ,   2, 
     3]"#,
-        "vec_1_2_3_"
+        "vec__1_2_3_"
     )]
     #[case(
         r#"some_macro!("first", {second}, [third])"#,
-        "some_macro___first____second___third__"
+        "some_macro____first____second___third__"
     )]
     #[case(r#"'x'"#, "__x__")]
+    #[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
     fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
         let expression: Expr = expression.as_ref().ast();
 
