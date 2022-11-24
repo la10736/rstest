@@ -79,7 +79,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         impl #name {
             #(#orig_attrs)*
             #[allow(unused_mut)]
-            pub #asyncness fn get #generics (#orig_args) #output #where_clause {
+            #asyncness fn get #generics (#orig_args) #output #where_clause {
                 #call_impl
             }
 
