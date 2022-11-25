@@ -105,10 +105,10 @@ macro_rules! merge_errors {
 }
 
 macro_rules! composed_tuple {
-    ($i:ident) => {
+    ($i:pat) => {
         $i
     };
-    ($i:ident, $($is:ident), +) => {
+    ($i:pat, $($is:pat), +) => {
         ($i, composed_tuple!($($is),*))
     };
 }
