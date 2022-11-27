@@ -968,7 +968,8 @@ mod matrix_cases_should {
         assert!(tests.len() > 0);
 
         for t in tests {
-            assert_eq!(item_fn.attrs, &t.attrs[1..]);
+            let end = t.attrs.len() - 1;
+            assert_eq!(item_fn.attrs, &t.attrs[1..end]);
         }
     }
 
@@ -1067,6 +1068,7 @@ mod matrix_cases_should {
         attributes: &str,
     ) {
         let attributes = attrs(attributes);
+        let filter = attrs("#[allow(non_snake_case)]");
         let data = RsTestData {
             items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
         };
@@ -1082,7 +1084,12 @@ mod matrix_cases_should {
         assert!(tests.len() > 0);
 
         for test in tests {
-            assert_eq!(attributes, test.attrs);
+            let filterd: Vec<_> = test
+                .attrs
+                .into_iter()
+                .filter(|a| !filter.contains(a))
+                .collect();
+            assert_eq!(attributes, filterd);
         }
     }
 
@@ -1119,7 +1126,40 @@ mod matrix_cases_should {
 
         for test in tests {
             assert_eq!(test.attrs[0], test_attribute);
-            assert_eq!(&test.attrs[1..], attributes.as_slice());
+            assert_eq!(&test.attrs[1..test.attrs.len() - 1], attributes.as_slice());
+        }
+    }
+
+    #[rstest]
+    fn add_allow_non_snake_case(
+        #[values(
+            "",
+            "#[no_one]",
+            "#[should_panic]",
+            "#[should_panic]#[other]",
+            "#[a::b::c]#[should_panic]"
+        )]
+        attributes: &str,
+    ) {
+        let attributes = attrs(attributes);
+        let non_snake_case = &attrs("#[allow(non_snake_case)]")[0];
+        let data = RsTestData {
+            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+        };
+
+        let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
+        item_fn.attrs = attributes.clone();
+
+        let tokens = matrix(item_fn, data.into());
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        // Sanity check
+        assert!(tests.len() > 0);
+
+        for test in tests {
+            assert_eq!(test.attrs.last().unwrap(), non_snake_case);
+            assert_eq!(&test.attrs[1..test.attrs.len() - 1], attributes.as_slice());
         }
     }
 
@@ -1491,7 +1531,8 @@ mod complete_should {
         let attrs = attrs("#[first]#[second(arg)]");
 
         for f in modules[0].get_all_tests() {
-            assert_eq!(attrs, &f.attrs[1..]);
+            let end = f.attrs.len() - 1;
+            assert_eq!(attrs, &f.attrs[1..end]);
         }
         for f in modules[1].get_all_tests() {
             assert_eq!(attrs, &f.attrs[1..3]);
@@ -1503,7 +1544,7 @@ mod complete_should {
         let attrs = attrs("#[third]#[forth(other)]");
 
         for f in modules[1].get_all_tests() {
-            assert_eq!(attrs, &f.attrs[3..]);
+            assert_eq!(attrs, &f.attrs[3..5]);
         }
     }
 }
