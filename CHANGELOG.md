@@ -1,8 +1,5 @@
 # Changelog
-## [0.16.0] Unreleased
-
-### Add
-
+## [0.16.0] 2022/11/27
 ### Changed
 
 - Show `TEST START` banner only when trace some argument: See #158 for details. 
