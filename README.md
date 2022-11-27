@@ -297,28 +297,29 @@ fn alice() -> User {
                               // and `authed_user`
 #[should_panic(expected = "Invalid query error")] // We whould test a panic
 fn should_be_invalid_query_error(
-    repository: impl Repository, 
-    #[case] user: User, 
-    #[values("     ", "^%$#@!", "....")]
-    query: &str
+    repository: impl Repository,
+    #[case] user: User,
+    #[values("     ", "^%$some#@invalid!chars", ".n.o.d.o.t.s.")] query: &str,
 ) {
     repository.find_items(&user, query).unwrap();
 }
 ```
 
 This example will generate exactly 6 tests grouped by 2 different cases:
-
 ```
 running 6 tests
-test should_be_invalid_query_error::case_1_authed_user::query_1 ... ok
-test should_be_invalid_query_error::case_2_guest::query_2 ... ok
-test should_be_invalid_query_error::case_2_guest::query_3 ... ok
-test should_be_invalid_query_error::case_1_authed_user::query_2 ... ok
-test should_be_invalid_query_error::case_1_authed_user::query_3 ... ok
-test should_be_invalid_query_error::case_2_guest::query_1 ... ok
+test should_be_invalid_query_error::case_1_authed_user::query_1_____ - should panic ... ok
+test should_be_invalid_query_error::case_2_guest::query_2_____someinvalid_chars__ - should panic ... ok
+test should_be_invalid_query_error::case_1_authed_user::query_2_____someinvalid_chars__ - should panic ... ok
+test should_be_invalid_query_error::case_2_guest::query_3____n_o_d_o_t_s___ - should panic ... ok
+test should_be_invalid_query_error::case_1_authed_user::query_3____n_o_d_o_t_s___ - should panic ... ok
+test should_be_invalid_query_error::case_2_guest::query_1_____ - should panic ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
+
+Note that the names of the values _try_ to convert the input expression in a 
+rust valid name to help you to identify what tests fail.
 
 ## More
 
