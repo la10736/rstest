@@ -120,7 +120,11 @@ fn _matrix_recursive<'a>(
     let list_values = &list_values[1..];
 
     if list_values.is_empty() {
-        vlist.render(test, resolver, attrs, attributes)
+        let mut attrs = attrs.to_vec();
+        attrs.push(parse_quote!(
+            #[allow(non_snake_case)]
+        ));
+        vlist.render(test, resolver, &attrs, attributes)
     } else {
         let span = test.sig.ident.span();
         let modules = vlist.argument_data(resolver).map(move |(name, resolver)| {
@@ -128,7 +132,10 @@ fn _matrix_recursive<'a>(
                 .wrap_by_mod(&Ident::new(&name, span))
         });
 
-        quote! { #(#modules)* }
+        quote! { #(
+            #[allow(non_snake_case)]
+            #modules
+        )* }
     }
 }
 

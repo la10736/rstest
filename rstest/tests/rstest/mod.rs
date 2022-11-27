@@ -67,6 +67,13 @@ fn should_not_show_a_warning_for_should_panic_attribute() {
 }
 
 #[test]
+fn should_not_show_a_warning_for_values_test_names() {
+    let (output, _) = run_test("values_tests_name.rs");
+
+    assert_not_in!(output.stderr.str(), "warning:");
+}
+
+#[test]
 fn should_map_fixture_by_remove_first_underscore_if_any() {
     let (output, _) = run_test("remove_underscore.rs");
 

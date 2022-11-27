@@ -5,8 +5,8 @@
 
 ### Changed
 
-- Now we show `TEST START` banner only when trace some argument: See #158 for details. 
-- Now we try to add the values to test name: See #160 for details. 
+- Show `TEST START` banner only when trace some argument: See #158 for details. 
+- Add values to test name: See #160 for details. 
 
 ### Fixed
 
