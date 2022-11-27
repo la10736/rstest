@@ -32,7 +32,7 @@ lazy_static = "1.4.0"
 mytest = {package = "rstest", version = "0.15.0", default-features = false}
 pretty_assertions = "1.0.0"
 rstest_reuse = {version = "0.4", path = "../rstest_reuse"}
-rstest_test = {version = "0.8", path = "../rstest_test"}
+rstest_test = {version = "0.9", path = "../rstest_test"}
 temp_testdir = "0.2.3"
 tokio = {version = "1.6.1", features = ["rt", "macros"]}
 unindent = "0.1.7"
