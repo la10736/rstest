@@ -635,16 +635,18 @@ pub fn fixture(
 /// where `cargo test` output is
 ///
 /// ```text
-/// running 6 tests
-/// test should_accept_all_corner_cases::name_1::age_1 ... ok
-/// test should_accept_all_corner_cases::name_3::age_1 ... ok
-/// test should_accept_all_corner_cases::name_3::age_2 ... ok
-/// test should_accept_all_corner_cases::name_2::age_1 ... ok
-/// test should_accept_all_corner_cases::name_2::age_2 ... ok
-/// test should_accept_all_corner_cases::name_1::age_2 ... ok
+/// test should_accept_all_corner_cases::name_1___J__::age_2_100 ... ok
+/// test should_accept_all_corner_cases::name_2___A__::age_1_14 ... ok
+/// test should_accept_all_corner_cases::name_2___A__::age_2_100 ... ok
+/// test should_accept_all_corner_cases::name_3___A________________________________________21__::age_2_100 ... ok
+/// test should_accept_all_corner_cases::name_3___A________________________________________21__::age_1_14 ... ok
+/// test should_accept_all_corner_cases::name_1___J__::age_1_14 ... ok
 ///
-/// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+/// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 /// ```
+/// Note that the test names contains the given expression sanitized into
+/// a valid Rust identifier name. This should help to identify wich case fails.
+///
 ///
 /// Also value list implements the magic conversion feature: every time the value type
 /// implements `FromStr` trait you can use a literal string to define it.
@@ -843,7 +845,7 @@ pub fn fixture(
 /// fn should_be_invalid_query_error(
 ///     repository: impl Repository,
 ///     #[case] user: User,
-///     #[values("     ", "^%$#@!", "....")]
+///     #[values("     ", "^%$some#@invalid!chars", ".n.o.d.o.t.s.")] query: &str,
 ///     query: &str
 /// ) {
 ///     repository.find_items(&user, query).unwrap();

@@ -319,7 +319,7 @@ test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ```
 
 Note that the names of the values _try_ to convert the input expression in a 
-rust valid name to help you to identify what tests fail.
+Rust valid identifier name to help you to find wich tests fail.
 
 ## More
 
