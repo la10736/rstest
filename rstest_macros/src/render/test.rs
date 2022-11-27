@@ -1291,6 +1291,20 @@ mod matrix_cases_should {
         }
 
         #[test]
+        fn annotate_modules_with_allow_non_snake_name() {
+            let (_, item_fn, info) = fixture();
+            let non_snake_case = &attrs("#[allow(non_snake_case)]")[0];
+
+            let tokens = matrix(item_fn, info);
+
+            let modules = TestsGroup::from(tokens).module.get_modules();
+
+            for module in modules {
+                assert!(module.attrs.contains(&non_snake_case));
+            }
+        }
+
+        #[test]
         fn create_all_tests() {
             let (_, item_fn, info) = fixture();
 
