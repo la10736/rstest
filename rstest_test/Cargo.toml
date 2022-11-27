@@ -14,7 +14,7 @@ repository = "https://github.com/la10736/rstest"
 version = "0.8.0"
 
 [dependencies]
-regex = "1.5.4"
+regex = "1.5.6"
 toml_edit = "0.15.0"
 
 [dev-dependencies]
