@@ -31,7 +31,7 @@ unicode-ident = "1.0.5"
 actix-rt = "2.7.0"
 async-std = {version = "1.12.0", features = ["attributes"]}
 pretty_assertions = "1.2.1"
-rstest = {version = "0.15.0", default-features = false}
+rstest = {version = "0.16.0", default-features = false}
 rstest_reuse = {version = "0.4.0", path = "../rstest_reuse"}
 rstest_test = {version = "0.9.0", path = "../rstest_test"}
 
