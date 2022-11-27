@@ -210,7 +210,7 @@ fn invalid_cases(params: &RsTestData) -> Errors {
             .filter(move |case| case.args.len() != n_args)
             .map(|case| {
                 syn::Error::new_spanned(
-                    &case,
+                    case,
                     "Wrong case signature: should match the given parameters list.",
                 )
             }),

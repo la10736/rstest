@@ -27,7 +27,7 @@ impl RefIdent for Ident {
 
 impl<'a> RefIdent for &'a Ident {
     fn ident(&self) -> &Ident {
-        *self
+        self
     }
 }
 
