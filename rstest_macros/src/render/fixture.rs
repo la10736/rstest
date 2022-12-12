@@ -149,7 +149,7 @@ mod should {
         parse2, parse_str, ItemFn, ItemImpl, ItemStruct, Result,
     };
 
-    use crate::parse::{Attribute, Attributes};
+    use crate::parse::{Attribute, Attributes, ExtendWithFunctionAttrs};
 
     use super::*;
     use crate::test::{assert_eq, *};
@@ -173,9 +173,11 @@ mod should {
     }
 
     fn parse_fixture<S: AsRef<str>>(code: S) -> (ItemFn, FixtureOutput) {
-        let item_fn = parse_str::<ItemFn>(code.as_ref()).unwrap();
+        let mut item_fn = parse_str::<ItemFn>(code.as_ref()).unwrap();
+        let mut info: FixtureInfo = Default::default();
+        info.extend_with_function_attrs(&mut item_fn).unwrap();
 
-        let tokens = render(item_fn.clone(), Default::default());
+        let tokens = render(item_fn.clone(), info);
         (item_fn, parse2(tokens).unwrap())
     }
 
@@ -226,12 +228,13 @@ mod should {
 
     #[test]
     fn return_a_static_reference_if_once_attribute() {
-        let item_fn = parse_str::<ItemFn>(r#"
+        let mut item_fn = parse_str::<ItemFn>(r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                             where B: Borrow<u32>
-                    { }    
+                    { }
         "#).unwrap();
-        let info = FixtureInfo::default().with_once();
+        let mut info = FixtureInfo::default().with_once();
+        info.extend_with_function_attrs(&mut item_fn).unwrap();
 
         let out: FixtureOutput = parse2(render(item_fn.clone(), info)).unwrap();
 
@@ -446,7 +449,7 @@ mod should {
 
     #[test]
     fn use_partial_return_type_if_any() {
-        let item_fn = parse_str::<ItemFn>(
+        let mut item_fn = parse_str::<ItemFn>(
             r#"
                     pub fn test<R: AsRef<str>, B, F, H: Iterator<Item=u32>>(h: H, b: B) -> (H, B)
                             where F: ToString,
@@ -455,20 +458,19 @@ mod should {
                      "#,
         )
         .unwrap();
+        let mut info = FixtureInfo {
+            attributes: Attributes {
+                attributes: vec![Attribute::Type(
+                    parse_str("partial_1").unwrap(),
+                    parse_str("(H, impl Iterator<Item=u32>)").unwrap(),
+                )],
+            }
+            .into(),
+            ..Default::default()
+        };
+        info.extend_with_function_attrs(&mut item_fn).unwrap();
 
-        let tokens = render(
-            item_fn.clone(),
-            FixtureInfo {
-                attributes: Attributes {
-                    attributes: vec![Attribute::Type(
-                        parse_str("partial_1").unwrap(),
-                        parse_str("(H, impl Iterator<Item=u32>)").unwrap(),
-                    )],
-                }
-                .into(),
-                ..Default::default()
-            },
-        );
+        let tokens = render(item_fn.clone(), info);
         let out: FixtureOutput = parse2(tokens).unwrap();
 
         let expected = parse_str::<syn::ItemFn>(

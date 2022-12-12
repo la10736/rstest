@@ -49,13 +49,11 @@ where
             .as_ref()
             .map(|_| parse_quote! {#[allow(unused_mut)]});
         let arg_type = arg.maybe_type()?;
-        let fixture_name = self.fixture_name(ident);
 
         let mut fixture = self
             .resolver
             .resolve(ident)
-            .or_else(|| self.resolver.resolve(&fixture_name))
-            .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
+            .expect(&format!("no resolver found for {}", ident));
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
@@ -64,15 +62,6 @@ where
             #unused_mut
             let #mutability #ident = #fixture;
         })
-    }
-
-    fn fixture_name<'a>(&self, ident: &'a Ident) -> Cow<'a, Ident> {
-        let id_str = ident.to_string();
-        if id_str.starts_with('_') && !id_str.starts_with("__") {
-            Cow::Owned(Ident::new(&id_str[1..], ident.span()))
-        } else {
-            Cow::Borrowed(ident)
-        }
     }
 
     fn type_can_be_get_from_literal_str(&self, t: &Type) -> bool {
@@ -96,10 +85,6 @@ where
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
-    Cow::Owned(parse_quote! { #ident::default() })
-}
-
 fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
     parse_quote! {
         {
@@ -118,28 +103,9 @@ mod should {
     };
 
     #[rstest]
-    #[case::as_is("fix: String", "let fix = fix::default();")]
-    #[case::without_underscore("_fix: String", "let _fix = fix::default();")]
-    #[case::do_not_remove_inner_underscores("f_i_x: String", "let f_i_x = f_i_x::default();")]
-    #[case::do_not_remove_double_underscore("__fix: String", "let __fix = __fix::default();")]
-    #[case::preserve_mut_but_annotate_as_allow_unused_mut(
-        "mut fix: String",
-        "#[allow(unused_mut)] let mut fix = fix::default();"
-    )]
-    fn call_fixture(#[case] arg_str: &str, #[case] expected: &str) {
-        let arg = arg_str.ast();
-
-        let injected = ArgumentResolver::new(&EmptyResolver {}, &[])
-            .resolve(&arg)
-            .unwrap();
-
-        assert_eq!(injected, expected.ast());
-    }
-
-    #[rstest]
     #[case::as_is("fix: String", ("fix", expr("bar()")), "let fix = bar();")]
     #[case::with_allow_unused_mut("mut fix: String", ("fix", expr("bar()")), "#[allow(unused_mut)] let mut fix = bar();")]
-    #[case::without_undescore("_fix: String", ("fix", expr("bar()")), "let _fix = bar();")]
+    #[case::with_undescore("_fix: String", ("_fix", expr("bar()")), "let _fix = bar();")]
     #[case::without_remove_underscore_if_value("_orig: S", ("_orig", expr("S{}")), r#"let _orig = S{};"#)]
     fn call_given_fixture(
         #[case] arg_str: &str,

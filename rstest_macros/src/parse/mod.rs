@@ -186,8 +186,12 @@ impl ToTokens for Fixture {
     }
 }
 
-pub(crate) fn extract_fixtures(item_fn: &mut ItemFn) -> Result<Vec<Fixture>, ErrorsVec> {
+pub(crate) fn extract_fixtures(
+    item_fn: &mut ItemFn,
+    current_items: &[Option<&Ident>],
+) -> Result<Vec<Fixture>, ErrorsVec> {
     let mut fixtures_extractor = FixturesFunctionExtractor::default();
+    fixtures_extractor.2 = current_items;
     fixtures_extractor.visit_item_fn_mut(item_fn);
 
     if fixtures_extractor.1.is_empty() {

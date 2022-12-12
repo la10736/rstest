@@ -119,7 +119,15 @@ impl Parse for RsTestData {
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
         let composed_tuple!(fixtures, case_args, cases, value_list) = merge_errors!(
-            extract_fixtures(item_fn),
+            // Keep this first as it relies on the fact that attributes were not removed on arguments
+            extract_fixtures(
+                item_fn,
+                &self
+                    .items
+                    .iter()
+                    .map(|i| i.maybe_ident())
+                    .collect::<Vec<_>>()
+            ),
             extract_case_args(item_fn),
             extract_cases(item_fn),
             extract_value_list(item_fn)
@@ -395,8 +403,8 @@ mod test {
             fn rename_with_attributes() {
                 let mut item_fn = r#"
                     fn test_fn(
-                        #[from(long_fixture_name)] 
-                        #[with(42, "other")] short: u32, 
+                        #[from(long_fixture_name)]
+                        #[with(42, "other")] short: u32,
                         #[from(simple)]
                         s: &str,
                         no_change: i32) {
@@ -410,6 +418,7 @@ mod test {
                             .with_resolve("long_fixture_name")
                             .into(),
                         fixture("s", &[]).with_resolve("simple").into(),
+                        fixture("no_change", &[]).into(),
                     ]
                     .into(),
                     ..Default::default()

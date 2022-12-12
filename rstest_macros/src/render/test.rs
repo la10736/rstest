@@ -36,22 +36,30 @@ fn trace_argument_code_string(arg_name: &str) -> String {
 mod single_test_should {
     use rstest_test::{assert_in, assert_not_in};
 
+    use crate::parse::ExtendWithFunctionAttrs;
     use crate::test::{assert_eq, *};
 
     use super::*;
 
+    fn get_test_info(input_fn: &mut ItemFn) -> RsTestInfo {
+        let mut info: RsTestInfo = Default::default();
+        info.extend_with_function_attrs(input_fn).unwrap();
+        info
+    }
+
     #[test]
     fn add_return_type_if_any() {
-        let input_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
+        let mut input_fn: ItemFn =
+            "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
 
         assert_eq!(result.sig.output, input_fn.sig.output);
     }
 
     #[test]
     fn include_given_function() {
-        let input_fn: ItemFn = r#"
+        let mut input_fn: ItemFn = r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                         where B: Borrow<u32>
                 {
@@ -60,7 +68,7 @@ mod single_test_should {
                 }
                 "#.ast();
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
         let first_stmt = result.block.stmts.get(0).unwrap();
 
         let inner_fn: ItemFn = parse_quote! {
@@ -85,7 +93,7 @@ mod single_test_should {
         let mut input_fn: ItemFn = r#"pub fn test(_s: String){}"#.ast();
         input_fn.attrs = attributes;
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
         let first_stmt = result.block.stmts.get(0).unwrap();
 
         let inner_fn: ItemFn = parse_quote! {
@@ -115,16 +123,16 @@ mod single_test_should {
         input_fn.set_async(is_async);
         input_fn.attrs = attributes.clone();
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
 
         assert_eq!(result.attrs, attributes);
     }
 
     #[test]
     fn trace_arguments_values() {
-        let input_fn: ItemFn = r#"#[trace]fn test(s: String, a:i32) {} "#.ast();
+        let mut input_fn: ItemFn = r#"#[trace]fn test(s: String, a:i32) {} "#.ast();
 
-        let item_fn: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let item_fn: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
 
         assert_in!(
             item_fn.block.display_code(),
@@ -138,7 +146,7 @@ mod single_test_should {
 
     #[test]
     fn trace_not_all_arguments_values() {
-        let input_fn: ItemFn =
+        let mut input_fn: ItemFn =
             r#"#[trace] fn test(a_trace: i32, b_no_trace:i32, c_no_trace:i32, d_trace:i32) {} "#
                 .ast();
 
@@ -149,7 +157,7 @@ mod single_test_should {
             input_fn.clone(),
             RsTestInfo {
                 attributes,
-                ..Default::default()
+                ..get_test_info(&mut input_fn)
             },
         )
         .ast();
@@ -191,7 +199,7 @@ mod single_test_should {
         let mut input_fn: ItemFn = format!(r#"{} fn test(_s: String) {{}} "#, prefix).ast();
         input_fn.attrs = attributes.clone();
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
 
         assert_eq!(result.attrs[0], test_attribute);
         assert_eq!(&result.attrs[1..], attributes.as_slice());
@@ -204,7 +212,7 @@ mod single_test_should {
         let mut input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
         input_fn.set_async(is_async);
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), get_test_info(&mut input_fn)).ast();
 
         let last_stmt = result.block.stmts.last().unwrap();
 

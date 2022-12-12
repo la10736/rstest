@@ -61,7 +61,16 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
             partials_return_type,
             once
         ) = merge_errors!(
-            extract_fixtures(item_fn),
+            // Keep this first as it relies on the fact that attributes were not removed on arguments
+            extract_fixtures(
+                item_fn,
+                &self
+                    .data
+                    .items
+                    .iter()
+                    .map(|i| Some(i.ident()))
+                    .collect::<Vec<_>>()
+            ),
             extract_defaults(item_fn),
             extract_default_return_type(item_fn),
             extract_partials_return_type(item_fn),
@@ -117,25 +126,53 @@ fn parse_attribute_args_just_once<'a, T: Parse>(
 /// Simple struct used to visit function attributes and extract Fixtures and
 /// eventualy parsing errors
 #[derive(Default)]
-pub(crate) struct FixturesFunctionExtractor(pub(crate) Vec<Fixture>, pub(crate) Vec<syn::Error>);
+pub(crate) struct FixturesFunctionExtractor<'a>(
+    pub(crate) Vec<Fixture>,
+    pub(crate) Vec<syn::Error>,
+    pub(crate) &'a [Option<&'a Ident>],
+);
 
-impl VisitMut for FixturesFunctionExtractor {
+impl<'a> VisitMut for FixturesFunctionExtractor<'a> {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         if let FnArg::Typed(ref mut arg) = node {
             let name = match arg.pat.as_ref() {
                 syn::Pat::Ident(ident) => ident.ident.clone(),
                 _ => return,
             };
+            let resolved_name = {
+                let id_str = name.to_string();
+                if id_str.starts_with('_') && !id_str.starts_with("__") {
+                    Some(Ident::new(&id_str[1..], name.span()))
+                } else {
+                    None
+                }
+            };
             let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
                 .into_iter()
                 .partition(|attr| attr_in(attr, &["with", "from"]));
             arg.attrs = remain;
 
+            let is_fixture_by_function_attr = self
+                .2
+                .contains(&Some(resolved_name.as_ref().unwrap_or(&name)));
+            let is_fixture_by_default = !is_fixture_by_function_attr
+                && !arg
+                    .attrs
+                    .iter()
+                    .any(|attr| attr_in(attr, &["case", "default", "values"]));
+
             let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
             self.1.extend(errors.into_iter());
             let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
             self.1.extend(errors.into_iter());
-            if pos.is_some() || resolve.is_some() {
+            let resolve = resolve.or_else(|| {
+                if is_fixture_by_default {
+                    resolved_name
+                } else {
+                    None
+                }
+            });
+            if pos.is_some() || resolve.is_some() || is_fixture_by_default {
                 self.0
                     .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
             }
@@ -449,8 +486,8 @@ mod extend {
         fn rename_with_attributes() {
             let mut item_fn = r#"
                     fn test_fn(
-                        #[from(long_fixture_name)] 
-                        #[with(42, "other")] short: u32, 
+                        #[from(long_fixture_name)]
+                        #[with(42, "other")] short: u32,
                         #[from(simple)]
                         s: &str,
                         no_change: i32) {
@@ -464,6 +501,7 @@ mod extend {
                         .with_resolve("long_fixture_name")
                         .into(),
                     fixture("s", &[]).with_resolve("simple").into(),
+                    fixture("no_change", &[]).into(),
                 ]
                 .into(),
                 ..Default::default()
