@@ -10,10 +10,20 @@ pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 's
     timeout: Duration,
 ) -> T {
     let (sender, receiver) = mpsc::channel();
-    std::thread::spawn(move || sender.send(code()));
-    receiver
-        .recv_timeout(timeout)
-        .unwrap_or_else(|_| panic!("Timeout {:?} expired", timeout))
+    let handler = std::thread::spawn(move || sender.send(code()));
+    match receiver
+        .recv_timeout(timeout) {
+            Ok(inner) => inner,
+            Err(err) => match err {
+                mpsc::RecvTimeoutError::Timeout => panic!("Timeout {:?} expired", timeout),
+                mpsc::RecvTimeoutError::Disconnected => {
+                    if let Some(&e) = handler.join().unwrap_err().downcast_ref::<&'static str>() {
+                        panic!("{}", e);
+                    }
+                    panic!("Unexpected Disconnection")
+                }
+            }
+        }
 }
 
 #[cfg(feature = "async-timeout")]
@@ -71,6 +81,15 @@ mod tests {
             }
 
             #[async_std::test]
+            #[should_panic = "inner message"]
+            async fn should_fail_for_panic_with_right_panic_message() {
+                execute_with_timeout_async(
+                    || async { panic!("inner message"); },
+                    Duration::from_millis(30),
+                ).await
+            }
+
+            #[async_std::test]
             async fn should_compile_also_with_no_copy_move() {
                 struct S {}
                 async fn test(_s: S) {
@@ -93,6 +112,15 @@ mod tests {
                     Duration::from_millis(10),
                 )
                 .await
+            }
+
+            #[async_std::test]
+            #[should_panic = "inner message"]
+            async fn should_fail_for_panic_with_right_panic_message() {
+                execute_with_timeout_async(
+                    || async { panic!("inner message"); },
+                    Duration::from_millis(30),
+                ).await
             }
 
             #[tokio::test]
@@ -124,6 +152,15 @@ mod tests {
             execute_with_timeout_sync(
                 || test(Duration::from_millis(30)),
                 Duration::from_millis(70),
+            )
+        }
+
+        #[test]
+        #[should_panic = "inner message"]
+        fn should_fail_for_panic_with_right_panic_message() {
+            execute_with_timeout_sync(
+                || { panic!("inner message"); },
+                Duration::from_millis(30),
             )
         }
 

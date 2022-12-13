@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- Fixed wrong message when timeout tests panic before timeout expire (See #171)
+
 ## [0.16.0] 2022/11/27
 ### Changed
 

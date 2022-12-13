@@ -26,6 +26,13 @@ mod thread {
     }
 
     #[rstest]
+    #[timeout(ms(1000))]
+    #[should_panic = "user message"]
+    fn fail_with_user_message() {
+        panic!{"user message"};
+    }
+
+    #[rstest]
     #[timeout(ms(10))]
     fn single_fail_timeout() {
         assert_eq!(4, delayed_sum(2, 2, ms(80)));
@@ -126,6 +133,13 @@ mod async_std_cases {
     #[timeout(ms(100))]
     async fn single_fail_value() {
         assert_eq!(5, delayed_sum(2, 2, ms(1)).await);
+    }
+
+    #[rstest]
+    #[timeout(ms(1000))]
+    #[should_panic = "user message"]
+    async fn fail_with_user_message() {
+        panic!{"user message"};
     }
 
     #[rstest]
