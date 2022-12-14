@@ -29,7 +29,7 @@ mod thread {
     #[timeout(ms(1000))]
     #[should_panic = "user message"]
     fn fail_with_user_message() {
-        panic!{"user message"};
+        panic!("user message");
     }
 
     #[rstest]

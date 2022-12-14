@@ -1,9 +1,16 @@
-use std::{sync::mpsc, time::Duration};
+use std::{any::Any, borrow::Cow, sync::mpsc, time::Duration};
 
 #[cfg(feature = "async-timeout")]
 use futures::{select, Future, FutureExt};
 #[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
+
+fn extract_panic_message(err: Box<dyn Any>) -> Cow<'static,str> {
+    err.downcast_ref::<&'static str>()
+        .map(|&s| Cow::Borrowed(s))
+        .or_else(|| err.downcast_ref::<String>().map(|s| Cow::Owned(s.clone())))
+        .unwrap_or_else(|| Cow::Borrowed("Unexpected Disconnection"))
+}
 
 pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 'static>(
     code: F,
@@ -11,19 +18,15 @@ pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 's
 ) -> T {
     let (sender, receiver) = mpsc::channel();
     let handler = std::thread::spawn(move || sender.send(code()));
-    match receiver
-        .recv_timeout(timeout) {
-            Ok(inner) => inner,
-            Err(err) => match err {
-                mpsc::RecvTimeoutError::Timeout => panic!("Timeout {:?} expired", timeout),
-                mpsc::RecvTimeoutError::Disconnected => {
-                    if let Some(&e) = handler.join().unwrap_err().downcast_ref::<&'static str>() {
-                        panic!("{}", e);
-                    }
-                    panic!("Unexpected Disconnection")
-                }
+    match receiver.recv_timeout(timeout) {
+        Ok(inner) => inner,
+        Err(err) => match err {
+            mpsc::RecvTimeoutError::Timeout => panic!("Timeout {:?} expired", timeout),
+            mpsc::RecvTimeoutError::Disconnected => {
+                panic!("{}", extract_panic_message(handler.join().unwrap_err()))
             }
-        }
+        },
+    }
 }
 
 #[cfg(feature = "async-timeout")]
@@ -84,9 +87,12 @@ mod tests {
             #[should_panic = "inner message"]
             async fn should_fail_for_panic_with_right_panic_message() {
                 execute_with_timeout_async(
-                    || async { panic!("inner message"); },
+                    || async {
+                        panic!("inner message");
+                    },
                     Duration::from_millis(30),
-                ).await
+                )
+                .await
             }
 
             #[async_std::test]
@@ -118,9 +124,12 @@ mod tests {
             #[should_panic = "inner message"]
             async fn should_fail_for_panic_with_right_panic_message() {
                 execute_with_timeout_async(
-                    || async { panic!("inner message"); },
+                    || async {
+                        panic!("inner message");
+                    },
                     Duration::from_millis(30),
-                ).await
+                )
+                .await
             }
 
             #[tokio::test]
@@ -159,7 +168,20 @@ mod tests {
         #[should_panic = "inner message"]
         fn should_fail_for_panic_with_right_panic_message() {
             execute_with_timeout_sync(
-                || { panic!("inner message"); },
+                || {
+                    panic!("inner message");
+                },
+                Duration::from_millis(30),
+            )
+        }
+
+        #[test]
+        #[should_panic = "inner message"]
+        fn should_fail_for_assert_with_right_panic_message() {
+            execute_with_timeout_sync(
+                || {
+                    assert!(false, "{}", "inner message");
+                },
                 Duration::from_millis(30),
             )
         }
