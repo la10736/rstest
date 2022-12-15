@@ -1,30 +1,32 @@
-use std::{any::Any, borrow::Cow, sync::mpsc, time::Duration};
+use std::{sync::mpsc, thread, time::Duration};
 
 #[cfg(feature = "async-timeout")]
 use futures::{select, Future, FutureExt};
 #[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
 
-fn extract_panic_message(err: Box<dyn Any>) -> Cow<'static,str> {
-    err.downcast_ref::<&'static str>()
-        .map(|&s| Cow::Borrowed(s))
-        .or_else(|| err.downcast_ref::<String>().map(|s| Cow::Owned(s.clone())))
-        .unwrap_or_else(|| Cow::Borrowed("Unexpected Disconnection"))
-}
-
 pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 'static>(
     code: F,
     timeout: Duration,
 ) -> T {
     let (sender, receiver) = mpsc::channel();
-    let handler = std::thread::spawn(move || sender.send(code()));
+    let thread = if let Some(name) = thread::current().name() {
+        thread::Builder::new().name(name.to_string())
+    } else {
+        thread::Builder::new()
+    };
+    let handle = thread.spawn(move || sender.send(code())).unwrap();
     match receiver.recv_timeout(timeout) {
-        Ok(inner) => inner,
-        Err(err) => match err {
-            mpsc::RecvTimeoutError::Timeout => panic!("Timeout {:?} expired", timeout),
-            mpsc::RecvTimeoutError::Disconnected => {
-                panic!("{}", extract_panic_message(handler.join().unwrap_err()))
-            }
+        Ok(result) => {
+            // Unwraps are safe because we got a result from the thread, which is not a `SendError`,
+            // and there was no panic within the thread which caused a disconnect.
+            handle.join().unwrap().unwrap();
+            result
+        }
+        Err(mpsc::RecvTimeoutError::Timeout) => panic!("Timeout {:?} expired", timeout),
+        Err(mpsc::RecvTimeoutError::Disconnected) => match handle.join() {
+            Err(any) => std::panic::resume_unwind(any),
+            Ok(_) => unreachable!(),
         },
     }
 }
@@ -170,17 +172,6 @@ mod tests {
             execute_with_timeout_sync(
                 || {
                     panic!("inner message");
-                },
-                Duration::from_millis(30),
-            )
-        }
-
-        #[test]
-        #[should_panic = "inner message"]
-        fn should_fail_for_assert_with_right_panic_message() {
-            execute_with_timeout_sync(
-                || {
-                    assert!(false, "{}", "inner message");
                 },
                 Duration::from_millis(30),
             )
