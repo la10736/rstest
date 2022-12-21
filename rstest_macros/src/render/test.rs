@@ -956,7 +956,7 @@ mod matrix_cases_should {
 
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("_s", &["1"]).into()].into(),
             },
             ..Default::default()
         };
