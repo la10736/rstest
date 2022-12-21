@@ -1233,7 +1233,14 @@ mod matrix_cases_should {
         attributes.add_notraces(vec![ident("b_no_trace_me"), ident("c_no_trace_me")]);
         let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_no_trace_me: u32, c_no_trace_me: u32, d_trace_me: u32) {}"#.ast();
 
-        let tokens = matrix(item_fn, RsTestInfo { data, attributes });
+        let tokens = matrix(
+            item_fn,
+            RsTestInfo {
+                data,
+                attributes,
+                await_args: vec![],
+            },
+        );
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 

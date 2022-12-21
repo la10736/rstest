@@ -1,9 +1,11 @@
 use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Ident, ItemFn, ReturnType};
+use syn::{parse_quote, Ident, ItemFn, ReturnType, Signature};
 
 use quote::quote;
 
+use super::await_future::ReplaceAwaitAttribute;
 use super::{inject, render_exec_call};
+use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
 use crate::{parse::fixture::FixtureInfo, utils::generics_clean_up};
@@ -37,7 +39,9 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
     let args = &vargs;
-    let orig_args = &fixture.sig.inputs;
+    let signature_with_future_impls =
+        ReplaceAwaitAttribute::replace(&info.await_args, fixture.sig.clone());
+    let orig_args = &signature_with_future_impls.inputs;
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.sig.generics;
     let mut default_output = info
@@ -60,8 +64,8 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .cloned()
         .collect::<Vec<_>>();
     let inject = inject::resolve_aruments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
-    let partials =
-        (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
+    let partials = (1..=orig_args.len())
+        .map(|n| render_partial_impl(&fixture, &signature_with_future_impls, n, &resolver, &info));
 
     let call_get = render_exec_call(parse_quote! { Self::get }, args, asyncness.is_some());
     let mut call_impl = render_exec_call(parse_quote! { #name }, args, asyncness.is_some());
@@ -72,6 +76,24 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         default_output = wrap_return_type_as_static_ref(default_output);
     }
 
+    let awaits = fixture
+        .sig
+        .inputs
+        .iter()
+        .filter(|a| {
+            a.maybe_ident()
+                .map(|i| info.await_args.contains(i))
+                .unwrap_or(false)
+        })
+        .map(|a| {
+            let ident = a
+                .maybe_ident()
+                .expect("Found a future argument without ident");
+            quote! {
+                let #ident = #ident.await;
+            }
+        });
+
     quote! {
         #[allow(non_camel_case_types)]
         #visibility struct #name {}
@@ -80,6 +102,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
             #(#orig_attrs)*
             #[allow(unused_mut)]
             #asyncness fn get #generics (#orig_args) #output #where_clause {
+                #(#awaits)*
                 #call_impl
             }
 
@@ -98,6 +121,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
 
 fn render_partial_impl(
     fixture: &ItemFn,
+    signature_with_future_impls: &Signature,
     n: usize,
     resolver: &impl Resolver,
     info: &FixtureInfo,
@@ -111,19 +135,27 @@ fn render_partial_impl(
         output = wrap_return_type_as_static_ref(output);
     }
 
-    let generics = generics_clean_up(&fixture.sig.generics, fn_args(fixture).take(n), &output);
+    let generics = generics_clean_up(
+        &signature_with_future_impls.generics,
+        fn_args(fixture).take(n),
+        &output,
+    );
     let where_clause = &generics.where_clause;
-    let asyncness = &fixture.sig.asyncness;
+    let asyncness = &signature_with_future_impls.asyncness;
 
     let genercs_idents = generics
         .type_params()
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject =
-        inject::resolve_aruments(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
+    // Don't await futures in this inject, we will await them in the get() function
+    let inject = inject::resolve_aruments(
+        signature_with_future_impls.inputs.iter().skip(n),
+        resolver,
+        &genercs_idents,
+    );
 
-    let sign_args = fn_args(fixture).take(n);
+    let sign_args = signature_with_future_impls.inputs.iter().take(n);
     let fixture_args = fn_args_idents(fixture).cloned().collect::<Vec<_>>();
     let name = Ident::new(&format!("partial_{}", n), Span::call_site());
 

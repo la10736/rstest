@@ -7,9 +7,9 @@ use syn::{
 };
 
 use super::{
-    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_partials_return_type, parse_vector_trailing_till_double_comma, Attributes,
-    ExtendWithFunctionAttrs, Fixture,
+    extract_argument_attrs, extract_awaits, extract_default_return_type, extract_defaults,
+    extract_fixtures, extract_partials_return_type, parse_vector_trailing_till_double_comma,
+    Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{
     error::ErrorsVec,
@@ -21,10 +21,21 @@ use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
 
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug)]
 pub(crate) struct FixtureInfo {
     pub(crate) data: FixtureData,
     pub(crate) attributes: FixtureModifiers,
+    pub(crate) await_args: Vec<Ident>,
+}
+
+impl Default for FixtureInfo {
+    fn default() -> Self {
+        Self {
+            data: Default::default(),
+            attributes: Default::default(),
+            await_args: Default::default(),
+        }
+    }
 }
 
 impl Parse for FixtureModifiers {
@@ -44,6 +55,7 @@ impl Parse for FixtureInfo {
                     .parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
+                ..Default::default()
             }
         })
     }
@@ -56,6 +68,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
     ) -> std::result::Result<(), ErrorsVec> {
         let composed_tuple!(
             fixtures,
+            await_args,
             defaults,
             default_return_type,
             partials_return_type,
@@ -71,6 +84,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
                     .map(|i| Some(i.ident()))
                     .collect::<Vec<_>>()
             ),
+            extract_awaits(item_fn),
             extract_defaults(item_fn),
             extract_default_return_type(item_fn),
             extract_partials_return_type(item_fn),
@@ -82,6 +96,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
                 .map(|f| f.into())
                 .chain(defaults.into_iter().map(|d| d.into())),
         );
+        self.await_args = await_args;
         if let Some(return_type) = default_return_type {
             self.attributes.set_default_return_type(return_type);
         }
@@ -389,6 +404,7 @@ mod should {
                     ],
                 }
                 .into(),
+                await_args: vec![],
             };
 
             assert_eq!(expected, data);
@@ -484,7 +500,7 @@ mod extend {
 
         #[test]
         fn rename_with_attributes() {
-            let mut item_fn = r#"
+            let mut item_fn: ItemFn = r#"
                     fn test_fn(
                         #[from(long_fixture_name)]
                         #[with(42, "other")] short: u32,

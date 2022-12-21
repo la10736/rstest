@@ -212,6 +212,10 @@ pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue
     }
 }
 
+pub(crate) fn extract_awaits(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+    AwaitExtractor::replace(item_fn)
+}
+
 pub(crate) fn extract_default_return_type(
     item_fn: &mut ItemFn,
 ) -> Result<Option<syn::Type>, ErrorsVec> {
@@ -360,6 +364,62 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         };
 
         syn::visit_mut::visit_item_fn_mut(self, node);
+    }
+}
+
+/// Simple struct used to visit function attributes and extract await_future
+/// attributes
+#[derive(Default)]
+pub(crate) struct AwaitExtractor {
+    await_args: Vec<Ident>,
+    errors: Vec<syn::Error>,
+}
+
+impl AwaitExtractor {
+    pub(crate) fn replace(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+        let mut visitor = Self::default();
+        visitor.visit_item_fn_mut(item_fn);
+        if visitor.errors.is_empty() {
+            Ok(visitor.await_args)
+        } else {
+            Err(visitor.errors.into())
+        }
+    }
+}
+
+impl VisitMut for AwaitExtractor {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        for r in extract_argument_attrs(
+            node,
+            |a| attr_is(a, "await_future"),
+            |_, ident| Ok(ident.clone()),
+        ) {
+            match r {
+                Ok(ident) => {
+                    match node {
+                        FnArg::Typed(t) => {
+                            let ty = &mut t.ty;
+                            use syn::Type::*;
+                            match ty.as_ref() {
+                                Group(_) | ImplTrait(_) | Infer(_) | Macro(_) | Never(_)
+                                | Slice(_) | TraitObject(_) | Verbatim(_) => {
+                                    self.errors.push(syn::Error::new_spanned(
+                                        ty.into_token_stream(),
+                                        "This type cannot be awaited.".to_owned(),
+                                    ));
+                                    return;
+                                }
+                                _ => {}
+                            };
+                        }
+                        FnArg::Receiver(_) => (),
+                    }
+
+                    self.await_args.push(ident);
+                }
+                Err(e) => self.errors.push(e),
+            }
+        }
     }
 }
 

@@ -3,12 +3,12 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use super::testcase::TestCase;
 use super::{
     check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
     extract_fixtures, extract_value_list, parse_vector_trailing_till_double_comma, Attribute,
     Attributes, ExtendWithFunctionAttrs, Fixture,
 };
+use super::{extract_awaits, testcase::TestCase};
 use crate::parse::vlist::ValueList;
 use crate::{
     error::ErrorsVec,
@@ -21,6 +21,7 @@ use quote::{format_ident, ToTokens};
 pub(crate) struct RsTestInfo {
     pub(crate) data: RsTestData,
     pub(crate) attributes: RsTestAttributes,
+    pub(crate) await_args: Vec<Ident>,
 }
 
 impl Parse for RsTestInfo {
@@ -34,6 +35,7 @@ impl Parse for RsTestInfo {
                     .parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
+                ..Default::default()
             }
         })
     }
@@ -41,12 +43,14 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (_, (excluded, _)) = merge_errors!(
+        let composed_tuple!(_, excluded, _, await_args) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
-            check_timeout_attrs(item_fn)
+            check_timeout_attrs(item_fn),
+            extract_awaits(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
+        self.await_args = await_args;
         Ok(())
     }
 }
@@ -370,6 +374,7 @@ mod test {
                     ],
                 }
                 .into(),
+                ..Default::default()
             };
 
             assert_eq!(expected, data);

@@ -9,7 +9,7 @@ pub(crate) struct ReplaceFutureAttribute {
     errors: Vec<syn::Error>,
 }
 
-fn extend_generics_with_lifetimes<'a, 'b>(
+pub fn extend_generics_with_lifetimes<'a, 'b>(
     generics: impl Iterator<Item = &'a syn::GenericParam>,
     lifetimes: impl Iterator<Item = &'b syn::Lifetime>,
 ) -> syn::Generics {
@@ -66,6 +66,17 @@ impl VisitMut for ReplaceFutureAttribute {
                     }));
                     return;
                 }
+                let awaits = extract_arg_attributes(t, |a| attr_is(a, "await_future"));
+                if !awaits.is_empty() {
+                    self.errors.extend(futures.iter().skip(1).map(|attr| {
+                        syn::Error::new_spanned(
+                            attr.into_token_stream(),
+                            "#[await] and #[future] are mutually exclusive.".to_owned(),
+                        )
+                    }));
+                    return;
+                }
+
                 let ty = &mut t.ty;
                 use syn::Type::*;
                 match ty.as_ref() {
@@ -127,13 +138,13 @@ mod should {
     )]
     #[case::more_than_one(
         "fn f(#[future] a: u32, #[future] b: String, #[future] c: std::collection::HashMap<usize, String>) {}",
-        r#"fn f(a: impl std::future::Future<Output = u32>, 
-                b: impl std::future::Future<Output = String>, 
+        r#"fn f(a: impl std::future::Future<Output = u32>,
+                b: impl std::future::Future<Output = String>,
                 c: impl std::future::Future<Output = std::collection::HashMap<usize, String>>) {}"#,
     )]
     #[case::just_one(
         "fn f(a: u32, #[future] b: String) {}",
-        r#"fn f(a: u32, 
+        r#"fn f(a: u32,
                 b: impl std::future::Future<Output = String>) {}"#
     )]
     #[case::generics(

@@ -326,9 +326,11 @@ mod single {
             .assert(output);
     }
 
-    #[test]
-    fn should_run_async_function() {
-        let prj = prj(res("async.rs"));
+    #[rstest]
+    #[case::future("async.rs")]
+    #[case::await_future("await.rs")]
+    fn should_run_async_function(#[case] file: &str) {
+        let prj = prj(res(file));
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();
@@ -456,9 +458,11 @@ mod cases {
             .assert(output);
     }
 
-    #[test]
-    fn should_run_async_function() {
-        let prj = prj(res("async.rs"));
+    #[rstest]
+    #[case::future("async.rs")]
+    #[case::await_future("await.rs")]
+    fn should_run_async_function(#[case] file: &str) {
+        let prj = prj(res(file));
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();
@@ -775,9 +779,11 @@ mod matrix {
             .assert(output);
     }
 
-    #[test]
-    fn should_run_async_function() {
-        let prj = prj(res("async.rs"));
+    #[rstest]
+    #[case::future("async.rs")]
+    #[case::await_future("await.rs")]
+    fn should_run_async_function(#[case] file: &str) {
+        let prj = prj(res(file));
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();

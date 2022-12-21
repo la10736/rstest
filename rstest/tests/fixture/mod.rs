@@ -93,9 +93,11 @@ mod should {
         }
     }
 
-    #[test]
-    fn resolve_async_fixture() {
-        let prj = prj("async_fixture.rs");
+    #[rstest]
+    #[case::future("async_fixture.rs")]
+    #[case::await_future("await_fixture.rs")]
+    fn resolve_async_fixture(#[case] file: &str) {
+        let prj = prj(file);
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();

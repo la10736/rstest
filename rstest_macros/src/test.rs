@@ -123,7 +123,7 @@ pub(crate) fn expr(s: impl AsRef<str>) -> syn::Expr {
 pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
     parse_str::<ItemFn>(&format!(
         r#"{}
-           fn _no_name_() {{}}   
+           fn _no_name_() {{}}
         "#,
         s.as_ref()
     ))
@@ -258,6 +258,7 @@ impl From<RsTestData> for RsTestInfo {
         Self {
             data,
             attributes: Default::default(),
+            await_args: Default::default(),
         }
     }
 }
