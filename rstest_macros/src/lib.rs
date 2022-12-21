@@ -476,7 +476,7 @@ pub fn fixture(
 ///
 /// ```
 /// use rstest::rstest;
-///  
+///
 /// fn sum(a: usize, b: usize) -> usize { a + b }
 ///
 /// #[rstest]
@@ -845,8 +845,7 @@ pub fn fixture(
 /// fn should_be_invalid_query_error(
 ///     repository: impl Repository,
 ///     #[case] user: User,
-///     #[values("     ", "^%$some#@invalid!chars", ".n.o.d.o.t.s.")] query: &str,
-///     query: &str
+///     #[values("     ", "^%$some#@invalid!chars", ".n.o.d.o.t.s.")] query: &str
 /// ) {
 ///     repository.find_items(&user, query).unwrap();
 /// }
