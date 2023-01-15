@@ -1459,10 +1459,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: expected expression
-                   --> {}/src/lib.rs:101:16
+                   --> {}/src/lib.rs:101:17
                     |
                 101 | #[timeout(some -> strange -> invalid -> expression)]
-                    |                ^^
+                    |                 ^
                 ",
                 name
             )
