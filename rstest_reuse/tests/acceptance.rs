@@ -1,7 +1,10 @@
-use rstest_test::{assert_not_in, sanitize_name, testname, Project, Stringable, TestResults};
+use rstest_test::{
+    assert_in, assert_not_in, sanitize_name, testname, Project, Stringable, TestResults,
+};
 
 use lazy_static::lazy_static;
 
+use rstest::rstest;
 use std::path::{Path, PathBuf};
 use temp_testdir::TempDir;
 
@@ -50,11 +53,20 @@ fn use_before_define() {
         .assert(output);
 }
 
-#[test]
-fn not_show_any_warning() {
-    let (output, _) = run_test("simple_example.rs");
+#[rstest]
+#[case::simple("simple_example.rs")]
+#[case::export_not_used("export_not_used.rs")]
+fn not_show_any_warning(#[case] path: &str) {
+    let (output, _) = run_test(path);
 
     assert_not_in!(output.stderr.str(), "warning:");
+}
+
+#[test]
+fn should_show_warning_if_not_used_template() {
+    let (output, _) = run_test("not_used.rs");
+
+    assert_in!(output.stderr.str(), "warning:");
 }
 
 #[test]

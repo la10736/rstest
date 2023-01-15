@@ -357,6 +357,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                         }
                     }
         }
+        #[allow(unused_imports)]
         pub(crate) use #macro_name as #macro_name;
     });
     tokens.into()
