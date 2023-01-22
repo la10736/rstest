@@ -183,11 +183,12 @@ impl Project {
         self.save_cargo_toml(&doc);
     }
 
+    pub fn add_path_dependency(&self, name: &str, path: &str) {
+        self.add_dependency(name, format!(r#"{{path="{}"}}"#, path).as_str());
+    }
+
     pub fn add_local_dependency(&self, name: &str) {
-        self.add_dependency(
-            name,
-            format!(r#"{{path="{}"}}"#, self.exec_dir_str()).as_str(),
-        );
+        self.add_path_dependency(name, &self.exec_dir_str());
     }
 
     pub fn exec_dir_str(&self) -> String {
