@@ -337,19 +337,30 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         None => std::mem::take(&mut attributes),
     };
 
-    let mut tokens = match get_export(&attributes) {
-        Some(_) => {
+    let (macro_attribute, visibility) = match get_export(&attributes) {
+        Some(_) => (
             quote! {
                 #[macro_export]
-            }
-        }
-        None => quote! {},
+            },
+            quote! {
+                pub
+            },
+        ),
+        None => (
+            quote! {},
+            quote! {
+                pub(crate)
+            },
+        ),
     };
 
     let macro_name = template.sig.ident.clone();
-    tokens.extend(quote! {
+    let macro_name_rand = format_ident!("{}_{}", macro_name, rand::random::<u64>());
+
+    let tokens = quote! {
         /// Apply #macro_name template to given body
-        macro_rules! #macro_name {
+        #macro_attribute
+        macro_rules! #macro_name_rand {
             ( $test:item ) => {
                         $crate::rstest_reuse::merge_attrs! {
                             #template,
@@ -358,8 +369,8 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                     }
         }
         #[allow(unused_imports)]
-        pub(crate) use #macro_name as #macro_name;
-    });
+        #visibility use #macro_name_rand as #macro_name;
+    };
     tokens.into()
 }
 

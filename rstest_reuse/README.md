@@ -5,7 +5,7 @@
  
 # Reuse `rstest`'s parametrized cases
 
-:warning: [**Version 0.2.0 introduce a breaking change**](#export-attribute)
+:warning: [**Version 0.5.0 introduce a breaking change**](#dismiss-macro_use-attribute-support)
 
 This crate give a way to define a tests set and apply them to every case you need to
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
@@ -171,22 +171,49 @@ is not enougth: this statment doesn't include `rstest_reuse` but just its public
 
 ## `#[export]` Attribute
 
-:warning: **Version 0.2.0 introduce a breaking change**
+:warning: **Version 0.5.0 introduce a breaking change**
 
-If you want to export your template at the root of your crate you should annotate it by 
-`#[export]` attribute. Use `#[export]` attribute also if you need to use the
-template from another crate.
+Now `#[export]` attribute give you the possibility to export your template across crates
+but don't lift the macro definition at the top of your crate (that was the default behaviour 
+prior the 0.5.0 version).
 
-This was the default behaviour in the 0.1.x versions.
+Now if you want put your template at the root of your crate you can define it in the root
+module or reexport it at the top with something like the following line at the top of
+your crate:
 
-Example: note that we don't use `#[macro_use]` attribute.
+```rust
+pub use my::modules::path::of::my::template::my_template;
+```
+
+When you want to export your template you should also take care to declare `rstest_reuse` as `pub`
+at the top of your crate to enable to use it from the modules that would import the template.
+
+So in this case in the crate that would export template you should put at the root of your
+crate
+
+```rust
+#[cfg(test)]
+pub use rstest_reuse;
+```
+
+And not just `use rstest_reuse` like in the standard cases.
+
+## Dismiss `#[macro_use]` Attribute Support
+
+:warning: **Version 0.5.0 introduce a breaking change**
+
+Till version 0.4.0 you can use `#[macro_use]` to annotate your modules and lift your
+macro template to the up level. Now `rstest` leverege only on import and paths like all
+othter function and original macro is hidden by a random name.
+
+So now if you would use your template from other module you should import it like any 
+other symbol.
 
 ```rust
 mod inner {
-    mod sub {
+    pub(crate) mod sub {
         use rstest_reuse::*;
         #[template]
-        #[export]
         #[rstest(a,  b,
             case(2, 2),
             case(4/2, 2),
@@ -198,10 +225,17 @@ mod inner {
 use rstest_reuse::*;
 use rstest::*;
 
-#[apply(two_simple_cases)]
-fn it_works(a: u32, b: u32) {
+#[apply(inner::sub::two_simple_cases)]
+fn it_works_by_path(a: u32, b: u32) {
     assert!(a == b);
 }
+
+use inner::sub::two_simple_cases
+#[apply(inner::sub::two_simple_cases)]
+fn it_works_after_use(a: u32, b: u32) {
+    assert!(a == b);
+}
+
 ```
 
 ## Disclamer

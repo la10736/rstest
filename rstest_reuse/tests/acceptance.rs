@@ -12,12 +12,17 @@ pub fn resources<O: AsRef<Path>>(name: O) -> PathBuf {
     Path::new("tests").join("resources").join(name)
 }
 
+fn create_prj(name: &str) -> Project {
+    let prj = ROOT_PROJECT.subproject(name);
+    prj.add_local_dependency("rstest_reuse");
+    prj.add_dependency("rstest", r#""*""#);
+    prj
+}
+
 fn prj(res: impl AsRef<Path>) -> Project {
     let prj_name = sanitize_name(testname());
 
-    let prj = ROOT_PROJECT.subproject(&prj_name);
-    prj.add_local_dependency("rstest_reuse");
-    prj.add_dependency("rstest", r#""*""#);
+    let prj = create_prj(&prj_name);
     prj.set_code_file(resources(res))
 }
 
@@ -82,16 +87,6 @@ fn in_mod() {
 }
 
 #[test]
-fn import_from_mod_by_macro_use() {
-    let (output, _) = run_test("import_from_mod.rs");
-
-    TestResults::new()
-        .ok("user::it_works::case_1")
-        .ok("user::it_works::case_2")
-        .assert(output);
-}
-
-#[test]
 fn import_from_mod() {
     let (output, _) = run_test("qualify_template_use.rs");
 
@@ -150,7 +145,8 @@ fn enable_export_macros() {
 
     TestResults::new()
         .ok("foo::bar::test::case_1")
-        .ok("test::case_1")
+        .ok("test_path::case_1")
+        .ok("test_import::case_1")
         .assert(output);
 }
 
@@ -171,6 +167,20 @@ fn no_local_macro_should_not_compile() {
     let (output, _) = run_test("no_local_macro_should_not_compile.rs");
 
     assert!(!output.status.success());
+}
+
+#[test]
+fn should_export_main_root() {
+    // Add project with template
+    let _prj_template =
+        create_prj("export_template_root").set_code_file(resources("export_template_root.rs"));
+
+    // Main test project that use template
+    let prj = prj("import_template.rs");
+    prj.add_path_dependency("export_template_root", "../export_template_root");
+
+    let output = prj.run_tests().unwrap();
+    TestResults::new().ok("test::case_1").assert(output);
 }
 
 lazy_static! {
