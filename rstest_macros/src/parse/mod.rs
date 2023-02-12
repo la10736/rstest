@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use proc_macro2::TokenStream;
 use syn::{
     parse::{Parse, ParseStream},
@@ -626,6 +628,61 @@ pub(crate) fn check_timeout_attrs(item_fn: &mut ItemFn) -> Result<(), ErrorsVec>
     let mut checker = CheckTimeoutAttributesFunction::default();
     checker.visit_item_fn_mut(item_fn);
     checker.take()
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+#[allow(dead_code)]
+enum FutureArg {
+    None,
+    Apply,
+    Await,
+}
+
+impl Default for FutureArg {
+    fn default() -> Self {
+        FutureArg::None
+    }
+}
+
+#[derive(PartialEq, Default, Debug)]
+pub(crate) struct ArgumentInfo {
+    future: FutureArg,
+}
+
+impl ArgumentInfo {
+    #[allow(dead_code)]
+    fn future(future: FutureArg) -> Self {
+        Self {
+            future,
+            ..Default::default()
+        }
+    }
+
+    fn is_future(&self) -> bool {
+        use FutureArg::*;
+
+        matches!(self.future, Apply | Await)
+    }
+}
+
+#[derive(PartialEq, Default, Debug)]
+pub(crate) struct ArgumentsInfo(pub(crate) HashMap<Ident, ArgumentInfo>);
+
+impl ArgumentsInfo {
+    #[allow(dead_code)]
+    pub(crate) fn add_future(&mut self, ident: Ident) {
+        self.0
+            .entry(ident)
+            .and_modify(|v| v.future = FutureArg::Apply)
+            .or_insert_with(|| ArgumentInfo::future(FutureArg::Apply));
+    }
+
+    pub(crate) fn is_future(&self, id: &Ident) -> bool {
+        self.0
+            .get(id)
+            .map(|arg| arg.is_future())
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]

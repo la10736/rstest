@@ -8,8 +8,8 @@ use syn::{
 
 use super::{
     extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_partials_return_type, parse_vector_trailing_till_double_comma, Attributes,
-    ExtendWithFunctionAttrs, Fixture,
+    extract_partials_return_type, parse_vector_trailing_till_double_comma, ArgumentsInfo,
+    Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{
     error::ErrorsVec,
@@ -25,6 +25,7 @@ use quote::{format_ident, ToTokens};
 pub(crate) struct FixtureInfo {
     pub(crate) data: FixtureData,
     pub(crate) attributes: FixtureModifiers,
+    pub(crate) arguments: ArgumentsInfo,
 }
 
 impl Parse for FixtureModifiers {
@@ -44,6 +45,7 @@ impl Parse for FixtureInfo {
                     .parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
+                arguments: Default::default(),
             }
         })
     }
@@ -352,6 +354,7 @@ mod should {
                     ],
                 }
                 .into(),
+                arguments: Default::default(),
             };
 
             assert_eq!(expected, data);

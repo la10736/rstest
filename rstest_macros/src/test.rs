@@ -257,7 +257,7 @@ impl From<RsTestData> for RsTestInfo {
     fn from(data: RsTestData) -> Self {
         Self {
             data,
-            attributes: Default::default(),
+            ..Default::default()
         }
     }
 }

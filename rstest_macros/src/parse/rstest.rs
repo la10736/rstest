@@ -3,12 +3,12 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use super::testcase::TestCase;
 use super::{
     check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
     extract_fixtures, extract_value_list, parse_vector_trailing_till_double_comma, Attribute,
     Attributes, ExtendWithFunctionAttrs, Fixture,
 };
+use super::{testcase::TestCase, ArgumentsInfo};
 use crate::parse::vlist::ValueList;
 use crate::{
     error::ErrorsVec,
@@ -21,6 +21,7 @@ use quote::{format_ident, ToTokens};
 pub(crate) struct RsTestInfo {
     pub(crate) data: RsTestData,
     pub(crate) attributes: RsTestAttributes,
+    pub(crate) arguments: ArgumentsInfo,
 }
 
 impl Parse for RsTestInfo {
@@ -34,6 +35,7 @@ impl Parse for RsTestInfo {
                     .parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
+                arguments: Default::default(),
             }
         })
     }
@@ -362,6 +364,7 @@ mod test {
                     ],
                 }
                 .into(),
+                ..Default::default()
             };
 
             assert_eq!(expected, data);

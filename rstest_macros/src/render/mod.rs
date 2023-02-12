@@ -3,6 +3,7 @@ mod test;
 mod wrapper;
 
 use std::collections::HashMap;
+
 use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
@@ -27,9 +28,13 @@ use crate::{
 use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
+
+use self::apply_argumets::ApplyArgumets;
+pub(crate) mod apply_argumets;
 pub(crate) mod inject;
 
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
+    test.sig.apply_argumets(&info.arguments);
     let resolver = resolver::fixtures::get(info.data.fixtures());
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
@@ -56,8 +61,13 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     )
 }
 
-pub(crate) fn parametrize(test: ItemFn, info: RsTestInfo) -> TokenStream {
-    let RsTestInfo { data, attributes } = info;
+pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
+    let RsTestInfo {
+        data,
+        attributes,
+        arguments,
+    } = info;
+    test.sig.apply_argumets(&arguments);
     let resolver_fixtures = resolver::fixtures::get(data.fixtures());
 
     let rendered_cases = cases_data(&data, test.sig.ident.span())
@@ -139,10 +149,13 @@ fn _matrix_recursive<'a>(
     }
 }
 
-pub(crate) fn matrix(test: ItemFn, info: RsTestInfo) -> TokenStream {
+pub(crate) fn matrix(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let RsTestInfo {
-        data, attributes, ..
+        data,
+        attributes,
+        arguments,
     } = info;
+    test.sig.apply_argumets(&arguments);
     let span = test.sig.ident.span();
 
     let cases = cases_data(&data, span).collect::<Vec<_>>();

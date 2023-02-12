@@ -3,6 +3,7 @@ use syn::{parse_quote, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
+use super::apply_argumets::ApplyArgumets;
 use super::{inject, render_exec_call};
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
@@ -32,7 +33,8 @@ fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -
     }
 }
 
-pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
+pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
+    fixture.sig.apply_argumets(&info.arguments);
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
@@ -149,7 +151,7 @@ mod should {
         parse2, parse_str, ItemFn, ItemImpl, ItemStruct, Result,
     };
 
-    use crate::parse::{Attribute, Attributes};
+    use crate::parse::{ArgumentsInfo, Attribute, Attributes};
 
     use super::*;
     use crate::test::{assert_eq, *};
@@ -482,5 +484,45 @@ mod should {
         let partial = select_method(out.core_impl, "partial_1").unwrap();
 
         assert_eq!(expected.sig, partial.sig);
+    }
+
+    #[test]
+    fn add_future_boilerplate_if_requested() {
+        let item_fn = parse_str::<ItemFn>(
+            r#"
+                    async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32)
+                    { }
+                     "#,
+        )
+        .unwrap();
+
+        let mut arguments = ArgumentsInfo::default();
+        arguments.add_future(ident("async_ref_u32"));
+        arguments.add_future(ident("async_u32"));
+
+        let tokens = render(
+            item_fn.clone(),
+            FixtureInfo {
+                arguments,
+                ..Default::default()
+            },
+        );
+        let out: FixtureOutput = parse2(tokens).unwrap();
+
+        let expected = parse_str::<syn::ItemFn>(
+            r#"
+                    async fn get<'_async_ref_u32>(
+                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl std::future::Future<Output = u32>, 
+                        simple: u32
+                    )
+                    { }
+                    "#,
+        )
+        .unwrap();
+
+        let rendered = select_method(out.core_impl, "get").unwrap();
+
+        assert_eq!(expected.sig, rendered.sig);
     }
 }

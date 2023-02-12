@@ -1,5 +1,7 @@
 use quote::{format_ident, ToTokens};
-use syn::{parse_quote, visit_mut::VisitMut, FnArg, ItemFn, Lifetime};
+use syn::{
+    parse_quote, visit_mut::VisitMut, FnArg, Ident, ItemFn, Lifetime, PatType, Type, TypeReference,
+};
 
 use crate::{error::ErrorsVec, refident::MaybeIdent, utils::attr_is};
 
@@ -47,6 +49,75 @@ fn extract_arg_attributes(
     let (extracted, attrs): (Vec<_>, Vec<_>) = attrs.into_iter().partition(predicate);
     node.attrs = attrs;
     extracted
+}
+
+fn can_impl_future(ty: &Type) -> bool {
+    use Type::*;
+    !matches!(
+        ty,
+        Group(_)
+            | ImplTrait(_)
+            | Infer(_)
+            | Macro(_)
+            | Never(_)
+            | Slice(_)
+            | TraitObject(_)
+            | Verbatim(_)
+    )
+}
+
+trait MaybeFutureImplType {
+    fn as_future_impl_type(&self) -> Option<&Type>;
+
+    fn as_mut_future_impl_type(&mut self) -> Option<&mut Type>;
+}
+
+impl MaybeFutureImplType for FnArg {
+    fn as_future_impl_type(&self) -> Option<&Type> {
+        match self {
+            FnArg::Typed(PatType { ty, .. }) if can_impl_future(ty.as_ref()) => Some(ty.as_ref()),
+            _ => None,
+        }
+    }
+
+    fn as_mut_future_impl_type(&mut self) -> Option<&mut Type> {
+        match self {
+            FnArg::Typed(PatType { ty, .. }) if can_impl_future(ty.as_ref()) => Some(ty.as_mut()),
+            _ => None,
+        }
+    }
+}
+pub(crate) trait ImplFutureArg {
+    fn impl_future_arg(&mut self) -> Option<Lifetime>;
+}
+
+fn update_type_with_lifetime(ty: &mut Type, ident: Ident) -> Option<Lifetime> {
+    if let Type::Reference(ty_ref @ TypeReference { lifetime: None, .. }) = ty {
+        let lifetime = Some(syn::Lifetime {
+            apostrophe: ident.span(),
+            ident,
+        });
+        ty_ref.lifetime = lifetime.clone();
+        lifetime
+    } else {
+        None
+    }
+}
+
+impl ImplFutureArg for FnArg {
+    fn impl_future_arg(&mut self) -> Option<Lifetime> {
+        let lifetime_id = self.maybe_ident().map(|id| format_ident!("_{}", id));
+        match self.as_mut_future_impl_type() {
+            Some(ty) => {
+                let lifetime = lifetime_id.and_then(|id| update_type_with_lifetime(ty, id));
+                *ty = parse_quote! {
+                    impl std::future::Future<Output = #ty>
+                };
+                lifetime
+            }
+            None => None,
+        }
+    }
 }
 
 impl VisitMut for ReplaceFutureAttribute {

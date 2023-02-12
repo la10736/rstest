@@ -36,7 +36,10 @@ fn trace_argument_code_string(arg_name: &str) -> String {
 mod single_test_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::test::{assert_eq, *};
+    use crate::{
+        parse::ArgumentsInfo,
+        test::{assert_eq, *},
+    };
 
     use super::*;
 
@@ -47,6 +50,14 @@ mod single_test_should {
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         assert_eq!(result.sig.output, input_fn.sig.output);
+    }
+
+    fn extract_inner_test_function(outer: &ItemFn) -> ItemFn {
+        let first_stmt = outer.block.stmts.get(0).unwrap();
+
+        parse_quote! {
+            #first_stmt
+        }
     }
 
     #[test]
@@ -61,11 +72,8 @@ mod single_test_should {
                 "#.ast();
 
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
-        let first_stmt = result.block.stmts.get(0).unwrap();
 
-        let inner_fn: ItemFn = parse_quote! {
-            #first_stmt
-        };
+        let inner_fn = extract_inner_test_function(&result);
 
         assert_eq!(inner_fn, input_fn);
     }
@@ -209,6 +217,39 @@ mod single_test_should {
         let last_stmt = result.block.stmts.last().unwrap();
 
         assert_eq!(use_await, last_stmt.is_await());
+    }
+    #[test]
+    fn add_future_boilerplate_if_requested() {
+        let item_fn: ItemFn = r#"
+                    async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32)
+                    { }
+                     "#
+        .ast();
+
+        let mut arguments = ArgumentsInfo::default();
+        arguments.add_future(ident("async_ref_u32"));
+        arguments.add_future(ident("async_u32"));
+
+        let info = RsTestInfo {
+            arguments,
+            ..Default::default()
+        };
+
+        let result: ItemFn = single(item_fn.clone(), info).ast();
+        let inner_fn = extract_inner_test_function(&result);
+
+        let expected = parse_str::<syn::ItemFn>(
+            r#"async fn test<'_async_ref_u32>(
+                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl std::future::Future<Output = u32>, 
+                        simple: u32
+                    )
+                    { }
+                    "#,
+        )
+        .unwrap();
+
+        assert_eq!(inner_fn.sig, expected.sig);
     }
 }
 
@@ -397,6 +438,7 @@ mod cases_should {
     use crate::parse::{
         rstest::{RsTestData, RsTestInfo, RsTestItem},
         testcase::TestCase,
+        ArgumentsInfo,
     };
 
     use super::{assert_eq, *};
@@ -761,6 +803,36 @@ mod cases_should {
         assert_eq!(&tests[0].attrs[1..], attributes.as_slice());
     }
 
+    #[test]
+    fn add_future_boilerplate_if_requested() {
+        let (item_fn, mut info) = TestCaseBuilder::from(
+            r#"async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32) { }"#,
+        )
+        .take();
+
+        let mut arguments = ArgumentsInfo::default();
+        arguments.add_future(ident("async_ref_u32"));
+        arguments.add_future(ident("async_u32"));
+
+        info.arguments = arguments;
+
+        let tokens = parametrize(item_fn.clone(), info);
+        let test_function = TestsGroup::from(tokens).requested_test;
+
+        let expected = parse_str::<syn::ItemFn>(
+            r#"async fn test<'_async_ref_u32>(
+                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl std::future::Future<Output = u32>, 
+                        simple: u32
+                    )
+                    { }
+                    "#,
+        )
+        .unwrap();
+
+        assert_eq!(test_function.sig, expected.sig);
+    }
+
     #[rstest]
     #[case::sync(false, false)]
     #[case::async_fn(true, true)]
@@ -861,7 +933,7 @@ mod cases_should {
 mod matrix_cases_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::parse::vlist::ValueList;
+    use crate::parse::{vlist::ValueList, ArgumentsInfo};
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
     /// transformation
@@ -1130,6 +1202,34 @@ mod matrix_cases_should {
         }
     }
 
+    #[test]
+    fn add_future_boilerplate_if_requested() {
+        let item_fn = r#"async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32) { }"#.ast();
+
+        let mut arguments = ArgumentsInfo::default();
+        arguments.add_future(ident("async_ref_u32"));
+        arguments.add_future(ident("async_u32"));
+
+        let info = RsTestInfo { arguments, ..Default::default() };
+
+        let tokens = matrix(item_fn, info);
+
+        let test_function = TestsGroup::from(tokens).requested_test;
+
+        let expected = parse_str::<syn::ItemFn>(
+            r#"async fn test<'_async_ref_u32>(
+                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl std::future::Future<Output = u32>, 
+                        simple: u32
+                    )
+                    { }
+                    "#,
+        )
+        .unwrap();
+
+        assert_eq!(test_function.sig, expected.sig);
+    }
+
     #[rstest]
     fn add_allow_non_snake_case(
         #[values(
@@ -1225,7 +1325,14 @@ mod matrix_cases_should {
         attributes.add_notraces(vec![ident("b_no_trace_me"), ident("c_no_trace_me")]);
         let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_no_trace_me: u32, c_no_trace_me: u32, d_trace_me: u32) {}"#.ast();
 
-        let tokens = matrix(item_fn, RsTestInfo { data, attributes });
+        let tokens = matrix(
+            item_fn,
+            RsTestInfo {
+                data,
+                attributes,
+                ..Default::default()
+            },
+        );
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
