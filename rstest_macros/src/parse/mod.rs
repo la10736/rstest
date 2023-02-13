@@ -21,7 +21,7 @@ use fixture::{
 use quote::ToTokens;
 use testcase::TestCase;
 
-use self::{expressions::Expressions, vlist::ValueList};
+use self::{expressions::Expressions, fixture::FutureFunctionExtractor, vlist::ValueList};
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -232,7 +232,13 @@ pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<Ident>, Errors
     extractor.take()
 }
 
-fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
+pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+    let mut extractor = FutureFunctionExtractor::default();
+    extractor.visit_item_fn_mut(item_fn);
+    extractor.take()
+}
+
+pub(crate) fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
     node: &mut FnArg,
     is_valid_attr: fn(&syn::Attribute) -> bool,
     build: fn(syn::Attribute, &Ident) -> syn::Result<B>,

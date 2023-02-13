@@ -314,14 +314,10 @@ pub fn fixture(
     let mut info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let mut fixture = parse_macro_input!(input as ItemFn);
 
-    let replace_result = ReplaceFutureAttribute::replace(&mut fixture);
     let extend_result = info.extend_with_function_attrs(&mut fixture);
 
     let mut errors = error::fixture(&fixture, &info);
 
-    if let Err(attrs_errors) = replace_result {
-        attrs_errors.to_tokens(&mut errors);
-    }
     if let Err(attrs_errors) = extend_result {
         attrs_errors.to_tokens(&mut errors);
     }

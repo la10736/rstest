@@ -8,8 +8,9 @@ use syn::{
 
 use super::{
     extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_partials_return_type, parse_vector_trailing_till_double_comma, ArgumentsInfo,
-    Attributes, ExtendWithFunctionAttrs, Fixture,
+    extract_futures, extract_partials_return_type, future::MaybeFutureImplType,
+    parse_vector_trailing_till_double_comma, ArgumentsInfo, Attributes, ExtendWithFunctionAttrs,
+    Fixture,
 };
 use crate::{
     error::ErrorsVec,
@@ -61,13 +62,15 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
             defaults,
             default_return_type,
             partials_return_type,
-            once
+            once,
+            futures
         ) = merge_errors!(
             extract_fixtures(item_fn),
             extract_defaults(item_fn),
             extract_default_return_type(item_fn),
             extract_partials_return_type(item_fn),
-            extract_once(item_fn)
+            extract_once(item_fn),
+            extract_futures(item_fn)
         )?;
         self.data.items.extend(
             fixtures
@@ -83,6 +86,9 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         }
         if let Some(ident) = once {
             self.attributes.set_once(ident)
+        };
+        for arg in futures {
+            self.arguments.add_future(arg);
         };
         Ok(())
     }
@@ -168,6 +174,58 @@ impl VisitMut for DefaultsFunctionExtractor {
                 Err(err) => self.1.push(err),
             }
         }
+    }
+}
+
+/// Simple struct used to visit function attributes and extract future args to
+/// implement the boilerplate.
+#[derive(Default)]
+pub(crate) struct FutureFunctionExtractor(pub(crate) Vec<Ident>, pub(crate) Vec<syn::Error>);
+impl FutureFunctionExtractor {
+    pub(crate) fn take(self) -> Result<Vec<Ident>, ErrorsVec> {
+        if self.1.is_empty() {
+            Ok(self.0)
+        } else {
+            Err(self.1.into())
+        }
+    }
+}
+
+impl VisitMut for FutureFunctionExtractor {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        if matches!(node, FnArg::Receiver(_)) {
+            return;
+        }
+        match extract_argument_attrs(
+            node,
+            |a| attr_is(a, "future"),
+            |_arg, name| Ok(name.clone()),
+        )
+        .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(futures) => {
+                if futures.len() > 1 {
+                    self.1.extend(futures.iter().skip(1).map(|attr| {
+                        syn::Error::new_spanned(
+                            attr.into_token_stream(),
+                            "Cannot use #[future] more than once.".to_owned(),
+                        )
+                    }));
+                    return;
+                } else if futures.len() == 1 {
+                    match node.as_future_impl_type() {
+                        Some(_) => self.0.push(futures[0].clone()),
+                        None => self.1.push(syn::Error::new_spanned(
+                            node.into_token_stream(),
+                            "This arg cannot used to generete impl Future.".to_owned(),
+                        )),
+                    }
+                }
+            }
+            Err(e) => {
+                self.1.push(e);
+            }
+        };
     }
 }
 
@@ -724,6 +782,40 @@ mod extend {
                     format!("{:?}", error).to_lowercase(),
                     "invalid partial syntax"
                 );
+            }
+
+            #[rstest]
+            #[case::simple("fn f(#[future] a: u32) {}", "fn f(a: u32) {}", &["a"])]
+            fn should_extract_future(
+                #[case] item_fn: &str,
+                #[case] expected: &str,
+                #[case] futures_args: &[&str],
+            ) {
+                let mut item_fn = item_fn.ast();
+                let expected = expected.ast();
+
+                let mut info = FixtureInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                assert_eq!(item_fn, expected);
+                for arg in futures_args {
+                    assert!(info.arguments.is_future(&ident(arg)))
+                }
+            }
+
+            #[rstest]
+            #[case::no_more_than_one("fn f(#[future] #[future] a: u32) {}", "more than once")]
+            #[case::no_impl("fn f(#[future] a: impl AsRef<str>) {}", "generete impl Future")]
+            #[case::no_slice("fn f(#[future] a: [i32]) {}", "generete impl Future")]
+            fn future_attrs_raise_error(#[case] item_fn: &str, #[case] message: &str) {
+                let mut item_fn = item_fn.ast();
+
+                let mut info = FixtureInfo::default();
+
+                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+                assert_in!(format!("{:?}", error), message);
             }
         }
     }
