@@ -21,7 +21,7 @@ use fixture::{
 use quote::ToTokens;
 use testcase::TestCase;
 
-use self::{expressions::Expressions, fixture::FutureFunctionExtractor, vlist::ValueList};
+use self::{expressions::Expressions, vlist::ValueList};
 
 // To use the macros this should be the first one module
 #[macro_use]
@@ -228,12 +228,6 @@ pub(crate) fn extract_partials_return_type(
 
 pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<Ident>, ErrorsVec> {
     let mut extractor = IsOnceAttributeFunctionExtractor::default();
-    extractor.visit_item_fn_mut(item_fn);
-    extractor.take()
-}
-
-pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
-    let mut extractor = FutureFunctionExtractor::default();
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
 }

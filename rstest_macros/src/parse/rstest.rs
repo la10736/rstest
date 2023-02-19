@@ -5,8 +5,9 @@ use syn::{
 
 use super::{
     check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
-    extract_fixtures, extract_value_list, parse_vector_trailing_till_double_comma, Attribute,
-    Attributes, ExtendWithFunctionAttrs, Fixture,
+    extract_fixtures, extract_value_list, future::extract_futures,
+    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
+    Fixture,
 };
 use super::{testcase::TestCase, ArgumentsInfo};
 use crate::parse::vlist::ValueList;
@@ -43,12 +44,14 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (_, (excluded, _)) = merge_errors!(
+        let composed_tuple!(_inner, excluded, _timeout, futures) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
-            check_timeout_attrs(item_fn)
+            check_timeout_attrs(item_fn),
+            extract_futures(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
+        self.arguments.add_futures(futures.into_iter());
         Ok(())
     }
 }
@@ -507,6 +510,20 @@ mod test {
                 })
                 .unwrap();
             assert_eq!(attrs("#[something_else]"), b_args);
+        }
+
+        #[rstest]
+        fn extract_future() {
+            let mut item_fn = "fn f(#[future] a: u32, b: u32) {}".ast();
+            let expected = "fn f(a: u32, b: u32) {}".ast();
+
+            let mut info = RsTestInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(item_fn, expected);
+            assert!(info.arguments.is_future(&ident("a")));
+            assert!(!info.arguments.is_future(&ident("b")));
         }
     }
 

@@ -1,69 +1,14 @@
-use quote::{format_ident, ToTokens};
-use syn::{
-    parse_quote, visit_mut::VisitMut, FnArg, Ident, ItemFn, Lifetime, PatType, Type, TypeReference,
-};
+use quote::ToTokens;
+use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, PatType, Type};
 
-use crate::{error::ErrorsVec, refident::MaybeIdent, utils::attr_is};
+use crate::{error::ErrorsVec, refident::MaybeType, utils::attr_is};
 
-#[derive(Default)]
-pub(crate) struct ReplaceFutureAttribute {
-    lifetimes: Vec<Lifetime>,
-    errors: Vec<syn::Error>,
-}
+use super::extract_argument_attrs;
 
-fn extend_generics_with_lifetimes<'a, 'b>(
-    generics: impl Iterator<Item = &'a syn::GenericParam>,
-    lifetimes: impl Iterator<Item = &'b syn::Lifetime>,
-) -> syn::Generics {
-    let all = lifetimes
-        .map(|lt| lt as &dyn ToTokens)
-        .chain(generics.map(|gp| gp as &dyn ToTokens));
-    parse_quote! {
-                <#(#all),*>
-    }
-}
-
-impl ReplaceFutureAttribute {
-    pub(crate) fn replace(item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let mut visitor = Self::default();
-        visitor.visit_item_fn_mut(item_fn);
-        if !visitor.lifetimes.is_empty() {
-            item_fn.sig.generics = extend_generics_with_lifetimes(
-                item_fn.sig.generics.params.iter(),
-                visitor.lifetimes.iter(),
-            );
-        }
-        if visitor.errors.is_empty() {
-            Ok(())
-        } else {
-            Err(visitor.errors.into())
-        }
-    }
-}
-
-fn extract_arg_attributes(
-    node: &mut syn::PatType,
-    predicate: fn(a: &syn::Attribute) -> bool,
-) -> Vec<syn::Attribute> {
-    let attrs = std::mem::take(&mut node.attrs);
-    let (extracted, attrs): (Vec<_>, Vec<_>) = attrs.into_iter().partition(predicate);
-    node.attrs = attrs;
-    extracted
-}
-
-fn can_impl_future(ty: &Type) -> bool {
-    use Type::*;
-    !matches!(
-        ty,
-        Group(_)
-            | ImplTrait(_)
-            | Infer(_)
-            | Macro(_)
-            | Never(_)
-            | Slice(_)
-            | TraitObject(_)
-            | Verbatim(_)
-    )
+pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+    let mut extractor = FutureFunctionExtractor::default();
+    extractor.visit_item_fn_mut(item_fn);
+    extractor.take()
 }
 
 pub(crate) trait MaybeFutureImplType {
@@ -87,87 +32,71 @@ impl MaybeFutureImplType for FnArg {
         }
     }
 }
-pub(crate) trait ImplFutureArg {
-    fn impl_future_arg(&mut self) -> Option<Lifetime>;
+
+fn can_impl_future(ty: &Type) -> bool {
+    use Type::*;
+    !matches!(
+        ty,
+        Group(_)
+            | ImplTrait(_)
+            | Infer(_)
+            | Macro(_)
+            | Never(_)
+            | Slice(_)
+            | TraitObject(_)
+            | Verbatim(_)
+    )
 }
 
-fn update_type_with_lifetime(ty: &mut Type, ident: Ident) -> Option<Lifetime> {
-    if let Type::Reference(ty_ref @ TypeReference { lifetime: None, .. }) = ty {
-        let lifetime = Some(syn::Lifetime {
-            apostrophe: ident.span(),
-            ident,
-        });
-        ty_ref.lifetime = lifetime.clone();
-        lifetime
-    } else {
-        None
-    }
-}
-
-impl ImplFutureArg for FnArg {
-    fn impl_future_arg(&mut self) -> Option<Lifetime> {
-        let lifetime_id = self.maybe_ident().map(|id| format_ident!("_{}", id));
-        match self.as_mut_future_impl_type() {
-            Some(ty) => {
-                let lifetime = lifetime_id.and_then(|id| update_type_with_lifetime(ty, id));
-                *ty = parse_quote! {
-                    impl std::future::Future<Output = #ty>
-                };
-                lifetime
-            }
-            None => None,
+/// Simple struct used to visit function attributes and extract future args to
+/// implement the boilerplate.
+#[derive(Default)]
+struct FutureFunctionExtractor(Vec<Ident>, Vec<syn::Error>);
+impl FutureFunctionExtractor {
+    pub(crate) fn take(self) -> Result<Vec<Ident>, ErrorsVec> {
+        if self.1.is_empty() {
+            Ok(self.0)
+        } else {
+            Err(self.1.into())
         }
     }
 }
 
-impl VisitMut for ReplaceFutureAttribute {
+impl VisitMut for FutureFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        let ident = node.maybe_ident().cloned();
-        match node {
-            FnArg::Typed(t) => {
-                let futures = extract_arg_attributes(t, |a| attr_is(a, "future"));
-                if futures.is_empty() {
-                    return;
-                } else if futures.len() > 1 {
-                    self.errors.extend(futures.iter().skip(1).map(|attr| {
+        if matches!(node, FnArg::Receiver(_)) {
+            return;
+        }
+        match extract_argument_attrs(
+            node,
+            |a| attr_is(a, "future"),
+            |arg, name| Ok((arg, name.clone())),
+        )
+        .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(futures) => {
+                if futures.len() > 1 {
+                    self.1.extend(futures.iter().skip(1).map(|(attr, _ident)| {
                         syn::Error::new_spanned(
                             attr.into_token_stream(),
                             "Cannot use #[future] more than once.".to_owned(),
                         )
                     }));
                     return;
-                }
-                let ty = &mut t.ty;
-                use syn::Type::*;
-                match ty.as_ref() {
-                    Group(_) | ImplTrait(_) | Infer(_) | Macro(_) | Never(_) | Slice(_)
-                    | TraitObject(_) | Verbatim(_) => {
-                        self.errors.push(syn::Error::new_spanned(
-                            ty.into_token_stream(),
+                } else if futures.len() == 1 {
+                    match node.as_future_impl_type() {
+                        Some(_) => self.0.push(futures[0].1.clone()),
+                        None => self.1.push(syn::Error::new_spanned(
+                            node.maybe_type().unwrap().into_token_stream(),
                             "This type cannot used to generete impl Future.".to_owned(),
-                        ));
-                        return;
+                        )),
                     }
-                    _ => {}
-                };
-                if let Reference(tr) = ty.as_mut() {
-                    let ident = ident.unwrap();
-                    if tr.lifetime.is_none() {
-                        let lifetime = syn::Lifetime {
-                            apostrophe: ident.span(),
-                            ident: format_ident!("_{}", ident),
-                        };
-                        self.lifetimes.push(lifetime.clone());
-                        tr.lifetime = lifetime.into();
-                    }
-                }
-
-                t.ty = parse_quote! {
-                    impl std::future::Future<Output = #ty>
                 }
             }
-            FnArg::Receiver(_) => {}
-        }
+            Err(e) => {
+                self.1.push(e);
+            }
+        };
     }
 }
 
@@ -186,58 +115,28 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let orig = item_fn.clone();
 
-        ReplaceFutureAttribute::replace(&mut item_fn).unwrap();
+        extract_futures(&mut item_fn).unwrap();
 
         assert_eq!(orig, item_fn)
     }
 
     #[rstest]
-    #[case::simple(
-        "fn f(#[future] a: u32) {}",
-        "fn f(a: impl std::future::Future<Output = u32>) {}"
-    )]
+    #[case::simple("fn f(#[future] a: u32) {}", "fn f(a: u32) {}")]
     #[case::more_than_one(
         "fn f(#[future] a: u32, #[future] b: String, #[future] c: std::collection::HashMap<usize, String>) {}",
-        r#"fn f(a: impl std::future::Future<Output = u32>, 
-                b: impl std::future::Future<Output = String>, 
-                c: impl std::future::Future<Output = std::collection::HashMap<usize, String>>) {}"#,
+        r#"fn f(a: u32, 
+                b: String, 
+                c: std::collection::HashMap<usize, String>) {}"#,
     )]
     #[case::just_one(
         "fn f(a: u32, #[future] b: String) {}",
-        r#"fn f(a: u32, 
-                b: impl std::future::Future<Output = String>) {}"#
+        r#"fn f(a: u32, b: String) {}"#
     )]
-    #[case::generics(
-        "fn f<S: AsRef<str>>(#[future] a: S) {}",
-        "fn f<S: AsRef<str>>(a: impl std::future::Future<Output = S>) {}"
-    )]
-    fn replace_basic_type(#[case] item_fn: &str, #[case] expected: &str) {
+    fn extract(#[case] item_fn: &str, #[case] expected: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
 
-        ReplaceFutureAttribute::replace(&mut item_fn).unwrap();
-
-        assert_eq!(expected, item_fn)
-    }
-
-    #[rstest]
-    #[case::base(
-        "fn f(#[future] ident_name: &u32) {}",
-        "fn f<'_ident_name>(ident_name: impl std::future::Future<Output = &'_ident_name u32>) {}"
-    )]
-    #[case::lifetime_already_exists(
-        "fn f<'b>(#[future] a: &'b u32) {}",
-        "fn f<'b>(a: impl std::future::Future<Output = &'b u32>) {}"
-    )]
-    #[case::some_other_generics(
-        "fn f<'b, IT: Iterator<Item=String + 'b>>(#[future] a: &u32, it: IT) {}",
-        "fn f<'_a, 'b, IT: Iterator<Item=String + 'b>>(a: impl std::future::Future<Output = &'_a u32>, it: IT) {}"
-    )]
-    fn replace_reference_type(#[case] item_fn: &str, #[case] expected: &str) {
-        let mut item_fn: ItemFn = item_fn.ast();
-        let expected: ItemFn = expected.ast();
-
-        ReplaceFutureAttribute::replace(&mut item_fn).unwrap();
+        extract_futures(&mut item_fn).unwrap();
 
         assert_eq!(expected, item_fn)
     }
@@ -249,7 +148,7 @@ mod should {
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
-        let err = ReplaceFutureAttribute::replace(&mut item_fn).unwrap_err();
+        let err = extract_futures(&mut item_fn).unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
     }

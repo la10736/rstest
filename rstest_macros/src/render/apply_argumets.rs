@@ -1,8 +1,8 @@
-use quote::ToTokens;
-use syn::{parse_quote, FnArg, Generics, Lifetime, Signature};
+use quote::{format_ident, ToTokens};
+use syn::{parse_quote, FnArg, Generics, Ident, Lifetime, Signature, Type, TypeReference};
 
 use crate::{
-    parse::{future::ImplFutureArg, ArgumentsInfo},
+    parse::{future::MaybeFutureImplType, ArgumentsInfo},
     refident::MaybeIdent,
 };
 
@@ -54,6 +54,39 @@ impl ApplyArgumets for Signature {
                 extend_generics_with_lifetimes(self.generics.params.iter(), new_lifetimes.iter());
             move_generic_list(&mut self.generics, new_generics);
         }
+    }
+}
+
+pub(crate) trait ImplFutureArg {
+    fn impl_future_arg(&mut self) -> Option<Lifetime>;
+}
+
+impl ImplFutureArg for FnArg {
+    fn impl_future_arg(&mut self) -> Option<Lifetime> {
+        let lifetime_id = self.maybe_ident().map(|id| format_ident!("_{}", id));
+        match self.as_mut_future_impl_type() {
+            Some(ty) => {
+                let lifetime = lifetime_id.and_then(|id| update_type_with_lifetime(ty, id));
+                *ty = parse_quote! {
+                    impl std::future::Future<Output = #ty>
+                };
+                lifetime
+            }
+            None => None,
+        }
+    }
+}
+
+fn update_type_with_lifetime(ty: &mut Type, ident: Ident) -> Option<Lifetime> {
+    if let Type::Reference(ty_ref @ TypeReference { lifetime: None, .. }) = ty {
+        let lifetime = Some(syn::Lifetime {
+            apostrophe: ident.span(),
+            ident,
+        });
+        ty_ref.lifetime = lifetime.clone();
+        lifetime
+    } else {
+        None
     }
 }
 

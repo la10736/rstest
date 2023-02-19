@@ -8,9 +8,8 @@ use syn::{
 
 use super::{
     extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_futures, extract_partials_return_type, future::MaybeFutureImplType,
-    parse_vector_trailing_till_double_comma, ArgumentsInfo, Attributes, ExtendWithFunctionAttrs,
-    Fixture,
+    extract_partials_return_type, future::extract_futures, parse_vector_trailing_till_double_comma,
+    ArgumentsInfo, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{
     error::ErrorsVec,
@@ -172,58 +171,6 @@ impl VisitMut for DefaultsFunctionExtractor {
                 Err(err) => self.1.push(err),
             }
         }
-    }
-}
-
-/// Simple struct used to visit function attributes and extract future args to
-/// implement the boilerplate.
-#[derive(Default)]
-pub(crate) struct FutureFunctionExtractor(pub(crate) Vec<Ident>, pub(crate) Vec<syn::Error>);
-impl FutureFunctionExtractor {
-    pub(crate) fn take(self) -> Result<Vec<Ident>, ErrorsVec> {
-        if self.1.is_empty() {
-            Ok(self.0)
-        } else {
-            Err(self.1.into())
-        }
-    }
-}
-
-impl VisitMut for FutureFunctionExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        if matches!(node, FnArg::Receiver(_)) {
-            return;
-        }
-        match extract_argument_attrs(
-            node,
-            |a| attr_is(a, "future"),
-            |_arg, name| Ok(name.clone()),
-        )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            Ok(futures) => {
-                if futures.len() > 1 {
-                    self.1.extend(futures.iter().skip(1).map(|attr| {
-                        syn::Error::new_spanned(
-                            attr.into_token_stream(),
-                            "Cannot use #[future] more than once.".to_owned(),
-                        )
-                    }));
-                    return;
-                } else if futures.len() == 1 {
-                    match node.as_future_impl_type() {
-                        Some(_) => self.0.push(futures[0].clone()),
-                        None => self.1.push(syn::Error::new_spanned(
-                            node.into_token_stream(),
-                            "This arg cannot used to generete impl Future.".to_owned(),
-                        )),
-                    }
-                }
-            }
-            Err(e) => {
-                self.1.push(e);
-            }
-        };
     }
 }
 
