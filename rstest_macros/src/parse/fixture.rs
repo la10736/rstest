@@ -89,7 +89,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         };
         for arg in futures {
             self.arguments.add_future(arg);
-        };
+        }
         Ok(())
     }
 }
@@ -652,8 +652,8 @@ mod extend {
 
         #[rstest]
         fn extract_future() {
-            let mut item_fn = "fn f(#[future] a: u32) {}".ast();
-            let expected = "fn f(a: u32) {}".ast();
+            let mut item_fn = "fn f(#[future] a: u32, b: u32) {}".ast();
+            let expected = "fn f(a: u32, b: u32) {}".ast();
 
             let mut info = FixtureInfo::default();
 
@@ -661,6 +661,7 @@ mod extend {
 
             assert_eq!(item_fn, expected);
             assert!(info.arguments.is_future(&ident("a")));
+            assert!(!info.arguments.is_future(&ident("b")));
         }
 
         mod raise_error {
