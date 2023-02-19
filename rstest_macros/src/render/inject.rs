@@ -15,29 +15,45 @@ pub(crate) fn resolve_aruments<'a>(
     resolver: &impl Resolver,
     generic_types: &[Ident],
 ) -> TokenStream {
-    let define_vars = args.map(|arg| ArgumentResolver::new(resolver, generic_types).resolve(arg));
+    let define_vars =
+        args.map(|arg| ArgumentResolver::new(resolver, generic_types, AwaitNone).resolve(arg));
     quote! {
         #(#define_vars)*
     }
 }
 
-struct ArgumentResolver<'resolver, 'idents, 'f, R>
+trait AwaitPolicy {
+    fn should_await(&self, ident: &Ident) -> bool;
+}
+
+struct AwaitNone;
+impl AwaitPolicy for AwaitNone {
+    fn should_await(&self, _ident: &Ident) -> bool {
+        false
+    }
+}
+
+struct ArgumentResolver<'resolver, 'idents, 'f, R, A>
 where
     R: Resolver + 'resolver,
+    A: AwaitPolicy + 'resolver,
 {
     resolver: &'resolver R,
     generic_types_names: &'idents [Ident],
+    await_policy: A,
     magic_conversion: &'f dyn Fn(Cow<Expr>, &Type) -> Expr,
 }
 
-impl<'resolver, 'idents, 'f, R> ArgumentResolver<'resolver, 'idents, 'f, R>
+impl<'resolver, 'idents, 'f, R, A> ArgumentResolver<'resolver, 'idents, 'f, R, A>
 where
     R: Resolver + 'resolver,
+    A: AwaitPolicy + 'resolver,
 {
-    fn new(resolver: &'resolver R, generic_types_names: &'idents [Ident]) -> Self {
+    fn new(resolver: &'resolver R, generic_types_names: &'idents [Ident], await_policy: A) -> Self {
         Self {
             resolver,
             generic_types_names,
+            await_policy,
             magic_conversion: &handling_magic_conversion_code,
         }
     }
@@ -116,6 +132,7 @@ mod should {
         test::{assert_eq, *},
         utils::fn_args,
     };
+    use syn::Ident;
 
     #[rstest]
     #[case::as_is("fix: String", "let fix = fix::default();")]
@@ -129,7 +146,7 @@ mod should {
     fn call_fixture(#[case] arg_str: &str, #[case] expected: &str) {
         let arg = arg_str.ast();
 
-        let injected = ArgumentResolver::new(&EmptyResolver {}, &[])
+        let injected = ArgumentResolver::new(&EmptyResolver {}, &[], AwaitNone)
             .resolve(&arg)
             .unwrap();
 
@@ -150,7 +167,48 @@ mod should {
         let mut resolver = std::collections::HashMap::new();
         resolver.insert(rule.0.to_owned(), &rule.1);
 
-        let injected = ArgumentResolver::new(&resolver, &[]).resolve(&arg).unwrap();
+        let injected = ArgumentResolver::new(&resolver, &[], AwaitNone)
+            .resolve(&arg)
+            .unwrap();
+
+        assert_eq!(injected, expected.ast());
+    }
+
+    struct AwaitAll;
+    impl AwaitPolicy for AwaitAll {
+        fn should_await(&self, _ident: &Ident) -> bool {
+            true
+        }
+    }
+
+    impl<'ident> AwaitPolicy for &'ident [Ident] {
+        fn should_await(&self, ident: &Ident) -> bool {
+            self.contains(ident)
+        }
+    }
+
+    impl<'ident> AwaitPolicy for Vec<Ident> {
+        fn should_await(&self, ident: &Ident) -> bool {
+            self.as_slice().should_await(ident)
+        }
+    }
+
+    #[rstest]
+    #[case::no_await("fix: String", AwaitNone, "let fix = fix::default();")]
+    #[case::await_all("fix: String", AwaitAll, "let fix = fix::default().await;")]
+    #[case::await_present("fix: String", vec![ident("fix")], "let fix = fix::default().await;")]
+    #[case::await_missed("fix: String", vec![ident("something_else"), ident("other")], "let fix = fix::default();")]
+    #[case::await_missed_empty("fix: String", Vec::<Ident>::new(), "let fix = fix::default();")]
+    fn honorate_await_policy(
+        #[case] arg_str: &str,
+        #[case] policy: impl AwaitPolicy,
+        #[case] expected: &str,
+    ) {
+        let arg = arg_str.ast();
+
+        let injected = ArgumentResolver::new(&EmptyResolver, &[], policy)
+            .resolve(&arg)
+            .unwrap();
 
         assert_eq!(injected, expected.ast());
     }
@@ -195,6 +253,7 @@ mod should {
         let ag = ArgumentResolver {
             resolver: &resolver,
             generic_types_names: &generics,
+            await_policy: AwaitNone,
             magic_conversion: &_mock_conversion_code,
         };
 

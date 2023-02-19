@@ -112,7 +112,7 @@ impl ToAst for proc_macro2::TokenStream {
     }
 }
 
-pub(crate) fn ident(s: impl AsRef<str>) -> syn::Ident {
+pub(crate) fn ident(s: impl AsRef<str>) -> Ident {
     s.as_ref().ast()
 }
 
