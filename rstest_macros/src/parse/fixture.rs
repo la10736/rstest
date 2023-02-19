@@ -650,6 +650,19 @@ mod extend {
             assert!(!info.attributes.is_once());
         }
 
+        #[rstest]
+        fn extract_future() {
+            let mut item_fn = "fn f(#[future] a: u32) {}".ast();
+            let expected = "fn f(a: u32) {}".ast();
+
+            let mut info = FixtureInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(item_fn, expected);
+            assert!(info.arguments.is_future(&ident("a")));
+        }
+
         mod raise_error {
             use super::{assert_eq, *};
             use rstest_test::assert_in;
@@ -782,26 +795,6 @@ mod extend {
                     format!("{:?}", error).to_lowercase(),
                     "invalid partial syntax"
                 );
-            }
-
-            #[rstest]
-            #[case::simple("fn f(#[future] a: u32) {}", "fn f(a: u32) {}", &["a"])]
-            fn should_extract_future(
-                #[case] item_fn: &str,
-                #[case] expected: &str,
-                #[case] futures_args: &[&str],
-            ) {
-                let mut item_fn = item_fn.ast();
-                let expected = expected.ast();
-
-                let mut info = FixtureInfo::default();
-
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
-
-                assert_eq!(item_fn, expected);
-                for arg in futures_args {
-                    assert!(info.arguments.is_future(&ident(arg)))
-                }
             }
 
             #[rstest]
