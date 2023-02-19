@@ -689,6 +689,10 @@ impl ArgumentsInfo {
             .map(|arg| arg.is_future())
             .unwrap_or_default()
     }
+
+    pub(crate) fn add_futures(&mut self, futures: impl Iterator<Item = Ident>) {
+        futures.for_each(|a| self.add_future(a));
+    }
 }
 
 #[cfg(test)]

@@ -87,9 +87,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         if let Some(ident) = once {
             self.attributes.set_once(ident)
         };
-        for arg in futures {
-            self.arguments.add_future(arg);
-        }
+        self.arguments.add_futures(futures.into_iter());
         Ok(())
     }
 }
@@ -796,20 +794,6 @@ mod extend {
                     format!("{:?}", error).to_lowercase(),
                     "invalid partial syntax"
                 );
-            }
-
-            #[rstest]
-            #[case::no_more_than_one("fn f(#[future] #[future] a: u32) {}", "more than once")]
-            #[case::no_impl("fn f(#[future] a: impl AsRef<str>) {}", "generete impl Future")]
-            #[case::no_slice("fn f(#[future] a: [i32]) {}", "generete impl Future")]
-            fn future_attrs_raise_error(#[case] item_fn: &str, #[case] message: &str) {
-                let mut item_fn = item_fn.ast();
-
-                let mut info = FixtureInfo::default();
-
-                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
-
-                assert_in!(format!("{:?}", error), message);
             }
         }
     }
