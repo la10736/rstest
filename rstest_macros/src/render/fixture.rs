@@ -151,7 +151,7 @@ mod should {
         parse2, parse_str, ItemFn, ItemImpl, ItemStruct, Result,
     };
 
-    use crate::parse::{ArgumentsInfo, Attribute, Attributes};
+    use crate::parse::{Attribute, Attributes, arguments::ArgumentsInfo};
 
     use super::*;
     use crate::test::{assert_eq, *};

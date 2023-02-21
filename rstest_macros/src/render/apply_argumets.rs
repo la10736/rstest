@@ -2,7 +2,7 @@ use quote::{format_ident, ToTokens};
 use syn::{parse_quote, FnArg, Generics, Ident, Lifetime, Signature, Type, TypeReference};
 
 use crate::{
-    parse::{future::MaybeFutureImplType, ArgumentsInfo},
+    parse::{future::MaybeFutureImplType, arguments::ArgumentsInfo},
     refident::MaybeIdent,
 };
 

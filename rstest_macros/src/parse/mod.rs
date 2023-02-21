@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use proc_macro2::TokenStream;
 use syn::{
     parse::{Parse, ParseStream},
@@ -630,62 +628,113 @@ pub(crate) fn check_timeout_attrs(item_fn: &mut ItemFn) -> Result<(), ErrorsVec>
     checker.take()
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-#[allow(dead_code)]
-enum FutureArg {
-    None,
-    Apply,
-    Await,
-}
+pub(crate) mod arguments {
+    use std::collections::HashMap;
 
-impl Default for FutureArg {
-    fn default() -> Self {
-        FutureArg::None
-    }
-}
+    use syn::Ident;
 
-#[derive(PartialEq, Default, Debug)]
-pub(crate) struct ArgumentInfo {
-    future: FutureArg,
-}
-
-impl ArgumentInfo {
+    #[derive(PartialEq, Debug, Clone, Copy)]
     #[allow(dead_code)]
-    fn future(future: FutureArg) -> Self {
-        Self {
-            future,
-            ..Default::default()
+    pub(crate) enum FutureArg {
+        None,
+        Define,
+        Await,
+    }
+
+    impl Default for FutureArg {
+        fn default() -> Self {
+            FutureArg::None
         }
     }
 
-    fn is_future(&self) -> bool {
-        use FutureArg::*;
-
-        matches!(self.future, Apply | Await)
-    }
-}
-
-#[derive(PartialEq, Default, Debug)]
-pub(crate) struct ArgumentsInfo(pub(crate) HashMap<Ident, ArgumentInfo>);
-
-impl ArgumentsInfo {
-    #[allow(dead_code)]
-    pub(crate) fn add_future(&mut self, ident: Ident) {
-        self.0
-            .entry(ident)
-            .and_modify(|v| v.future = FutureArg::Apply)
-            .or_insert_with(|| ArgumentInfo::future(FutureArg::Apply));
+    #[derive(PartialEq, Default, Debug)]
+    pub(crate) struct ArgumentInfo {
+        future: FutureArg,
     }
 
-    pub(crate) fn is_future(&self, id: &Ident) -> bool {
-        self.0
-            .get(id)
-            .map(|arg| arg.is_future())
-            .unwrap_or_default()
+    impl ArgumentInfo {
+        #[allow(dead_code)]
+        fn future(future: FutureArg) -> Self {
+            Self {
+                future,
+                ..Default::default()
+            }
+        }
+
+        fn is_future(&self) -> bool {
+            use FutureArg::*;
+
+            matches!(self.future, Define | Await)
+        }
+
+        fn is_future_await(&self) -> bool {
+            use FutureArg::*;
+
+            matches!(self.future, Await)
+        }
     }
 
-    pub(crate) fn add_futures(&mut self, futures: impl Iterator<Item = Ident>) {
-        futures.for_each(|a| self.add_future(a));
+    #[derive(PartialEq, Default, Debug)]
+    pub(crate) struct ArgumentsInfo {
+        args: HashMap<Ident, ArgumentInfo>,
+        is_global_await: bool,
+    }
+
+    impl ArgumentsInfo {
+        pub(crate) fn set_future(&mut self, ident: Ident, kind: FutureArg) {
+            self.args
+                .entry(ident)
+                .and_modify(|v| v.future = kind)
+                .or_insert_with(|| ArgumentInfo::future(kind));
+        }
+
+        #[allow(dead_code)]
+        pub(crate) fn set_futures(&mut self, futures: impl Iterator<Item = (Ident, FutureArg)>) {
+            futures.for_each(|(ident, k)| self.set_future(ident, k));
+        }
+
+        #[allow(dead_code)]
+        pub(crate) fn set_global_await(&mut self, is_global_await: bool) {
+            self.is_global_await = is_global_await;
+        }
+
+        pub(crate) fn add_future(&mut self, ident: Ident) {
+            self.set_future(ident, FutureArg::Define);
+        }
+
+        pub(crate) fn add_futures(&mut self, futures: impl Iterator<Item = Ident>) {
+            futures.for_each(|a| self.add_future(a));
+        }
+
+        pub(crate) fn is_future(&self, id: &Ident) -> bool {
+            self.args
+                .get(id)
+                .map(|arg| arg.is_future())
+                .unwrap_or_default()
+        }
+
+        pub(crate) fn is_future_await(&self, ident: &Ident) -> bool {
+            match self.args.get(ident) {
+                Some(arg) => arg.is_future_await() || (arg.is_future() && self.is_global_await()),
+                None => false,
+            }
+        }
+
+        pub(crate) fn is_global_await(&self) -> bool {
+            self.is_global_await
+        }
+    }
+
+    #[cfg(test)]
+    mod should {
+        use super::*;
+        use crate::test::*;
+
+        #[rstest]
+        fn implement_is_future_await_logic() {
+            assert!(false, "Not implemented yet");
+        }
+
     }
 }
 

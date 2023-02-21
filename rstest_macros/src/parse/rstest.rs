@@ -7,9 +7,9 @@ use super::{
     check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
     extract_fixtures, extract_value_list, future::extract_futures,
     parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
-    Fixture,
+    Fixture, arguments::ArgumentsInfo,
 };
-use super::{testcase::TestCase, ArgumentsInfo};
+use super::testcase::TestCase;
 use crate::parse::vlist::ValueList;
 use crate::{
     error::ErrorsVec,

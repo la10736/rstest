@@ -36,10 +36,7 @@ fn trace_argument_code_string(arg_name: &str) -> String {
 mod single_test_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::{
-        parse::ArgumentsInfo,
-        test::{assert_eq, *},
-    };
+    use crate::{test::{assert_eq, *}, parse::arguments::ArgumentsInfo};
 
     use super::*;
 
@@ -437,8 +434,7 @@ mod cases_should {
 
     use crate::parse::{
         rstest::{RsTestData, RsTestInfo, RsTestItem},
-        testcase::TestCase,
-        ArgumentsInfo,
+        testcase::TestCase, arguments::ArgumentsInfo,
     };
 
     use super::{assert_eq, *};
@@ -933,7 +929,7 @@ mod cases_should {
 mod matrix_cases_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::parse::{vlist::ValueList, ArgumentsInfo};
+    use crate::parse::{vlist::ValueList, arguments::ArgumentsInfo};
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
     /// transformation
@@ -1210,7 +1206,10 @@ mod matrix_cases_should {
         arguments.add_future(ident("async_ref_u32"));
         arguments.add_future(ident("async_u32"));
 
-        let info = RsTestInfo { arguments, ..Default::default() };
+        let info = RsTestInfo {
+            arguments,
+            ..Default::default()
+        };
 
         let tokens = matrix(item_fn, info);
 

@@ -7,7 +7,7 @@ use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
 use crate::{
     refident::{MaybeIdent, MaybeType},
     resolver::Resolver,
-    utils::{fn_arg_mutability, IsLiteralExpression},
+    utils::{fn_arg_mutability, IsLiteralExpression}, parse::arguments::ArgumentsInfo,
 };
 
 pub(crate) fn resolve_aruments<'a>(
@@ -75,6 +75,8 @@ where
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
+        } else if self.await_policy.should_await(ident) {
+            fixture = Cow::Owned(parse_quote! { #fixture.await });
         }
         Some(parse_quote! {
             #unused_mut
@@ -122,6 +124,12 @@ fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
             use rstest::magic_conversion::*;
             (&&&Magic::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
         }
+    }
+}
+
+impl AwaitPolicy for ArgumentsInfo {
+    fn should_await(&self, ident: &Ident) -> bool {
+        return self.is_future_await(ident)
     }
 }
 

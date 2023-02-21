@@ -9,7 +9,7 @@ use syn::{
 use super::{
     extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
     extract_partials_return_type, future::extract_futures, parse_vector_trailing_till_double_comma,
-    ArgumentsInfo, Attributes, ExtendWithFunctionAttrs, Fixture,
+    Attributes, ExtendWithFunctionAttrs, Fixture, arguments::ArgumentsInfo,
 };
 use crate::{
     error::ErrorsVec,
