@@ -726,15 +726,44 @@ pub(crate) mod arguments {
     }
 
     #[cfg(test)]
-    mod should {
+    mod should_implement_is_future_await_logic {
         use super::*;
         use crate::test::*;
 
-        #[rstest]
-        fn implement_is_future_await_logic() {
-            assert!(false, "Not implemented yet");
+        #[fixture]
+        fn info()-> ArgumentsInfo {
+            let mut a = ArgumentsInfo::default();
+            a.set_future(ident("simple"), FutureArg::Define);
+            a.set_future(ident("other_simple"), FutureArg::Define);
+            a.set_future(ident("awaited"), FutureArg::Await);
+            a.set_future(ident("other_awaited"), FutureArg::Await);
+            a.set_future(ident("none"), FutureArg::None);
+            a
         }
 
+        #[rstest]
+        fn no_matching_ident(info: ArgumentsInfo) {
+            assert!(!info.is_future_await(&ident("some")));
+            assert!(!info.is_future_await(&ident("simple")));
+            assert!(!info.is_future_await(&ident("none")));
+        }
+
+        #[rstest]
+        fn matching_ident(info: ArgumentsInfo) {
+            assert!(info.is_future_await(&ident("awaited")));
+            assert!(info.is_future_await(&ident("other_awaited")));
+        }
+
+        #[rstest]
+        fn global_matching_future_ident(mut info: ArgumentsInfo) {
+            info.set_global_await(true);
+            assert!(info.is_future_await(&ident("simple")));
+            assert!(info.is_future_await(&ident("other_simple")));
+            assert!(info.is_future_await(&ident("awaited")));
+
+            assert!(!info.is_future_await(&ident("some")));
+            assert!(!info.is_future_await(&ident("none")));
+        }
     }
 }
 
