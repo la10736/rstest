@@ -688,7 +688,6 @@ pub(crate) mod arguments {
                 .or_insert_with(|| ArgumentInfo::future(kind));
         }
 
-        #[allow(dead_code)]
         pub(crate) fn set_futures(&mut self, futures: impl Iterator<Item = (Ident, FutureArg)>) {
             futures.for_each(|(ident, k)| self.set_future(ident, k));
         }
@@ -700,10 +699,6 @@ pub(crate) mod arguments {
 
         pub(crate) fn add_future(&mut self, ident: Ident) {
             self.set_future(ident, FutureArg::Define);
-        }
-
-        pub(crate) fn add_futures(&mut self, futures: impl Iterator<Item = Ident>) {
-            futures.for_each(|a| self.add_future(a));
         }
 
         pub(crate) fn is_future(&self, id: &Ident) -> bool {

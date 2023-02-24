@@ -86,7 +86,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         if let Some(ident) = once {
             self.attributes.set_once(ident)
         };
-        self.arguments.add_futures(futures.into_iter());
+        self.arguments.set_futures(futures.into_iter());
         Ok(())
     }
 }

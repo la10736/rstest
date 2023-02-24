@@ -51,7 +51,7 @@ impl ExtendWithFunctionAttrs for RsTestInfo {
             extract_futures(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
-        self.arguments.add_futures(futures.into_iter());
+        self.arguments.set_futures(futures.into_iter());
         Ok(())
     }
 }
