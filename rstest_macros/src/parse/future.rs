@@ -5,7 +5,9 @@ use crate::{error::ErrorsVec, refident::MaybeType, utils::attr_is};
 
 use super::{arguments::FutureArg, extract_argument_attrs};
 
-pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
+pub(crate) fn extract_futures(
+    item_fn: &mut ItemFn,
+) -> Result<(Vec<(Ident, FutureArg)>, bool), ErrorsVec> {
     let mut extractor = FutureFunctionExtractor::default();
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
@@ -51,18 +53,40 @@ fn can_impl_future(ty: &Type) -> bool {
 /// Simple struct used to visit function attributes and extract future args to
 /// implement the boilerplate.
 #[derive(Default)]
-struct FutureFunctionExtractor(Vec<(Ident, FutureArg)>, Vec<syn::Error>);
+struct FutureFunctionExtractor {
+    futures: Vec<(Ident, FutureArg)>,
+    awt: bool,
+    errors: Vec<syn::Error>,
+}
+
 impl FutureFunctionExtractor {
-    pub(crate) fn take(self) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
-        if self.1.is_empty() {
-            Ok(self.0)
+    pub(crate) fn take(self) -> Result<(Vec<(Ident, FutureArg)>, bool), ErrorsVec> {
+        if self.errors.is_empty() {
+            Ok((self.futures, self.awt))
         } else {
-            Err(self.1.into())
+            Err(self.errors.into())
         }
     }
 }
 
 impl VisitMut for FutureFunctionExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let (awts, remain): (Vec<_>, Vec<_>) = attrs.into_iter().partition(|a| attr_is(a, "awt"));
+        if awts.len() == 1 {
+            self.awt = true;
+        } else if awts.len() > 1 {
+            self.errors.extend(awts.into_iter().skip(1).map(|a| {
+                syn::Error::new_spanned(
+                    a.into_token_stream(),
+                    "Cannot use #[awt] more than once.".to_owned(),
+                )
+            }))
+        }
+        node.attrs = remain;
+        syn::visit_mut::visit_item_fn_mut(self, node);
+    }
+
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         if matches!(node, FnArg::Receiver(_)) {
             return;
@@ -79,7 +103,7 @@ impl VisitMut for FutureFunctionExtractor {
                         None => FutureArg::Define,
                         Some(invalid) => {
                             return Err(syn::Error::new_spanned(
-                                dbg!(arg.parse_args::<Option<Ident>>())?.into_token_stream(),
+                                arg.parse_args::<Option<Ident>>()?.into_token_stream(),
                                 format!("Invalid '{}' #[future(...)] arg.", invalid),
                             ));
                         }
@@ -92,7 +116,7 @@ impl VisitMut for FutureFunctionExtractor {
         {
             Ok(futures) => {
                 if futures.len() > 1 {
-                    self.1
+                    self.errors
                         .extend(futures.iter().skip(1).map(|(attr, _ident, _type)| {
                             syn::Error::new_spanned(
                                 attr.into_token_stream(),
@@ -102,8 +126,8 @@ impl VisitMut for FutureFunctionExtractor {
                     return;
                 } else if futures.len() == 1 {
                     match node.as_future_impl_type() {
-                        Some(_) => self.0.push((futures[0].1.clone(), futures[0].2)),
-                        None => self.1.push(syn::Error::new_spanned(
+                        Some(_) => self.futures.push((futures[0].1.clone(), futures[0].2)),
+                        None => self.errors.push(syn::Error::new_spanned(
                             node.maybe_type().unwrap().into_token_stream(),
                             "This type cannot used to generate impl Future.".to_owned(),
                         )),
@@ -111,7 +135,7 @@ impl VisitMut for FutureFunctionExtractor {
                 }
             }
             Err(e) => {
-                self.1.push(e);
+                self.errors.push(e);
             }
         };
     }
@@ -132,41 +156,48 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let orig = item_fn.clone();
 
-        let futures = extract_futures(&mut item_fn).unwrap();
+        let (futures, awt) = extract_futures(&mut item_fn).unwrap();
 
         assert_eq!(orig, item_fn);
-        assert!(futures.is_empty())
+        assert!(futures.is_empty());
+        assert!(!awt);
     }
 
     #[rstest]
-    #[case::simple("fn f(#[future] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Define)])]
-    #[case::simple_awaited("fn f(#[future(awt)] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Await)])]
+    #[case::simple("fn f(#[future] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Define)], false)]
+    #[case::global_awt("#[awt] fn f(a: u32) {}", "fn f(a: u32) {}", &[], true)]
+    #[case::simple_awaited("fn f(#[future(awt)] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Await)], false)]
+    #[case::simple_awaited_and_global("#[awt] fn f(#[future(awt)] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Await)], true)]
     #[case::more_than_one(
         "fn f(#[future] a: u32, #[future(awt)] b: String, #[future()] c: std::collection::HashMap<usize, String>) {}",
         r#"fn f(a: u32, 
                 b: String, 
                 c: std::collection::HashMap<usize, String>) {}"#,
         &[("a", FutureArg::Define), ("b", FutureArg::Await), ("c", FutureArg::Define)],
+        false,
     )]
     #[case::just_one(
         "fn f(a: u32, #[future] b: String) {}",
         r#"fn f(a: u32, b: String) {}"#,
-        &[("b", FutureArg::Define)]
+        &[("b", FutureArg::Define)],
+        false,
     )]
     #[case::just_one_awaited(
         "fn f(a: u32, #[future(awt)] b: String) {}",
         r#"fn f(a: u32, b: String) {}"#,
-        &[("b", FutureArg::Await)]
+        &[("b", FutureArg::Await)],
+        false,
     )]
     fn extract(
         #[case] item_fn: &str,
         #[case] expected: &str,
         #[case] expected_futures: &[(&str, FutureArg)],
+        #[case] expected_awt: bool,
     ) {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
 
-        let futures = extract_futures(&mut item_fn).unwrap();
+        let (futures, awt) = extract_futures(&mut item_fn).unwrap();
 
         assert_eq!(expected, item_fn);
         assert_eq!(
@@ -176,6 +207,39 @@ mod should {
                 .map(|(id, a)| (ident(id), *a))
                 .collect::<Vec<_>>()
         );
+        assert_eq!(expected_awt, awt);
+    }
+
+    #[rstest]
+    #[case::base(r#"#[awt] fn f(a: u32) {}"#, r#"fn f(a: u32) {}"#)]
+    #[case::two(
+        r#"
+        #[awt]
+        #[awt] 
+        fn f(a: u32) {}
+        "#,
+        r#"fn f(a: u32) {}"#
+    )]
+    #[case::inner(
+        r#"
+        #[one]
+        #[awt] 
+        #[two]
+        fn f(a: u32) {}
+        "#,
+        r#"
+        #[one]
+        #[two]
+        fn f(a: u32) {}
+        "#
+    )]
+    fn remove_all_awt_attributes(#[case] item_fn: &str, #[case] expected: &str) {
+        let mut item_fn: ItemFn = item_fn.ast();
+        let expected: ItemFn = expected.ast();
+
+        let _ = extract_futures(&mut item_fn);
+
+        assert_eq!(item_fn, expected);
     }
 
     #[rstest]
@@ -183,6 +247,7 @@ mod should {
     #[case::no_impl("fn f(#[future] a: impl AsRef<str>) {}", "generate impl Future")]
     #[case::no_slice("fn f(#[future] a: [i32]) {}", "generate impl Future")]
     #[case::invalid_arg("fn f(#[future(other)] a: [i32]) {}", "Invalid 'other'")]
+    #[case::no_more_than_one_awt("#[awt] #[awt] fn f(a: u32) {}", "more than once")]
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 

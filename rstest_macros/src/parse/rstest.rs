@@ -3,13 +3,13 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use super::{
-    check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
-    extract_fixtures, extract_value_list, future::extract_futures,
-    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
-    Fixture, arguments::ArgumentsInfo,
-};
 use super::testcase::TestCase;
+use super::{
+    arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
+    extract_excluded_trace, extract_fixtures, extract_value_list, future::extract_futures,
+    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
+    Fixture,
+};
 use crate::parse::vlist::ValueList;
 use crate::{
     error::ErrorsVec,
@@ -50,7 +50,9 @@ impl ExtendWithFunctionAttrs for RsTestInfo {
             check_timeout_attrs(item_fn),
             extract_futures(item_fn)
         )?;
+        let (futures, global_awt) = futures;
         self.attributes.add_notraces(excluded);
+        self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
         Ok(())
     }

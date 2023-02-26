@@ -33,10 +33,35 @@ fn trace_argument_code_string(arg_name: &str) -> String {
     statment.display_code()
 }
 
+#[rstest]
+#[case("1", "1")]
+#[case(r#""1""#, "__1__")]
+#[case(r#"Some::SomeElse"#, "Some__SomeElse")]
+#[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
+#[case(
+    r#"vec![1 ,   2, 
+    3]"#,
+    "vec__1_2_3_"
+)]
+#[case(
+    r#"some_macro!("first", {second}, [third])"#,
+    "some_macro____first____second___third__"
+)]
+#[case(r#"'x'"#, "__x__")]
+#[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
+fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
+    let expression: Expr = expression.as_ref().ast();
+
+    assert_eq!(expected.as_ref(), sanitize_ident(&expression));
+}
+
 mod single_test_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::{test::{assert_eq, *}, parse::arguments::ArgumentsInfo};
+    use crate::{
+        parse::arguments::{ArgumentsInfo, FutureArg},
+        test::{assert_eq, *},
+    };
 
     use super::*;
 
@@ -123,6 +148,53 @@ mod single_test_should {
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         assert_eq!(result.attrs, attributes);
+    }
+
+    #[test]
+    fn use_global_await_policy() {
+        let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+        let mut info: RsTestInfo = Default::default();
+        info.arguments.set_global_await(true);
+        info.arguments.add_future(ident("a"));
+        info.arguments.add_future(ident("b"));
+
+        let item_fn: ItemFn = single(input_fn.clone(), info).ast();
+
+        assert_in!(
+            item_fn.block.display_code(),
+            await_argument_code_string("a", fixture_default("a"))
+        );
+        assert_in!(
+            item_fn.block.display_code(),
+            await_argument_code_string("b", fixture_default("b"))
+        );
+        assert_not_in!(
+            item_fn.block.display_code(),
+            await_argument_code_string("c", fixture_default("c"))
+        );
+    }
+
+    #[test]
+    fn use_selective_await_policy() {
+        let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+        let mut info: RsTestInfo = Default::default();
+        info.arguments.set_future(ident("a"), FutureArg::Define);
+        info.arguments.set_future(ident("b"), FutureArg::Await);
+
+        let item_fn: ItemFn = single(input_fn.clone(), info).ast();
+
+        assert_not_in!(
+            item_fn.block.display_code(),
+            await_argument_code_string("a", fixture_default("a"))
+        );
+        assert_in!(
+            item_fn.block.display_code(),
+            await_argument_code_string("b", fixture_default("b"))
+        );
+        assert_not_in!(
+            item_fn.block.display_code(),
+            await_argument_code_string("c", fixture_default("a"))
+        );
     }
 
     #[test]
@@ -433,8 +505,9 @@ mod cases_should {
     use rstest_test::{assert_in, assert_not_in};
 
     use crate::parse::{
+        arguments::{ArgumentsInfo, FutureArg},
         rstest::{RsTestData, RsTestInfo, RsTestItem},
-        testcase::TestCase, arguments::ArgumentsInfo,
+        testcase::TestCase,
     };
 
     use super::{assert_eq, *};
@@ -924,12 +997,74 @@ mod cases_should {
             trace_argument_code_string("a_no_trace_me")
         );
     }
+
+    #[test]
+    fn use_global_await_policy() {
+        let (item_fn, mut info) = TestCaseBuilder::from(r#"fn test(a: i32, b:i32, c:i32) {}"#)
+            .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
+            .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
+            .take();
+        info.arguments.set_global_await(true);
+        info.arguments.add_future(ident("a"));
+        info.arguments.add_future(ident("b"));
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        for block in tests.into_iter().map(|t| t.block) {
+            assert_in!(
+                block.display_code(),
+                await_argument_code_string("a", expr("1"))
+            );
+            assert_in!(
+                block.display_code(),
+                await_argument_code_string("b", expr("2"))
+            );
+            assert_not_in!(
+                block.display_code(),
+                await_argument_code_string("c", expr("3"))
+            );
+        }
+    }
+
+    #[test]
+    fn use_selective_await_policy() {
+        let (item_fn, mut info) = TestCaseBuilder::from(r#"fn test(a: i32, b:i32, c:i32) {}"#)
+            .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
+            .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
+            .take();
+        info.arguments.set_future(ident("a"), FutureArg::Define);
+        info.arguments.set_future(ident("b"), FutureArg::Await);
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        for block in tests.into_iter().map(|t| t.block) {
+            assert_not_in!(
+                block.display_code(),
+                await_argument_code_string("a", expr("1"))
+            );
+            assert_in!(
+                block.display_code(),
+                await_argument_code_string("b", expr("2"))
+            );
+            assert_not_in!(
+                block.display_code(),
+                await_argument_code_string("c", expr("3"))
+            );
+        }
+    }
 }
 
 mod matrix_cases_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::parse::{vlist::ValueList, arguments::ArgumentsInfo};
+    use crate::parse::{
+        arguments::{ArgumentsInfo, FutureArg},
+        vlist::ValueList,
+    };
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
     /// transformation
@@ -1350,6 +1485,84 @@ mod matrix_cases_should {
                 );
             }
         }
+    }
+
+    #[test]
+    fn use_global_await_policy() {
+        let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {}"#.ast();
+        let data = RsTestData {
+            items: vec![
+                values_list("a", &["1"]).into(),
+                values_list("b", &["2"]).into(),
+                values_list("c", &["3"]).into(),
+            ]
+            .into(),
+        };
+        let mut info = RsTestInfo {
+            data,
+            attributes: Default::default(),
+            arguments: Default::default(),
+        };
+        info.arguments.set_global_await(true);
+        info.arguments.add_future(ident("a"));
+        info.arguments.add_future(ident("b"));
+
+        let tokens = matrix(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        let block = &tests[0].block;
+        assert_in!(
+            block.display_code(),
+            await_argument_code_string("a", expr("1"))
+        );
+        assert_in!(
+            block.display_code(),
+            await_argument_code_string("b", expr("2"))
+        );
+        assert_not_in!(
+            block.display_code(),
+            await_argument_code_string("c", expr("3"))
+        );
+    }
+
+    #[test]
+    fn use_selective_await_policy() {
+        let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {}"#.ast();
+        let data = RsTestData {
+            items: vec![
+                values_list("a", &["1"]).into(),
+                values_list("b", &["2"]).into(),
+                values_list("c", &["3"]).into(),
+            ]
+            .into(),
+        };
+        let mut info = RsTestInfo {
+            data,
+            attributes: Default::default(),
+            arguments: Default::default(),
+        };
+
+        info.arguments.set_future(ident("a"), FutureArg::Define);
+        info.arguments.set_future(ident("b"), FutureArg::Await);
+
+        let tokens = matrix(item_fn, info);
+
+        let tests = TestsGroup::from(tokens).get_all_tests();
+
+        let block = &tests[0].block;
+        assert_not_in!(
+            block.display_code(),
+            await_argument_code_string("a", expr("1"))
+        );
+        assert_in!(
+            block.display_code(),
+            await_argument_code_string("b", expr("2"))
+        );
+        assert_not_in!(
+            block.display_code(),
+            await_argument_code_string("c", expr("3"))
+        );
     }
 
     mod two_args_should {

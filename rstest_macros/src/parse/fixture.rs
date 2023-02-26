@@ -7,9 +7,9 @@ use syn::{
 };
 
 use super::{
-    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_partials_return_type, future::extract_futures, parse_vector_trailing_till_double_comma,
-    Attributes, ExtendWithFunctionAttrs, Fixture, arguments::ArgumentsInfo,
+    arguments::ArgumentsInfo, extract_argument_attrs, extract_default_return_type,
+    extract_defaults, extract_fixtures, extract_partials_return_type, future::extract_futures,
+    parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{
     error::ErrorsVec,
@@ -86,6 +86,8 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         if let Some(ident) = once {
             self.attributes.set_once(ident)
         };
+        let (futures, global_awt) = futures;
+        self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
         Ok(())
     }

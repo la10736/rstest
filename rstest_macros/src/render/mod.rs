@@ -12,6 +12,7 @@ use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, 
 use quote::{format_ident, quote, ToTokens};
 use unicode_ident::is_xid_continue;
 
+use crate::parse::arguments::ArgumentsInfo;
 use crate::utils::attr_ends_with;
 use crate::{
     parse::{
@@ -56,6 +57,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         asyncness,
         Some(&test),
         resolver,
+        &info.arguments,
         &info.attributes,
         &generic_types,
     )
@@ -74,7 +76,7 @@ pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         .map(|(name, attrs, resolver)| {
             TestCaseRender::new(name, attrs, (resolver, &resolver_fixtures))
         })
-        .map(|case| case.render(&test, &attributes))
+        .map(|case| case.render(&test, &arguments, &attributes))
         .collect();
 
     test_group(test, rendered_cases)
@@ -86,13 +88,14 @@ impl ValueList {
         test: &ItemFn,
         resolver: &dyn Resolver,
         attrs: &[syn::Attribute],
+        arguments: &ArgumentsInfo,
         attributes: &RsTestAttributes,
     ) -> TokenStream {
         let span = test.sig.ident.span();
         let test_cases = self
             .argument_data(resolver)
             .map(|(name, r)| TestCaseRender::new(Ident::new(&name, span), attrs, r))
-            .map(|test_case| test_case.render(test, attributes));
+            .map(|test_case| test_case.render(test, arguments, attributes));
 
         quote! { #(#test_cases)* }
     }
@@ -121,6 +124,7 @@ fn _matrix_recursive<'a>(
     list_values: &'a [&'a ValueList],
     resolver: &dyn Resolver,
     attrs: &'a [syn::Attribute],
+    arguments: &ArgumentsInfo,
     attributes: &RsTestAttributes,
 ) -> TokenStream {
     if list_values.is_empty() {
@@ -134,11 +138,11 @@ fn _matrix_recursive<'a>(
         attrs.push(parse_quote!(
             #[allow(non_snake_case)]
         ));
-        vlist.render(test, resolver, &attrs, attributes)
+        vlist.render(test, resolver, &attrs, arguments, attributes)
     } else {
         let span = test.sig.ident.span();
         let modules = vlist.argument_data(resolver).map(move |(name, resolver)| {
-            _matrix_recursive(test, list_values, &resolver, attrs, attributes)
+            _matrix_recursive(test, list_values, &resolver, attrs, arguments, attributes)
                 .wrap_by_mod(&Ident::new(&name, span))
         });
 
@@ -163,7 +167,7 @@ pub(crate) fn matrix(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(data.fixtures());
     let rendered_cases = if cases.is_empty() {
         let list_values = data.list_values().collect::<Vec<_>>();
-        _matrix_recursive(&test, &list_values, &resolver, &[], &attributes)
+        _matrix_recursive(&test, &list_values, &resolver, &[], &arguments, &attributes)
     } else {
         cases
             .into_iter()
@@ -174,6 +178,7 @@ pub(crate) fn matrix(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
                     &list_values,
                     &(case_resolver, &resolver),
                     attrs,
+                    &arguments,
                     &attributes,
                 )
                 .wrap_by_mod(&case_name)
@@ -243,6 +248,7 @@ fn single_test_case<'a>(
     asyncness: Option<Async>,
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
+    arguments: &ArgumentsInfo,
     attributes: &'a RsTestAttributes,
     generic_types: &[Ident],
 ) -> TokenStream {
@@ -252,7 +258,7 @@ fn single_test_case<'a>(
     if !trace_me.is_empty() {
         attributes.add_trace(format_ident!("trace"));
     }
-    let inject = inject::resolve_aruments(args.iter(), &resolver, generic_types);
+    let inject = inject::resolve_aruments(args.iter(), &resolver, generic_types, arguments);
     let args = args
         .iter()
         .filter_map(MaybeIdent::maybe_ident)
@@ -331,7 +337,12 @@ impl<'a> TestCaseRender<'a> {
         }
     }
 
-    fn render(self, testfn: &ItemFn, attributes: &RsTestAttributes) -> TokenStream {
+    fn render(
+        self,
+        testfn: &ItemFn,
+        arguments: &ArgumentsInfo,
+        attributes: &RsTestAttributes,
+    ) -> TokenStream {
         let args = testfn.sig.inputs.iter().cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
@@ -353,6 +364,7 @@ impl<'a> TestCaseRender<'a> {
             asyncness,
             None,
             self.resolver,
+            arguments,
             attributes,
             &generic_types,
         )
@@ -436,34 +448,4 @@ fn sanitize_ident(expr: &Expr) -> String {
         .chars()
         .filter(|&c| is_xid_continue(c))
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::test::ToAst;
-
-    use super::*;
-    use crate::test::{assert_eq, *};
-
-    #[rstest]
-    #[case("1", "1")]
-    #[case(r#""1""#, "__1__")]
-    #[case(r#"Some::SomeElse"#, "Some__SomeElse")]
-    #[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
-    #[case(
-        r#"vec![1 ,   2, 
-    3]"#,
-        "vec__1_2_3_"
-    )]
-    #[case(
-        r#"some_macro!("first", {second}, [third])"#,
-        "some_macro____first____second___third__"
-    )]
-    #[case(r#"'x'"#, "__x__")]
-    #[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
-    fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
-        let expression: Expr = expression.as_ref().ast();
-
-        assert_eq!(expected.as_ref(), sanitize_ident(&expression));
-    }
 }

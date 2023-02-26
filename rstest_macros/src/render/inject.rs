@@ -5,25 +5,33 @@ use quote::quote;
 use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
 
 use crate::{
+    parse::arguments::ArgumentsInfo,
     refident::{MaybeIdent, MaybeType},
     resolver::Resolver,
-    utils::{fn_arg_mutability, IsLiteralExpression}, parse::arguments::ArgumentsInfo,
+    utils::{fn_arg_mutability, IsLiteralExpression},
 };
 
 pub(crate) fn resolve_aruments<'a>(
     args: impl Iterator<Item = &'a FnArg>,
     resolver: &impl Resolver,
     generic_types: &[Ident],
+    await_policy: &impl AwaitPolicy,
 ) -> TokenStream {
     let define_vars =
-        args.map(|arg| ArgumentResolver::new(resolver, generic_types, AwaitNone).resolve(arg));
+        args.map(|arg| ArgumentResolver::new(resolver, generic_types, await_policy).resolve(arg));
     quote! {
         #(#define_vars)*
     }
 }
 
-trait AwaitPolicy {
+pub(crate) trait AwaitPolicy {
     fn should_await(&self, ident: &Ident) -> bool;
+}
+
+impl<A: AwaitPolicy> AwaitPolicy for &A {
+    fn should_await(&self, ident: &Ident) -> bool {
+        (*self).should_await(ident)
+    }
 }
 
 struct AwaitNone;
@@ -129,7 +137,7 @@ fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
 
 impl AwaitPolicy for ArgumentsInfo {
     fn should_await(&self, ident: &Ident) -> bool {
-        return self.is_future_await(ident)
+        return self.is_future_await(ident);
     }
 }
 
