@@ -96,8 +96,10 @@ mod single_test_should {
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
         let inner_fn = extract_inner_test_function(&result);
+        let inner_fn_impl: Stmt = inner_fn.block.stmts.last().cloned().unwrap();
 
-        assert_eq!(inner_fn, input_fn);
+        assert_eq!(inner_fn.sig, input_fn.sig);
+        assert_eq!(inner_fn_impl.display_code(), input_fn.block.display_code());
     }
 
     #[rstest]
@@ -151,7 +153,7 @@ mod single_test_should {
     }
 
     #[test]
-    fn use_global_await_policy() {
+    fn use_global_await() {
         let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut info: RsTestInfo = Default::default();
         info.arguments.set_global_await(true);
@@ -162,20 +164,20 @@ mod single_test_should {
 
         assert_in!(
             item_fn.block.display_code(),
-            await_argument_code_string("a", fixture_default("a"))
+            await_argument_code_string("a")
         );
         assert_in!(
             item_fn.block.display_code(),
-            await_argument_code_string("b", fixture_default("b"))
+            await_argument_code_string("b")
         );
         assert_not_in!(
             item_fn.block.display_code(),
-            await_argument_code_string("c", fixture_default("c"))
+            await_argument_code_string("c")
         );
     }
 
     #[test]
-    fn use_selective_await_policy() {
+    fn use_selective_await() {
         let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut info: RsTestInfo = Default::default();
         info.arguments.set_future(ident("a"), FutureArg::Define);
@@ -185,15 +187,15 @@ mod single_test_should {
 
         assert_not_in!(
             item_fn.block.display_code(),
-            await_argument_code_string("a", fixture_default("a"))
+            await_argument_code_string("a",)
         );
         assert_in!(
             item_fn.block.display_code(),
-            await_argument_code_string("b", fixture_default("b"))
+            await_argument_code_string("b")
         );
         assert_not_in!(
             item_fn.block.display_code(),
-            await_argument_code_string("c", fixture_default("a"))
+            await_argument_code_string("c")
         );
     }
 
@@ -595,9 +597,11 @@ mod cases_should {
         let tokens = parametrize(item_fn.clone(), info);
 
         let mut output = TestsGroup::from(tokens);
+        let test_impl: Stmt = output.requested_test.block.stmts.last().cloned().unwrap();
 
         output.requested_test.attrs = vec![];
-        assert_eq!(output.requested_test, item_fn);
+        assert_eq!(output.requested_test.sig, item_fn.sig);
+        assert_eq!(test_impl.display_code(), item_fn.block.display_code());
     }
 
     #[test]
@@ -999,7 +1003,7 @@ mod cases_should {
     }
 
     #[test]
-    fn use_global_await_policy() {
+    fn use_global_await() {
         let (item_fn, mut info) = TestCaseBuilder::from(r#"fn test(a: i32, b:i32, c:i32) {}"#)
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
@@ -1010,26 +1014,17 @@ mod cases_should {
 
         let tokens = parametrize(item_fn, info);
 
-        let tests = TestsGroup::from(tokens).get_all_tests();
+        let tests = TestsGroup::from(tokens);
 
-        for block in tests.into_iter().map(|t| t.block) {
-            assert_in!(
-                block.display_code(),
-                await_argument_code_string("a", expr("1"))
-            );
-            assert_in!(
-                block.display_code(),
-                await_argument_code_string("b", expr("2"))
-            );
-            assert_not_in!(
-                block.display_code(),
-                await_argument_code_string("c", expr("3"))
-            );
-        }
+        let code = tests.requested_test.block.display_code();
+
+        assert_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 
     #[test]
-    fn use_selective_await_policy() {
+    fn use_selective_await() {
         let (item_fn, mut info) = TestCaseBuilder::from(r#"fn test(a: i32, b:i32, c:i32) {}"#)
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
@@ -1039,22 +1034,13 @@ mod cases_should {
 
         let tokens = parametrize(item_fn, info);
 
-        let tests = TestsGroup::from(tokens).get_all_tests();
+        let tests = TestsGroup::from(tokens);
 
-        for block in tests.into_iter().map(|t| t.block) {
-            assert_not_in!(
-                block.display_code(),
-                await_argument_code_string("a", expr("1"))
-            );
-            assert_in!(
-                block.display_code(),
-                await_argument_code_string("b", expr("2"))
-            );
-            assert_not_in!(
-                block.display_code(),
-                await_argument_code_string("c", expr("3"))
-            );
-        }
+        let code = tests.requested_test.block.display_code();
+
+        assert_not_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 }
 
@@ -1106,9 +1092,11 @@ mod matrix_cases_should {
         let tokens = matrix(item_fn.clone(), data.into());
 
         let mut output = TestsGroup::from(tokens);
+        let test_impl: Stmt = output.requested_test.block.stmts.last().cloned().unwrap();
 
         output.requested_test.attrs = vec![];
-        assert_eq!(output.requested_test, item_fn);
+        assert_eq!(output.requested_test.sig, item_fn.sig);
+        assert_eq!(test_impl.display_code(), item_fn.block.display_code());
     }
 
     #[test]
@@ -1488,7 +1476,7 @@ mod matrix_cases_should {
     }
 
     #[test]
-    fn use_global_await_policy() {
+    fn use_global_await() {
         let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {}"#.ast();
         let data = RsTestData {
             items: vec![
@@ -1509,25 +1497,17 @@ mod matrix_cases_should {
 
         let tokens = matrix(item_fn, info);
 
-        let tests = TestsGroup::from(tokens).get_all_tests();
+        let tests = TestsGroup::from(tokens);
 
-        let block = &tests[0].block;
-        assert_in!(
-            block.display_code(),
-            await_argument_code_string("a", expr("1"))
-        );
-        assert_in!(
-            block.display_code(),
-            await_argument_code_string("b", expr("2"))
-        );
-        assert_not_in!(
-            block.display_code(),
-            await_argument_code_string("c", expr("3"))
-        );
+        let code = tests.requested_test.block.display_code();
+
+        assert_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 
     #[test]
-    fn use_selective_await_policy() {
+    fn use_selective_await() {
         let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {}"#.ast();
         let data = RsTestData {
             items: vec![
@@ -1548,21 +1528,13 @@ mod matrix_cases_should {
 
         let tokens = matrix(item_fn, info);
 
-        let tests = TestsGroup::from(tokens).get_all_tests();
+        let tests = TestsGroup::from(tokens);
 
-        let block = &tests[0].block;
-        assert_not_in!(
-            block.display_code(),
-            await_argument_code_string("a", expr("1"))
-        );
-        assert_in!(
-            block.display_code(),
-            await_argument_code_string("b", expr("2"))
-        );
-        assert_not_in!(
-            block.display_code(),
-            await_argument_code_string("c", expr("3"))
-        );
+        let code = tests.requested_test.block.display_code();
+
+        assert_not_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 
     mod two_args_should {

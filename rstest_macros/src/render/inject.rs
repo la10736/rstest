@@ -5,7 +5,6 @@ use quote::quote;
 use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
 
 use crate::{
-    parse::arguments::ArgumentsInfo,
     refident::{MaybeIdent, MaybeType},
     resolver::Resolver,
     utils::{fn_arg_mutability, IsLiteralExpression},
@@ -15,53 +14,30 @@ pub(crate) fn resolve_aruments<'a>(
     args: impl Iterator<Item = &'a FnArg>,
     resolver: &impl Resolver,
     generic_types: &[Ident],
-    await_policy: &impl AwaitPolicy,
 ) -> TokenStream {
-    let define_vars =
-        args.map(|arg| ArgumentResolver::new(resolver, generic_types, await_policy).resolve(arg));
+    let define_vars = args.map(|arg| ArgumentResolver::new(resolver, generic_types).resolve(arg));
     quote! {
         #(#define_vars)*
     }
 }
 
-pub(crate) trait AwaitPolicy {
-    fn should_await(&self, ident: &Ident) -> bool;
-}
-
-impl<A: AwaitPolicy> AwaitPolicy for &A {
-    fn should_await(&self, ident: &Ident) -> bool {
-        (*self).should_await(ident)
-    }
-}
-
-struct AwaitNone;
-impl AwaitPolicy for AwaitNone {
-    fn should_await(&self, _ident: &Ident) -> bool {
-        false
-    }
-}
-
-struct ArgumentResolver<'resolver, 'idents, 'f, R, A>
+struct ArgumentResolver<'resolver, 'idents, 'f, R>
 where
     R: Resolver + 'resolver,
-    A: AwaitPolicy + 'resolver,
 {
     resolver: &'resolver R,
     generic_types_names: &'idents [Ident],
-    await_policy: A,
     magic_conversion: &'f dyn Fn(Cow<Expr>, &Type) -> Expr,
 }
 
-impl<'resolver, 'idents, 'f, R, A> ArgumentResolver<'resolver, 'idents, 'f, R, A>
+impl<'resolver, 'idents, 'f, R> ArgumentResolver<'resolver, 'idents, 'f, R>
 where
     R: Resolver + 'resolver,
-    A: AwaitPolicy + 'resolver,
 {
-    fn new(resolver: &'resolver R, generic_types_names: &'idents [Ident], await_policy: A) -> Self {
+    fn new(resolver: &'resolver R, generic_types_names: &'idents [Ident]) -> Self {
         Self {
             resolver,
             generic_types_names,
-            await_policy,
             magic_conversion: &handling_magic_conversion_code,
         }
     }
@@ -83,8 +59,6 @@ where
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
-        } else if self.await_policy.should_await(ident) {
-            fixture = Cow::Owned(parse_quote! { #fixture.await });
         }
         Some(parse_quote! {
             #unused_mut
@@ -135,12 +109,6 @@ fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
     }
 }
 
-impl AwaitPolicy for ArgumentsInfo {
-    fn should_await(&self, ident: &Ident) -> bool {
-        return self.is_future_await(ident);
-    }
-}
-
 #[cfg(test)]
 mod should {
     use super::*;
@@ -148,7 +116,6 @@ mod should {
         test::{assert_eq, *},
         utils::fn_args,
     };
-    use syn::Ident;
 
     #[rstest]
     #[case::as_is("fix: String", "let fix = fix::default();")]
@@ -162,7 +129,7 @@ mod should {
     fn call_fixture(#[case] arg_str: &str, #[case] expected: &str) {
         let arg = arg_str.ast();
 
-        let injected = ArgumentResolver::new(&EmptyResolver {}, &[], AwaitNone)
+        let injected = ArgumentResolver::new(&EmptyResolver {}, &[])
             .resolve(&arg)
             .unwrap();
 
@@ -183,48 +150,7 @@ mod should {
         let mut resolver = std::collections::HashMap::new();
         resolver.insert(rule.0.to_owned(), &rule.1);
 
-        let injected = ArgumentResolver::new(&resolver, &[], AwaitNone)
-            .resolve(&arg)
-            .unwrap();
-
-        assert_eq!(injected, expected.ast());
-    }
-
-    struct AwaitAll;
-    impl AwaitPolicy for AwaitAll {
-        fn should_await(&self, _ident: &Ident) -> bool {
-            true
-        }
-    }
-
-    impl<'ident> AwaitPolicy for &'ident [Ident] {
-        fn should_await(&self, ident: &Ident) -> bool {
-            self.contains(ident)
-        }
-    }
-
-    impl<'ident> AwaitPolicy for Vec<Ident> {
-        fn should_await(&self, ident: &Ident) -> bool {
-            self.as_slice().should_await(ident)
-        }
-    }
-
-    #[rstest]
-    #[case::no_await("fix: String", AwaitNone, "let fix = fix::default();")]
-    #[case::await_all("fix: String", AwaitAll, "let fix = fix::default().await;")]
-    #[case::await_present("fix: String", vec![ident("fix")], "let fix = fix::default().await;")]
-    #[case::await_missed("fix: String", vec![ident("something_else"), ident("other")], "let fix = fix::default();")]
-    #[case::await_missed_empty("fix: String", Vec::<Ident>::new(), "let fix = fix::default();")]
-    fn honorate_await_policy(
-        #[case] arg_str: &str,
-        #[case] policy: impl AwaitPolicy,
-        #[case] expected: &str,
-    ) {
-        let arg = arg_str.ast();
-
-        let injected = ArgumentResolver::new(&EmptyResolver, &[], policy)
-            .resolve(&arg)
-            .unwrap();
+        let injected = ArgumentResolver::new(&resolver, &[]).resolve(&arg).unwrap();
 
         assert_eq!(injected, expected.ast());
     }
@@ -269,7 +195,6 @@ mod should {
         let ag = ArgumentResolver {
             resolver: &resolver,
             generic_types_names: &generics,
-            await_policy: AwaitNone,
             magic_conversion: &_mock_conversion_code,
         };
 

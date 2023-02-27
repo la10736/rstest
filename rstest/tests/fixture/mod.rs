@@ -94,9 +94,9 @@ mod should {
     }
 
     #[rstest]
-    #[case("async_fixture.rs")]
-    // #[case("await_complete_fixture.rs")]
-    // #[case("await_partial_fixture.rs")]
+    #[case::base("async_fixture.rs")]
+    #[case::use_global("await_complete_fixture.rs")]
+    #[case::use_selective("await_partial_fixture.rs")]
     fn resolve_async_fixture(#[case] code: &str) {
         let prj = prj(code);
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);

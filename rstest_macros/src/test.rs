@@ -319,15 +319,10 @@ impl crate::parse::fixture::FixtureModifiers {
     }
 }
 
-pub(crate) fn await_argument_code_string(arg_name: &str, e: Expr) -> String {
+pub(crate) fn await_argument_code_string(arg_name: &str) -> String {
     let arg_name = ident(arg_name);
     let statment: Stmt = parse_quote! {
-        let #arg_name = #e.await;
+        let #arg_name = #arg_name.await;
     };
     statment.display_code()
-}
-
-pub(crate) fn fixture_default(arg_name: &str) -> Expr {
-    let arg_name = ident(arg_name);
-    parse_quote! { #arg_name::default() }
 }

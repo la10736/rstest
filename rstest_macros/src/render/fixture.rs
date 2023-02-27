@@ -34,7 +34,7 @@ fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -
 }
 
 pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
-    fixture.sig.apply_argumets(&info.arguments);
+    fixture.apply_argumets(&info.arguments);
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
@@ -61,12 +61,8 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(
-        fixture.sig.inputs.iter(),
-        &resolver,
-        &generics_idents,
-        &info.arguments,
-    );
+    let inject = inject::resolve_aruments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
+
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
 
@@ -127,12 +123,8 @@ fn render_partial_impl(
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(
-        fixture.sig.inputs.iter().skip(n),
-        resolver,
-        &genercs_idents,
-        &info.arguments,
-    );
+    let inject =
+        inject::resolve_aruments(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
 
     let sign_args = fn_args(fixture).take(n);
     let fixture_args = fn_args_idents(fixture).cloned().collect::<Vec<_>>();
@@ -535,7 +527,7 @@ mod should {
     }
 
     #[test]
-    fn use_global_await_policy() {
+    fn use_global_await() {
         let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut arguments: ArgumentsInfo = Default::default();
         arguments.set_global_await(true);
@@ -551,15 +543,15 @@ mod should {
         );
         let out: FixtureOutput = parse2(tokens).unwrap();
 
-        let code = out.core_impl.display_code();
+        let code = out.orig.display_code();
 
-        assert_in!(code, await_argument_code_string("a", fixture_default("a")));
-        assert_in!(code, await_argument_code_string("b", fixture_default("b")));
-        assert_not_in!(code, await_argument_code_string("c", fixture_default("c")));
+        assert_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 
     #[test]
-    fn use_selective_await_policy() {
+    fn use_selective_await() {
         let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut arguments: ArgumentsInfo = Default::default();
         arguments.set_future(ident("a"), FutureArg::Define);
@@ -574,10 +566,10 @@ mod should {
         );
         let out: FixtureOutput = parse2(tokens).unwrap();
 
-        let code = out.core_impl.display_code();
+        let code = out.orig.display_code();
 
-        assert_not_in!(code, await_argument_code_string("a", fixture_default("a")));
-        assert_in!(code, await_argument_code_string("b", fixture_default("b")));
-        assert_not_in!(code, await_argument_code_string("c", fixture_default("a")));
+        assert_not_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 }

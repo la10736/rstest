@@ -653,7 +653,6 @@ pub(crate) mod arguments {
     }
 
     impl ArgumentInfo {
-        #[allow(dead_code)]
         fn future(future: FutureArg) -> Self {
             Self {
                 future,
@@ -692,11 +691,11 @@ pub(crate) mod arguments {
             futures.for_each(|(ident, k)| self.set_future(ident, k));
         }
 
-        #[allow(dead_code)]
         pub(crate) fn set_global_await(&mut self, is_global_await: bool) {
             self.is_global_await = is_global_await;
         }
 
+        #[allow(dead_code)]
         pub(crate) fn add_future(&mut self, ident: Ident) {
             self.set_future(ident, FutureArg::Define);
         }
@@ -726,7 +725,7 @@ pub(crate) mod arguments {
         use crate::test::*;
 
         #[fixture]
-        fn info()-> ArgumentsInfo {
+        fn info() -> ArgumentsInfo {
             let mut a = ArgumentsInfo::default();
             a.set_future(ident("simple"), FutureArg::Define);
             a.set_future(ident("other_simple"), FutureArg::Define);

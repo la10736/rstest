@@ -15,7 +15,7 @@ async fn nest_fixture(#[future(awt)] async_u32: u32) -> u32 {
 #[fixture]
 async fn nest_fixture_with_default(
     #[future(awt)]
-    #[with(async { 42 })]
+    #[default(async { 42 })]
     fortytwo: u32,
 ) -> u32 {
     fortytwo
@@ -28,7 +28,7 @@ async fn default_is_async() {
 
 #[rstest]
 async fn use_async_nest_fixture_default(#[future(awt)] nest_fixture: u32) {
-    assert_eq!(42, nest_fixture.await);
+    assert_eq!(42, nest_fixture);
 }
 
 #[rstest]
@@ -60,12 +60,12 @@ async fn use_async_impl_output<T: Read>(#[future(awt)] async_impl_output: T) {
     let reader = async_impl_output;
 }
 
-#[fixture(two = 2)]
+#[fixture]
 async fn two_args_mix_fixture(
     #[future(awt)]
-    #[with(async { 4 })]
+    #[default(async { 4 })]
     four: u32,
-    #[with(2)] two: u32,
+    #[default(2)] two: u32,
 ) -> u32 {
     four * 10 + two
 }
@@ -87,7 +87,7 @@ async fn use_two_args_mix_fixture_inject_first(
 #[rstest]
 async fn use_two_args_mix_fixture_inject_both(
     #[future(awt)]
-    #[with((async { 3 }, 1))]
+    #[with(async { 3 }, 1)]
     two_args_mix_fixture: u32,
 ) {
     assert_eq!(31, two_args_mix_fixture);

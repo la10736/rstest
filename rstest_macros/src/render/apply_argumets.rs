@@ -1,8 +1,8 @@
 use quote::{format_ident, ToTokens};
-use syn::{parse_quote, FnArg, Generics, Ident, Lifetime, Signature, Type, TypeReference};
+use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, Lifetime, Signature, Type, TypeReference};
 
 use crate::{
-    parse::{future::MaybeFutureImplType, arguments::ArgumentsInfo},
+    parse::{arguments::ArgumentsInfo, future::MaybeFutureImplType},
     refident::MaybeIdent,
 };
 
@@ -54,6 +54,26 @@ impl ApplyArgumets for Signature {
                 extend_generics_with_lifetimes(self.generics.params.iter(), new_lifetimes.iter());
             move_generic_list(&mut self.generics, new_generics);
         }
+    }
+}
+
+impl ApplyArgumets for ItemFn {
+    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) -> () {
+        let awaited_args = self
+            .sig
+            .inputs
+            .iter()
+            .filter_map(|a| a.maybe_ident())
+            .filter(|&a| arguments.is_future_await(a))
+            .cloned();
+        let orig_block_impl = self.block.clone();
+        self.block = parse_quote! {
+            {
+                #(let #awaited_args = #awaited_args.await;)*
+                #orig_block_impl
+            }
+        };
+        self.sig.apply_argumets(arguments);
     }
 }
 
@@ -184,5 +204,46 @@ mod should {
         item_fn.sig.apply_argumets(&arguments);
 
         assert_eq!(expected, item_fn)
+    }
+
+    mod await_future_args {
+        use rstest_test::{assert_in, assert_not_in};
+
+        use crate::parse::arguments::FutureArg;
+
+        use super::*;
+
+        #[test]
+        fn with_global_await() {
+            let mut item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+            let mut arguments: ArgumentsInfo = Default::default();
+            arguments.set_global_await(true);
+            arguments.add_future(ident("a"));
+            arguments.add_future(ident("b"));
+
+            item_fn.apply_argumets(&arguments);
+
+            let code = item_fn.block.display_code();
+
+            assert_in!(code, await_argument_code_string("a"));
+            assert_in!(code, await_argument_code_string("b"));
+            assert_not_in!(code, await_argument_code_string("c"));
+        }
+
+        #[test]
+        fn with_selective_await() {
+            let mut item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+            let mut arguments: ArgumentsInfo = Default::default();
+            arguments.set_future(ident("a"), FutureArg::Define);
+            arguments.set_future(ident("b"), FutureArg::Await);
+
+            item_fn.apply_argumets(&arguments);
+
+            let code = item_fn.block.display_code();
+
+            assert_not_in!(code, await_argument_code_string("a"));
+            assert_in!(code, await_argument_code_string("b"));
+            assert_not_in!(code, await_argument_code_string("c"));
+        }
     }
 }
