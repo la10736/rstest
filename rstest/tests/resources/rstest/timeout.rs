@@ -64,7 +64,7 @@ mod thread {
     #[case::fail_timeout(ms(80), 4)]
     #[case::fail_value(ms(1), 5)]
     #[timeout(ms(40))]
-    fn group_same_timeout(#[case] delay: Duration,#[case] expected: u32) {
+    fn group_same_timeout(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay));
     }
 
@@ -75,7 +75,7 @@ mod thread {
     #[case::fail_timeout(ms(70), 4)]
     #[timeout(ms(100))]
     #[case::fail_value(ms(1), 5)]
-    fn group_single_timeout(#[case] delay: Duration,#[case] expected: u32) {
+    fn group_single_timeout(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay));
     }
 
@@ -85,10 +85,10 @@ mod thread {
     #[case::fail_timeout(ms(60), 4)]
     #[case::fail_value(ms(1), 5)]
     #[timeout(ms(100))]
-    fn group_one_timeout_override(#[case] delay: Duration,#[case] expected: u32) {
+    fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay));
     }
-    
+
     struct S {}
 
     #[rstest]
@@ -99,20 +99,19 @@ mod thread {
 
     #[fixture]
     fn no_copy() -> S {
-        S{}
+        S {}
     }
 
     #[rstest]
     fn compile_with_no_copy_fixture(no_copy: S) {
         assert!(true);
     }
-
 }
 
 mod async_std_cases {
     use super::*;
 
-    async fn delayed_sum(a: u32, b: u32,delay: Duration) -> u32 {
+    async fn delayed_sum(a: u32, b: u32, delay: Duration) -> u32 {
         async_std::task::sleep(delay).await;
         a + b
     }
@@ -139,7 +138,7 @@ mod async_std_cases {
     #[timeout(ms(1000))]
     #[should_panic = "user message"]
     async fn fail_with_user_message() {
-        panic!{"user message"};
+        panic! {"user message"};
     }
 
     #[rstest]
@@ -202,8 +201,8 @@ mod async_std_cases {
     }
 
     #[fixture]
-    fn no_copy() -> S{
-        S{}
+    fn no_copy() -> S {
+        S {}
     }
 
     #[rstest]
@@ -212,12 +211,17 @@ mod async_std_cases {
     }
 
     #[fixture]
-    async fn a_fix() -> S{
-        S{}
+    async fn a_fix() -> S {
+        S {}
     }
 
     #[rstest]
     fn compile_with_async_fixture(#[future] a_fix: S) {
+        assert!(true);
+    }
+
+    #[rstest]
+    async fn compile_with_async_awt_fixture(#[future(awt)] a_fix: S) {
         assert!(true);
     }
 }
