@@ -17,7 +17,7 @@ mod utils;
 
 use syn::{parse_macro_input, ItemFn};
 
-use crate::parse::{fixture::FixtureInfo, future::ReplaceFutureAttribute, rstest::RsTestInfo};
+use crate::parse::{fixture::FixtureInfo, rstest::RsTestInfo};
 use parse::ExtendWithFunctionAttrs;
 use quote::ToTokens;
 
@@ -314,14 +314,10 @@ pub fn fixture(
     let mut info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let mut fixture = parse_macro_input!(input as ItemFn);
 
-    let replace_result = ReplaceFutureAttribute::replace(&mut fixture);
     let extend_result = info.extend_with_function_attrs(&mut fixture);
 
     let mut errors = error::fixture(&fixture, &info);
 
-    if let Err(attrs_errors) = replace_result {
-        attrs_errors.to_tokens(&mut errors);
-    }
     if let Err(attrs_errors) = extend_result {
         attrs_errors.to_tokens(&mut errors);
     }
@@ -731,6 +727,33 @@ pub fn fixture(
 ///     assert_eq!(expected, base.await / div.await);
 /// }
 /// ```
+///
+/// As you noted you should `.await` all _future_ values and this some times can be really boring.
+/// In this case you can use `#[timeout(awt)]` to _awaiting_ an input or annotating your function
+/// with `#[awt]` attributes to globally `.await` all your _future_ inputs. Previous code can be
+/// simplified like follow:
+///
+/// ```
+/// use rstest::*;
+/// # #[fixture]
+/// # async fn base() -> u32 { 42 }
+///
+/// #[rstest]
+/// #[case(21, async { 2 })]
+/// #[case(6, async { 7 })]
+/// #[awt]
+/// async fn global(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
+///     assert_eq!(expected, base / div);
+/// }
+///
+/// #[rstest]
+/// #[case(21, async { 2 })]
+/// #[case(6, async { 7 })]
+/// async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[case] div: u32) {
+///     assert_eq!(expected, base.await / div);
+/// }
+/// ```
+///
 /// ### Test `#[timeout()]`
 ///
 /// You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
@@ -1032,14 +1055,10 @@ pub fn rstest(
     let mut test = parse_macro_input!(input as ItemFn);
     let mut info = parse_macro_input!(args as RsTestInfo);
 
-    let replace_result = ReplaceFutureAttribute::replace(&mut test);
     let extend_result = info.extend_with_function_attrs(&mut test);
 
     let mut errors = error::rstest(&test, &info);
 
-    if let Err(attrs_errors) = replace_result {
-        attrs_errors.to_tokens(&mut errors);
-    }
     if let Err(attrs_errors) = extend_result {
         attrs_errors.to_tokens(&mut errors);
     }

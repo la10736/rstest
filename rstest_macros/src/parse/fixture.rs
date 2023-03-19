@@ -7,9 +7,9 @@ use syn::{
 };
 
 use super::{
-    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_partials_return_type, parse_vector_trailing_till_double_comma, Attributes,
-    ExtendWithFunctionAttrs, Fixture,
+    arguments::ArgumentsInfo, extract_argument_attrs, extract_default_return_type,
+    extract_defaults, extract_fixtures, extract_partials_return_type, future::extract_futures,
+    parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{
     error::ErrorsVec,
@@ -25,6 +25,7 @@ use quote::{format_ident, ToTokens};
 pub(crate) struct FixtureInfo {
     pub(crate) data: FixtureData,
     pub(crate) attributes: FixtureModifiers,
+    pub(crate) arguments: ArgumentsInfo,
 }
 
 impl Parse for FixtureModifiers {
@@ -44,6 +45,7 @@ impl Parse for FixtureInfo {
                     .parse::<Token![::]>()
                     .or_else(|_| Ok(Default::default()))
                     .and_then(|_| input.parse())?,
+                arguments: Default::default(),
             }
         })
     }
@@ -59,13 +61,15 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
             defaults,
             default_return_type,
             partials_return_type,
-            once
+            once,
+            futures
         ) = merge_errors!(
             extract_fixtures(item_fn),
             extract_defaults(item_fn),
             extract_default_return_type(item_fn),
             extract_partials_return_type(item_fn),
-            extract_once(item_fn)
+            extract_once(item_fn),
+            extract_futures(item_fn)
         )?;
         self.data.items.extend(
             fixtures
@@ -82,6 +86,9 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         if let Some(ident) = once {
             self.attributes.set_once(ident)
         };
+        let (futures, global_awt) = futures;
+        self.arguments.set_global_await(global_awt);
+        self.arguments.set_futures(futures.into_iter());
         Ok(())
     }
 }
@@ -352,6 +359,7 @@ mod should {
                     ],
                 }
                 .into(),
+                arguments: Default::default(),
             };
 
             assert_eq!(expected, data);
@@ -587,6 +595,20 @@ mod extend {
             info.extend_with_function_attrs(&mut item_fn).unwrap();
 
             assert!(!info.attributes.is_once());
+        }
+
+        #[rstest]
+        fn extract_future() {
+            let mut item_fn = "fn f(#[future] a: u32, b: u32) {}".ast();
+            let expected = "fn f(a: u32, b: u32) {}".ast();
+
+            let mut info = FixtureInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(item_fn, expected);
+            assert!(info.arguments.is_future(&ident("a")));
+            assert!(!info.arguments.is_future(&ident("b")));
         }
 
         mod raise_error {

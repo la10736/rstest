@@ -326,9 +326,12 @@ mod single {
             .assert(output);
     }
 
-    #[test]
-    fn should_run_async_function() {
-        let prj = prj(res("async.rs"));
+    #[rstest]
+    #[case("async.rs")]
+    #[case("async_awt.rs")]
+    #[case("async_awt_global.rs")]
+    fn should_run_async_function(#[case] name: &str) {
+        let prj = prj(res(name));
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();
@@ -456,9 +459,12 @@ mod cases {
             .assert(output);
     }
 
-    #[test]
-    fn should_run_async_function() {
-        let prj = prj(res("async.rs"));
+    #[rstest]
+    #[case("async.rs")]
+    #[case("async_awt.rs")]
+    #[case("async_awt_global.rs")]
+    fn should_run_async_function(#[case] name: &str) {
+        let prj = prj(res(name));
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();
@@ -775,9 +781,12 @@ mod matrix {
             .assert(output);
     }
 
-    #[test]
-    fn should_run_async_function() {
-        let prj = prj(res("async.rs"));
+    #[rstest]
+    #[case("async.rs")]
+    #[case("async_awt.rs")]
+    #[case("async_awt_global.rs")]
+    fn should_run_async_function(#[case] name: &str) {
+        let prj = prj(res(name));
         prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
 
         let output = prj.run_tests().unwrap();
@@ -950,6 +959,7 @@ fn timeout() {
         .ok("async_std_cases::compile_with_no_copy_arg::case_1")
         .ok("async_std_cases::compile_with_no_copy_fixture")
         .ok("async_std_cases::compile_with_async_fixture")
+        .ok("async_std_cases::compile_with_async_awt_fixture")
         .assert(output);
 }
 

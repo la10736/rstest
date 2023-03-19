@@ -3,6 +3,7 @@ use syn::{parse_quote, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
+use super::apply_argumets::ApplyArgumets;
 use super::{inject, render_exec_call};
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
@@ -32,7 +33,8 @@ fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -
     }
 }
 
-pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
+pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
+    fixture.apply_argumets(&info.arguments);
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
@@ -60,6 +62,7 @@ pub(crate) fn render(fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .cloned()
         .collect::<Vec<_>>();
     let inject = inject::resolve_aruments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
+
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
 
@@ -144,12 +147,16 @@ fn render_partial_impl(
 
 #[cfg(test)]
 mod should {
+    use rstest_test::{assert_in, assert_not_in};
     use syn::{
         parse::{Parse, ParseStream},
         parse2, parse_str, ItemFn, ItemImpl, ItemStruct, Result,
     };
 
-    use crate::parse::{Attribute, Attributes};
+    use crate::parse::{
+        arguments::{ArgumentsInfo, FutureArg},
+        Attribute, Attributes,
+    };
 
     use super::*;
     use crate::test::{assert_eq, *};
@@ -482,5 +489,87 @@ mod should {
         let partial = select_method(out.core_impl, "partial_1").unwrap();
 
         assert_eq!(expected.sig, partial.sig);
+    }
+
+    #[test]
+    fn add_future_boilerplate_if_requested() {
+        let item_fn: ItemFn =
+            r#"async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32) { }"#.ast();
+
+        let mut arguments = ArgumentsInfo::default();
+        arguments.add_future(ident("async_ref_u32"));
+        arguments.add_future(ident("async_u32"));
+
+        let tokens = render(
+            item_fn.clone(),
+            FixtureInfo {
+                arguments,
+                ..Default::default()
+            },
+        );
+        let out: FixtureOutput = parse2(tokens).unwrap();
+
+        let expected = parse_str::<syn::ItemFn>(
+            r#"
+                    async fn get<'_async_ref_u32>(
+                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl std::future::Future<Output = u32>, 
+                        simple: u32
+                    )
+                    { }
+                    "#,
+        )
+        .unwrap();
+
+        let rendered = select_method(out.core_impl, "get").unwrap();
+
+        assert_eq!(expected.sig, rendered.sig);
+    }
+
+    #[test]
+    fn use_global_await() {
+        let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+        let mut arguments: ArgumentsInfo = Default::default();
+        arguments.set_global_await(true);
+        arguments.add_future(ident("a"));
+        arguments.add_future(ident("b"));
+
+        let tokens = render(
+            item_fn.clone(),
+            FixtureInfo {
+                arguments,
+                ..Default::default()
+            },
+        );
+        let out: FixtureOutput = parse2(tokens).unwrap();
+
+        let code = out.orig.display_code();
+
+        assert_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
+    }
+
+    #[test]
+    fn use_selective_await() {
+        let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+        let mut arguments: ArgumentsInfo = Default::default();
+        arguments.set_future(ident("a"), FutureArg::Define);
+        arguments.set_future(ident("b"), FutureArg::Await);
+
+        let tokens = render(
+            item_fn.clone(),
+            FixtureInfo {
+                arguments,
+                ..Default::default()
+            },
+        );
+        let out: FixtureOutput = parse2(tokens).unwrap();
+
+        let code = out.orig.display_code();
+
+        assert_not_in!(code, await_argument_code_string("a"));
+        assert_in!(code, await_argument_code_string("b"));
+        assert_not_in!(code, await_argument_code_string("c"));
     }
 }

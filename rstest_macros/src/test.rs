@@ -10,7 +10,7 @@ pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
 pub(crate) use rstest::{fixture, rstest};
-use syn::{parse::Parse, parse2, parse_str, Error, Expr, Ident, ItemFn, Stmt};
+use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, ItemFn, Stmt};
 
 use super::*;
 use crate::parse::{
@@ -112,7 +112,7 @@ impl ToAst for proc_macro2::TokenStream {
     }
 }
 
-pub(crate) fn ident(s: impl AsRef<str>) -> syn::Ident {
+pub(crate) fn ident(s: impl AsRef<str>) -> Ident {
     s.as_ref().ast()
 }
 
@@ -257,7 +257,7 @@ impl From<RsTestData> for RsTestInfo {
     fn from(data: RsTestData) -> Self {
         Self {
             data,
-            attributes: Default::default(),
+            ..Default::default()
         }
     }
 }
@@ -317,4 +317,12 @@ impl crate::parse::fixture::FixtureModifiers {
         self.append(Attribute::attr("once"));
         self
     }
+}
+
+pub(crate) fn await_argument_code_string(arg_name: &str) -> String {
+    let arg_name = ident(arg_name);
+    let statment: Stmt = parse_quote! {
+        let #arg_name = #arg_name.await;
+    };
+    statment.display_code()
 }
