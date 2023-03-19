@@ -26,7 +26,7 @@ syn = {version = "1.0.72", features = ["full"]}
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-rstest_test = {version = "0.10.0", path = "../rstest_test"}
+rstest_test = {version = "0.11.0", path = "../rstest_test"}
 temp_testdir = "0.2.3"
 # To compile doc tests
 rstest = {version = "0.16.0"}
