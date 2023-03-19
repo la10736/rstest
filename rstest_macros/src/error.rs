@@ -169,10 +169,7 @@ fn missed_arguments<'a, I: MaybeIdent + Spanned + 'a>(
             .map(|(missed, ident)| {
                 syn::Error::new(
                     missed.span(),
-                    &format!(
-                        "Missed argument: '{}' should be a test function argument.",
-                        ident
-                    ),
+                    format!("Missed argument: '{ident}' should be a test function argument."),
                 )
             }),
     )
@@ -196,7 +193,7 @@ fn duplicate_arguments<'a, I: MaybeIdent + Spanned + 'a>(
             .map(|(duplicate, ident)| {
                 syn::Error::new(
                     duplicate.span(),
-                    &format!("Duplicate argument: '{}' is already defined.", ident),
+                    format!("Duplicate argument: '{ident}' is already defined."),
                 )
             }),
     )

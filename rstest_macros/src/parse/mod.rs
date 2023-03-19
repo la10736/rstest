@@ -654,10 +654,7 @@ pub(crate) mod arguments {
 
     impl ArgumentInfo {
         fn future(future: FutureArg) -> Self {
-            Self {
-                future,
-                ..Default::default()
-            }
+            Self { future }
         }
 
         fn is_future(&self) -> bool {

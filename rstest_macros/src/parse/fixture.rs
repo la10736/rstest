@@ -111,8 +111,7 @@ fn parse_attribute_args_just_once<'a, T: Parse>(
                 errors.push(syn::Error::new_spanned(
                     a,
                     format!(
-                        "You cannot use '{}' attribute more than once for the same argument",
-                        name
+                        "You cannot use '{name}' attribute more than once for the same argument"
                     ),
                 ));
                 first

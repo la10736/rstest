@@ -1,10 +1,8 @@
 # Changelog
-## [0.17.0] Unreleased
+## [0.17.0] 2023/3/19
 ### Add
 
 - Add `#[awt]` and `#[timeout(awt)]` to `.await` future input 
-
-### Changed
 
 ### Fixed
 

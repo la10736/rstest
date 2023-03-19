@@ -58,7 +58,7 @@ impl ApplyArgumets for Signature {
 }
 
 impl ApplyArgumets for ItemFn {
-    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) -> () {
+    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) {
         let awaited_args = self
             .sig
             .inputs

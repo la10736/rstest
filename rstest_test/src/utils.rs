@@ -304,7 +304,7 @@ where
         let stderr = output.stderr.str();
         let output = output.stdout.str();
         if output.is_empty() {
-            eprintln!("Stderr: {}", stderr);
+            eprintln!("Stderr: {stderr}");
             panic!("Empty stdout!");
         }
 

@@ -73,16 +73,19 @@ impl VisitMut for FutureFunctionExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
         let attrs = std::mem::take(&mut node.attrs);
         let (awts, remain): (Vec<_>, Vec<_>) = attrs.into_iter().partition(|a| attr_is(a, "awt"));
-        if awts.len() == 1 {
-            self.awt = true;
-        } else if awts.len() > 1 {
-            self.errors.extend(awts.into_iter().skip(1).map(|a| {
-                syn::Error::new_spanned(
-                    a.into_token_stream(),
-                    "Cannot use #[awt] more than once.".to_owned(),
-                )
-            }))
-        }
+        self.awt = match awts.len().cmp(&1) {
+            std::cmp::Ordering::Equal => true,
+            std::cmp::Ordering::Greater => {
+                self.errors.extend(awts.into_iter().skip(1).map(|a| {
+                    syn::Error::new_spanned(
+                        a.into_token_stream(),
+                        "Cannot use #[awt] more than once.".to_owned(),
+                    )
+                }));
+                false
+            }
+            std::cmp::Ordering::Less => false,
+        };
         node.attrs = remain;
         syn::visit_mut::visit_item_fn_mut(self, node);
     }
@@ -104,7 +107,7 @@ impl VisitMut for FutureFunctionExtractor {
                         Some(invalid) => {
                             return Err(syn::Error::new_spanned(
                                 arg.parse_args::<Option<Ident>>()?.into_token_stream(),
-                                format!("Invalid '{}' #[future(...)] arg.", invalid),
+                                format!("Invalid '{invalid}' #[future(...)] arg."),
                             ));
                         }
                     }
@@ -114,8 +117,15 @@ impl VisitMut for FutureFunctionExtractor {
         )
         .collect::<Result<Vec<_>, _>>()
         {
-            Ok(futures) => {
-                if futures.len() > 1 {
+            Ok(futures) => match futures.len().cmp(&1) {
+                std::cmp::Ordering::Equal => match node.as_future_impl_type() {
+                    Some(_) => self.futures.push((futures[0].1.clone(), futures[0].2)),
+                    None => self.errors.push(syn::Error::new_spanned(
+                        node.maybe_type().unwrap().into_token_stream(),
+                        "This type cannot used to generate impl Future.".to_owned(),
+                    )),
+                },
+                std::cmp::Ordering::Greater => {
                     self.errors
                         .extend(futures.iter().skip(1).map(|(attr, _ident, _type)| {
                             syn::Error::new_spanned(
@@ -123,17 +133,9 @@ impl VisitMut for FutureFunctionExtractor {
                                 "Cannot use #[future] more than once.".to_owned(),
                             )
                         }));
-                    return;
-                } else if futures.len() == 1 {
-                    match node.as_future_impl_type() {
-                        Some(_) => self.futures.push((futures[0].1.clone(), futures[0].2)),
-                        None => self.errors.push(syn::Error::new_spanned(
-                            node.maybe_type().unwrap().into_token_stream(),
-                            "This type cannot used to generate impl Future.".to_owned(),
-                        )),
-                    }
                 }
-            }
+                std::cmp::Ordering::Less => {}
+            },
             Err(e) => {
                 self.errors.push(e);
             }

@@ -157,7 +157,7 @@ impl Project {
         let mut out = std::fs::File::create(&path).unwrap();
 
         write!(out, "{}", Self::GLOBAL_TEST_ATTR).unwrap();
-        write!(out, "{}", body).unwrap();
+        write!(out, "{body}").unwrap();
     }
 
     pub fn set_code_file<P: AsRef<Path>>(self, src: P) -> Self {
@@ -184,7 +184,7 @@ impl Project {
     }
 
     pub fn add_path_dependency(&self, name: &str, path: &str) {
-        self.add_dependency(name, format!(r#"{{path="{}"}}"#, path).as_str());
+        self.add_dependency(name, format!(r#"{{path="{path}"}}"#).as_str());
     }
 
     pub fn add_local_dependency(&self, name: &str) {
@@ -247,7 +247,7 @@ impl Project {
             Channel::Stable => "+stable".into(),
             Channel::Beta => "+beta".into(),
             Channel::Nightly => "+nightly".into(),
-            Channel::Custom(name) => format!("+{}", name),
+            Channel::Custom(name) => format!("+{name}"),
         }
     }
 }

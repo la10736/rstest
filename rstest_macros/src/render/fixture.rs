@@ -128,7 +128,7 @@ fn render_partial_impl(
 
     let sign_args = fn_args(fixture).take(n);
     let fixture_args = fn_args_idents(fixture).cloned().collect::<Vec<_>>();
-    let name = Ident::new(&format!("partial_{}", n), Span::call_site());
+    let name = Ident::new(&format!("partial_{n}"), Span::call_site());
 
     let call_get = render_exec_call(
         parse_quote! { Self::get },

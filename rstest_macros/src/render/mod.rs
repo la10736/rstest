@@ -234,7 +234,7 @@ fn render_test_call(
 ///
 // Ok I need some refactoring here but now that not a real issue
 #[allow(clippy::too_many_arguments)]
-fn single_test_case<'a>(
+fn single_test_case(
     name: &Ident,
     testfn_name: &Ident,
     args: &[FnArg],
@@ -243,7 +243,7 @@ fn single_test_case<'a>(
     asyncness: Option<Async>,
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
-    attributes: &'a RsTestAttributes,
+    attributes: &RsTestAttributes,
     generic_types: &[Ident],
 ) -> TokenStream {
     let (attrs, trace_me): (Vec<_>, Vec<_>) =
@@ -382,7 +382,7 @@ trait DisplayLen {
 
 impl<D: std::fmt::Display> DisplayLen for D {
     fn display_len(&self) -> usize {
-        format!("{}", self).len()
+        format!("{self}").len()
     }
 }
 
@@ -390,14 +390,9 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
     let description = case
         .description
         .as_ref()
-        .map(|d| format!("_{}", d))
+        .map(|d| format!("_{d}"))
         .unwrap_or_default();
-    format!(
-        "case_{:0len$}{d}",
-        index,
-        len = display_len,
-        d = description
-    )
+    format!("case_{index:0display_len$}{description}")
 }
 
 fn cases_data(
