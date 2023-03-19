@@ -180,6 +180,29 @@ async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[c
 }
 ```
 
+As you noted you should `.await` all _future_ values and this some times can be really boring.
+In this case you can use `#[timeout(awt)]` to _awaiting_ an input or annotating your function
+with `#[awt]` attributes to globally `.await` all your _future_ inputs. Previous code can be
+simplified like follow:
+```rust
+use rstest::*;
+# #[fixture]
+# async fn base() -> u32 { 42 }
+#[rstest]
+#[case(21, async { 2 })]
+#[case(6, async { 7 })]
+#[awt]
+async fn global(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
+    assert_eq!(expected, base / div);
+}
+#[rstest]
+#[case(21, async { 2 })]
+#[case(6, async { 7 })]
+async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[case] div: u32) {
+    assert_eq!(expected, base.await / div);
+}
+```
+
 ### Test `#[timeout()]`
 
 You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
