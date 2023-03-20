@@ -4,7 +4,7 @@ use syn::{
     parse::{Parse, ParseStream, Result},
     parse2, parse_str,
     visit::Visit,
-    ItemFn, ItemMod,
+    ItemFn, ItemMod, LocalInit,
 };
 
 use super::*;
@@ -345,7 +345,7 @@ trait QueryAttrs {
 
 impl QueryAttrs for ItemFn {
     fn has_attr(&self, attr: &syn::Path) -> bool {
-        self.attrs.iter().find(|a| &a.path == attr).is_some()
+        self.attrs.iter().find(|a| a.path() == attr).is_some()
     }
 
     fn has_attr_that_ends_with(&self, name: &syn::PathSegment) -> bool {
@@ -477,7 +477,7 @@ impl<'ast> Visit<'ast> for Assignments {
         match &assign {
             syn::Local {
                 pat: syn::Pat::Ident(pat),
-                init: Some((_, expr)),
+                init: Some(LocalInit { expr, .. }),
                 ..
             } => {
                 self.0.insert(pat.ident.to_string(), expr.as_ref().clone());

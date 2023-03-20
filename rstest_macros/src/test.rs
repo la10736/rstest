@@ -289,7 +289,7 @@ pub(crate) trait IsAwait {
 impl IsAwait for Stmt {
     fn is_await(&self) -> bool {
         match self {
-            Stmt::Expr(Expr::Await(_)) => true,
+            Stmt::Expr(Expr::Await(_), _) => true,
             _ => false,
         }
     }

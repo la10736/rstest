@@ -1449,10 +1449,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: expected attribute arguments in parentheses: #[timeout(...)]
-                  --> {}/src/lib.rs:97:1
+                  --> {}/src/lib.rs:97:3
                    |
                 97 | #[timeout]
-                   | ^^^^^^^^^^
+                   |   ^^^^^^^
                 ",
                 name
             )

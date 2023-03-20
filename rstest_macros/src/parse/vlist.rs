@@ -29,7 +29,7 @@ impl Parse for ValueList {
         };
         if ret.values.is_empty() {
             Err(syn::Error::new(
-                paren.span,
+                paren.span.join(),
                 "Values list should not be empty",
             ))
         } else {

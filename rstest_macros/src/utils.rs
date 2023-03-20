@@ -25,21 +25,21 @@ pub(crate) fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item = &FnArg> {
 }
 
 pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
-    attr.path.segments.iter().last() == Some(segment)
+    attr.path().segments.iter().last() == Some(segment)
 }
 
 pub(crate) fn attr_starts_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
-    attr.path.segments.iter().next() == Some(segment)
+    attr.path().segments.iter().next() == Some(segment)
 }
 
 pub(crate) fn attr_is(attr: &Attribute, name: &str) -> bool {
-    attr.path.is_ident(&format_ident!("{}", name))
+    attr.path().is_ident(&format_ident!("{}", name))
 }
 
 pub(crate) fn attr_in(attr: &Attribute, names: &[&str]) -> bool {
     names
         .iter()
-        .any(|name| attr.path.is_ident(&format_ident!("{}", name)))
+        .any(|name| attr.path().is_ident(&format_ident!("{}", name)))
 }
 
 pub(crate) trait IsLiteralExpression {
@@ -97,7 +97,7 @@ impl MaybeIdent for syn::WherePredicate {
             WherePredicate::Lifetime(syn::PredicateLifetime { lifetime, .. }) => {
                 Some(&lifetime.ident)
             }
-            WherePredicate::Eq(_) => None,
+            _ => None,
         }
     }
 }
