@@ -5,7 +5,7 @@ description = """
 Rust fixture based test framework. It use procedural macro
 to implement fixtures and table based tests.
 """
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/la10736/rstest"
 keywords = ["test", "fixture"]
 license = "MIT/Apache-2.0"
