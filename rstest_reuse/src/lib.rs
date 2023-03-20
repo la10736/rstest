@@ -307,7 +307,7 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
 fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
     attributes
         .iter()
-        .find(|&attr| attr.path.is_ident(&format_ident!("export")))
+        .find(|&attr| attr.path().is_ident(&format_ident!("export")))
 }
 
 /// Define a template where the name is given from the function name. This attribute register all
@@ -328,7 +328,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     let rstest_index = template
         .attrs
         .iter()
-        .position(|attr| attr.path.is_ident(&format_ident!("rstest")));
+        .position(|attr| attr.path().is_ident(&format_ident!("rstest")));
 
     let mut attributes = template.attrs;
 

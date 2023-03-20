@@ -5,7 +5,7 @@ description = """
 Reuse rstest attributes: create a set of tests and apply it 
 to every scenario you want to test.
 """
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/la10736/rstest"
 keywords = ["test", "fixture"]
 license = "MIT/Apache-2.0"
@@ -22,7 +22,7 @@ proc-macro = true
 [dependencies]
 quote = "1.0.9"
 rand = "0.8.5"
-syn = {version = "1.0.72", features = ["full"]}
+syn = {version = "2.0.2", features = ["full", "extra-traits"]}
 
 [dev-dependencies]
 lazy_static = "1.4.0"
