@@ -1,4 +1,12 @@
 # Changelog
+
+## Unreleased
+
+### Changed
+
+- Switch to `syn` 2.0 and edition 2021 : minimal Rust version now is 1.56.0 
+both for `rstest` and `rstest_reuse` (see #187) 
+
 ## [0.17.0] 2023/3/19
 ### Add
 
