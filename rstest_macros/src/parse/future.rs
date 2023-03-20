@@ -98,7 +98,7 @@ impl VisitMut for FutureFunctionExtractor {
             node,
             |a| attr_is(a, "future"),
             |arg, name| {
-                let kind = if arg.tokens.is_empty() {
+                let kind = if matches!(arg.meta, syn::Meta::Path(_)) {
                     FutureArg::Define
                 } else {
                     match arg.parse_args::<Option<Ident>>()? {

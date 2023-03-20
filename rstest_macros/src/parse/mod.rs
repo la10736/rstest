@@ -322,7 +322,7 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         let (partials, remain): (Vec<_>, Vec<_>) =
             attrs
                 .into_iter()
-                .partition(|attr| match attr.path.get_ident() {
+                .partition(|attr| match attr.path().get_ident() {
                     Some(name) => name
                         .to_string()
                         .starts_with(FixtureModifiers::PARTIAL_RET_ATTR),
@@ -335,7 +335,7 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         for attr in partials {
             match attr.parse_args::<syn::Type>() {
                 Ok(t) => {
-                    match attr.path.get_ident().unwrap().to_string()
+                    match attr.path().get_ident().unwrap().to_string()
                         [FixtureModifiers::PARTIAL_RET_ATTR.len()..]
                         .parse()
                     {
@@ -383,7 +383,7 @@ impl VisitMut for IsOnceAttributeFunctionExtractor {
 
         node.attrs = remain;
         self.0 = match onces.len() {
-            1 => Ok(onces[0].path.get_ident().cloned()),
+            1 => Ok(onces[0].path().get_ident().cloned()),
             0 => Ok(None),
             _ => Err(onces
                 .into_iter()
@@ -439,7 +439,7 @@ impl VisitMut for CasesFunctionExtractor {
             if attr_starts_with(&attr, &case) {
                 match attr.parse_args::<Expressions>() {
                     Ok(expressions) => {
-                        let description = attr.path.segments.into_iter().nth(1).map(|p| p.ident);
+                        let description = attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
                         self.0.push(TestCase {
                             args: expressions.into(),
                             attrs: std::mem::take(&mut attrs_buffer),

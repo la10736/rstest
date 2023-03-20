@@ -14,7 +14,7 @@ impl Expressions {
 impl Parse for Expressions {
     fn parse(input: ParseStream) -> Result<Self> {
         let values = input
-            .parse_terminated::<_, Token![,]>(Parse::parse)?
+            .parse_terminated(Parse::parse, Token![,])?
             .into_iter()
             .collect();
         Ok(Self(values))

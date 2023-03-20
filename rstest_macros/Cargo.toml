@@ -5,7 +5,7 @@ description = """
 Rust fixture based test framework. It use procedural macro
 to implement fixtures and table based tests.
 """
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/la10736/rstest"
 keywords = ["test", "fixture"]
 license = "MIT/Apache-2.0"
@@ -24,7 +24,7 @@ default = ["async-timeout"]
 cfg-if = "1.0.0"
 proc-macro2 = "1.0.39"
 quote = "1.0.19"
-syn = {version = "1.0.98", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]}
+syn = {version = "2.0.2", features = ["full", "parsing", "extra-traits", "visit", "visit-mut"]}
 unicode-ident = "1.0.5"
 
 [dev-dependencies]

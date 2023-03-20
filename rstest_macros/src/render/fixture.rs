@@ -193,12 +193,12 @@ mod should {
         assert_eq!(item_fn.vis, out.orig.vis);
     }
 
-    fn select_method<S: AsRef<str>>(impl_code: ItemImpl, name: S) -> Option<syn::ImplItemMethod> {
+    fn select_method<S: AsRef<str>>(impl_code: ItemImpl, name: S) -> Option<syn::ImplItemFn> {
         impl_code
             .items
             .into_iter()
             .filter_map(|ii| match ii {
-                syn::ImplItem::Method(f) => Some(f),
+                syn::ImplItem::Fn(f) => Some(f),
                 _ => None,
             })
             .find(|f| f.sig.ident == name.as_ref())
@@ -292,7 +292,7 @@ mod should {
         let body = select_method(out.core_impl, method).unwrap().block;
         let last_statment = body.stmts.last().unwrap();
         let is_await = match last_statment {
-            syn::Stmt::Expr(syn::Expr::Await(_)) => true,
+            syn::Stmt::Expr(syn::Expr::Await(_), _) => true,
             _ => false,
         };
 

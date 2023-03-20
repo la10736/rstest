@@ -4,7 +4,7 @@ categories = ["development-tools::testing"]
 description = """
 Provides some utilities used by to write rstest crate's tests.
 """
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/la10736/rstest"
 keywords = ["test"]
 license = "MIT/Apache-2.0"
