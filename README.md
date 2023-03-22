@@ -203,6 +203,11 @@ async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[cas
 }
 ```
 
+### Default timeout
+
+You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
+The value is in seconds and is evaluated on test compile time.
+
 ### Test `#[timeout()]`
 
 You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
