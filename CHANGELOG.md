@@ -10,7 +10,7 @@ both for `rstest` and `rstest_reuse` (see #187)
 ## [0.17.0] 2023/3/19
 ### Add
 
-- Add `#[awt]` and `#[timeout(awt)]` to `.await` future input 
+- Add `#[awt]` and `#[future(awt)]` to `.await` future input
 
 ### Fixed
 

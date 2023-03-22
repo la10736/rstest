@@ -181,9 +181,10 @@ async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[c
 ```
 
 As you noted you should `.await` all _future_ values and this some times can be really boring.
-In this case you can use `#[timeout(awt)]` to _awaiting_ an input or annotating your function
+In this case you can use `#[future(awt)]` to _awaiting_ an input or annotating your function
 with `#[awt]` attributes to globally `.await` all your _future_ inputs. Previous code can be
 simplified like follow:
+
 ```rust
 use rstest::*;
 # #[fixture]
