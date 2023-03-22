@@ -49,6 +49,7 @@ pub struct Project {
     channel: Channel,
     nocapture: bool,
     ws: Arc<std::sync::RwLock<()>>,
+    default_timeout: Option<u64>,
 }
 
 impl Project {
@@ -61,6 +62,7 @@ impl Project {
             channel: Default::default(),
             nocapture: false,
             ws: Arc::new(std::sync::RwLock::new(())),
+            default_timeout: Default::default(),
         }
         .create()
     }
@@ -83,6 +85,7 @@ impl Project {
             channel: self.channel.clone(),
             nocapture: self.nocapture,
             ws: self.ws.clone(),
+            default_timeout: Default::default(),
         }
         .create()
     }
@@ -102,6 +105,10 @@ impl Project {
             self.add_test_global_attribute(self.code_path())
         }
         let mut cmd = Command::new("cargo");
+
+        if let Some(timeout) = self.default_timeout {
+            cmd.env("RSTEST_TIMEOUT", timeout.to_string());
+        }
 
         cmd.current_dir(&self.path())
             .arg(&self.cargo_channel_arg())
@@ -249,5 +256,10 @@ impl Project {
             Channel::Nightly => "+nightly".into(),
             Channel::Custom(name) => format!("+{name}"),
         }
+    }
+
+    // in seconds
+    pub fn set_default_timeout(&mut self, timeout: u64) {
+        self.default_timeout = Some(timeout);
     }
 }
