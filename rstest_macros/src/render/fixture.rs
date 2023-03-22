@@ -69,7 +69,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let call_get = render_exec_call(parse_quote! { Self::get }, args, asyncness.is_some());
     let mut call_impl = render_exec_call(parse_quote! { #name }, args, asyncness.is_some());
 
-    if info.attributes.is_once() {
+    if info.arguments.is_once() {
         call_impl = wrap_call_impl_with_call_once_impl(call_impl, &output);
         output = wrap_return_type_as_static_ref(output);
         default_output = wrap_return_type_as_static_ref(default_output);
@@ -110,7 +110,7 @@ fn render_partial_impl(
         .extract_partial_type(n)
         .unwrap_or_else(|| fixture.sig.output.clone());
 
-    if info.attributes.is_once() {
+    if info.arguments.is_once() {
         output = wrap_return_type_as_static_ref(output);
     }
 

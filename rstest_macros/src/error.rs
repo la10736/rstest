@@ -32,7 +32,7 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
 }
 
 fn async_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
-    match (test.sig.asyncness, info.attributes.get_once()) {
+    match (test.sig.asyncness, info.arguments.get_once()) {
         (Some(_asyncness), Some(once)) => Box::new(std::iter::once(syn::Error::new(
             once.span(),
             "Cannot apply #[once] to async fixture.",
@@ -69,7 +69,7 @@ fn has_some_generics(test: &ItemFn) -> bool {
 }
 
 fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
-    match (has_some_generics(test), info.attributes.get_once()) {
+    match (has_some_generics(test), info.arguments.get_once()) {
         (true, Some(once)) => Box::new(std::iter::once(syn::Error::new(
             once.span(),
             "Cannot apply #[once] on generic fixture.",

@@ -674,6 +674,7 @@ pub(crate) mod arguments {
     pub(crate) struct ArgumentsInfo {
         args: HashMap<Ident, ArgumentInfo>,
         is_global_await: bool,
+        once: Option<Ident>
     }
 
     impl ArgumentsInfo {
@@ -713,6 +714,18 @@ pub(crate) mod arguments {
 
         pub(crate) fn is_global_await(&self) -> bool {
             self.is_global_await
+        }
+
+        pub(crate) fn set_once(&mut self, once: Option<Ident>) {
+            self.once = once
+        }
+
+        pub(crate) fn get_once(&self) -> Option<&Ident> {
+            self.once.as_ref()
+        }
+
+        pub(crate) fn is_once(&self) -> bool {
+            self.get_once().is_some()
         }
     }
 

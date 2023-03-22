@@ -11,12 +11,7 @@ use super::{
     extract_defaults, extract_fixtures, extract_partials_return_type, future::extract_futures,
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
-use crate::{
-    error::ErrorsVec,
-    parse::extract_once,
-    refident::{MaybeIdent, RefIdent},
-    utils::attr_is,
-};
+use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};
 use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
@@ -83,9 +78,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         for (id, return_type) in partials_return_type {
             self.attributes.set_partial_return_type(id, return_type);
         }
-        if let Some(ident) = once {
-            self.attributes.set_once(ident)
-        };
+        self.arguments.set_once(once);
         let (futures, global_awt) = futures;
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
@@ -298,20 +291,6 @@ impl FixtureModifiers {
             format_ident!("{}{}", Self::PARTIAL_RET_ATTR, id),
             Box::new(return_type),
         ))
-    }
-
-    pub(crate) fn set_once(&mut self, once: syn::Ident) {
-        self.inner.attributes.push(Attribute::Attr(once))
-    }
-
-    pub(crate) fn get_once(&self) -> Option<&Ident> {
-        self.iter()
-            .find(|&a| a == &Attribute::Attr(format_ident!("once")))
-            .and_then(|a| a.maybe_ident())
-    }
-
-    pub(crate) fn is_once(&self) -> bool {
-        self.get_once().is_some()
     }
 
     fn extract_type(&self, attr_name: &str) -> Option<syn::ReturnType> {
@@ -579,7 +558,7 @@ mod extend {
 
             info.extend_with_function_attrs(&mut item_fn).unwrap();
 
-            assert!(info.attributes.is_once());
+            assert!(info.arguments.is_once());
         }
 
         #[test]
@@ -593,7 +572,7 @@ mod extend {
 
             info.extend_with_function_attrs(&mut item_fn).unwrap();
 
-            assert!(!info.attributes.is_once());
+            assert!(!info.arguments.is_once());
         }
 
         #[rstest]
