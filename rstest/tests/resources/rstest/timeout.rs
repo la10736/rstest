@@ -109,7 +109,7 @@ mod thread {
 
     #[rstest]
     fn default_timeout_failure() {
-        assert_eq!(4, delayed_sum(2, 2, ms(1001)));
+        assert_eq!(4, delayed_sum(2, 2, ms(1100)));
     }
 }
 
