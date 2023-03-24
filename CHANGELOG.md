@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+### Add
+
+- Add support for `RSTEST_TIMEOUT` environment variable to define a max timeout
+for each function (see #190 for details). Thanks to @aviramha for idea and PR
+
 ### Changed
 
 - Switch to `syn` 2.0 and edition 2021 : minimal Rust version now is 1.56.0 
 both for `rstest` and `rstest_reuse` (see #187) 
 
 ## [0.17.0] 2023/3/19
+
 ### Add
 
 - Add `#[awt]` and `#[future(awt)]` to `.await` future input
