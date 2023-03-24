@@ -235,9 +235,9 @@ In this case test pass because the delay is just 10 milliseconds and timeout is
 
 You can use `timeout` attribute like any other attibute in your tests and you can
 override a group timeout with a case specific one. In the follow example we have
-3 tests where first and third use 100 millis but the second one use 10 millis. 
+3 tests where first and third use 100 millis but the second one use 10 millis.
 Another valuable point in this example is to use an expression to compute the
-duration. 
+duration.
 
 ```rust
 fn ms(ms: u32) -> Duration {
