@@ -206,6 +206,11 @@ fn render_test_call(
     timeout: Option<Expr>,
     is_async: bool,
 ) -> TokenStream {
+    let timeout = timeout.map(|x| quote! {#x}).or_else(|| {
+        std::env::var("RSTEST_TIMEOUT")
+            .ok()
+            .and_then(|to| Some(quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) }))
+    });
     match (timeout, is_async) {
         (Some(to_expr), true) => quote! {
             use rstest::timeout::*;

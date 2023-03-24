@@ -24,7 +24,7 @@ mod thread {
     fn single_fail_value() {
         assert_eq!(5, delayed_sum(2, 2, ms(1)));
     }
-
+    
     #[rstest]
     #[timeout(ms(1000))]
     #[should_panic = "user message"]
@@ -105,6 +105,11 @@ mod thread {
     #[rstest]
     fn compile_with_no_copy_fixture(no_copy: S) {
         assert!(true);
+    }
+
+    #[rstest]
+    fn default_timeout_failure() {
+        assert_eq!(4, delayed_sum(2, 2, ms(1001)));
     }
 }
 

@@ -917,8 +917,9 @@ fn ignore_underscore_args() {
 
 #[test]
 fn timeout() {
-    let prj = prj("timeout.rs");
+    let mut prj = prj("timeout.rs");
     prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+    prj.set_default_timeout(1);
     let output = prj.run_tests().unwrap();
 
     TestResults::new()
@@ -940,6 +941,7 @@ fn timeout() {
         .fail("thread::group_one_timeout_override::case_3_fail_value")
         .ok("thread::compile_with_no_copy_arg::case_1")
         .ok("thread::compile_with_no_copy_fixture")
+        .fail("thread::default_timeout_failure")
         .ok("async_std_cases::single_pass")
         .fail("async_std_cases::single_fail_value")
         .ok("async_std_cases::fail_with_user_message")
