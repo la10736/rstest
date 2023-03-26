@@ -28,6 +28,7 @@ async fn two_args_mix_fixture(
 // }
 
 #[rstest]
+#[tokio::test]
 #[awt]
 async fn use_two_args_mix_fixture_inject_both(
     #[future]
@@ -35,4 +36,12 @@ async fn use_two_args_mix_fixture_inject_both(
     two_args_mix_fixture: u32,
 ) {
     assert_eq!(31, two_args_mix_fixture);
+}
+
+#[rstest]
+async fn simple(
+    #[values(42)]
+    val: u32,
+) {
+    assert_eq!(42, val);
 }

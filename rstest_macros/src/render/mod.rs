@@ -7,7 +7,9 @@ use std::collections::HashMap;
 use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt};
+use syn::{
+    parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt, Type, TypeParam,
+};
 
 use quote::{format_ident, quote, ToTokens};
 use unicode_ident::is_xid_continue;
@@ -184,11 +186,11 @@ pub(crate) fn matrix(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
-fn resolve_default_test_attr(is_async: bool) -> TokenStream {
+fn resolve_default_test_attr(is_async: bool) -> syn::Attribute {
     if is_async {
-        quote! { #[async_std::test] }
+        parse_quote! { #[async_std::test] }
     } else {
-        quote! { #[test] }
+        parse_quote! { #[test] }
     }
 }
 
@@ -224,6 +226,86 @@ fn render_test_call(
     }
 }
 
+#[derive(Debug)]
+struct DesugaredFnArg {
+    arg: Ident,
+    ty: Type,
+    generic_bound: Option<TypeParam>,
+}
+
+impl DesugaredFnArg {
+    fn new(arg: Ident, ty: Type, generic_bound: Option<TypeParam>) -> Self {
+        Self {
+            arg,
+            ty,
+            generic_bound,
+        }
+    }
+
+    fn from_fn_arg(arg: &FnArg) -> Option<Self> {
+        match arg {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(t) => Some(t),
+        }
+        .and_then(|p| match *p.pat.clone() {
+            syn::Pat::Ident(id) => Some((id, &p.ty)),
+            _ => None,
+        })
+        .and_then(|(name, ty)| match *ty.clone() {
+            Type::ImplTrait(syn::TypeImplTrait { bounds, .. }) => {
+                let bounds = bounds.into_iter();
+                Some(Self::new(
+                    name.ident,
+                    parse_quote! { T },
+                    Some(parse_quote! {
+                        T: #(#bounds)+*
+                    }),
+                ))
+            }
+            _ => Some(Self::new(name.ident, *ty.clone(), None)),
+        })
+    }
+}
+
+fn desugar_fn_impl(args: &[FnArg]) -> (Vec<Ident>, Vec<Type>, Vec<TypeParam>) {
+    let mut names = Vec::with_capacity(args.len());
+    let mut types = Vec::with_capacity(args.len());
+    let mut generic_bounds = Vec::new();
+
+    for (pos, arg) in args.iter().enumerate() {
+        let (name, ty) = match match arg {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(t) => Some(t),
+        }
+        .and_then(|p| match *p.pat.clone() {
+            syn::Pat::Ident(id) => Some((id, &p.ty)),
+            _ => None,
+        }) {
+            Some((n, t)) => (n.ident, *t.clone()),
+            None => continue,
+        };
+        names.push(name);
+        let (ty, bounds): (Type, Option<TypeParam>) = match ty {
+            Type::ImplTrait(syn::TypeImplTrait { bounds, .. }) => {
+                let bounds = bounds.into_iter();
+                let t_name = format_ident!("RSTEST_TYPE_{}", pos);
+                (
+                    parse_quote! { #t_name },
+                    Some(parse_quote! { #t_name: #(#bounds)+* }),
+                )
+            }
+            _ => (ty, None),
+        };
+        types.push(ty);
+        match bounds {
+            Some(b) => generic_bounds.push(b),
+            None => {}
+        }
+    }
+
+    (names, types, generic_bounds)
+}
+
 /// Render a single test case:
 ///
 /// * `name` - Test case name
@@ -242,7 +324,7 @@ fn render_test_call(
 fn single_test_case(
     name: &Ident,
     testfn_name: &Ident,
-    args: &[FnArg],
+    fn_args: &[FnArg],
     attrs: &[Attribute],
     output: &ReturnType,
     asyncness: Option<Async>,
@@ -257,11 +339,27 @@ fn single_test_case(
     if !trace_me.is_empty() {
         attributes.add_trace(format_ident!("trace"));
     }
-    let inject = inject::resolve_aruments(args.iter(), &resolver, generic_types);
-    let args = args
+    let inject = inject::resolve_aruments(fn_args.iter(), &resolver, generic_types);
+    let args = fn_args
         .iter()
         .filter_map(MaybeIdent::maybe_ident)
         .cloned()
+        .collect::<Vec<_>>();
+    let inner_context_fields: Vec<_> = fn_args
+        .iter()
+        .filter_map(|a| match a {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(t) => Some(t),
+        })
+        .filter_map(|p| match *p.pat.clone() {
+            syn::Pat::Ident(id) => Some((id, &p.ty)),
+            _ => None,
+        })
+        .map(|(name, ty)| {
+            quote! {
+                #name: #ty
+            }
+        })
         .collect::<Vec<_>>();
     let trace_args = trace_arguments(args.iter(), &attributes);
 
@@ -274,25 +372,58 @@ fn single_test_case(
         .last()
         .map(|attribute| attribute.parse_args::<Expr>().unwrap());
 
-    // If no injected attribut provided use the default one
-    let test_attr = if attrs
+    let (test_attrs, attrs): (Vec<_>, Vec<_>) = attrs
+        .into_iter()
+        .partition(|a| attr_ends_with(a, &parse_quote! {test}));
+
+    // If no injected attribute provided use the default one
+    let test_attr = test_attrs
+        .into_iter()
+        .nth(0)
+        .unwrap_or_else(|| resolve_default_test_attr(is_async));
+
+    let desugar = fn_args
         .iter()
-        .any(|a| attr_ends_with(a, &parse_quote! {test}))
-    {
-        None
+        .filter_map(DesugaredFnArg::from_fn_arg)
+        .collect::<Vec<_>>();
+    let (state_args, state_types, state_generics) = desugar_fn_impl(&fn_args);
+    let (state_generics, state_generic_type) = if state_generics.len() > 0 {
+        let types = state_generics.iter().map(|g| quote! {_}).cloned();
+        (quote! {<#(#state_generics),*>}, quote! {::<#(#types),*>})
     } else {
-        Some(resolve_default_test_attr(is_async))
+        (quote! {}, quote! {})
     };
+
     let execute = render_test_call(testfn_name.clone().into(), &args, timeout, is_async);
 
     quote! {
-        #test_attr
+        #[test]
         #(#attrs)*
-        #asyncness fn #name() #output {
+        fn #name() #output {
             #test_impl
             #inject
             #trace_args
-            #execute
+            #[allow(unnameable_test_items)]
+            {
+                struct _RstestInnerDataContext #state_generics {
+                    #(#state_args: #state_types),*
+                }
+                thread_local! {
+                    static _RSTEST_INNER_DATA_CONTEXT: std::cell::RefCell<Option<_RstestInnerDataContext>>  = std::cell::RefCell::new(None);
+                }
+                _RSTEST_INNER_DATA_CONTEXT.with(|r| r.replace(Some(_RstestInnerDataContext #state_generic_type {
+                    #(#args),*
+                })));
+                #[inline]
+                #test_attr
+                #asyncness fn wrap (){
+                    let _RstestInnerDataContext #state_generic_type {
+                        #(#args),*
+                    } = _RSTEST_INNER_DATA_CONTEXT.with(|r| r.replace(None)).unwrap();
+                    #execute
+                }
+                wrap()
+            }
         }
     }
 }
