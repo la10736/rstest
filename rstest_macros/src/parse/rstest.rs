@@ -3,8 +3,6 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use self::files::extract_files;
-
 use super::testcase::TestCase;
 use super::{
     arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
@@ -19,8 +17,6 @@ use crate::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
-
-mod files;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -48,12 +44,11 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(_inner, excluded, _timeout, futures, _files) = merge_errors!(
+        let composed_tuple!(_inner, excluded, _timeout, futures) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
-            extract_futures(item_fn),
-            extract_files(item_fn)
+            extract_futures(item_fn)
         )?;
         let (futures, global_awt) = futures;
         self.attributes.add_notraces(excluded);
