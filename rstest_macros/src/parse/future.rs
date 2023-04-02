@@ -119,7 +119,10 @@ impl VisitMut for FutureFunctionExtractor {
         {
             Ok(futures) => match futures.len().cmp(&1) {
                 std::cmp::Ordering::Equal => match node.as_future_impl_type() {
-                    Some(_) => self.futures.push((futures[0].1.clone(), futures[0].2)),
+                    Some(_) => self.futures.push({
+                        let (_attr, name, kind) = futures.into_iter().next().unwrap();
+                        (name, kind)
+                    }),
                     None => self.errors.push(syn::Error::new_spanned(
                         node.maybe_type().unwrap().into_token_stream(),
                         "This type cannot used to generate impl Future.".to_owned(),
