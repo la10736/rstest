@@ -20,8 +20,6 @@ use crate::{
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
 
-mod files;
-
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
     pub(crate) data: RsTestData,
