@@ -48,12 +48,11 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(_inner, excluded, _timeout, futures, _files) = merge_errors!(
+        let composed_tuple!(_inner, excluded, _timeout, futures) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
-            extract_futures(item_fn),
-            extract_files(item_fn)
+            extract_futures(item_fn)
         )?;
         let (futures, global_awt) = futures;
         self.attributes.add_notraces(excluded);
@@ -130,11 +129,12 @@ impl Parse for RsTestData {
 
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(fixtures, case_args, cases, value_list) = merge_errors!(
+        let composed_tuple!(fixtures, case_args, cases, value_list, _files) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
             extract_cases(item_fn),
-            extract_value_list(item_fn)
+            extract_value_list(item_fn),
+            extract_files(item_fn)
         )?;
 
         self.items.extend(fixtures.into_iter().map(|f| f.into()));
