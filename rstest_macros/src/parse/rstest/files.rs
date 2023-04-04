@@ -1,7 +1,14 @@
-use quote::ToTokens;
-use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, LitStr};
+use std::{env, path::PathBuf};
 
-use crate::{error::ErrorsVec, parse::extract_argument_attrs, utils::attr_is};
+use quote::ToTokens;
+use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, LitStr, Expr, parse_quote};
+use glob::glob;
+
+use crate::{
+    error::ErrorsVec,
+    parse::{extract_argument_attrs, vlist::ValueList},
+    utils::attr_is,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences(String);
@@ -9,6 +16,40 @@ pub(crate) struct FilesGlobReferences(String);
 impl From<LitStr> for FilesGlobReferences {
     fn from(value: LitStr) -> Self {
         Self(value.value())
+    }
+}
+
+impl From<(Ident, FilesGlobReferences)> for ValueList {
+    fn from(value: (Ident, FilesGlobReferences)) -> Self {
+        let (arg, refs) = value;
+        let base_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")
+            .expect("Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path"));
+        let resolved_path = base_dir.join(&PathBuf::try_from(&refs.0).unwrap());
+        let pattern = resolved_path.to_string_lossy();
+
+        let paths =
+            glob(&pattern).unwrap_or_else(|e| panic!("glob failed for whole path `{pattern}` due {e}"));
+        let mut expressions: Vec<Expr> = vec![];
+        for path in paths {
+            let path = path.unwrap_or_else(|e| panic!("glob failed for file due {e}"));
+            let abs_path = path
+                .canonicalize()
+                .unwrap_or_else(|e| panic!("failed to canonicalize {} due {e}", path.display()));
+
+            let path_str = abs_path.to_string_lossy();
+            expressions.push(parse_quote!{
+                PathBuf::from_str(#path_str)
+            });
+        }
+
+        if expressions.is_empty() {
+            panic!("No file found")
+        }
+
+        Self {
+            arg,
+            values: vec![],
+        }
     }
 }
 

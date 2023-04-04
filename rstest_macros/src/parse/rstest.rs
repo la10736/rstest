@@ -129,7 +129,7 @@ impl Parse for RsTestData {
 
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(fixtures, case_args, cases, value_list, _files) = merge_errors!(
+        let composed_tuple!(fixtures, case_args, cases, value_list, files) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
             extract_cases(item_fn),
@@ -141,6 +141,10 @@ impl ExtendWithFunctionAttrs for RsTestData {
         self.items.extend(case_args.into_iter().map(|f| f.into()));
         self.items.extend(cases.into_iter().map(|f| f.into()));
         self.items.extend(value_list.into_iter().map(|f| f.into()));
+        self.items.extend(files.into_iter().map(|files_arg| {
+            let v_list: ValueList = files_arg.into();
+            v_list.into()
+        }));
         Ok(())
     }
 }
