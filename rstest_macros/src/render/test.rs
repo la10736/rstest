@@ -50,9 +50,7 @@ fn trace_argument_code_string(arg_name: &str) -> String {
 #[case(r#"'x'"#, "__x__")]
 #[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
 fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
-    let expression: Expr = expression.as_ref().ast();
-
-    assert_eq!(expected.as_ref(), sanitize_ident(&expression));
+    assert_eq!(expected.as_ref(), sanitize_ident(expression.as_ref()));
 }
 
 mod single_test_should {

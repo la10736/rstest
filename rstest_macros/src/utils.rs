@@ -1,6 +1,7 @@
 /// Contains some unsorted functions used across others modules
 ///
 use quote::format_ident;
+use unicode_ident::is_xid_continue;
 use std::collections::{HashMap, HashSet};
 
 use crate::refident::MaybeIdent;
@@ -269,6 +270,22 @@ pub(crate) fn fn_arg_mutability(arg: &FnArg) -> Option<syn::token::Mut> {
         _ => None,
     }
 }
+
+pub(crate) fn sanitize_ident(name: &str) -> String {
+    name.chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '"' | '\'' => "__".to_owned(),
+            ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '*' | '+' | '/' | '-' | '%'
+            | '^' | '!' | '&' | '|' => "_".to_owned(),
+            _ => c.to_string(),
+        })
+        .collect::<String>()
+        .chars()
+        .filter(|&c| is_xid_continue(c))
+        .collect()
+}
+
 
 #[cfg(test)]
 mod test {

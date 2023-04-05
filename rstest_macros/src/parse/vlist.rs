@@ -10,9 +10,33 @@ use crate::refident::RefIdent;
 use super::expressions::Expressions;
 
 #[derive(Debug, PartialEq, Clone)]
+pub(crate) struct Value {
+    pub(crate) expr: Expr,
+    pub(crate) description: Option<String>,
+}
+
+impl Value {
+    pub(crate) fn new(expr: Expr, description: Option<String>) -> Self {
+        Self { expr, description }
+    }
+
+    pub(crate) fn description(&self) -> String {
+        self.description
+            .clone()
+            .unwrap_or_else(|| self.expr.to_token_stream().to_string())
+    }
+}
+
+impl From<Expr> for Value {
+    fn from(expr: Expr) -> Self {
+        Self::new(expr, None)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ValueList {
     pub(crate) arg: Ident,
-    pub(crate) values: Vec<Expr>,
+    pub(crate) values: Vec<Value>,
 }
 
 impl Parse for ValueList {
@@ -25,7 +49,7 @@ impl Parse for ValueList {
 
         let ret = Self {
             arg,
-            values: values.take(),
+            values: values.take().into_iter().map(|e| e.into()).collect(),
         };
         if ret.values.is_empty() {
             Err(syn::Error::new(

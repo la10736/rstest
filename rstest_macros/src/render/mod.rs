@@ -9,10 +9,9 @@ use syn::token::Async;
 use proc_macro2::{Span, TokenStream};
 use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt};
 
-use quote::{format_ident, quote, ToTokens};
-use unicode_ident::is_xid_continue;
+use quote::{format_ident, quote};
 
-use crate::utils::attr_ends_with;
+use crate::utils::{attr_ends_with, sanitize_ident};
 use crate::{
     parse::{
         rstest::{RsTestAttributes, RsTestData, RsTestInfo},
@@ -102,15 +101,15 @@ impl ValueList {
         resolver: &'a dyn Resolver,
     ) -> impl Iterator<Item = (String, Box<(&'a dyn Resolver, (String, Expr))>)> + 'a {
         let max_len = self.values.len();
-        self.values.iter().enumerate().map(move |(index, expr)| {
-            let sanitized_expr = sanitize_ident(expr);
+        self.values.iter().enumerate().map(move |(index, value)| {
+            let description = sanitize_ident(&value.description());
             let name = format!(
-                "{}_{:0len$}_{sanitized_expr:.64}",
+                "{}_{:0len$}_{description:.64}",
                 self.arg,
                 index + 1,
                 len = max_len.display_len()
             );
-            let resolver_this = (self.arg.to_string(), expr.clone());
+            let resolver_this = (self.arg.to_string(), value.expr.clone());
             (name, Box::new((resolver, resolver_this)))
         })
     }
@@ -419,21 +418,4 @@ fn cases_data(
             )
         }
     })
-}
-
-fn sanitize_ident(expr: &Expr) -> String {
-    expr.to_token_stream()
-        .to_string()
-        .chars()
-        .filter(|c| !c.is_whitespace())
-        .map(|c| match c {
-            '"' | '\'' => "__".to_owned(),
-            ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '*' | '+' | '/' | '-' | '%'
-            | '^' | '!' | '&' | '|' => "_".to_owned(),
-            _ => c.to_string(),
-        })
-        .collect::<String>()
-        .chars()
-        .filter(|&c| is_xid_continue(c))
-        .collect()
 }

@@ -6,7 +6,7 @@ use glob::glob;
 
 use crate::{
     error::ErrorsVec,
-    parse::{extract_argument_attrs, vlist::ValueList},
+    parse::{extract_argument_attrs, vlist::{ValueList, Value}},
     utils::attr_is,
 };
 
@@ -29,26 +29,27 @@ impl From<(Ident, FilesGlobReferences)> for ValueList {
 
         let paths =
             glob(&pattern).unwrap_or_else(|e| panic!("glob failed for whole path `{pattern}` due {e}"));
-        let mut expressions: Vec<Expr> = vec![];
+        let mut values: Vec<(Expr, String)> = vec![];
         for path in paths {
             let path = path.unwrap_or_else(|e| panic!("glob failed for file due {e}"));
             let abs_path = path
                 .canonicalize()
                 .unwrap_or_else(|e| panic!("failed to canonicalize {} due {e}", path.display()));
+            let path_name = abs_path.strip_prefix(&base_dir).unwrap();
 
             let path_str = abs_path.to_string_lossy();
-            expressions.push(parse_quote!{
-                PathBuf::from_str(#path_str)
-            });
+            values.push((parse_quote!{
+                <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
+            }, path_name.to_string_lossy().to_string()));
         }
 
-        if expressions.is_empty() {
+        if values.is_empty() {
             panic!("No file found")
         }
 
         Self {
             arg,
-            values: vec![],
+            values: values.into_iter().map(|(e, desc)| Value::new(e, Some(desc))).collect(),
         }
     }
 }
