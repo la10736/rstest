@@ -6,6 +6,7 @@ use syn::{
 use self::files::{extract_files, extract_global_awt, DefaultListExtractor, ValueListFromFiles};
 
 use super::{testcase::TestCase, future::extract_global_awt};
+use self::files::{extract_files, DefaultListExtractor, ValueListFromFiles};
 use super::{
     arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
     extract_excluded_trace, extract_fixtures, extract_value_list, future::extract_futures,
