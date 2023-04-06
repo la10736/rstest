@@ -1,12 +1,15 @@
 use std::{env, path::PathBuf};
 
+use glob::{glob, Paths, PatternError};
 use quote::ToTokens;
-use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, LitStr, Expr, parse_quote};
-use glob::glob;
+use syn::{parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn, LitStr};
 
 use crate::{
     error::ErrorsVec,
-    parse::{extract_argument_attrs, vlist::{ValueList, Value}},
+    parse::{
+        extract_argument_attrs,
+        vlist::{Value, ValueList},
+    },
     utils::attr_is,
 };
 
@@ -16,41 +19,6 @@ pub(crate) struct FilesGlobReferences(String);
 impl From<LitStr> for FilesGlobReferences {
     fn from(value: LitStr) -> Self {
         Self(value.value())
-    }
-}
-
-impl From<(Ident, FilesGlobReferences)> for ValueList {
-    fn from(value: (Ident, FilesGlobReferences)) -> Self {
-        let (arg, refs) = value;
-        let base_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")
-            .expect("Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path"));
-        let resolved_path = base_dir.join(&PathBuf::try_from(&refs.0).unwrap());
-        let pattern = resolved_path.to_string_lossy();
-
-        let paths =
-            glob(&pattern).unwrap_or_else(|e| panic!("glob failed for whole path `{pattern}` due {e}"));
-        let mut values: Vec<(Expr, String)> = vec![];
-        for path in paths {
-            let path = path.unwrap_or_else(|e| panic!("glob failed for file due {e}"));
-            let abs_path = path
-                .canonicalize()
-                .unwrap_or_else(|e| panic!("failed to canonicalize {} due {e}", path.display()));
-            let path_name = abs_path.strip_prefix(&base_dir).unwrap();
-
-            let path_str = abs_path.to_string_lossy();
-            values.push((parse_quote!{
-                <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
-            }, path_name.to_string_lossy().to_string()));
-        }
-
-        if values.is_empty() {
-            panic!("No file found")
-        }
-
-        Self {
-            arg,
-            values: values.into_iter().map(|(e, desc)| Value::new(e, Some(desc))).collect(),
-        }
     }
 }
 
@@ -114,6 +82,68 @@ impl VisitMut for ValueFilesExtractor {
         };
     }
 }
+
+pub(crate) trait ValueListFromFiles {
+    fn to_value_list(
+        files: Vec<(Ident, FilesGlobReferences)>,
+    ) -> Result<Vec<ValueList>, syn::Error> {
+        files
+            .into_iter()
+            .map(|(arg, refs)| {
+                <Self as ValueListFromFiles>::file_list_values(refs)
+                    .map(|values| ValueList { arg, values })
+            })
+            .collect::<Result<Vec<ValueList>, _>>()
+    }
+
+    fn glob(pattern: impl AsRef<str>) -> Result<Paths, PatternError> {
+        glob(pattern.as_ref())
+    }
+
+    fn base_dir(refs: &FilesGlobReferences) -> Result<PathBuf, syn::Error> {
+        env::var("CARGO_MANIFEST_DIR")
+            .map_err(|_| syn::Error::new_spanned(&refs.0, "Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path"))
+            .map(PathBuf::from)
+    }
+
+    fn file_list_values(refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
+        let base_dir = Self::base_dir(&refs)?;
+        let resolved_path = base_dir.join(&PathBuf::try_from(&refs.0).unwrap());
+        let pattern = resolved_path.to_string_lossy();
+
+        let paths = Self::glob(&pattern)
+            .unwrap_or_else(|e| panic!("glob failed for whole path `{pattern}` due {e}"));
+        let mut values: Vec<(Expr, String)> = vec![];
+        for path in paths {
+            let path = path.unwrap_or_else(|e| panic!("glob failed for file due {e}"));
+            let abs_path = path
+                .canonicalize()
+                .unwrap_or_else(|e| panic!("failed to canonicalize {} due {e}", path.display()));
+            let path_name = abs_path.strip_prefix(&base_dir).unwrap();
+
+            let path_str = abs_path.to_string_lossy();
+            values.push((
+                parse_quote! {
+                    <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
+                },
+                path_name.to_string_lossy().to_string(),
+            ));
+        }
+
+        if values.is_empty() {
+            panic!("No file found")
+        }
+
+        Ok(values
+            .into_iter()
+            .map(|(e, desc)| Value::new(e, Some(desc)))
+            .collect())
+    }
+}
+
+pub(crate) struct DefaultListExtractor;
+
+impl ValueListFromFiles for DefaultListExtractor {}
 
 #[cfg(test)]
 mod should {
