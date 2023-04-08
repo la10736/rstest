@@ -5,12 +5,18 @@
 ### Add
 
 - Add support for `RSTEST_TIMEOUT` environment variable to define a max timeout
-for each function (see #190 for details). Thanks to @aviramha for idea and PR
+for each function (see [#190](https://github.com/la10736/rstest/issues/187) for details).
+Thanks to @aviramha for idea and PR
 
 ### Changed
 
 - Switch to `syn` 2.0 and edition 2021 : minimal Rust version now is 1.56.0 
-both for `rstest` and `rstest_reuse` (see #187) 
+both for `rstest` and `rstest_reuse` (see [#187](https://github.com/la10736/rstest/issues/187))
+
+### Fixed
+
+- Fixed wired behavior on extraction `#[awt]` function attrs (See
+[#189](https://github.com/la10736/rstest/issues/189))
 
 ## [0.17.0] 2023/3/19
 

@@ -8,7 +8,7 @@ use syn::{
 
 use super::{
     arguments::ArgumentsInfo, extract_argument_attrs, extract_default_return_type,
-    extract_defaults, extract_fixtures, extract_partials_return_type, future::extract_futures,
+    extract_defaults, extract_fixtures, extract_partials_return_type, future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};
@@ -57,14 +57,16 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
             default_return_type,
             partials_return_type,
             once,
-            futures
+            futures,
+            global_awt
         ) = merge_errors!(
             extract_fixtures(item_fn),
             extract_defaults(item_fn),
             extract_default_return_type(item_fn),
             extract_partials_return_type(item_fn),
             extract_once(item_fn),
-            extract_futures(item_fn)
+            extract_futures(item_fn),
+            extract_global_awt(item_fn)
         )?;
         self.data.items.extend(
             fixtures
@@ -79,7 +81,6 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
             self.attributes.set_partial_return_type(id, return_type);
         }
         self.arguments.set_once(once);
-        let (futures, global_awt) = futures;
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
         Ok(())
