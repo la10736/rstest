@@ -3,9 +3,9 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use self::files::{extract_files, DefaultListExtractor, ValueListFromFiles};
+use self::files::{extract_files, extract_global_awt, DefaultListExtractor, ValueListFromFiles};
 
-use super::testcase::TestCase;
+use super::{testcase::TestCase, future::extract_global_awt};
 use super::{
     arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
     extract_excluded_trace, extract_fixtures, extract_value_list, future::extract_futures,
@@ -19,6 +19,8 @@ use crate::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
+
+pub(crate) files;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -46,13 +48,13 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(_inner, excluded, _timeout, futures) = merge_errors!(
+        let composed_tuple!(_inner, excluded, _timeout, futures, global_awt) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
-            extract_futures(item_fn)
+            extract_futures(item_fn),
+            extract_global_awt(item_fn)
         )?;
-        let (futures, global_awt) = futures;
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
