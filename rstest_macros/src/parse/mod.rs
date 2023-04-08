@@ -295,8 +295,6 @@ impl VisitMut for DefaultTypeFunctionExtractor {
         } else {
             Ok(data)
         };
-
-        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -354,8 +352,6 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         } else {
             Ok(data)
         };
-
-        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -392,7 +388,6 @@ impl VisitMut for IsOnceAttributeFunctionExtractor {
                 .collect::<Vec<_>>()
                 .into()),
         };
-        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -439,7 +434,8 @@ impl VisitMut for CasesFunctionExtractor {
             if attr_starts_with(&attr, &case) {
                 match attr.parse_args::<Expressions>() {
                     Ok(expressions) => {
-                        let description = attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
+                        let description =
+                            attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
                         self.0.push(TestCase {
                             args: expressions.into(),
                             attrs: std::mem::take(&mut attrs_buffer),
@@ -453,7 +449,6 @@ impl VisitMut for CasesFunctionExtractor {
             }
         }
         node.attrs = std::mem::take(&mut attrs_buffer);
-        syn::visit_mut::visit_item_fn_mut(self, node);
     }
 }
 
@@ -674,7 +669,7 @@ pub(crate) mod arguments {
     pub(crate) struct ArgumentsInfo {
         args: HashMap<Ident, ArgumentInfo>,
         is_global_await: bool,
-        once: Option<Ident>
+        once: Option<Ident>,
     }
 
     impl ArgumentsInfo {

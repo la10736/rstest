@@ -7,8 +7,14 @@ use super::{arguments::FutureArg, extract_argument_attrs};
 
 pub(crate) fn extract_futures(
     item_fn: &mut ItemFn,
-) -> Result<(Vec<(Ident, FutureArg)>, bool), ErrorsVec> {
+) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
     let mut extractor = FutureFunctionExtractor::default();
+    extractor.visit_item_fn_mut(item_fn);
+    extractor.take()
+}
+
+pub(crate) fn extract_global_awt(item_fn: &mut ItemFn) -> Result<bool, ErrorsVec> {
+    let mut extractor = GlobalAwtExtractor::default();
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
 }
@@ -50,26 +56,24 @@ fn can_impl_future(ty: &Type) -> bool {
     )
 }
 
-/// Simple struct used to visit function attributes and extract future args to
-/// implement the boilerplate.
+/// Simple struct used to visit function attributes and extract global awt.
 #[derive(Default)]
-struct FutureFunctionExtractor {
-    futures: Vec<(Ident, FutureArg)>,
+struct GlobalAwtExtractor {
     awt: bool,
     errors: Vec<syn::Error>,
 }
 
-impl FutureFunctionExtractor {
-    pub(crate) fn take(self) -> Result<(Vec<(Ident, FutureArg)>, bool), ErrorsVec> {
+impl GlobalAwtExtractor {
+    pub(crate) fn take(self) -> Result<bool, ErrorsVec> {
         if self.errors.is_empty() {
-            Ok((self.futures, self.awt))
+            Ok(self.awt)
         } else {
             Err(self.errors.into())
         }
     }
 }
 
-impl VisitMut for FutureFunctionExtractor {
+impl VisitMut for GlobalAwtExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
         let attrs = std::mem::take(&mut node.attrs);
         let (awts, remain): (Vec<_>, Vec<_>) = attrs.into_iter().partition(|a| attr_is(a, "awt"));
@@ -87,9 +91,28 @@ impl VisitMut for FutureFunctionExtractor {
             std::cmp::Ordering::Less => false,
         };
         node.attrs = remain;
-        syn::visit_mut::visit_item_fn_mut(self, node);
     }
+}
 
+/// Simple struct used to visit function attributes and extract future args to
+/// implement the boilerplate.
+#[derive(Default)]
+struct FutureFunctionExtractor {
+    futures: Vec<(Ident, FutureArg)>,
+    errors: Vec<syn::Error>,
+}
+
+impl FutureFunctionExtractor {
+    pub(crate) fn take(self) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
+        if self.errors.is_empty() {
+            Ok(self.futures)
+        } else {
+            Err(self.errors.into())
+        }
+    }
+}
+
+impl VisitMut for FutureFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         if matches!(node, FnArg::Receiver(_)) {
             return;
@@ -158,7 +181,8 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let orig = item_fn.clone();
 
-        let (futures, awt) = extract_futures(&mut item_fn).unwrap();
+    let composed_tuple!(futures, awt) = 
+        merge_errors!(extract_futures(&mut item_fn), extract_global_awt(&mut item_fn)).unwrap();
 
         assert_eq!(orig, item_fn);
         assert!(futures.is_empty());
@@ -168,6 +192,7 @@ mod should {
     #[rstest]
     #[case::simple("fn f(#[future] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Define)], false)]
     #[case::global_awt("#[awt] fn f(a: u32) {}", "fn f(a: u32) {}", &[], true)]
+    #[case::global_awt_with_inner_function("#[awt] fn f(a: u32) { fn g(){} }", "fn f(a: u32) { fn g(){} }", &[], true)]
     #[case::simple_awaited("fn f(#[future(awt)] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Await)], false)]
     #[case::simple_awaited_and_global("#[awt] fn f(#[future(awt)] a: u32) {}", "fn f(a: u32) {}", &[("a", FutureArg::Await)], true)]
     #[case::more_than_one(
@@ -199,7 +224,8 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
 
-        let (futures, awt) = extract_futures(&mut item_fn).unwrap();
+    let composed_tuple!(futures, awt) = 
+        merge_errors!(extract_futures(&mut item_fn), extract_global_awt(&mut item_fn)).unwrap();
 
         assert_eq!(expected, item_fn);
         assert_eq!(
@@ -239,7 +265,7 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
 
-        let _ = extract_futures(&mut item_fn);
+        let _ = extract_global_awt(&mut item_fn);
 
         assert_eq!(item_fn, expected);
     }
@@ -253,7 +279,8 @@ mod should {
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
-        let err = extract_futures(&mut item_fn).unwrap_err();
+    let err = 
+        merge_errors!(extract_futures(&mut item_fn), extract_global_awt(&mut item_fn)).unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
     }
