@@ -3,7 +3,7 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use self::files::{extract_files, DefaultListExtractor, ValueListFromFiles};
+use self::files::{extract_files, ValueListFromFiles};
 
 use super::{
     arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
@@ -141,7 +141,7 @@ impl ExtendWithFunctionAttrs for RsTestData {
         self.items.extend(cases.into_iter().map(|f| f.into()));
         self.items.extend(value_list.into_iter().map(|f| f.into()));
         self.items.extend(
-            DefaultListExtractor::to_value_list(files)?
+            ValueListFromFiles::default().to_value_list(files)?
                 .into_iter()
                 .map(|f| f.into()),
         );

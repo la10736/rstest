@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf};
 
-use glob::{glob, Paths, PatternError};
+use glob::glob;
 use quote::ToTokens;
 use syn::{parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn, LitStr};
 
@@ -15,6 +15,12 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences(String);
+
+impl FilesGlobReferences {
+    fn error(&self, msg: &str) -> syn::Error {
+        syn::Error::new_spanned(&self.0, msg)
+    }
+}
 
 impl From<LitStr> for FilesGlobReferences {
     fn from(value: LitStr) -> Self {
@@ -83,42 +89,73 @@ impl VisitMut for ValueFilesExtractor {
     }
 }
 
-pub(crate) trait ValueListFromFiles {
-    fn to_value_list(
+trait BaseDir {
+    fn base_dir(&self) -> Result<PathBuf, std::env::VarError> {
+        env::var("CARGO_MANIFEST_DIR").map(PathBuf::from)
+    }
+}
+
+struct DefaultBaseDir;
+
+impl BaseDir for DefaultBaseDir {}
+
+trait GlobResolver {
+    fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
+        let pattern = pattern.as_ref();
+        let globs = glob(pattern).map_err(|e| format!("glob failed for whole path `{pattern}` due {e}"))?;
+        globs.into_iter()
+            .map(|p| 
+                p.map_err(|e| format!("glob failed for file due {e}"))
+            )
+            .map(|r| 
+                r.and_then(|p| 
+                    p.canonicalize().map_err(|e| format!("failed to canonicalize {} due {e}", p.display())))
+                )
+            .collect()
+    }
+}
+
+struct DefaultGlobResolver;
+
+impl GlobResolver for DefaultGlobResolver {}
+
+pub(crate) struct ValueListFromFiles<'a> {
+    base_dir: Box<dyn BaseDir + 'a>,
+    g_resolver: Box<dyn GlobResolver + 'a>
+}
+
+impl<'a> Default for ValueListFromFiles<'a> {
+    fn default() -> Self {
+        Self { g_resolver: Box::new(DefaultGlobResolver), base_dir: Box::new(DefaultBaseDir) }
+    }
+}
+
+impl<'a> ValueListFromFiles<'a> {
+    pub fn to_value_list(
+        &self,
         files: Vec<(Ident, FilesGlobReferences)>,
     ) -> Result<Vec<ValueList>, syn::Error> {
         files
             .into_iter()
             .map(|(arg, refs)| {
-                <Self as ValueListFromFiles>::file_list_values(refs)
+                self.file_list_values(refs)
                     .map(|values| ValueList { arg, values })
             })
             .collect::<Result<Vec<ValueList>, _>>()
     }
 
-    fn glob(pattern: impl AsRef<str>) -> Result<Paths, PatternError> {
-        glob(pattern.as_ref())
-    }
-
-    fn base_dir(refs: &FilesGlobReferences) -> Result<PathBuf, syn::Error> {
-        env::var("CARGO_MANIFEST_DIR")
-            .map_err(|_| syn::Error::new_spanned(&refs.0, "Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path"))
-            .map(PathBuf::from)
-    }
-
-    fn file_list_values(refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
-        let base_dir = Self::base_dir(&refs)?;
+    fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
+        let base_dir = self.base_dir.base_dir()
+            .map_err(|_| 
+                refs.error("Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path")
+            )?;
         let resolved_path = base_dir.join(&PathBuf::try_from(&refs.0).unwrap());
         let pattern = resolved_path.to_string_lossy();
 
-        let paths = Self::glob(&pattern)
-            .unwrap_or_else(|e| panic!("glob failed for whole path `{pattern}` due {e}"));
+        let paths = self.g_resolver.glob(pattern.as_ref())
+            .map_err(|msg| refs.error(&msg))?;
         let mut values: Vec<(Expr, String)> = vec![];
-        for path in paths {
-            let path = path.unwrap_or_else(|e| panic!("glob failed for file due {e}"));
-            let abs_path = path
-                .canonicalize()
-                .unwrap_or_else(|e| panic!("failed to canonicalize {} due {e}", path.display()));
+        for abs_path in paths {
             let path_name = abs_path.strip_prefix(&base_dir).unwrap();
 
             let path_str = abs_path.to_string_lossy();
@@ -131,7 +168,7 @@ pub(crate) trait ValueListFromFiles {
         }
 
         if values.is_empty() {
-            panic!("No file found")
+            Err(refs.error("No file found"))?;
         }
 
         Ok(values
@@ -140,10 +177,6 @@ pub(crate) trait ValueListFromFiles {
             .collect())
     }
 }
-
-pub(crate) struct DefaultListExtractor;
-
-impl ValueListFromFiles for DefaultListExtractor {}
 
 #[cfg(test)]
 mod should {
@@ -193,5 +226,55 @@ mod should {
         let err = extract_files(&mut item_fn).unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
+    }
+
+    struct FakeBaseDir(PathBuf);
+    impl From<&str> for FakeBaseDir {
+        fn from(value: &str) -> Self {
+            Self(PathBuf::from(value))
+        }
+    }
+    impl BaseDir for FakeBaseDir {
+        fn base_dir(&self) -> Result<PathBuf, std::env::VarError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    impl<'a> ValueListFromFiles<'a> {
+        fn new(bdir: impl BaseDir + 'a , g_resover: impl GlobResolver + 'a) -> Self {
+            Self { base_dir: Box::new(bdir), g_resolver: Box::new(g_resover) }
+        }
+    }
+
+    struct FakeResolver(Vec<String>);
+
+    impl From<&[&str]> for FakeResolver {
+        fn from(value: &[&str]) -> Self {
+            Self(value.iter().map(ToString::to_string).collect())
+        }
+    }
+
+    impl GlobResolver for FakeResolver {
+        fn glob(&self, _pattern: &str) -> Result<Vec<PathBuf>, String> {
+            Ok(self.0.iter().map(PathBuf::from).collect())
+        }
+    }
+
+    #[test]
+    fn generate_a_var_with_the_glob_resolved_path() {
+        let bdir = "/base";
+        let fresolver = FakeResolver::from(["/base/first", "/base/second"].as_slice());
+        let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), fresolver).to_value_list(
+            vec![(ident("a"),FilesGlobReferences("no_mater".to_string()))]
+        ).unwrap();
+
+        let mut expected = vec![values_list("a", &[
+            r#"<PathBuf as std::str::FromStr>::from_str("/base/first").unwrap()"#,
+            r#"<PathBuf as std::str::FromStr>::from_str("/base/second").unwrap()"#,
+            ])];
+        expected[0].values[0].description = Some("first".into());
+        expected[0].values[1].description = Some("second".into());
+
+        assert_eq!(expected, values);
     }
 }
