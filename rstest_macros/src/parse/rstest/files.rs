@@ -90,8 +90,12 @@ impl VisitMut for ValueFilesExtractor {
 }
 
 trait BaseDir {
-    fn base_dir(&self) -> Result<PathBuf, std::env::VarError> {
-        env::var("CARGO_MANIFEST_DIR").map(PathBuf::from)
+    fn base_dir(&self) -> Result<PathBuf, String> {
+        env::var("CARGO_MANIFEST_DIR")
+            .map(PathBuf::from)
+            .map_err(|_| 
+                "Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path".to_string()
+            )
     }
 }
 
@@ -102,15 +106,17 @@ impl BaseDir for DefaultBaseDir {}
 trait GlobResolver {
     fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
         let pattern = pattern.as_ref();
-        let globs = glob(pattern).map_err(|e| format!("glob failed for whole path `{pattern}` due {e}"))?;
-        globs.into_iter()
-            .map(|p| 
-                p.map_err(|e| format!("glob failed for file due {e}"))
-            )
-            .map(|r| 
-                r.and_then(|p| 
-                    p.canonicalize().map_err(|e| format!("failed to canonicalize {} due {e}", p.display())))
-                )
+        let globs =
+            glob(pattern).map_err(|e| format!("glob failed for whole path `{pattern}` due {e}"))?;
+        globs
+            .into_iter()
+            .map(|p| p.map_err(|e| format!("glob failed for file due {e}")))
+            .map(|r| {
+                r.and_then(|p| {
+                    p.canonicalize()
+                        .map_err(|e| format!("failed to canonicalize {} due {e}", p.display()))
+                })
+            })
             .collect()
     }
 }
@@ -121,12 +127,15 @@ impl GlobResolver for DefaultGlobResolver {}
 
 pub(crate) struct ValueListFromFiles<'a> {
     base_dir: Box<dyn BaseDir + 'a>,
-    g_resolver: Box<dyn GlobResolver + 'a>
+    g_resolver: Box<dyn GlobResolver + 'a>,
 }
 
 impl<'a> Default for ValueListFromFiles<'a> {
     fn default() -> Self {
-        Self { g_resolver: Box::new(DefaultGlobResolver), base_dir: Box::new(DefaultBaseDir) }
+        Self {
+            g_resolver: Box::new(DefaultGlobResolver),
+            base_dir: Box::new(DefaultBaseDir),
+        }
     }
 }
 
@@ -145,14 +154,13 @@ impl<'a> ValueListFromFiles<'a> {
     }
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
-        let base_dir = self.base_dir.base_dir()
-            .map_err(|_| 
-                refs.error("Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path")
-            )?;
+        let base_dir = self.base_dir.base_dir().map_err(|msg| refs.error(&msg))?;
         let resolved_path = base_dir.join(&PathBuf::try_from(&refs.0).unwrap());
         let pattern = resolved_path.to_string_lossy();
 
-        let paths = self.g_resolver.glob(pattern.as_ref())
+        let paths = self
+            .g_resolver
+            .glob(pattern.as_ref())
             .map_err(|msg| refs.error(&msg))?;
         let mut values: Vec<(Expr, String)> = vec![];
         for abs_path in paths {
@@ -228,6 +236,7 @@ mod should {
         assert_in!(format!("{:?}", err), message);
     }
 
+    #[derive(Default)]
     struct FakeBaseDir(PathBuf);
     impl From<&str> for FakeBaseDir {
         fn from(value: &str) -> Self {
@@ -235,17 +244,21 @@ mod should {
         }
     }
     impl BaseDir for FakeBaseDir {
-        fn base_dir(&self) -> Result<PathBuf, std::env::VarError> {
+        fn base_dir(&self) -> Result<PathBuf, String> {
             Ok(self.0.clone())
         }
     }
 
     impl<'a> ValueListFromFiles<'a> {
-        fn new(bdir: impl BaseDir + 'a , g_resover: impl GlobResolver + 'a) -> Self {
-            Self { base_dir: Box::new(bdir), g_resolver: Box::new(g_resover) }
+        fn new(bdir: impl BaseDir + 'a, g_resover: impl GlobResolver + 'a) -> Self {
+            Self {
+                base_dir: Box::new(bdir),
+                g_resolver: Box::new(g_resover),
+            }
         }
     }
 
+    #[derive(Default)]
     struct FakeResolver(Vec<String>);
 
     impl From<&[&str]> for FakeResolver {
@@ -261,20 +274,62 @@ mod should {
     }
 
     #[test]
-    fn generate_a_var_with_the_glob_resolved_path() {
+    fn generate_a_variable_with_the_glob_resolved_path() {
         let bdir = "/base";
         let fresolver = FakeResolver::from(["/base/first", "/base/second"].as_slice());
-        let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), fresolver).to_value_list(
-            vec![(ident("a"),FilesGlobReferences("no_mater".to_string()))]
-        ).unwrap();
+        let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), fresolver)
+            .to_value_list(vec![(
+                ident("a"),
+                FilesGlobReferences("no_mater".to_string()),
+            )])
+            .unwrap();
 
-        let mut expected = vec![values_list("a", &[
-            r#"<PathBuf as std::str::FromStr>::from_str("/base/first").unwrap()"#,
-            r#"<PathBuf as std::str::FromStr>::from_str("/base/second").unwrap()"#,
-            ])];
+        let mut expected = vec![values_list(
+            "a",
+            &[
+                r#"<PathBuf as std::str::FromStr>::from_str("/base/first").unwrap()"#,
+                r#"<PathBuf as std::str::FromStr>::from_str("/base/second").unwrap()"#,
+            ],
+        )];
         expected[0].values[0].description = Some("first".into());
         expected[0].values[1].description = Some("second".into());
 
         assert_eq!(expected, values);
+    }
+
+    #[test]
+    #[should_panic(expected = "Fake error")]
+    fn raise_error_if_fail_to_get_root() {
+        #[derive(Default)]
+        struct ErrorBaseDir;
+        impl BaseDir for ErrorBaseDir {
+            fn base_dir(&self) -> Result<PathBuf, String> {
+                Err("Fake error".to_string())
+            }
+        }
+
+        ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
+            .to_value_list(vec![(
+                ident("a"),
+                FilesGlobReferences("no_mater".to_string()),
+            )])
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "No file found")]
+    fn raise_error_if_no_files_found() {
+        ValueListFromFiles::new(FakeBaseDir::default(), FakeResolver::default())
+            .to_value_list(vec![(
+                ident("a"),
+                FilesGlobReferences("no_mater".to_string()),
+            )])
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "glob failed")]
+    fn default_glob_resolver_raise_error_if_invalid_glob_path() {
+        DefaultGlobResolver.glob("/invalid/path/***").unwrap();
     }
 }
