@@ -273,7 +273,7 @@ use std::future::Future;
 #[case(2, async { 4 })]
 #[case(21, async { 42 })]
 #[actix_rt::test]
-async fn my_async_test(#[case] a: u32, result: #[case] #[future] u32) {
+async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
     assert_eq!(2 * a, result.await);
 }
 ```
