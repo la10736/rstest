@@ -3,6 +3,7 @@ use std::{env, path::PathBuf};
 use glob::glob;
 use quote::{ToTokens, format_ident};
 use regex::Regex;
+use relative_path::RelativePath;
 use syn::{parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn, LitStr, parse::Parse, Token, parenthesized};
 
 use crate::{
@@ -34,9 +35,9 @@ impl FilesGlobReferences {
         syn::Error::new_spanned(&self.0, msg)
     }
 
-    fn is_valid(&self, p: &PathBuf) -> bool {
+    fn is_valid(&self, p: &RelativePath) -> bool {
         match self.1.as_ref() {
-            Some(exclude) => !exclude.r.is_match(&p.as_os_str().to_string_lossy()),
+            Some(exclude) => !exclude.r.is_match(&p.to_string()),
             None => true,
         }
     }
@@ -216,7 +217,10 @@ impl<'a> ValueListFromFiles<'a> {
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
         let base_dir = self.base_dir.base_dir().map_err(|msg| refs.error(&msg))?;
-        let resolved_path = base_dir.join(&PathBuf::try_from(&refs.0.value()).unwrap());
+        let resolved_path = 
+            RelativePath::from_path(&refs.0.value())
+            .map_err(|e| refs.error(&format!("Invalid glob path: {e}")))?
+            .to_logical_path(&base_dir);
         let pattern = resolved_path.to_string_lossy();
 
         let paths = self
@@ -224,15 +228,20 @@ impl<'a> ValueListFromFiles<'a> {
             .glob(pattern.as_ref())
             .map_err(|msg| refs.error(&msg))?;
         let mut values: Vec<(Expr, String)> = vec![];
-        for abs_path in paths.into_iter().filter(|p| refs.is_valid(p)) {
-            let path_name = abs_path.strip_prefix(&base_dir).unwrap();
+
+        for abs_path in paths {
+            let relative_path = abs_path.strip_prefix(&base_dir).unwrap();
+            if !refs.is_valid(&RelativePath::from_path(relative_path)
+                .map_err(|e| refs.error(&format!("Invalid glob path: {e}")))?) {
+                continue;
+            }           
 
             let path_str = abs_path.to_string_lossy();
             values.push((
                 parse_quote! {
                     <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
                 },
-                path_name.to_string_lossy().to_string(),
+                relative_path.to_string_lossy().to_string(),
             ));
         }
 
