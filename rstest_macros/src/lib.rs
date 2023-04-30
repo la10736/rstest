@@ -753,9 +753,9 @@ pub fn fixture(
 ///     assert_eq!(expected, base.await / div);
 /// }
 /// ```
-/// 
+///
 /// ### Default timeout
-/// 
+///
 /// You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
 /// The value is in seconds and is evaluated on test compile time.///
 ///
@@ -764,7 +764,7 @@ pub fn fixture(
 /// You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
 /// works both for sync and async tests and is runtime agnostic. `#[timeout(<duration>)]` take an
 /// expression that should return a `std::time::Duration`. Follow a simple async example:
-/// 
+///
 /// ```rust
 /// use rstest::*;
 /// use std::time::Duration;

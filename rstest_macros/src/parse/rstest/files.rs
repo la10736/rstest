@@ -1,10 +1,13 @@
 use std::{env, path::PathBuf};
 
 use glob::glob;
-use quote::{ToTokens, format_ident};
+use quote::{format_ident, ToTokens};
 use regex::Regex;
 use relative_path::RelativePath;
-use syn::{parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn, LitStr, parse::Parse, Token, parenthesized};
+use syn::{
+    parenthesized, parse::Parse, parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn,
+    LitStr, Token,
+};
 
 use crate::{
     error::ErrorsVec,
@@ -16,27 +19,37 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct FilesGlobReferences(LitStr, Option<Exclude>);
+pub(crate) struct FilesGlobReferences {
+    glob: LitStr,
+    exclude: Option<Exclude>,
+    ignore_dot_files: bool,
+}
 
 impl Parse for FilesGlobReferences {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let path = input.parse()?;
-        let exclude = 
-            input.parse::<Option<Token![,]>>()?
-                .map(|_comma|
-                    input.parse::<Exclude>()
-            ).transpose()?;
-        Ok(Self(path, exclude))
+        let glob = input.parse()?;
+        let exclude = input
+            .parse::<Option<Token![,]>>()?
+            .map(|_comma| input.parse::<Exclude>())
+            .transpose()?;
+        Ok(Self::new(glob, exclude, true))
     }
 }
 
 impl FilesGlobReferences {
+    fn new(glob: LitStr, exclude: Option<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
+
     fn error(&self, msg: &str) -> syn::Error {
-        syn::Error::new_spanned(&self.0, msg)
+        syn::Error::new_spanned(&self.glob, msg)
     }
 
     fn is_valid(&self, p: &RelativePath) -> bool {
-        match self.1.as_ref() {
+        if self.ignore_dot_files {
+            if p.components().into_iter().any(|c| c.as_str().starts_with('.')) {
+                return false;
+            }
+        }
+        match self.exclude.as_ref() {
             Some(exclude) => !exclude.r.is_match(&p.to_string()),
             None => true,
         }
@@ -49,7 +62,6 @@ struct Exclude {
     r: Regex,
 }
 
-
 impl PartialEq for Exclude {
     fn eq(&self, other: &Self) -> bool {
         self.s == other.s
@@ -58,35 +70,34 @@ impl PartialEq for Exclude {
 
 impl Parse for Exclude {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        input.parse::<Ident>()
-            .and_then(
-                |name| if name == format_ident!("exclude") {
+        input
+            .parse::<Ident>()
+            .and_then(|name| {
+                if name == format_ident!("exclude") {
                     Ok(())
                 } else {
-                    Err(syn::Error::new_spanned(name, r#"Use exclude("<regex>") to exclude some patters"#))
+                    Err(syn::Error::new_spanned(
+                        name,
+                        r#"Use exclude("<regex>") to exclude some patters"#,
+                    ))
                 }
-            )
-            .and_then(
-                |_| {
-                    let content;
-                    let _ = parenthesized!(content in input);
-                    let s: LitStr = content.parse()?;
-                    regex::Regex::new(&s.value())
-                        .map_err(|e| syn::Error::new_spanned(&s, format!("Should be a valid regex: {}", e)))
-                        .map(|r| 
-                            Self {
-                                s,
-                                r
-                            }
-                        )
-                }
-            )
+            })
+            .and_then(|_| {
+                let content;
+                let _ = parenthesized!(content in input);
+                let s: LitStr = content.parse()?;
+                regex::Regex::new(&s.value())
+                    .map_err(|e| {
+                        syn::Error::new_spanned(&s, format!("Should be a valid regex: {}", e))
+                    })
+                    .map(|r| Self { s, r })
+            })
     }
 }
 
 impl From<LitStr> for FilesGlobReferences {
     fn from(value: LitStr) -> Self {
-        Self(value, None)
+        Self::new(value, None, true)
     }
 }
 
@@ -124,7 +135,10 @@ impl VisitMut for ValueFilesExtractor {
         match extract_argument_attrs(
             node,
             |a| attr_is(a, "files"),
-            |attr, name| attr.parse_args::<FilesGlobReferences>().map(|s| (attr, name.clone(), s)),
+            |attr, name| {
+                attr.parse_args::<FilesGlobReferences>()
+                    .map(|s| (attr, name.clone(), s))
+            },
         )
         .collect::<Result<Vec<_>, _>>()
         {
@@ -217,8 +231,7 @@ impl<'a> ValueListFromFiles<'a> {
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
         let base_dir = self.base_dir.base_dir().map_err(|msg| refs.error(&msg))?;
-        let resolved_path = 
-            RelativePath::from_path(&refs.0.value())
+        let resolved_path = RelativePath::from_path(&refs.glob.value())
             .map_err(|e| refs.error(&format!("Invalid glob path: {e}")))?
             .to_logical_path(&base_dir);
         let pattern = resolved_path.to_string_lossy();
@@ -231,10 +244,12 @@ impl<'a> ValueListFromFiles<'a> {
 
         for abs_path in paths {
             let relative_path = abs_path.strip_prefix(&base_dir).unwrap();
-            if !refs.is_valid(&RelativePath::from_path(relative_path)
-                .map_err(|e| refs.error(&format!("Invalid glob path: {e}")))?) {
+            if !refs.is_valid(
+                &RelativePath::from_path(relative_path)
+                    .map_err(|e| refs.error(&format!("Invalid glob path: {e}")))?,
+            ) {
                 continue;
-            }           
+            }
 
             let path_str = abs_path.to_string_lossy();
             values.push((
@@ -264,7 +279,7 @@ mod should {
 
     fn lit_str(lstr: impl AsRef<str>) -> LitStr {
         let lstr = lstr.as_ref();
-        parse_quote!{
+        parse_quote! {
             #lstr
         }
     }
@@ -273,7 +288,7 @@ mod should {
         fn from(value: &str) -> Self {
             Self {
                 s: lit_str(value),
-                r: regex::Regex::new(value).unwrap()
+                r: regex::Regex::new(value).unwrap(),
             }
         }
     }
@@ -304,8 +319,10 @@ mod should {
             files,
             expected_files
                 .into_iter()
-                .map(|(id, a, ex)| (ident(id), FilesGlobReferences(lit_str(a), 
-                ex.map(|ex| ex.into()))))
+                .map(|(id, a, ex)| (
+                    ident(id),
+                    FilesGlobReferences::new(lit_str(a), ex.map(|ex| ex.into()), true)
+                ))
                 .collect::<Vec<_>>()
         );
     }
@@ -363,35 +380,47 @@ mod should {
     }
 
     #[rstest]
-    #[case::simple("/base", FakeResolver::from(["/base/first", "/base/second"].as_slice()), None, &["first", "second"])]
+    #[case::simple("/base", FakeResolver::from(["/base/first", "/base/second"].as_slice()), None, true, &["first", "second"])]
     #[case::exclude("/base", FakeResolver::from([
         "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/second"].as_slice()), 
-        Some(Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() }), &["first", "second"])]
+        Some(Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() }), true, &["first", "second"])]
+    #[case::ignore_dot_files("/base", FakeResolver::from([
+        "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
+        None, true, &["first", "second/but_include"])]
+    #[case::include_dot_files("/base", FakeResolver::from([
+        "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
+        None, false, &["first", ".ignore", ".ignore_dir/a", "second/.not", "second/but_include", "in/.out/other/ignored"])]
     fn generate_a_variable_with_the_glob_resolved_path(
-        #[case] bdir: &str, 
+        #[case] bdir: &str,
         #[case] resolver: impl GlobResolver,
         #[case] exclude: Option<Exclude>,
-        #[case] expected: &[&str]
+        #[case] ignore_dot_files: bool,
+        #[case] expected: &[&str],
     ) {
         let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences(lit_str("no_mater"), 
-                exclude),
+                FilesGlobReferences::new(lit_str("no_mater"), exclude, ignore_dot_files),
             )])
             .unwrap();
 
-        let mut v_list = values_list("a", 
+        let mut v_list = values_list(
+            "a",
             &expected
-                    .iter()
-                    .map(|p| format!(r#"<PathBuf as std::str::FromStr>::from_str("{}/{}").unwrap()"#, bdir, p))
-                    .collect::<Vec<_>>()
+                .iter()
+                .map(|p| {
+                    format!(
+                        r#"<PathBuf as std::str::FromStr>::from_str("{}/{}").unwrap()"#,
+                        bdir, p
+                    )
+                })
+                .collect::<Vec<_>>(),
         );
-        v_list.values.iter_mut()
+        v_list
+            .values
+            .iter_mut()
             .zip(expected.iter())
-            .for_each(
-                |(v, &ex)| v.description = Some(ex.into())
-            );
+            .for_each(|(v, &ex)| v.description = Some(ex.into()));
         assert_eq!(vec![v_list], values);
     }
 
@@ -409,7 +438,7 @@ mod should {
         ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences(lit_str("no_mater"), None),
+                FilesGlobReferences::new(lit_str("no_mater"), None, true),
             )])
             .unwrap();
     }
@@ -420,7 +449,7 @@ mod should {
         ValueListFromFiles::new(FakeBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences(lit_str("no_mater"), None),
+                FilesGlobReferences::new(lit_str("no_mater"), None, true),
             )])
             .unwrap();
     }

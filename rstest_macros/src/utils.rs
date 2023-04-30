@@ -1,8 +1,8 @@
 /// Contains some unsorted functions used across others modules
 ///
 use quote::format_ident;
-use unicode_ident::is_xid_continue;
 use std::collections::{HashMap, HashSet};
+use unicode_ident::is_xid_continue;
 
 use crate::refident::MaybeIdent;
 use syn::{Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Type, WherePredicate};
@@ -285,7 +285,6 @@ pub(crate) fn sanitize_ident(name: &str) -> String {
         .filter(|&c| is_xid_continue(c))
         .collect()
 }
-
 
 #[cfg(test)]
 mod test {

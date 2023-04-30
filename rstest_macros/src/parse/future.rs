@@ -5,9 +5,7 @@ use crate::{error::ErrorsVec, refident::MaybeType, utils::attr_is};
 
 use super::{arguments::FutureArg, extract_argument_attrs};
 
-pub(crate) fn extract_futures(
-    item_fn: &mut ItemFn,
-) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
+pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
     let mut extractor = FutureFunctionExtractor::default();
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
@@ -181,8 +179,11 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let orig = item_fn.clone();
 
-    let composed_tuple!(futures, awt) = 
-        merge_errors!(extract_futures(&mut item_fn), extract_global_awt(&mut item_fn)).unwrap();
+        let composed_tuple!(futures, awt) = merge_errors!(
+            extract_futures(&mut item_fn),
+            extract_global_awt(&mut item_fn)
+        )
+        .unwrap();
 
         assert_eq!(orig, item_fn);
         assert!(futures.is_empty());
@@ -224,8 +225,11 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
 
-    let composed_tuple!(futures, awt) = 
-        merge_errors!(extract_futures(&mut item_fn), extract_global_awt(&mut item_fn)).unwrap();
+        let composed_tuple!(futures, awt) = merge_errors!(
+            extract_futures(&mut item_fn),
+            extract_global_awt(&mut item_fn)
+        )
+        .unwrap();
 
         assert_eq!(expected, item_fn);
         assert_eq!(
@@ -279,8 +283,11 @@ mod should {
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
-    let err = 
-        merge_errors!(extract_futures(&mut item_fn), extract_global_awt(&mut item_fn)).unwrap_err();
+        let err = merge_errors!(
+            extract_futures(&mut item_fn),
+            extract_global_awt(&mut item_fn)
+        )
+        .unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
     }

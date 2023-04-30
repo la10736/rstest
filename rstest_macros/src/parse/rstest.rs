@@ -6,10 +6,13 @@ use syn::{
 use self::files::{extract_files, ValueListFromFiles};
 
 use super::{
-    arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
-    extract_excluded_trace, extract_fixtures, extract_value_list, future::{extract_futures, extract_global_awt},
-    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
-    Fixture, testcase::TestCase,
+    arguments::ArgumentsInfo,
+    check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
+    extract_fixtures, extract_value_list,
+    future::{extract_futures, extract_global_awt},
+    parse_vector_trailing_till_double_comma,
+    testcase::TestCase,
+    Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::parse::vlist::ValueList;
 use crate::{
@@ -141,7 +144,8 @@ impl ExtendWithFunctionAttrs for RsTestData {
         self.items.extend(cases.into_iter().map(|f| f.into()));
         self.items.extend(value_list.into_iter().map(|f| f.into()));
         self.items.extend(
-            ValueListFromFiles::default().to_value_list(files)?
+            ValueListFromFiles::default()
+                .to_value_list(files)?
                 .into_iter()
                 .map(|f| f.into()),
         );
