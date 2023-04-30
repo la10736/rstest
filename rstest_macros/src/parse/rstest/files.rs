@@ -33,6 +33,13 @@ impl FilesGlobReferences {
     fn error(&self, msg: &str) -> syn::Error {
         syn::Error::new_spanned(&self.0, msg)
     }
+
+    fn is_valid(&self, p: &PathBuf) -> bool {
+        match self.1.as_ref() {
+            Some(exclude) => !exclude.r.is_match(&p.as_os_str().to_string_lossy()),
+            None => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -217,7 +224,7 @@ impl<'a> ValueListFromFiles<'a> {
             .glob(pattern.as_ref())
             .map_err(|msg| refs.error(&msg))?;
         let mut values: Vec<(Expr, String)> = vec![];
-        for abs_path in paths {
+        for abs_path in paths.into_iter().filter(|p| refs.is_valid(p)) {
             let path_name = abs_path.strip_prefix(&base_dir).unwrap();
 
             let path_str = abs_path.to_string_lossy();
@@ -346,28 +353,37 @@ mod should {
         }
     }
 
-    #[test]
-    fn generate_a_variable_with_the_glob_resolved_path() {
-        let bdir = "/base";
-        let fresolver = FakeResolver::from(["/base/first", "/base/second"].as_slice());
-        let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), fresolver)
+    #[rstest]
+    #[case::simple("/base", FakeResolver::from(["/base/first", "/base/second"].as_slice()), None, &["first", "second"])]
+    #[case::exclude("/base", FakeResolver::from([
+        "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/second"].as_slice()), 
+        Some(Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() }), &["first", "second"])]
+    fn generate_a_variable_with_the_glob_resolved_path(
+        #[case] bdir: &str, 
+        #[case] resolver: impl GlobResolver,
+        #[case] exclude: Option<Exclude>,
+        #[case] expected: &[&str]
+    ) {
+        let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences(lit_str("no_mater"), None),
+                FilesGlobReferences(lit_str("no_mater"), 
+                exclude),
             )])
             .unwrap();
 
-        let mut expected = vec![values_list(
-            "a",
-            &[
-                r#"<PathBuf as std::str::FromStr>::from_str("/base/first").unwrap()"#,
-                r#"<PathBuf as std::str::FromStr>::from_str("/base/second").unwrap()"#,
-            ],
-        )];
-        expected[0].values[0].description = Some("first".into());
-        expected[0].values[1].description = Some("second".into());
-
-        assert_eq!(expected, values);
+        let mut v_list = values_list("a", 
+            &expected
+                    .iter()
+                    .map(|p| format!(r#"<PathBuf as std::str::FromStr>::from_str("{}/{}").unwrap()"#, bdir, p))
+                    .collect::<Vec<_>>()
+        );
+        v_list.values.iter_mut()
+            .zip(expected.iter())
+            .for_each(
+                |(v, &ex)| v.description = Some(ex.into())
+            );
+        assert_eq!(vec![v_list], values);
     }
 
     #[test]
