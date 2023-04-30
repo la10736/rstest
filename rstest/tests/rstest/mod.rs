@@ -1501,7 +1501,7 @@ mod should_show_correct_errors {
             output.stderr.str(),
             "
             105 | #[timeout(42)]
-                |           ^^ expected struct `Duration`, found integer
+                |           ^^ expected `Duration`, found integer
             "
             .unindent()
         );
