@@ -21,7 +21,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences {
     glob: Vec<LitStr>,
-    exclude: Option<Exclude>,
+    exclude: Vec<Exclude>,
     ignore_dot_files: bool,
 }
 
@@ -32,7 +32,7 @@ impl Parse for FilesGlobReferences {
             .parse::<Option<Token![,]>>()?
             .map(|_comma| input.parse::<Exclude>())
             .transpose()?;
-        Ok(Self::new(glob, exclude, true))
+        Ok(Self::new(glob, exclude.into_iter().collect(), true))
     }
 }
 
@@ -45,7 +45,7 @@ trait RaiseError: ToTokens {
 impl RaiseError for LitStr {}
 
 impl FilesGlobReferences {
-    fn new(glob: Vec<LitStr>, exclude: Option<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
+    fn new(glob: Vec<LitStr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
 
     fn is_valid(&self, p: &RelativePath) -> bool {
         if self.ignore_dot_files {
@@ -53,10 +53,7 @@ impl FilesGlobReferences {
                 return false;
             }
         }
-        match self.exclude.as_ref() {
-            Some(exclude) => !exclude.r.is_match(&p.to_string()),
-            None => true,
-        }
+        !self.exclude.iter().any(|e| e.r.is_match(&p.to_string()))
     }
 }
 
@@ -101,7 +98,7 @@ impl Parse for Exclude {
 
 impl From<Vec<LitStr>> for FilesGlobReferences {
     fn from(value: Vec<LitStr>) -> Self {
-        Self::new(value, None, true)
+        Self::new(value, Default::default(), true)
     }
 }
 
@@ -343,7 +340,7 @@ mod should {
                 .into_iter()
                 .map(|(id, a, ex)| (
                     ident(id),
-                    FilesGlobReferences::new(vec![lit_str(a)], ex.map(|ex| ex.into()), true)
+                    FilesGlobReferences::new(vec![lit_str(a)], ex.map(|ex| ex.into()).into_iter().collect(), true)
                 ))
                 .collect::<Vec<_>>()
         );
@@ -425,34 +422,40 @@ mod should {
     }
 
     #[rstest]
-    #[case::simple("/base", None, FakeResolver::from(["/base/first", "/base/second"].as_slice()), None, true, &["first", "second"])]
+    #[case::simple("/base", None, FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["first", "second"])]
     #[case::more_glob("/base", Some(["path1", "path2"].as_slice()), FakeMapResolver::from(
         ("/base", &hashmap!(
             "path1" => ["first", "second"].as_slice(),
             "path2" => ["third", "zzzz"].as_slice()
         ))
-    ), None, true, &["first", "second", "third", "zzzz"])]
+    ), vec![], true, &["first", "second", "third", "zzzz"])]
     #[case::should_remove_duplicates("/base", Some(["path1", "path2"].as_slice()), FakeMapResolver::from(
         ("/base", &hashmap!(
             "path1" => ["first", "second"].as_slice(),
             "path2" => ["second", "third"].as_slice()
         ))
-    ), None, true, &["first", "second", "third"])]
-    #[case::should_sort("/base", None, FakeResolver::from(["/base/second", "/base/first"].as_slice()), None, true, &["first", "second"])]
+    ), vec![], true, &["first", "second", "third"])]
+    #[case::should_sort("/base", None, FakeResolver::from(["/base/second", "/base/first"].as_slice()), vec![], true, &["first", "second"])]
     #[case::exclude("/base", None, FakeResolver::from([
         "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/second"].as_slice()), 
-        Some(Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() }), true, &["first", "second"])]
+        vec![Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() }], true, &["first", "second"])]
+    #[case::exclude_more("/base", None, FakeResolver::from([
+        "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/some/other", "/base/second"].as_slice()), 
+        vec![
+            Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() },
+            Exclude { s: lit_str("no_mater"), r: Regex::new("some").unwrap() },
+            ], true, &["first", "second"])]
     #[case::ignore_dot_files("/base", None, FakeResolver::from([
         "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
-        None, true, &["first", "second/but_include"])]
+        vec![], true, &["first", "second/but_include"])]
     #[case::include_dot_files("/base", None, FakeResolver::from([
         "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
-        None, false, &[".ignore", ".ignore_dir/a", "first", "in/.out/other/ignored", "second/.not", "second/but_include"])]
+        vec![], false, &[".ignore", ".ignore_dir/a", "first", "in/.out/other/ignored", "second/.not", "second/but_include"])]
     fn generate_a_variable_with_the_glob_resolved_path(
         #[case] bdir: &str,
         #[case] paths: Option<&[&str]>,
         #[case] resolver: impl GlobResolver,
-        #[case] exclude: Option<Exclude>,
+        #[case] exclude: Vec<Exclude>,
         #[case] ignore_dot_files: bool,
         #[case] expected: &[&str],
     ) {
@@ -500,7 +503,7 @@ mod should {
         ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(vec![lit_str("no_mater")], None, true),
+                FilesGlobReferences::new(vec![lit_str("no_mater")], Default::default(), true),
             )])
             .unwrap();
     }
@@ -511,7 +514,7 @@ mod should {
         ValueListFromFiles::new(FakeBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(vec![lit_str("no_mater")], None, true),
+                FilesGlobReferences::new(vec![lit_str("no_mater")], Default::default(), true),
             )])
             .unwrap();
     }
