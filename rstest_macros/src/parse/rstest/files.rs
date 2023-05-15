@@ -1,12 +1,12 @@
 use std::{env, path::PathBuf};
 
 use glob::glob;
-use quote::{format_ident, ToTokens};
+use quote::ToTokens;
 use regex::Regex;
 use relative_path::RelativePath;
 use syn::{
-    parenthesized, parse::Parse, parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn,
-    LitStr, Token,
+    parse::Parse, parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn,
+    LitStr, Token, Attribute,
 };
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
         extract_argument_attrs,
         vlist::{Value, ValueList},
     },
-    utils::attr_is,
+    utils::attr_is, refident::MaybeIdent,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,17 +25,6 @@ pub(crate) struct FilesGlobReferences {
     ignore_dot_files: bool,
 }
 
-impl Parse for FilesGlobReferences {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let glob = vec![input.parse()?];
-        let exclude = input
-            .parse::<Option<Token![,]>>()?
-            .map(|_comma| input.parse::<Exclude>())
-            .transpose()?;
-        Ok(Self::new(glob, exclude.into_iter().collect(), true))
-    }
-}
-
 trait RaiseError: ToTokens {
     fn error(&self, msg: &str) -> syn::Error {
         syn::Error::new_spanned(&self, msg)
@@ -43,6 +32,8 @@ trait RaiseError: ToTokens {
 }
 
 impl RaiseError for LitStr {}
+impl RaiseError for Attribute {}
+impl RaiseError for syn::Path {}
 
 impl FilesGlobReferences {
     fn new(glob: Vec<LitStr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
@@ -59,6 +50,7 @@ impl FilesGlobReferences {
 
 #[derive(Debug, Clone)]
 struct Exclude {
+    attr: Attribute,
     s: LitStr,
     r: Regex,
 }
@@ -69,30 +61,16 @@ impl PartialEq for Exclude {
     }
 }
 
-impl Parse for Exclude {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        input
-            .parse::<Ident>()
-            .and_then(|name| {
-                if name == format_ident!("exclude") {
-                    Ok(())
-                } else {
-                    Err(syn::Error::new_spanned(
-                        name,
-                        r#"Use exclude("<regex>") to exclude some patters"#,
-                    ))
-                }
-            })
-            .and_then(|_| {
-                let content;
-                let _ = parenthesized!(content in input);
-                let s: LitStr = content.parse()?;
-                regex::Regex::new(&s.value())
-                    .map_err(|e| {
-                        syn::Error::new_spanned(&s, format!("Should be a valid regex: {}", e))
-                    })
-                    .map(|r| Self { s, r })
-            })
+impl TryFrom<Attribute> for Exclude {
+    type Error = syn::Error;
+
+    fn try_from(attr: Attribute) -> Result<Self, Self::Error> {
+        let s = attr.parse_args::<LitStr>()?;
+        let r = regex::Regex::new(&s.value())
+            .map_err(|e| {
+                syn::Error::new_spanned(&s, format!("Should be a valid regex: {}", e))
+            })?;
+        Ok(Self { attr, s, r })
     }
 }
 
@@ -130,39 +108,93 @@ impl ValueFilesExtractor {
 
 impl VisitMut for ValueFilesExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        if matches!(node, FnArg::Receiver(_)) {
+        let name = node.maybe_ident().cloned();
+        if matches!(node, FnArg::Receiver(_)) || name.is_none(){
             return;
         }
-        match extract_argument_attrs(
+        let name = name.unwrap();
+        let files = extract_argument_attrs(
             node,
             |a| attr_is(a, "files"),
-            |attr, name| {
-                attr.parse_args::<FilesGlobReferences>()
-                    .map(|s| (attr, name.clone(), s))
+            |attr, _| {
+                attr.parse_args::<LitStr>()
             },
         )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            Ok(files) => match files.len().cmp(&1) {
-                std::cmp::Ordering::Equal => self.files.push({
-                    let (_, name, s) = files.into_iter().next().unwrap();
-                    (name, s)
-                }),
-                std::cmp::Ordering::Greater => {
-                    self.errors
-                        .extend(files.iter().skip(1).map(|(attr, _name, _s)| {
-                            syn::Error::new_spanned(
-                                attr.into_token_stream(),
-                                "Cannot use #[files] more than once.".to_owned(),
-                            )
-                        }));
-                }
-                std::cmp::Ordering::Less => {}
+        .collect::<Result<Vec<_>, _>>();
+        let files = match files {
+            Ok(files) => {
+                files
             },
             Err(e) => {
                 self.errors.push(e);
+                vec![]
             }
         };
+        let excludes = extract_argument_attrs(
+            node,
+            |a| attr_is(a, "exclude"),
+            |attr, _| {
+                Exclude::try_from(attr)
+            },
+        )
+        .collect::<Result<Vec<_>, _>>();
+        let excludes = match excludes {
+            Ok(excludes) => {
+                excludes
+            },
+            Err(e) => {
+                self.errors.push(e);
+                vec![]
+            }
+        };
+        let include_dot_files = extract_argument_attrs(
+            node,
+            |a| attr_is(a, "include_dot_files"),
+            |attr, _| {
+                attr.meta
+                    .require_path_only()
+                    .map_err(|_| 
+                        attr.error("Use #[include_dot_files] to include dot files")
+                    )
+                    .cloned()
+            },
+        )
+        .collect::<Result<Vec<_>, _>>();
+        let include_dot_files = match include_dot_files {
+            Ok(include_dot_files) => {
+                include_dot_files
+            },
+            Err(e) => {
+                self.errors.push(e);
+                vec![]
+            }
+        };
+        if include_dot_files.len() > 0 {
+            include_dot_files.iter().skip(1).for_each(
+                |path| self.errors.push(
+                    path.error("Cannot use #[include_dot_files] more than once")
+                )
+            )
+            
+        } 
+        if files.len() > 0 {
+            self.files.push((
+                name,
+                FilesGlobReferences::new(files, excludes, include_dot_files.is_empty())
+            )
+            )
+        } else {
+            excludes.into_iter().for_each(|e|
+                self.errors.push(
+                    e.s.error("You cannot use #[exclude(...)] without #[files(...)]")
+                )
+            );
+            include_dot_files.into_iter().for_each(|path|
+                self.errors.push(
+                    path.error("You cannot use #[include_dot_files] without #[files(...)]")
+                )
+            );
+        }
     }
 }
 
@@ -303,9 +335,21 @@ mod should {
         }
     }
 
+    impl Exclude {
+        fn fake(value: &str, r: Option<Regex>) -> Self {
+            let r = r.unwrap_or_else(|| regex::Regex::new(value).unwrap());
+            Self {
+                attr: attrs(&format!(r#"#[exclude("{}")]"#, value)).into_iter().next().unwrap(),
+                s: lit_str(value),
+                r,
+            }
+        }
+    }
+
     impl From<&str> for Exclude {
         fn from(value: &str) -> Self {
             Self {
+                attr: attrs(&format!(r#"#[exclude("{}")]"#, value)).into_iter().next().unwrap(),
                 s: lit_str(value),
                 r: regex::Regex::new(value).unwrap(),
             }
@@ -313,20 +357,30 @@ mod should {
     }
 
     #[rstest]
-    #[case::simple(r#"fn f(#[files("some_glob")] a: PathBuf) {}"#, "fn f(a: PathBuf) {}", &[("a", "some_glob", None)])]
+    #[case::simple(r#"fn f(#[files("some_glob")] a: PathBuf) {}"#, "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &[], true)])]
     #[case::more_than_one(
         r#"fn f(#[files("first")] a: PathBuf, b: u32, #[files("third")] c: PathBuf) {}"#,
         r#"fn f(a: PathBuf, 
                 b: u32, 
                 c: PathBuf) {}"#,
-        &[("a", "first", None), ("c", "third", None)],
+        &[("a", &["first"], &[], true), ("c", &["third"], &[], true)],
     )]
-    #[case::exclude(r#"fn f(#[files("some_glob", exclude("exclude"))] a: PathBuf) {}"#, 
-    "fn f(a: PathBuf) {}", &[("a", "some_glob", Some("exclude"))])]
-    fn extract(
+    #[case::more_globs_on_the_same_var(
+        r#"fn f(#[files("first")] #[files("second")] a: PathBuf) {}"#,
+        r#"fn f(a: PathBuf) {}"#,
+        &[("a", &["first", "second"], &[], true)],
+    )]
+    #[case::exclude(r#"fn f(#[files("some_glob")] #[exclude("exclude")] a: PathBuf) {}"#, 
+    "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &["exclude"], true)])]
+    #[case::exclude_more(r#"fn f(#[files("some_glob")] #[exclude("first")]  #[exclude("second")] a: PathBuf) {}"#, 
+    "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &["first", "second"], true)])]
+    #[case::include_dot_files(r#"fn f(#[files("some_glob")] #[include_dot_files] a: PathBuf) {}"#, 
+    "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &[], false)])]
+
+    fn extract<'a, G: AsRef<[&'a str]>, E: AsRef<[&'a str]>>(
         #[case] item_fn: &str,
         #[case] expected: &str,
-        #[case] expected_files: &[(&str, &str, Option<&str>)],
+        #[case] expected_files: &[(&str, G, E, bool)],
     ) {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
@@ -338,21 +392,27 @@ mod should {
             files,
             expected_files
                 .into_iter()
-                .map(|(id, a, ex)| (
+                .map(|(id, globs, ex, ignore)| (
                     ident(id),
-                    FilesGlobReferences::new(vec![lit_str(a)], ex.map(|ex| ex.into()).into_iter().collect(), true)
+                    FilesGlobReferences::new(
+                        globs.as_ref().iter().map(lit_str).collect(), 
+                        ex.as_ref().iter().map(|&ex| ex.into()).collect(), 
+                        *ignore)
                 ))
                 .collect::<Vec<_>>()
         );
     }
 
     #[rstest]
-    #[case::no_more_than_one(
-        r#"fn f(#[files("a")] #[files("b")] a: PathBuf) {}"#,
-        "more than once"
-    )]
-    #[case::no_arg("fn f(#[files] a: PathBuf) {}", "#[files(...)]")]
-    #[case::invalid_inner("fn f(#[files(a::b::c)] a: PathBuf) {}", "string literal")]
+    #[case::no_files_arg("fn f(#[files] a: PathBuf) {}", "#[files(...)]")]
+    #[case::invalid_files_inner("fn f(#[files(a::b::c)] a: PathBuf) {}", "string literal")]
+    #[case::no_exclude_args(r#"fn f(#[files("some")] #[exclude] a: PathBuf) {}"#, "#[exclude(...)]")]
+    #[case::invalid_exclude_inner(r#"fn f(#[files("some")] #[exclude(a::b)] a: PathBuf) {}"#, "string literal")]
+    #[case::invalid_exclude_regex(r#"fn f(#[files("some")] #[exclude("invalid(reg(ex")] a: PathBuf) {}"#, "valid regex")]
+    #[case::include_dot_files_with_args(r#"fn f(#[files("some")] #[include_dot_files(some)] a: PathBuf) {}"#, "#[include_dot_files]")]
+    #[case::exclude_without_files(r#"fn f(#[exclude("some")] a: PathBuf) {}"#, "#[exclude(...)] without #[files(...)]")]
+    #[case::include_dot_files_without_files(r#"fn f(#[include_dot_files] a: PathBuf) {}"#, "#[include_dot_files] without #[files(...)]")]
+    #[case::include_dot_files_more_than_once(r#"fn f(#[files("some")] #[include_dot_files] #[include_dot_files] a: PathBuf) {}"#, "more than once")]
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
@@ -438,12 +498,12 @@ mod should {
     #[case::should_sort("/base", None, FakeResolver::from(["/base/second", "/base/first"].as_slice()), vec![], true, &["first", "second"])]
     #[case::exclude("/base", None, FakeResolver::from([
         "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/second"].as_slice()), 
-        vec![Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() }], true, &["first", "second"])]
+        vec![Exclude::fake("no_mater", Some(Regex::new("rem_").unwrap()))], true, &["first", "second"])]
     #[case::exclude_more("/base", None, FakeResolver::from([
         "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/some/other", "/base/second"].as_slice()), 
         vec![
-            Exclude { s: lit_str("no_mater"), r: Regex::new("rem_").unwrap() },
-            Exclude { s: lit_str("no_mater"), r: Regex::new("some").unwrap() },
+            Exclude::fake("no_mater", Some(Regex::new("rem_").unwrap())),
+            Exclude::fake("no_mater", Some(Regex::new("some").unwrap())),
             ], true, &["first", "second"])]
     #[case::ignore_dot_files("/base", None, FakeResolver::from([
         "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
