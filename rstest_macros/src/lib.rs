@@ -647,12 +647,6 @@ pub fn fixture(
 /// Also value list implements the magic conversion feature: every time the value type
 /// implements `FromStr` trait you can use a literal string to define it.
 ///
-/// ## Use Parametrize definition in more tests
-///
-/// If you need to use a test list for more than one test you can use
-/// [`rstest_reuse`](https://crates.io/crates/rstest_reuse) crate.
-/// With this helper crate you can define a template and use it everywhere.
-///
 /// ```
 /// # use rstest::rstest;
 /// # use std::net::SocketAddr;
@@ -661,6 +655,12 @@ pub fn fixture(
 ///     assert_eq(8000, addr.port())
 /// }
 /// ```
+///
+/// ## Use Parametrize definition in more tests
+///
+/// If you need to use a test list for more than one test you can use
+/// [`rstest_reuse`](https://crates.io/crates/rstest_reuse) crate.
+/// With this helper crate you can define a template and use it everywhere.
 ///
 /// ```rust,ignore
 /// use rstest::rstest;
