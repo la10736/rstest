@@ -652,9 +652,30 @@ pub fn fixture(
 /// # use std::net::SocketAddr;
 /// #[rstest]
 /// fn given_port(#[values("1.2.3.4:8000", "4.3.2.1:8000", "127.0.0.1:8000")] addr: SocketAddr) {
-///     assert_eq(8000, addr.port())
+///     assert_eq!(8000, addr.port())
 /// }
 /// ```
+///
+/// ## Files path as input arguments
+///
+/// If you need to create a test for each file in a given location you can use
+/// `#[files("glob path syntax")]` attribute to generate a test for each file that
+/// satisfy the given glob path.
+///
+/// ```
+/// # use rstest::rstest;
+/// # use std::path::{Path, PathBuf};
+/// # fn check_file(path: &Path) -> bool { true };
+/// #[rstest]
+/// fn for_each_file(#[files("resources/valid_cases/*")] path: PathBuf) {
+///     assert!(check_file(&path))
+/// }
+/// ```
+/// The default behavior is to ignore the files that starts with `"."` but you can
+/// modify this by use `#[include_dot_files]` attribute. The `files` attribute can be
+/// used more than once on the same variable and you can also create some custom
+/// exclusion rules with the `#[exclude("regex")]` attributes that filter out all
+/// paths that verify the regular expression.
 ///
 /// ## Use Parametrize definition in more tests
 ///
@@ -674,7 +695,7 @@ pub fn fixture(
 ///
 /// #[apply(two_simple_cases)]
 /// fn it_works(#[case] a: u32,#[case] b: u32) {
-///     assert!(a == b);
+///     assert_eq!(a, b);
 /// }
 /// ```
 ///
