@@ -25,6 +25,22 @@ pub(crate) struct FilesGlobReferences {
     ignore_dot_files: bool,
 }
 
+impl FilesGlobReferences {
+    /// Return the tuples attribute, path string if they are valid relative paths
+    fn paths(&self, base_dir: &PathBuf) -> Result<Vec<(&LitStrAttr, String)>, syn::Error> {
+        self.glob.iter()
+            .map(
+                |attr| 
+                    RelativePath::from_path(&attr.value())
+                        .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
+                        .map(|p| p.to_logical_path(base_dir))
+                        .map(|p| (attr, p.to_string_lossy().into_owned()))
+
+            )
+            .collect::<Result<Vec<_>,_>>()
+    }
+}
+
 trait RaiseError: ToTokens {
     fn error(&self, msg: &str) -> syn::Error {
         syn::Error::new_spanned(&self, msg)
@@ -52,6 +68,7 @@ impl FilesGlobReferences {
     }
 }
 
+/// An attribute in the form `#[name("some string")]`
 #[derive(Debug, Clone, PartialEq)]
 struct LitStrAttr {
     attr: Attribute,
@@ -73,6 +90,7 @@ impl TryFrom<Attribute> for LitStrAttr {
     }
 }
 
+/// The `#[exclude("regex")]` attribute
 #[derive(Debug, Clone)]
 struct Exclude {
     attr: LitStrAttr,
@@ -104,6 +122,7 @@ impl From<Vec<LitStrAttr>> for FilesGlobReferences {
     }
 }
 
+/// Entry point function to extract files attributes
 pub(crate) fn extract_files(
     item_fn: &mut ItemFn,
 ) -> Result<Vec<(Ident, FilesGlobReferences)>, ErrorsVec> {
@@ -262,6 +281,8 @@ struct DefaultGlobResolver;
 
 impl GlobResolver for DefaultGlobResolver {}
 
+/// The struct used to gel te values from the files attributes. You can inject
+/// the base dir resolver and glob resolver implementation.
 pub(crate) struct ValueListFromFiles<'a> {
     base_dir: Box<dyn BaseDir + 'a>,
     g_resolver: Box<dyn GlobResolver + 'a>,
@@ -292,34 +313,14 @@ impl<'a> ValueListFromFiles<'a> {
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
         let base_dir = self.base_dir.base_dir().map_err(|msg| refs.glob[0].error(&msg))?;
-        let resolved_paths = 
-            refs.glob.iter()
-            .map(
-                |attr| 
-                    RelativePath::from_path(&attr.value())
-                        .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
-                        .map(|p| p.to_logical_path(&base_dir))
-                        .map(|p| (attr, p.to_string_lossy().into_owned()))
-            
-            ).collect::<Result<Vec<_>,_>>()?;
+        let resolved_paths = refs.paths(&base_dir)?;
 
-        let mut paths = 
-            resolved_paths.iter()
-            .map(|(attr, pattern)| 
-                self
-                    .g_resolver
-                    .glob(pattern.as_ref())
-                    .map_err(|msg| attr.error(&msg))
-                    .map(|p| (attr, p))
-            ).collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
-            .collect::<Vec<_>>();
         let mut values: Vec<(Expr, String)> = vec![];
-        paths.sort_by(|(_, a),(_, b)| a.cmp(b));
-        paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
-        for (attr, abs_path) in paths {
-            let relative_path = abs_path.strip_prefix(&base_dir).unwrap();
+        for (attr, abs_path) in self.all_files_path(resolved_paths)? {
+            let relative_path = abs_path.strip_prefix(&base_dir)
+                                .map_err(|e| 
+                                    attr.error(&format!("Cannot remove prefix path {} from {} : {e}", 
+                                    base_dir.to_string_lossy(), abs_path.to_string_lossy())))?;
             if !refs.is_valid(
                 &RelativePath::from_path(relative_path)
                     .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))?,
@@ -344,6 +345,24 @@ impl<'a> ValueListFromFiles<'a> {
             .into_iter()
             .map(|(e, desc)| Value::new(e, Some(desc)))
             .collect())
+    }
+
+    /// Return the tuples of attribute, file path resolved via glob resolver, sorted by path and without duplications.
+    fn all_files_path<'b>(&self, resolved_paths: Vec<(&'b LitStrAttr, String)>) -> Result<Vec<(&'b LitStrAttr, PathBuf)>, syn::Error> {
+        let mut paths = resolved_paths.iter()
+        .map(|(attr, pattern)| 
+            self
+                .g_resolver
+                .glob(pattern.as_ref())
+                .map_err(|msg| attr.error(&msg))
+                .map(|p| (attr, p))
+        ).collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
+        .collect::<Vec<_>>();
+        paths.sort_by(|(_, a),(_, b)| a.cmp(b));
+        paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
+        Ok(paths)
     }
 }
 
