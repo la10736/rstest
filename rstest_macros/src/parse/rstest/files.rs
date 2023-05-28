@@ -5,8 +5,8 @@ use quote::ToTokens;
 use regex::Regex;
 use relative_path::RelativePath;
 use syn::{
-    parse::Parse, parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn,
-    LitStr, Token, Attribute,
+    parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn,
+    LitStr, Attribute,
 };
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences {
-    glob: Vec<LitStr>,
+    glob: Vec<LitStrAttr>,
     exclude: Vec<Exclude>,
     ignore_dot_files: bool,
 }
@@ -31,12 +31,16 @@ trait RaiseError: ToTokens {
     }
 }
 
-impl RaiseError for LitStr {}
 impl RaiseError for Attribute {}
-impl RaiseError for syn::Path {}
+impl RaiseError for LitStrAttr {}
+impl ToTokens for LitStrAttr {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self.attr.to_tokens(tokens)
+    }
+}
 
 impl FilesGlobReferences {
-    fn new(glob: Vec<LitStr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
+    fn new(glob: Vec<LitStrAttr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
 
     fn is_valid(&self, p: &RelativePath) -> bool {
         if self.ignore_dot_files {
@@ -48,16 +52,36 @@ impl FilesGlobReferences {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct LitStrAttr {
+    attr: Attribute,
+    value: LitStr,
+}
+
+impl LitStrAttr {
+    fn value(&self) -> String {
+        self.value.value()
+    }
+}
+
+impl TryFrom<Attribute> for LitStrAttr {
+    type Error = syn::Error;
+
+    fn try_from(attr: Attribute) -> Result<Self, Self::Error> {
+        let value = attr.parse_args::<LitStr>()?;
+        Ok(Self { attr, value })
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Exclude {
-    attr: Attribute,
-    s: LitStr,
+    attr: LitStrAttr,
     r: Regex,
 }
 
 impl PartialEq for Exclude {
     fn eq(&self, other: &Self) -> bool {
-        self.s == other.s
+        self.attr.value == other.attr.value
     }
 }
 
@@ -65,17 +89,17 @@ impl TryFrom<Attribute> for Exclude {
     type Error = syn::Error;
 
     fn try_from(attr: Attribute) -> Result<Self, Self::Error> {
-        let s = attr.parse_args::<LitStr>()?;
-        let r = regex::Regex::new(&s.value())
+        let attr: LitStrAttr = attr.try_into()?;
+        let r = regex::Regex::new(&attr.value())
             .map_err(|e| {
-                syn::Error::new_spanned(&s, format!("Should be a valid regex: {}", e))
+                syn::Error::new_spanned(&attr, format!(r#""{}" Should be a valid regex: {e}"#, attr.value()))
             })?;
-        Ok(Self { attr, s, r })
+        Ok(Self { attr, r })
     }
 }
 
-impl From<Vec<LitStr>> for FilesGlobReferences {
-    fn from(value: Vec<LitStr>) -> Self {
+impl From<Vec<LitStrAttr>> for FilesGlobReferences {
+    fn from(value: Vec<LitStrAttr>) -> Self {
         Self::new(value, Default::default(), true)
     }
 }
@@ -117,7 +141,7 @@ impl VisitMut for ValueFilesExtractor {
             node,
             |a| attr_is(a, "files"),
             |attr, _| {
-                attr.parse_args::<LitStr>()
+                attr.try_into()
             },
         )
         .collect::<Result<Vec<_>, _>>();
@@ -155,8 +179,8 @@ impl VisitMut for ValueFilesExtractor {
                     .require_path_only()
                     .map_err(|_| 
                         attr.error("Use #[include_dot_files] to include dot files")
-                    )
-                    .cloned()
+                    )?;
+               Ok(attr)
             },
         )
         .collect::<Result<Vec<_>, _>>();
@@ -171,8 +195,8 @@ impl VisitMut for ValueFilesExtractor {
         };
         if include_dot_files.len() > 0 {
             include_dot_files.iter().skip(1).for_each(
-                |path| self.errors.push(
-                    path.error("Cannot use #[include_dot_files] more than once")
+                |attr| self.errors.push(
+                    attr.error("Cannot use #[include_dot_files] more than once")
                 )
             )
             
@@ -186,12 +210,12 @@ impl VisitMut for ValueFilesExtractor {
         } else {
             excludes.into_iter().for_each(|e|
                 self.errors.push(
-                    e.s.error("You cannot use #[exclude(...)] without #[files(...)]")
+                    e.attr.error("You cannot use #[exclude(...)] without #[files(...)]")
                 )
             );
-            include_dot_files.into_iter().for_each(|path|
+            include_dot_files.into_iter().for_each(|attr|
                 self.errors.push(
-                    path.error("You cannot use #[include_dot_files] without #[files(...)]")
+                    attr.error("You cannot use #[include_dot_files] without #[files(...)]")
                 )
             );
         }
@@ -267,34 +291,34 @@ impl<'a> ValueListFromFiles<'a> {
         let resolved_paths = 
             refs.glob.iter()
             .map(
-                |g| 
-                    RelativePath::from_path(&g.value())
-                        .map_err(|e| g.error(&format!("Invalid glob path: {e}")))
+                |attr| 
+                    RelativePath::from_path(&attr.value())
+                        .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
                         .map(|p| p.to_logical_path(&base_dir))
-                        .map(|p| (g, p.to_string_lossy().into_owned()))
+                        .map(|p| (attr, p.to_string_lossy().into_owned()))
             
             ).collect::<Result<Vec<_>,_>>()?;
 
         let mut paths = 
             resolved_paths.iter()
-            .map(|(r, pattern)| 
+            .map(|(attr, pattern)| 
                 self
                     .g_resolver
                     .glob(pattern.as_ref())
-                    .map_err(|msg| r.error(&msg))
-                    .map(|p| (r, p))
+                    .map_err(|msg| attr.error(&msg))
+                    .map(|p| (attr, p))
             ).collect::<Result<Vec<_>, _>>()?
             .into_iter()
-            .flat_map(|(&r, inner)| inner.into_iter().map(move |p| (r, p)))
+            .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
             .collect::<Vec<_>>();
         let mut values: Vec<(Expr, String)> = vec![];
         paths.sort_by(|(_, a),(_, b)| a.cmp(b));
         paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
-        for (r, abs_path) in paths {
+        for (attr, abs_path) in paths {
             let relative_path = abs_path.strip_prefix(&base_dir).unwrap();
             if !refs.is_valid(
                 &RelativePath::from_path(relative_path)
-                    .map_err(|e| r.error(&format!("Invalid glob path: {e}")))?,
+                    .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))?,
             ) {
                 continue;
             }
@@ -328,19 +352,23 @@ mod should {
     use rstest_test::assert_in;
     use maplit::hashmap;
 
-    fn lit_str(lstr: impl AsRef<str>) -> LitStr {
-        let lstr = lstr.as_ref();
-        parse_quote! {
-            #lstr
-        }
+    fn lit_str_attr(name: &str, value: impl AsRef<str>) -> LitStrAttr {
+        attrs(&format!(r#"#[{name}("{}")]"#, value.as_ref())).into_iter().next().unwrap().try_into().unwrap()
+    }
+
+    fn files_attr(lstr: impl AsRef<str>) -> LitStrAttr {
+        lit_str_attr("files", lstr)
+    }
+
+    fn exclude_attr(lstr: impl AsRef<str>) -> LitStrAttr {
+        lit_str_attr("exclude", lstr)
     }
 
     impl Exclude {
         fn fake(value: &str, r: Option<Regex>) -> Self {
             let r = r.unwrap_or_else(|| regex::Regex::new(value).unwrap());
             Self {
-                attr: attrs(&format!(r#"#[exclude("{}")]"#, value)).into_iter().next().unwrap(),
-                s: lit_str(value),
+                attr: exclude_attr(value),
                 r,
             }
         }
@@ -349,8 +377,7 @@ mod should {
     impl From<&str> for Exclude {
         fn from(value: &str) -> Self {
             Self {
-                attr: attrs(&format!(r#"#[exclude("{}")]"#, value)).into_iter().next().unwrap(),
-                s: lit_str(value),
+                attr: exclude_attr(value),
                 r: regex::Regex::new(value).unwrap(),
             }
         }
@@ -395,7 +422,7 @@ mod should {
                 .map(|(id, globs, ex, ignore)| (
                     ident(id),
                     FilesGlobReferences::new(
-                        globs.as_ref().iter().map(lit_str).collect(), 
+                        globs.as_ref().iter().map(files_attr).collect(), 
                         ex.as_ref().iter().map(|&ex| ex.into()).collect(), 
                         *ignore)
                 ))
@@ -520,8 +547,8 @@ mod should {
         #[case] expected: &[&str],
     ) {
         let paths = paths.map(
-            |inner| inner.into_iter().map(lit_str).collect()
-        ).unwrap_or(vec![lit_str("no_mater")]);
+            |inner| inner.into_iter().map(files_attr).collect()
+        ).unwrap_or(vec![files_attr("no_mater")]);
         let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(
                 ident("a"),
@@ -563,7 +590,7 @@ mod should {
         ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(vec![lit_str("no_mater")], Default::default(), true),
+                FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true),
             )])
             .unwrap();
     }
@@ -574,7 +601,7 @@ mod should {
         ValueListFromFiles::new(FakeBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(vec![lit_str("no_mater")], Default::default(), true),
+                FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true),
             )])
             .unwrap();
     }
