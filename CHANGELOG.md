@@ -5,8 +5,10 @@
 ### Add
 
 - Add support for `RSTEST_TIMEOUT` environment variable to define a max timeout
-for each function (see [#190](https://github.com/la10736/rstest/issues/187) for details).
+for each function (see [#190](https://github.com/la10736/rstest/issues/190) for details).
 Thanks to @aviramha for idea and PR
+- `#[files("glob path")]` attribute to generate tests based on files that 
+satisfy the given glob path (see [#163](https://github.com/la10736/rstest/issues/163) for details).
 
 ### Changed
 
