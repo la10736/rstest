@@ -128,50 +128,51 @@ impl ValueFilesExtractor {
             Err(self.errors.into())
         }
     }
-}
 
-impl VisitMut for ValueFilesExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        let name = node.maybe_ident().cloned();
-        if matches!(node, FnArg::Receiver(_)) || name.is_none(){
-            return;
+    fn collect_errors<T: Default>(&mut self, result: Result<T, syn::Error>) -> T {
+        match result {
+            Ok(v) => v,
+            Err(e) => {
+                self.errors.push(e);
+                T::default()
+            }
         }
-        let name = name.unwrap();
-        let files = extract_argument_attrs(
+    }
+
+    fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
+        &mut self, 
+        node: &mut FnArg,
+        is_valid_attr: fn(&syn::Attribute) -> bool,
+        build: fn(syn::Attribute, &Ident) -> syn::Result<B>,
+    ) -> Vec<B> {
+        self.collect_errors(
+            extract_argument_attrs(node, is_valid_attr, build)
+                    .collect::<Result<Vec<_>, _>>()
+        )
+    }
+
+    fn extract_files(&mut self, node: &mut FnArg) -> Vec<LitStrAttr> {
+        self.extract_argument_attrs(
             node,
             |a| attr_is(a, "files"),
             |attr, _| {
                 attr.try_into()
             },
         )
-        .collect::<Result<Vec<_>, _>>();
-        let files = match files {
-            Ok(files) => {
-                files
-            },
-            Err(e) => {
-                self.errors.push(e);
-                vec![]
-            }
-        };
-        let excludes = extract_argument_attrs(
+    }
+
+    fn extract_exclude(&mut self, node: &mut FnArg) -> Vec<Exclude> {
+        self.extract_argument_attrs(
             node,
             |a| attr_is(a, "exclude"),
             |attr, _| {
                 Exclude::try_from(attr)
             },
         )
-        .collect::<Result<Vec<_>, _>>();
-        let excludes = match excludes {
-            Ok(excludes) => {
-                excludes
-            },
-            Err(e) => {
-                self.errors.push(e);
-                vec![]
-            }
-        };
-        let include_dot_files = extract_argument_attrs(
+    }
+
+    fn extract_include_dot_files(&mut self, node: &mut FnArg) -> Vec<Attribute> {
+        self.extract_argument_attrs(
             node,
             |a| attr_is(a, "include_dot_files"),
             |attr, _| {
@@ -183,16 +184,19 @@ impl VisitMut for ValueFilesExtractor {
                Ok(attr)
             },
         )
-        .collect::<Result<Vec<_>, _>>();
-        let include_dot_files = match include_dot_files {
-            Ok(include_dot_files) => {
-                include_dot_files
-            },
-            Err(e) => {
-                self.errors.push(e);
-                vec![]
-            }
-        };
+    }
+}
+
+impl VisitMut for ValueFilesExtractor {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        let name = node.maybe_ident().cloned();
+        if matches!(node, FnArg::Receiver(_)) || name.is_none(){
+            return;
+        }
+        let name = name.unwrap();
+        let files = self.extract_files(node);
+        let excludes = self.extract_exclude(node);
+        let include_dot_files = self.extract_include_dot_files(node);
         if include_dot_files.len() > 0 {
             include_dot_files.iter().skip(1).for_each(
                 |attr| self.errors.push(
