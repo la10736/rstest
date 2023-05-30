@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs::File, io::Write, path::Path};
 
 use mytest::*;
 use rstest_test::*;
@@ -19,6 +19,54 @@ fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
         prj.run_tests().unwrap(),
         prj.get_name().to_owned().to_string(),
     )
+}
+
+#[test]
+fn files() {
+    let prj = prj("files.rs");
+    let files_path = prj.path().join("files");
+    let sub_folder = files_path.join("sub");
+    std::fs::create_dir(&files_path).unwrap();
+    std::fs::create_dir(&sub_folder).unwrap();
+
+    for n in 0..4 {
+        let name = format!("element_{}.txt", n);
+        let path = files_path.join(&name);
+        let mut out = File::create(path).unwrap();
+        out.write_all(name.as_bytes()).unwrap();
+        out.write_all(b"--\n").unwrap();
+        out.write_all(b"something else\n").unwrap();
+    }
+    let dot = files_path.join(".ignore_me.txt");
+    File::create(dot)
+        .unwrap()
+        .write_all(b".ignore_me.txt--\n")
+        .unwrap();
+    let exclude = files_path.join("exclude.txt");
+    File::create(exclude)
+        .unwrap()
+        .write_all(b"excluded\n")
+        .unwrap();
+    let sub = sub_folder.join("sub_dir_file.txt");
+    File::create(sub)
+        .unwrap()
+        .write_all(b"sub_dir_file.txt--\nmore")
+        .unwrap();
+    let output = prj.run_tests().unwrap();
+
+    TestResults::new()
+        .ok("start_with_name::path_1_files_element_0_txt")
+        .ok("start_with_name::path_2_files_element_1_txt")
+        .ok("start_with_name::path_3_files_element_2_txt")
+        .ok("start_with_name::path_4_files_element_3_txt")
+        .ok("start_with_name::path_5_files_sub_sub_dir_file_txt")
+        .ok("start_with_name_with_include::path_1_files__ignore_me_txt")
+        .ok("start_with_name_with_include::path_2_files_element_0_txt")
+        .ok("start_with_name_with_include::path_3_files_element_1_txt")
+        .ok("start_with_name_with_include::path_4_files_element_2_txt")
+        .ok("start_with_name_with_include::path_5_files_element_3_txt")
+        .ok("start_with_name_with_include::path_6_files_sub_sub_dir_file_txt")
+        .assert(output);
 }
 
 #[test]
