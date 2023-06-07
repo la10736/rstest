@@ -647,20 +647,41 @@ pub fn fixture(
 /// Also value list implements the magic conversion feature: every time the value type
 /// implements `FromStr` trait you can use a literal string to define it.
 ///
-/// ## Use Parametrize definition in more tests
-///
-/// If you need to use a test list for more than one test you can use
-/// [`rstest_reuse`](https://crates.io/crates/rstest_reuse) crate.
-/// With this helper crate you can define a template and use it everywhere.
-///
 /// ```
 /// # use rstest::rstest;
 /// # use std::net::SocketAddr;
 /// #[rstest]
 /// fn given_port(#[values("1.2.3.4:8000", "4.3.2.1:8000", "127.0.0.1:8000")] addr: SocketAddr) {
-///     assert_eq(8000, addr.port())
+///     assert_eq!(8000, addr.port())
 /// }
 /// ```
+///
+/// ## Files path as input arguments
+///
+/// If you need to create a test for each file in a given location you can use
+/// `#[files("glob path syntax")]` attribute to generate a test for each file that
+/// satisfy the given glob path.
+///
+/// ```
+/// # use rstest::rstest;
+/// # use std::path::{Path, PathBuf};
+/// # fn check_file(path: &Path) -> bool { true };
+/// #[rstest]
+/// fn for_each_file(#[files("resources/valid_cases/*")] path: PathBuf) {
+///     assert!(check_file(&path))
+/// }
+/// ```
+/// The default behavior is to ignore the files that starts with `"."` but you can
+/// modify this by use `#[include_dot_files]` attribute. The `files` attribute can be
+/// used more than once on the same variable and you can also create some custom
+/// exclusion rules with the `#[exclude("regex")]` attributes that filter out all
+/// paths that verify the regular expression.
+///
+/// ## Use Parametrize definition in more tests
+///
+/// If you need to use a test list for more than one test you can use
+/// [`rstest_reuse`](https://crates.io/crates/rstest_reuse) crate.
+/// With this helper crate you can define a template and use it everywhere.
 ///
 /// ```rust,ignore
 /// use rstest::rstest;
@@ -674,7 +695,7 @@ pub fn fixture(
 ///
 /// #[apply(two_simple_cases)]
 /// fn it_works(#[case] a: u32,#[case] b: u32) {
-///     assert!(a == b);
+///     assert_eq!(a, b);
 /// }
 /// ```
 ///
@@ -753,9 +774,9 @@ pub fn fixture(
 ///     assert_eq!(expected, base.await / div);
 /// }
 /// ```
-/// 
+///
 /// ### Default timeout
-/// 
+///
 /// You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
 /// The value is in seconds and is evaluated on test compile time.///
 ///
@@ -764,7 +785,7 @@ pub fn fixture(
 /// You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
 /// works both for sync and async tests and is runtime agnostic. `#[timeout(<duration>)]` take an
 /// expression that should return a `std::time::Duration`. Follow a simple async example:
-/// 
+///
 /// ```rust
 /// use rstest::*;
 /// use std::time::Duration;

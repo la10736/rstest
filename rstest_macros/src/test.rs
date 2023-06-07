@@ -142,7 +142,7 @@ pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> Argume
 pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
     ValueList {
         arg: ident(arg),
-        values: values.into_iter().map(|s| expr(s)).collect(),
+        values: values.into_iter().map(|s| expr(s).into()).collect(),
     }
 }
 
@@ -184,7 +184,7 @@ impl ExtractArgs for TestCase {
 
 impl ExtractArgs for ValueList {
     fn args(&self) -> Vec<Expr> {
-        self.values.iter().cloned().collect()
+        self.values.iter().map(|v| v.expr.clone()).collect()
     }
 }
 

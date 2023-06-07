@@ -2,6 +2,7 @@
 ///
 use quote::format_ident;
 use std::collections::{HashMap, HashSet};
+use unicode_ident::is_xid_continue;
 
 use crate::refident::MaybeIdent;
 use syn::{Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Type, WherePredicate};
@@ -270,6 +271,21 @@ pub(crate) fn fn_arg_mutability(arg: &FnArg) -> Option<syn::token::Mut> {
     }
 }
 
+pub(crate) fn sanitize_ident(name: &str) -> String {
+    name.chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '"' | '\'' => "__".to_owned(),
+            ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '*' | '+' | '/' | '-' | '%'
+            | '^' | '!' | '&' | '|' => "_".to_owned(),
+            _ => c.to_string(),
+        })
+        .collect::<String>()
+        .chars()
+        .filter(|&c| is_xid_continue(c))
+        .collect()
+}
+
 #[cfg(test)]
 mod test {
     use syn::parse_quote;
@@ -386,5 +402,25 @@ mod test {
         );
 
         assert_eq!(expected.sig.generics, cleaned);
+    }
+
+    #[rstest]
+    #[case("1", "1")]
+    #[case(r#""1""#, "__1__")]
+    #[case(r#"Some::SomeElse"#, "Some__SomeElse")]
+    #[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
+    #[case(
+        r#"vec![1 ,   2, 
+    3]"#,
+        "vec__1_2_3_"
+    )]
+    #[case(
+        r#"some_macro!("first", {second}, [third])"#,
+        "some_macro____first____second___third__"
+    )]
+    #[case(r#"'x'"#, "__x__")]
+    #[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
+    fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
+        assert_eq!(expected.as_ref(), sanitize_ident(expression.as_ref()));
     }
 }

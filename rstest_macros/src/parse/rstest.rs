@@ -3,12 +3,16 @@ use syn::{
     Ident, ItemFn, Token,
 };
 
-use super::{testcase::TestCase, future::extract_global_awt};
+use self::files::{extract_files, ValueListFromFiles};
+
 use super::{
-    arguments::ArgumentsInfo, check_timeout_attrs, extract_case_args, extract_cases,
-    extract_excluded_trace, extract_fixtures, extract_value_list, future::extract_futures,
-    parse_vector_trailing_till_double_comma, Attribute, Attributes, ExtendWithFunctionAttrs,
-    Fixture,
+    arguments::ArgumentsInfo,
+    check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
+    extract_fixtures, extract_value_list,
+    future::{extract_futures, extract_global_awt},
+    parse_vector_trailing_till_double_comma,
+    testcase::TestCase,
+    Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::parse::vlist::ValueList;
 use crate::{
@@ -17,6 +21,8 @@ use crate::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
+
+pub(crate) mod files;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -125,17 +131,24 @@ impl Parse for RsTestData {
 
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(fixtures, case_args, cases, value_list) = merge_errors!(
+        let composed_tuple!(fixtures, case_args, cases, value_list, files) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
             extract_cases(item_fn),
-            extract_value_list(item_fn)
+            extract_value_list(item_fn),
+            extract_files(item_fn)
         )?;
 
         self.items.extend(fixtures.into_iter().map(|f| f.into()));
         self.items.extend(case_args.into_iter().map(|f| f.into()));
         self.items.extend(cases.into_iter().map(|f| f.into()));
         self.items.extend(value_list.into_iter().map(|f| f.into()));
+        self.items.extend(
+            ValueListFromFiles::default()
+                .to_value_list(files)?
+                .into_iter()
+                .map(|f| f.into()),
+        );
         Ok(())
     }
 }

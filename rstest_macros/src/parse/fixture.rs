@@ -7,8 +7,10 @@ use syn::{
 };
 
 use super::{
-    arguments::ArgumentsInfo, extract_argument_attrs, extract_default_return_type,
-    extract_defaults, extract_fixtures, extract_partials_return_type, future::{extract_futures, extract_global_awt},
+    arguments::ArgumentsInfo,
+    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
+    extract_partials_return_type,
+    future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};

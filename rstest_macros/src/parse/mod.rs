@@ -476,7 +476,7 @@ impl VisitMut for ValueListFunctionExtractor {
             |a, name| {
                 a.parse_args::<Expressions>().map(|v| ValueList {
                     arg: name.clone(),
-                    values: v.take(),
+                    values: v.take().into_iter().map(|e| e.into()).collect(),
                 })
             },
         ) {

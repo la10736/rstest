@@ -71,7 +71,9 @@ impl MaybeIdent for syn::GenericParam {
         match self {
             syn::GenericParam::Type(syn::TypeParam { ident, .. })
             | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => Some(ident),
-            syn::GenericParam::Lifetime(syn::LifetimeParam { lifetime, .. }) => Some(&lifetime.ident),
+            syn::GenericParam::Lifetime(syn::LifetimeParam { lifetime, .. }) => {
+                Some(&lifetime.ident)
+            }
         }
     }
 }
