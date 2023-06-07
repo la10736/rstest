@@ -33,26 +33,6 @@ fn trace_argument_code_string(arg_name: &str) -> String {
     statment.display_code()
 }
 
-#[rstest]
-#[case("1", "1")]
-#[case(r#""1""#, "__1__")]
-#[case(r#"Some::SomeElse"#, "Some__SomeElse")]
-#[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
-#[case(
-    r#"vec![1 ,   2, 
-    3]"#,
-    "vec__1_2_3_"
-)]
-#[case(
-    r#"some_macro!("first", {second}, [third])"#,
-    "some_macro____first____second___third__"
-)]
-#[case(r#"'x'"#, "__x__")]
-#[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
-fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
-    assert_eq!(expected.as_ref(), sanitize_ident(expression.as_ref()));
-}
-
 mod single_test_should {
     use rstest_test::{assert_in, assert_not_in};
 
