@@ -4,10 +4,7 @@ use glob::glob;
 use quote::ToTokens;
 use regex::Regex;
 use relative_path::RelativePath;
-use syn::{
-    parse_quote, visit_mut::VisitMut, Expr, FnArg, Ident, ItemFn,
-    LitStr, Attribute,
-};
+use syn::{parse_quote, visit_mut::VisitMut, Attribute, Expr, FnArg, Ident, ItemFn, LitStr};
 
 use crate::{
     error::ErrorsVec,
@@ -15,7 +12,8 @@ use crate::{
         extract_argument_attrs,
         vlist::{Value, ValueList},
     },
-    utils::attr_is, refident::MaybeIdent,
+    refident::MaybeIdent,
+    utils::attr_is,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,16 +26,15 @@ pub(crate) struct FilesGlobReferences {
 impl FilesGlobReferences {
     /// Return the tuples attribute, path string if they are valid relative paths
     fn paths(&self, base_dir: &PathBuf) -> Result<Vec<(&LitStrAttr, String)>, syn::Error> {
-        self.glob.iter()
-            .map(
-                |attr| 
-                    RelativePath::from_path(&attr.value())
-                        .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
-                        .map(|p| p.to_logical_path(base_dir))
-                        .map(|p| (attr, p.to_string_lossy().into_owned()))
-
-            )
-            .collect::<Result<Vec<_>,_>>()
+        self.glob
+            .iter()
+            .map(|attr| {
+                RelativePath::from_path(&attr.value())
+                    .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
+                    .map(|p| p.to_logical_path(base_dir))
+                    .map(|p| (attr, p.to_string_lossy().into_owned()))
+            })
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -56,11 +53,20 @@ impl ToTokens for LitStrAttr {
 }
 
 impl FilesGlobReferences {
-    fn new(glob: Vec<LitStrAttr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self { Self { glob, exclude, ignore_dot_files } }
+    fn new(glob: Vec<LitStrAttr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self {
+        Self {
+            glob,
+            exclude,
+            ignore_dot_files,
+        }
+    }
 
     fn is_valid(&self, p: &RelativePath) -> bool {
         if self.ignore_dot_files {
-            if p.components().into_iter().any(|c| c.as_str().starts_with('.')) {
+            if p.components()
+                .into_iter()
+                .any(|c| c.as_str().starts_with('.'))
+            {
                 return false;
             }
         }
@@ -108,10 +114,12 @@ impl TryFrom<Attribute> for Exclude {
 
     fn try_from(attr: Attribute) -> Result<Self, Self::Error> {
         let attr: LitStrAttr = attr.try_into()?;
-        let r = regex::Regex::new(&attr.value())
-            .map_err(|e| {
-                syn::Error::new_spanned(&attr, format!(r#""{}" Should be a valid regex: {e}"#, attr.value()))
-            })?;
+        let r = regex::Regex::new(&attr.value()).map_err(|e| {
+            syn::Error::new_spanned(
+                &attr,
+                format!(r#""{}" Should be a valid regex: {e}"#, attr.value()),
+            )
+        })?;
         Ok(Self { attr, r })
     }
 }
@@ -159,34 +167,25 @@ impl ValueFilesExtractor {
     }
 
     fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
-        &mut self, 
+        &mut self,
         node: &mut FnArg,
         is_valid_attr: fn(&syn::Attribute) -> bool,
         build: fn(syn::Attribute, &Ident) -> syn::Result<B>,
     ) -> Vec<B> {
         self.collect_errors(
-            extract_argument_attrs(node, is_valid_attr, build)
-                    .collect::<Result<Vec<_>, _>>()
+            extract_argument_attrs(node, is_valid_attr, build).collect::<Result<Vec<_>, _>>(),
         )
     }
 
     fn extract_files(&mut self, node: &mut FnArg) -> Vec<LitStrAttr> {
-        self.extract_argument_attrs(
-            node,
-            |a| attr_is(a, "files"),
-            |attr, _| {
-                attr.try_into()
-            },
-        )
+        self.extract_argument_attrs(node, |a| attr_is(a, "files"), |attr, _| attr.try_into())
     }
 
     fn extract_exclude(&mut self, node: &mut FnArg) -> Vec<Exclude> {
         self.extract_argument_attrs(
             node,
             |a| attr_is(a, "exclude"),
-            |attr, _| {
-                Exclude::try_from(attr)
-            },
+            |attr, _| Exclude::try_from(attr),
         )
     }
 
@@ -197,10 +196,8 @@ impl ValueFilesExtractor {
             |attr, _| {
                 attr.meta
                     .require_path_only()
-                    .map_err(|_| 
-                        attr.error("Use #[include_dot_files] to include dot files")
-                    )?;
-               Ok(attr)
+                    .map_err(|_| attr.error("Use #[include_dot_files] to include dot files"))?;
+                Ok(attr)
             },
         )
     }
@@ -209,7 +206,7 @@ impl ValueFilesExtractor {
 impl VisitMut for ValueFilesExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         let name = node.maybe_ident().cloned();
-        if matches!(node, FnArg::Receiver(_)) || name.is_none(){
+        if matches!(node, FnArg::Receiver(_)) || name.is_none() {
             return;
         }
         let name = name.unwrap();
@@ -217,30 +214,27 @@ impl VisitMut for ValueFilesExtractor {
         let excludes = self.extract_exclude(node);
         let include_dot_files = self.extract_include_dot_files(node);
         if include_dot_files.len() > 0 {
-            include_dot_files.iter().skip(1).for_each(
-                |attr| self.errors.push(
-                    attr.error("Cannot use #[include_dot_files] more than once")
-                )
-            )
-            
-        } 
+            include_dot_files.iter().skip(1).for_each(|attr| {
+                self.errors
+                    .push(attr.error("Cannot use #[include_dot_files] more than once"))
+            })
+        }
         if files.len() > 0 {
             self.files.push((
                 name,
-                FilesGlobReferences::new(files, excludes, include_dot_files.is_empty())
-            )
-            )
+                FilesGlobReferences::new(files, excludes, include_dot_files.is_empty()),
+            ))
         } else {
-            excludes.into_iter().for_each(|e|
+            excludes.into_iter().for_each(|e| {
                 self.errors.push(
-                    e.attr.error("You cannot use #[exclude(...)] without #[files(...)]")
+                    e.attr
+                        .error("You cannot use #[exclude(...)] without #[files(...)]"),
                 )
-            );
-            include_dot_files.into_iter().for_each(|attr|
-                self.errors.push(
-                    attr.error("You cannot use #[include_dot_files] without #[files(...)]")
-                )
-            );
+            });
+            include_dot_files.into_iter().for_each(|attr| {
+                self.errors
+                    .push(attr.error("You cannot use #[include_dot_files] without #[files(...)]"))
+            });
         }
     }
 }
@@ -249,7 +243,7 @@ trait BaseDir {
     fn base_dir(&self) -> Result<PathBuf, String> {
         env::var("CARGO_MANIFEST_DIR")
             .map(PathBuf::from)
-            .map_err(|_| 
+            .map_err(|_|
                 "Rstest's #[files(...)] requires that CARGO_MANIFEST_DIR is defined to define glob the relative path".to_string()
             )
     }
@@ -312,15 +306,21 @@ impl<'a> ValueListFromFiles<'a> {
     }
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
-        let base_dir = self.base_dir.base_dir().map_err(|msg| refs.glob[0].error(&msg))?;
+        let base_dir = self
+            .base_dir
+            .base_dir()
+            .map_err(|msg| refs.glob[0].error(&msg))?;
         let resolved_paths = refs.paths(&base_dir)?;
 
         let mut values: Vec<(Expr, String)> = vec![];
         for (attr, abs_path) in self.all_files_path(resolved_paths)? {
-            let relative_path = abs_path.strip_prefix(&base_dir)
-                                .map_err(|e| 
-                                    attr.error(&format!("Cannot remove prefix path {} from {} : {e}", 
-                                    base_dir.to_string_lossy(), abs_path.to_string_lossy())))?;
+            let relative_path = abs_path.strip_prefix(&base_dir).map_err(|e| {
+                attr.error(&format!(
+                    "Cannot remove prefix path {} from {} : {e}",
+                    base_dir.to_string_lossy(),
+                    abs_path.to_string_lossy()
+                ))
+            })?;
             if !refs.is_valid(
                 &RelativePath::from_path(relative_path)
                     .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))?,
@@ -348,19 +348,23 @@ impl<'a> ValueListFromFiles<'a> {
     }
 
     /// Return the tuples of attribute, file path resolved via glob resolver, sorted by path and without duplications.
-    fn all_files_path<'b>(&self, resolved_paths: Vec<(&'b LitStrAttr, String)>) -> Result<Vec<(&'b LitStrAttr, PathBuf)>, syn::Error> {
-        let mut paths = resolved_paths.iter()
-        .map(|(attr, pattern)| 
-            self
-                .g_resolver
-                .glob(pattern.as_ref())
-                .map_err(|msg| attr.error(&msg))
-                .map(|p| (attr, p))
-        ).collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
-        .collect::<Vec<_>>();
-        paths.sort_by(|(_, a),(_, b)| a.cmp(b));
+    fn all_files_path<'b>(
+        &self,
+        resolved_paths: Vec<(&'b LitStrAttr, String)>,
+    ) -> Result<Vec<(&'b LitStrAttr, PathBuf)>, syn::Error> {
+        let mut paths = resolved_paths
+            .iter()
+            .map(|(attr, pattern)| {
+                self.g_resolver
+                    .glob(pattern.as_ref())
+                    .map_err(|msg| attr.error(&msg))
+                    .map(|p| (attr, p))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
+            .collect::<Vec<_>>();
+        paths.sort_by(|(_, a), (_, b)| a.cmp(b));
         paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
         Ok(paths)
     }
@@ -372,11 +376,16 @@ mod should {
 
     use super::*;
     use crate::test::{assert_eq, *};
-    use rstest_test::assert_in;
     use maplit::hashmap;
+    use rstest_test::assert_in;
 
     fn lit_str_attr(name: &str, value: impl AsRef<str>) -> LitStrAttr {
-        attrs(&format!(r#"#[{name}("{}")]"#, value.as_ref())).into_iter().next().unwrap().try_into().unwrap()
+        attrs(&format!(r#"#[{name}("{}")]"#, value.as_ref()))
+            .into_iter()
+            .next()
+            .unwrap()
+            .try_into()
+            .unwrap()
     }
 
     fn files_attr(lstr: impl AsRef<str>) -> LitStrAttr {
@@ -445,9 +454,10 @@ mod should {
                 .map(|(id, globs, ex, ignore)| (
                     ident(id),
                     FilesGlobReferences::new(
-                        globs.as_ref().iter().map(files_attr).collect(), 
-                        ex.as_ref().iter().map(|&ex| ex.into()).collect(), 
-                        *ignore)
+                        globs.as_ref().iter().map(files_attr).collect(),
+                        ex.as_ref().iter().map(|&ex| ex.into()).collect(),
+                        *ignore
+                    )
                 ))
                 .collect::<Vec<_>>()
         );
@@ -456,13 +466,34 @@ mod should {
     #[rstest]
     #[case::no_files_arg("fn f(#[files] a: PathBuf) {}", "#[files(...)]")]
     #[case::invalid_files_inner("fn f(#[files(a::b::c)] a: PathBuf) {}", "string literal")]
-    #[case::no_exclude_args(r#"fn f(#[files("some")] #[exclude] a: PathBuf) {}"#, "#[exclude(...)]")]
-    #[case::invalid_exclude_inner(r#"fn f(#[files("some")] #[exclude(a::b)] a: PathBuf) {}"#, "string literal")]
-    #[case::invalid_exclude_regex(r#"fn f(#[files("some")] #[exclude("invalid(reg(ex")] a: PathBuf) {}"#, "valid regex")]
-    #[case::include_dot_files_with_args(r#"fn f(#[files("some")] #[include_dot_files(some)] a: PathBuf) {}"#, "#[include_dot_files]")]
-    #[case::exclude_without_files(r#"fn f(#[exclude("some")] a: PathBuf) {}"#, "#[exclude(...)] without #[files(...)]")]
-    #[case::include_dot_files_without_files(r#"fn f(#[include_dot_files] a: PathBuf) {}"#, "#[include_dot_files] without #[files(...)]")]
-    #[case::include_dot_files_more_than_once(r#"fn f(#[files("some")] #[include_dot_files] #[include_dot_files] a: PathBuf) {}"#, "more than once")]
+    #[case::no_exclude_args(
+        r#"fn f(#[files("some")] #[exclude] a: PathBuf) {}"#,
+        "#[exclude(...)]"
+    )]
+    #[case::invalid_exclude_inner(
+        r#"fn f(#[files("some")] #[exclude(a::b)] a: PathBuf) {}"#,
+        "string literal"
+    )]
+    #[case::invalid_exclude_regex(
+        r#"fn f(#[files("some")] #[exclude("invalid(reg(ex")] a: PathBuf) {}"#,
+        "valid regex"
+    )]
+    #[case::include_dot_files_with_args(
+        r#"fn f(#[files("some")] #[include_dot_files(some)] a: PathBuf) {}"#,
+        "#[include_dot_files]"
+    )]
+    #[case::exclude_without_files(
+        r#"fn f(#[exclude("some")] a: PathBuf) {}"#,
+        "#[exclude(...)] without #[files(...)]"
+    )]
+    #[case::include_dot_files_without_files(
+        r#"fn f(#[include_dot_files] a: PathBuf) {}"#,
+        "#[include_dot_files] without #[files(...)]"
+    )]
+    #[case::include_dot_files_more_than_once(
+        r#"fn f(#[files("some")] #[include_dot_files] #[include_dot_files] a: PathBuf) {}"#,
+        "more than once"
+    )]
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
@@ -515,11 +546,19 @@ mod should {
         fn from(value: (&str, &HashMap<&str, &[&str]>)) -> Self {
             Self(
                 value.0.to_string(),
-                value.1.iter().map(
-                    |(&key, &values)|
-                    (key.to_string(), values.iter()
-                        .map(|&v| PathBuf::from(format!("{}/{v}", value.0))).collect::<Vec<_>>())
-                ).collect()
+                value
+                    .1
+                    .iter()
+                    .map(|(&key, &values)| {
+                        (
+                            key.to_string(),
+                            values
+                                .iter()
+                                .map(|&v| PathBuf::from(format!("{}/{v}", value.0)))
+                                .collect::<Vec<_>>(),
+                        )
+                    })
+                    .collect(),
             )
         }
     }
@@ -569,9 +608,9 @@ mod should {
         #[case] ignore_dot_files: bool,
         #[case] expected: &[&str],
     ) {
-        let paths = paths.map(
-            |inner| inner.into_iter().map(files_attr).collect()
-        ).unwrap_or(vec![files_attr("no_mater")]);
+        let paths = paths
+            .map(|inner| inner.into_iter().map(files_attr).collect())
+            .unwrap_or(vec![files_attr("no_mater")]);
         let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(
                 ident("a"),

@@ -1,4 +1,4 @@
-use rustc_version::{Version, version};
+use rustc_version::{version, Version};
 
 fn main() {
     let ver = version().unwrap();
