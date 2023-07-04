@@ -1,7 +1,7 @@
 [workspace]
 exclude = [
   "playground",
-  "rstest_fixtures"
+  "rstest_fixtures",
 ]
 members = [
   "rstest_macros",
