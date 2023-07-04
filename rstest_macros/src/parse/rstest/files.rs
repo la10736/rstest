@@ -40,7 +40,7 @@ impl FilesGlobReferences {
 
 trait RaiseError: ToTokens {
     fn error(&self, msg: &str) -> syn::Error {
-        syn::Error::new_spanned(&self, msg)
+        syn::Error::new_spanned(self, msg)
     }
 }
 
@@ -62,15 +62,11 @@ impl FilesGlobReferences {
     }
 
     fn is_valid(&self, p: &RelativePath) -> bool {
-        if self.ignore_dot_files {
-            if p.components()
-                .into_iter()
-                .any(|c| c.as_str().starts_with('.'))
-            {
-                return false;
-            }
+        if self.ignore_dot_files && p.components()
+                .any(|c| c.as_str().starts_with('.')) {
+            return false;
         }
-        !self.exclude.iter().any(|e| e.r.is_match(&p.to_string()))
+        !self.exclude.iter().any(|e| e.r.is_match(p.as_ref()))
     }
 }
 
@@ -213,13 +209,13 @@ impl VisitMut for ValueFilesExtractor {
         let files = self.extract_files(node);
         let excludes = self.extract_exclude(node);
         let include_dot_files = self.extract_include_dot_files(node);
-        if include_dot_files.len() > 0 {
+        if !include_dot_files.is_empty() {
             include_dot_files.iter().skip(1).for_each(|attr| {
                 self.errors
                     .push(attr.error("Cannot use #[include_dot_files] more than once"))
             })
         }
-        if files.len() > 0 {
+        if !files.is_empty() {
             self.files.push((
                 name,
                 FilesGlobReferences::new(files, excludes, include_dot_files.is_empty()),
@@ -255,7 +251,7 @@ impl BaseDir for DefaultBaseDir {}
 
 trait GlobResolver {
     fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
-        let pattern = pattern.as_ref();
+        let pattern = pattern;
         let globs =
             glob(pattern).map_err(|e| format!("glob failed for whole path `{pattern}` due {e}"))?;
         globs
@@ -322,7 +318,7 @@ impl<'a> ValueListFromFiles<'a> {
                 ))
             })?;
             if !refs.is_valid(
-                &RelativePath::from_path(relative_path)
+                RelativePath::from_path(relative_path)
                     .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))?,
             ) {
                 continue;

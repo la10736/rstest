@@ -630,17 +630,15 @@ pub(crate) mod arguments {
 
     #[derive(PartialEq, Debug, Clone, Copy)]
     #[allow(dead_code)]
+    #[derive(Default)]
     pub(crate) enum FutureArg {
+        #[default]
         None,
         Define,
         Await,
     }
 
-    impl Default for FutureArg {
-        fn default() -> Self {
-            FutureArg::None
-        }
-    }
+    
 
     #[derive(PartialEq, Default, Debug)]
     pub(crate) struct ArgumentInfo {
