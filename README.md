@@ -211,9 +211,6 @@ If you need to create a test for each file in a given location you can use
 satisfy the given glob path.
 
 ```rust
-# use rstest::rstest;
-# use std::path::{Path, PathBuf};
-# fn check_file(path: &Path) -> bool { true };
 #[rstest]
 fn for_each_file(#[files("src/**/*.rs")] #[exclude("test")] path: PathBuf) {
     assert!(check_file(&path))
