@@ -667,7 +667,7 @@ pub fn fixture(
 /// # use std::path::{Path, PathBuf};
 /// # fn check_file(path: &Path) -> bool { true };
 /// #[rstest]
-/// fn for_each_file(#[files("resources/valid_cases/*")] path: PathBuf) {
+/// fn for_each_file(#[files("src/**/*.rs")] #[exclude("test")] path: PathBuf) {
 ///     assert!(check_file(&path))
 /// }
 /// ```

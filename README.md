@@ -204,6 +204,28 @@ async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[cas
 }
 ```
 
+### Files path as input arguments
+
+If you need to create a test for each file in a given location you can use
+`#[files("glob path syntax")]` attribute to generate a test for each file that
+satisfy the given glob path.
+
+```rust
+# use rstest::rstest;
+# use std::path::{Path, PathBuf};
+# fn check_file(path: &Path) -> bool { true };
+#[rstest]
+fn for_each_file(#[files("src/**/*.rs")] #[exclude("test")] path: PathBuf) {
+    assert!(check_file(&path))
+}
+```
+
+The default behavior is to ignore the files that starts with `"."` but you can
+modify this by use `#[include_dot_files]` attribute. The `files` attribute can be
+used more than once on the same variable and you can also create some custom
+exclusion rules with the `#[exclude("regex")]` attributes that filter out all
+paths that verify the regular expression.
+
 ### Default timeout
 
 You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
