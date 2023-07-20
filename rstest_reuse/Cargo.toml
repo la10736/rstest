@@ -8,7 +8,7 @@ to every scenario you want to test.
 edition = "2021"
 homepage = "https://github.com/la10736/rstest"
 keywords = ["test", "fixture"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 name = "rstest_reuse"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"

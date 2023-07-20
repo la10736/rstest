@@ -7,7 +7,7 @@ Provides some utilities used by to write rstest crate's tests.
 edition = "2021"
 homepage = "https://github.com/la10736/rstest"
 keywords = ["test"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 name = "rstest_test"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
