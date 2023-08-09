@@ -1518,7 +1518,7 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                error: expected expression
+                error: expected an expression
                    --> {}/src/lib.rs:101:17
                     |
                 101 | #[timeout(some -> strange -> invalid -> expression)]
