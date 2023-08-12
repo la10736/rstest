@@ -1468,10 +1468,10 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                  --> {}/src/lib.rs:90:57
+                  --> {}/src/lib.rs:93:8
                    |
-                90 | async fn error_future_on_impl_type(#[case] #[future] s: impl AsRef<str>) {{}}
-                   |                                                         ^^^^^^^^^^^^^^^
+                93 |     s: impl AsRef<str>,
+                   |        ^^^^^^^^^^^^^^^
                 ",
                 name
             )
@@ -1487,10 +1487,10 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                  --> {}/src/lib.rs:94:54
-                   |
-                94 | async fn error_future_on_impl_type(#[case] #[future] #[future] a: i32) {{}}
-                   |                                                      ^^^^^^^^^
+                   --> {}/src/lib.rs:102:5
+                    |
+                102 |     #[future]
+                    |     ^^^^^^^^^
                 ",
                 name
             )
@@ -1507,10 +1507,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: expected attribute arguments in parentheses: #[timeout(...)]
-                  --> {}/src/lib.rs:97:3
-                   |
-                97 | #[timeout]
-                   |   ^^^^^^^
+                   --> {}/src/lib.rs:108:3
+                    |
+                108 | #[timeout]
+                    |   ^^^^^^^
                 ",
                 name
             )
@@ -1527,9 +1527,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: expected an expression
-                   --> {}/src/lib.rs:101:17
+                   --> {}/src/lib.rs:112:17
                     |
-                101 | #[timeout(some -> strange -> invalid -> expression)]
+                112 | #[timeout(some -> strange -> invalid -> expression)]
                     |                 ^
                 ",
                 name
@@ -1547,7 +1547,7 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                   --> {}/src/lib.rs:105:11",
+                   --> {}/src/lib.rs:116:11",
                 name
             )
             .unindent()
@@ -1556,7 +1556,7 @@ mod should_show_correct_errors {
         assert_in!(
             output.stderr.str(),
             "
-            105 | #[timeout(42)]
+            116 | #[timeout(42)]
                 |           ^^ expected `Duration`, found integer
             "
             .unindent()

@@ -96,7 +96,7 @@ async fn error_future_on_impl_type(
 
 #[rstest]
 #[case(async { 42 } )]
-async fn error_future_on_impl_type(
+async fn error_future_more_than_once(
     #[case]
     #[future]
     #[future]
