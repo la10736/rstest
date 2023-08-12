@@ -62,7 +62,7 @@ fn files() {
     let output = prj.run_tests().unwrap();
 
     TestResults::new()
-        .ok("start_with_name::path_1__UP_files_test_sub_folder_from_parent_folder.txt")
+        .ok("start_with_name::path_1__UP_files_test_sub_folder_from_parent_folder_txt")
         .ok("start_with_name::path_2_files_element_0_txt")
         .ok("start_with_name::path_3_files_element_1_txt")
         .ok("start_with_name::path_4_files_element_2_txt")
