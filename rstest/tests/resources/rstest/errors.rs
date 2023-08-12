@@ -87,11 +87,22 @@ fn error_convert_to_type_that_not_implement_from_str(#[case] s: S) {}
 
 #[rstest]
 #[case(async { "hello" } )]
-async fn error_future_on_impl_type(#[case] #[future] s: impl AsRef<str>) {}
+async fn error_future_on_impl_type(
+    #[case]
+    #[future]
+    s: impl AsRef<str>,
+) {
+}
 
 #[rstest]
 #[case(async { 42 } )]
-async fn error_future_on_impl_type(#[case] #[future] #[future] a: i32) {}
+async fn error_future_on_impl_type(
+    #[case]
+    #[future]
+    #[future]
+    a: i32,
+) {
+}
 
 #[rstest]
 #[timeout]
@@ -104,3 +115,6 @@ fn error_timeout_without_expression_arg() {}
 #[rstest]
 #[timeout(42)]
 fn error_timeout_without_duration() {}
+
+#[rstest]
+fn error_absolute_path_files(#[files("/tmp/tmp.Q81idVZYAV/*.txt")] path: std::path::PathBuf) {}

@@ -1562,4 +1562,29 @@ mod should_show_correct_errors {
             .unindent()
         );
     }
+
+    #[test]
+    fn if_files_contains_absolute_path() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                "
+                error: Invalid glob path: path contains non-relative component
+                   --> {}/src/lib.rs:120:30",
+                name
+            )
+            .unindent()
+        );
+
+        assert_in!(
+            output.stderr.str(),
+            r#"
+                120 | fn error_absolute_path_files(#[files("/tmp/tmp.Q81idVZYAV/*.txt")] path: std::path::PathBuf) {}
+                    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "#
+            .unindent()
+        );
+    }
 }
