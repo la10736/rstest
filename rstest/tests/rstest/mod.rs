@@ -26,8 +26,10 @@ fn files() {
     let prj = prj("files.rs");
     let files_path = prj.path().join("files");
     let sub_folder = files_path.join("sub");
+    let up_sub_folder = prj.path().join("../files_test_sub_folder");
     std::fs::create_dir(&files_path).unwrap();
     std::fs::create_dir(&sub_folder).unwrap();
+    std::fs::create_dir(&up_sub_folder).unwrap();
 
     for n in 0..4 {
         let name = format!("element_{}.txt", n);
@@ -52,14 +54,20 @@ fn files() {
         .unwrap()
         .write_all(b"sub_dir_file.txt--\nmore")
         .unwrap();
+    let down_from_parent_folder = up_sub_folder.join("from_parent_folder.txt");
+    File::create(down_from_parent_folder)
+        .unwrap()
+        .write_all(b"from_parent_folder.txt--\nmore")
+        .unwrap();
     let output = prj.run_tests().unwrap();
 
     TestResults::new()
-        .ok("start_with_name::path_1_files_element_0_txt")
-        .ok("start_with_name::path_2_files_element_1_txt")
-        .ok("start_with_name::path_3_files_element_2_txt")
-        .ok("start_with_name::path_4_files_element_3_txt")
-        .ok("start_with_name::path_5_files_sub_sub_dir_file_txt")
+        .ok("start_with_name::path_1__UP_files_test_sub_folder_from_parent_folder.txt")
+        .ok("start_with_name::path_2_files_element_0_txt")
+        .ok("start_with_name::path_3_files_element_1_txt")
+        .ok("start_with_name::path_4_files_element_2_txt")
+        .ok("start_with_name::path_5_files_element_3_txt")
+        .ok("start_with_name::path_6_files_sub_sub_dir_file_txt")
         .ok("start_with_name_with_include::path_1_files__ignore_me_txt")
         .ok("start_with_name_with_include::path_2_files_element_0_txt")
         .ok("start_with_name_with_include::path_3_files_element_1_txt")

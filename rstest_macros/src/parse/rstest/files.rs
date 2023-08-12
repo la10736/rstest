@@ -62,8 +62,12 @@ impl FilesGlobReferences {
     }
 
     fn is_valid(&self, p: &RelativePath) -> bool {
-        if self.ignore_dot_files && p.components()
-                .any(|c| c.as_str().starts_with('.')) {
+        if self.ignore_dot_files
+            && p.components().any(|c| match c {
+                relative_path::Component::Normal(c) if c.starts_with('.') => true,
+                _ => false,
+            })
+        {
             return false;
         }
         !self.exclude.iter().any(|e| e.r.is_match(p.as_ref()))
@@ -307,20 +311,23 @@ impl<'a> ValueListFromFiles<'a> {
             .base_dir()
             .map_err(|msg| refs.glob[0].error(&msg))?;
         let resolved_paths = refs.paths(&base_dir)?;
+        let base_dir = base_dir
+            .into_os_string()
+            .into_string()
+            .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?;
 
         let mut values: Vec<(Expr, String)> = vec![];
         for (attr, abs_path) in self.all_files_path(resolved_paths)? {
-            let relative_path = abs_path.strip_prefix(&base_dir).map_err(|e| {
-                attr.error(&format!(
-                    "Cannot remove prefix path {} from {} : {e}",
-                    base_dir.to_string_lossy(),
-                    abs_path.to_string_lossy()
-                ))
-            })?;
-            if !refs.is_valid(
-                RelativePath::from_path(relative_path)
-                    .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))?,
-            ) {
+            let relative_path = abs_path
+                .clone()
+                .into_os_string()
+                .into_string()
+                .map(|inner| RelativePath::new(base_dir.as_str()).relative(inner))
+                .map_err(|e| {
+                    attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
+                })?;
+
+            if !refs.is_valid(&relative_path) {
                 continue;
             }
 
@@ -329,7 +336,7 @@ impl<'a> ValueListFromFiles<'a> {
                 parse_quote! {
                     <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
                 },
-                relative_path.to_string_lossy().to_string(),
+                render_file_description(&relative_path),
             ));
         }
 
@@ -364,6 +371,20 @@ impl<'a> ValueListFromFiles<'a> {
         paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
         Ok(paths)
     }
+}
+
+fn render_file_description(file: &RelativePath) -> String {
+    let mut description = String::new();
+    for c in file.components() {
+        match c {
+            relative_path::Component::CurDir => continue,
+            relative_path::Component::ParentDir => description.push_str("_UP"),
+            relative_path::Component::Normal(segment) => description.push_str(segment),
+        }
+        description.push_str("/")
+    }
+    description.pop();
+    description
 }
 
 #[cfg(test)]
@@ -596,6 +617,8 @@ mod should {
     #[case::include_dot_files("/base", None, FakeResolver::from([
         "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
         vec![], false, &[".ignore", ".ignore_dir/a", "first", "in/.out/other/ignored", "second/.not", "second/but_include"])]
+    #[case::relative_path("/base/some/other/folders", None, 
+        FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["../../../first", "../../../second"])]
     fn generate_a_variable_with_the_glob_resolved_path(
         #[case] bdir: &str,
         #[case] paths: Option<&[&str]>,
@@ -618,10 +641,12 @@ mod should {
             "a",
             &expected
                 .iter()
+                .map(|&p| RelativePath::from_path(p).unwrap())
+                .map(|r| r.to_logical_path(bdir))
                 .map(|p| {
                     format!(
-                        r#"<PathBuf as std::str::FromStr>::from_str("{}/{}").unwrap()"#,
-                        bdir, p
+                        r#"<PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
+                        p.as_os_str().to_str().unwrap()
                     )
                 })
                 .collect::<Vec<_>>(),
@@ -630,8 +655,25 @@ mod should {
             .values
             .iter_mut()
             .zip(expected.iter())
-            .for_each(|(v, &ex)| v.description = Some(ex.into()));
+            .for_each(|(v, &ex)| {
+                v.description = Some(render_file_description(
+                    &RelativePath::from_path(ex).unwrap(),
+                ))
+            });
         assert_eq!(vec![v_list], values);
+    }
+
+    #[rstest]
+    #[case::file("name.txt", "name.txt")]
+    #[case::in_folder("some/folder/name.txt", "some/folder/name.txt")]
+    #[case::no_extension("name", "name")]
+    #[case::parent("../../name.txt", "_UP/_UP/name.txt")]
+    #[case::ignore_current("./../other/name.txt", "_UP/other/name.txt")]
+    fn render_file_description_should(#[case] path: &str, #[case] expected: &str) {
+        assert_eq!(
+            render_file_description(&RelativePath::from_path(path).unwrap()),
+            expected
+        );
     }
 
     #[test]

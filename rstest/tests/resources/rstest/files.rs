@@ -7,6 +7,7 @@ use std::path::PathBuf;
 fn start_with_name(
     #[files("files/**/*.txt")]
     #[exclude("exclude")]
+    #[files("../files_test_sub_folder/**/*.txt")]
     path: PathBuf,
 ) {
     let name = path.file_name().unwrap();
