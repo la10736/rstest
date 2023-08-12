@@ -681,7 +681,7 @@ pub fn fixture(
 /// crates in your workspace. You can do that by use the usual parent folders `..` in
 /// the glob path. In this case the test names will be the relative path from the crate root
 /// where the parent folder are replaced by `_UP`: for instance if you have a `valid_call.yaml`
-/// in the folder `../test_cases` (from your crate) a test name could be 
+/// in the folder `../test_cases` (from your crate) a test name could be
 /// `path_1__UP_test_cases_valid_call_yaml`.
 ///
 /// ## Use Parametrize definition in more tests
@@ -789,7 +789,7 @@ pub fn fixture(
 ///
 /// ### Test `#[timeout()]`
 ///
-/// You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
+/// You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeout
 /// works both for sync and async tests and is runtime agnostic. `#[timeout(<duration>)]` take an
 /// expression that should return a `std::time::Duration`. Follow a simple async example:
 ///
