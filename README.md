@@ -230,8 +230,8 @@ The value is in seconds and is evaluated on test compile time.
 
 ### Test `#[timeout()]`
 
-You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeouts
-works both for sync and async tests and is runtime agnostic. `#[timeout(<duration>)]` take an 
+You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeout
+works both for sync and async tests and is runtime agnostic. `#[timeout(<duration>)]` take an
 expression that should return a `std::time::Duration`. Follow a simple async example:
 
 ```rust
