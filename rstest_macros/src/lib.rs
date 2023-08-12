@@ -677,6 +677,13 @@ pub fn fixture(
 /// exclusion rules with the `#[exclude("regex")]` attributes that filter out all
 /// paths that verify the regular expression.
 ///
+/// Sometime is useful to have tests file in a workspace folder to share them between the
+/// crates in your workspace. You can do that by use the usual parent folders `..` in
+/// the glob path. In this case the test names will be the relative path from the crate root
+/// where the parent folder are replaced by `_UP`: for instance if you have a `valid_call.yaml`
+/// in the folder `../test_cases` (from your crate) a test name could be 
+/// `path_1__UP_test_cases_valid_call_yaml`.
+///
 /// ## Use Parametrize definition in more tests
 ///
 /// If you need to use a test list for more than one test you can use
