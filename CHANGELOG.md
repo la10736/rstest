@@ -1,15 +1,11 @@
 # Changelog
 
-## Unreleased
-
-### Add
+## [0.18.2] 2023/8/13
 
 ### Changed
 
 - Now `#[files]` accept also parent folders: see [#205](https://github.com/la10736/rstest/issues/205)
 for more details.
-
-### Fixed
 
 ## [0.18.1] 2023/7/5
 
