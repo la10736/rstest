@@ -63,10 +63,8 @@ impl FilesGlobReferences {
 
     fn is_valid(&self, p: &RelativePath) -> bool {
         if self.ignore_dot_files
-            && p.components().any(|c| match c {
-                relative_path::Component::Normal(c) if c.starts_with('.') => true,
-                _ => false,
-            })
+            && p.components()
+                .any(|c| matches!(c, relative_path::Component::Normal(c) if c.starts_with('.')))
         {
             return false;
         }
@@ -381,7 +379,7 @@ fn render_file_description(file: &RelativePath) -> String {
             relative_path::Component::ParentDir => description.push_str("_UP"),
             relative_path::Component::Normal(segment) => description.push_str(segment),
         }
-        description.push_str("/")
+        description.push('/')
     }
     description.pop();
     description
