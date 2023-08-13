@@ -139,7 +139,7 @@ use quote::ToTokens;
 ///
 /// # `#[once]` Fixture
 ///
-/// Expecially in integration tests there are cases where you need a fixture that is called just once
+/// Especially in integration tests there are cases where you need a fixture that is called just once
 /// for every tests. `rstest` provides `#[once]` attribute for these cases.
 ///
 /// If you mark your fixture with this attribute, then `rstest` will compute a static reference to your
@@ -180,7 +180,7 @@ use quote::ToTokens;
 ///
 /// # Partial Injection
 ///
-/// You can also partialy inject fixture dependency using `#[with(v1, v2, ..)]` attribute:
+/// You can also partially inject fixture dependency using `#[with(v1, v2, ..)]` attribute:
 ///
 /// ```
 /// use rstest::*;
@@ -206,7 +206,7 @@ use quote::ToTokens;
 /// attribute will inject `v1, ..., vn` expression as fixture arguments: all remaining arguments
 /// will be resolved as fixtures.
 ///
-/// Sometimes the return type cannot be infered so you must define it: For the few times you may
+/// Sometimes the return type cannot be inferred so you must define it: For the few times you may
 /// need to do it, you can use the `#[default(type)]`, `#[partial_n(type)]` function attribute
 /// to define it:
 ///
@@ -245,8 +245,8 @@ use quote::ToTokens;
 ///
 /// # Old _compact_ syntax
 ///
-/// There is also a compact form for all previous features. This will mantained for a long time
-/// but for `fixture` I strongly recomand to migrate your code because you'll pay a little
+/// There is also a compact form for all previous features. This will maintained for a long time
+/// but for `fixture` I strongly recommend to migrate your code because you'll pay a little
 /// verbosity but get back a more readable code.
 ///
 /// Follow the previous examples in old _compact_ syntax.
@@ -360,7 +360,7 @@ pub fn fixture(
 /// The simplest case is write a test that can be injected with
 /// [`[fixture]`](macro@fixture)s. You can just declare all used fixtures by passing
 /// them as a function's arguments. This can help your test to be neat
-/// and make your dependecy clear.
+/// and make your dependency clear.
 ///
 /// ```
 /// use rstest::*;
@@ -401,7 +401,7 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// Sometimes is useful to have some parametes in your fixtures but your test would
+/// Sometimes is useful to have some parameters in your fixtures but your test would
 /// override the fixture's default values in some cases. Like in
 /// [fixture partial injection](attr.fixture.html#partial-injection) you use `#[with]`
 /// attribute to indicate some fixture's arguments also in `rstest`.
@@ -452,8 +452,8 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// `rstest` will produce 5 indipendent tests and not just one that
-/// check every case. Every test can fail indipendently and `cargo test`
+/// `rstest` will produce 5 independent tests and not just one that
+/// check every case. Every test can fail independently and `cargo test`
 /// will give follow output:
 ///
 /// ```text
@@ -467,7 +467,7 @@ pub fn fixture(
 /// test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 /// ```
 ///
-/// The cases input values can be arbitrary Rust expresions that return the
+/// The cases input values can be arbitrary Rust expressions that return the
 /// argument type.
 ///
 /// ```
@@ -495,7 +495,7 @@ pub fn fixture(
 /// # fn count_words(path: PathBuf) -> usize {0}
 /// #[rstest]
 /// #[case("resources/empty", 0)]
-/// #[case("resources/divine_commedy", 101.698)]
+/// #[case("resources/divine_comedy", 101.698)]
 /// fn test_count_words(#[case] path: PathBuf, #[case] expected: usize) {
 ///     assert_eq!(expected, count_words(path))
 /// }
@@ -527,7 +527,7 @@ pub fn fixture(
 /// # }
 /// ```
 ///
-/// Outuput will be
+/// Output will be
 /// ```text
 /// running 4 tests
 /// test fibonacci_test::case_1_zero_base_case ... ok
@@ -596,7 +596,7 @@ pub fn fixture(
 /// ## Values Lists
 ///
 /// Another useful way to write a test and execute it for some values
-/// is to use the values list syntax. This syntax can be usefull both
+/// is to use the values list syntax. This syntax can be useful both
 /// for a plain list and for testing all combination of input arguments.
 ///
 /// ```
@@ -605,7 +605,7 @@ pub fn fixture(
 ///
 /// #[rstest]
 /// fn should_be_valid(
-///     #[values("Jhon", "alice", "My_Name", "Zigy_2001")]
+///     #[values("John", "alice", "My_Name", "Zigy_2001")]
 ///     input: &str
 /// ) {
 ///     assert!(is_valid(input))
@@ -641,7 +641,7 @@ pub fn fixture(
 /// test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 /// ```
 /// Note that the test names contains the given expression sanitized into
-/// a valid Rust identifier name. This should help to identify wich case fails.
+/// a valid Rust identifier name. This should help to identify which case fails.
 ///
 ///
 /// Also value list implements the magic conversion feature: every time the value type
@@ -671,17 +671,17 @@ pub fn fixture(
 ///     assert!(check_file(&path))
 /// }
 /// ```
-/// The default behavior is to ignore the files that starts with `"."` but you can
+/// The default behavior is to ignore the files that start with `"."`, but you can
 /// modify this by use `#[include_dot_files]` attribute. The `files` attribute can be
-/// used more than once on the same variable and you can also create some custom
+/// used more than once on the same variable, and you can also create some custom
 /// exclusion rules with the `#[exclude("regex")]` attributes that filter out all
 /// paths that verify the regular expression.
 ///
-/// Sometime is useful to have tests file in a workspace folder to share them between the
+/// Sometime is useful to have test files in a workspace folder to share them between the
 /// crates in your workspace. You can do that by use the usual parent folders `..` in
 /// the glob path. In this case the test names will be the relative path from the crate root
-/// where the parent folder are replaced by `_UP`: for instance if you have a `valid_call.yaml`
-/// in the folder `../test_cases` (from your crate) a test name could be
+/// where the parent folder components are replaced by `_UP`: for instance if you have a
+/// `valid_call.yaml` in the folder `../test_cases` (from your crate root) a test name could be
 /// `path_1__UP_test_cases_valid_call_yaml`.
 ///
 /// ## Use Parametrize definition in more tests
@@ -706,7 +706,7 @@ pub fn fixture(
 /// }
 /// ```
 ///
-/// See [`rstest_reuse`](https://crates.io/crates/rstest_reuse) for more dettails.
+/// See [`rstest_reuse`](https://crates.io/crates/rstest_reuse) for more details.
 ///
 /// ## Async
 ///
@@ -811,9 +811,9 @@ pub fn fixture(
 /// In this case test pass because the delay is just 10 milliseconds and timeout is
 /// 80 milliseconds.
 ///
-/// You can use `timeout` attribute like any other attibute in your tests and you can
+/// You can use `timeout` attribute like any other attribute in your tests, and you can
 /// override a group timeout with a test specific one. In the follow example we have
-/// 3 tests where first and third use 100 millis but the second one use 10 millis.
+/// 3 tests where first and third use 100 milliseconds but the second one use 10 milliseconds.
 /// Another valuable point in this example is to use an expression to compute the
 /// duration.
 ///
@@ -895,9 +895,9 @@ pub fn fixture(
 /// }
 ///
 /// #[rstest]
-/// #[case::authed_user(alice())] // We can use `fixture` also as standard function
+/// #[case::authorized_user(alice())] // We can use `fixture` also as standard function
 /// #[case::guest(User::Guest)]   // We can give a name to every case : `guest` in this case
-/// #[should_panic(expected = "Invalid query error")] // We whould test a panic
+/// #[should_panic(expected = "Invalid query error")] // We would test a panic
 /// fn should_be_invalid_query_error(
 ///     repository: impl Repository,
 ///     #[case] user: User,
@@ -970,7 +970,7 @@ pub fn fixture(
 ///
 /// `rstest` support also a syntax where all options and configuration can be write as
 /// `rstest` attribute arguments. This syntax is a little less verbose but make
-/// composition harder: for istance try to add some cases to a `rstest_reuse` template
+/// composition harder: for instance try to add some cases to a `rstest_reuse` template
 /// is really hard.
 ///
 /// So we'll continue to maintain the old syntax for a long time but we strongly encourage
@@ -1061,7 +1061,7 @@ pub fn fixture(
 /// # fn is_valid(input: &str) -> bool { true }
 ///
 /// #[rstest(
-///     input => ["Jhon", "alice", "My_Name", "Zigy_2001"]
+///     input => ["John", "alice", "My_Name", "Zigy_2001"]
 /// )]
 /// fn should_be_valid(input: &str) {
 ///     assert!(is_valid(input))

@@ -12,7 +12,7 @@
 fixtures and table-based tests. To use it, add the
 following lines to your `Cargo.toml` file:
 
-```
+```toml
 [dev-dependencies]
 rstest = "0.18.2"
 ```
@@ -96,8 +96,8 @@ values.
 
 #### Use Parametrize definition in more tests
 
-If you need to use a test list for more than one test you can use [`rstest_reuse`][reuse-crate-link] 
-crate. With this helper crate you can define a template and use it everywhere .
+If you need to use a test list for more than one test you can use [`rstest_reuse`][reuse-crate-link]
+crate. With this helper crate you can define a template and use it everywhere.
 
 ```rust
 use rstest::rstest;
@@ -115,11 +115,11 @@ fn it_works(#[case] a: u32, #[case] b: u32) {
 }
 ```
 
-See [`rstest_reuse`][reuse-crate-link] for more dettails.
+See [`rstest_reuse`][reuse-crate-link] for more details.
 
 ### Magic Conversion
 
-If you need a value where its type implement `FromStr()` trait you can use a literal 
+If you need a value where its type implement `FromStr()` trait you can use a literal
 string to build it:
 
 ```rust
@@ -132,12 +132,13 @@ fn check_port(#[case] addr: SocketAddr, #[case] expected: u16) {
     assert_eq!(expected, addr.port());
 }
 ```
+
 You can use this feature also in value list and in fixture default value.
 
 ### Async
 
 `rstest` provides out of the box `async` support. Just mark your
-test function as `async` and it'll use `#[async-std::test]` to
+test function as `async`, and it'll use `#[async-std::test]` to
 annotate it. This feature can be really useful to build async
 parametric tests using a tidy syntax:
 
@@ -152,8 +153,9 @@ async fn my_async_test(#[case] expected: u32, #[case] a: u32, #[case] b: u32) {
     assert_eq!(expected, async_sum(a, b).await);
 }
 ```
-Currently only `async-std` is supported out of the box. But if you need to use
-another runtime that provide it's own test attribute (i.e. `tokio::test` or
+
+Currently, only `async-std` is supported out of the box. But if you need to use
+another runtime that provide its own test attribute (i.e. `tokio::test` or
 `actix_rt::test`) you can use it in your `async` test like described in
 [Inject Test Attribute](#inject-test-attribute).
 
@@ -180,7 +182,7 @@ async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[c
 }
 ```
 
-As you noted you should `.await` all _future_ values and this some times can be really boring.
+As you noted you should `.await` all _future_ values and this sometimes can be really boring.
 In this case you can use `#[future(awt)]` to _awaiting_ an input or annotating your function
 with `#[awt]` attributes to globally `.await` all your _future_ inputs. Previous code can be
 simplified like follow:
@@ -217,9 +219,9 @@ fn for_each_file(#[files("src/**/*.rs")] #[exclude("test")] path: PathBuf) {
 }
 ```
 
-The default behavior is to ignore the files that starts with `"."` but you can
+The default behavior is to ignore the files that start with `"."`, but you can
 modify this by use `#[include_dot_files]` attribute. The `files` attribute can be
-used more than once on the same variable and you can also create some custom
+used more than once on the same variable, and you can also create some custom
 exclusion rules with the `#[exclude("regex")]` attributes that filter out all
 paths that verify the regular expression.
 
@@ -249,12 +251,13 @@ async fn single_pass() {
     assert_eq!(4, delayed_sum(2, 2, ms(10)).await);
 }
 ```
+
 In this case test pass because the delay is just 10 milliseconds and timeout is
 80 milliseconds.
 
-You can use `timeout` attribute like any other attibute in your tests and you can
+You can use `timeout` attribute like any other attribute in your tests, and you can
 override a group timeout with a case specific one. In the follow example we have
-3 tests where first and third use 100 millis but the second one use 10 millis.
+3 tests where first and third use 100 milliseconds but the second one use 10 milliseconds.
 Another valuable point in this example is to use an expression to compute the
 duration.
 
@@ -279,7 +282,7 @@ feature (enabled by default).
 
 ### Inject Test Attribute
 
-If you would like to use another `test` attribute for your test you can simply 
+If you would like to use another `test` attribute for your test you can simply
 indicate it in your test function's attributes. For instance if you want
 to test some async function with use `actix_rt::test` attribute you can just write:
 
@@ -296,11 +299,12 @@ async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
     assert_eq!(2 * a, result.await);
 }
 ```
+
 Just the attributes that ends with `test` (last path segment) can be injected.
 
 ### Use `#[once]` Fixture
 
-If you need to a fixture that should be inizialized just once for all tests
+If you need to a fixture that should be initialized just once for all tests
 you can use `#[once]` attribute. `rstest` call your fixture function just once and
 return a reference to your function result to all your tests:
 
@@ -317,12 +321,11 @@ fn single(once_fixture: &i32) {
 }
 ```
 
-
 ## Complete Example
 
 All these features can be used together with a mixture of fixture variables,
-fixed cases and bunch of values. For instance, you might need two
-test cases which test for panics, one for a logged in user and one for a guest user.
+fixed cases and a bunch of values. For instance, you might need two
+test cases which test for panics, one for a logged-in user and one for a guest user.
 
 ```rust
 use rstest::*;
@@ -340,10 +343,10 @@ fn alice() -> User {
 }
 
 #[rstest]
-#[case::authed_user(alice())] // We can use `fixture` also as standard function
+#[case::authorized_user(alice())] // We can use `fixture` also as standard function
 #[case::guest(User::Guest)]   // We can give a name to every case : `guest` in this case
-                              // and `authed_user`
-#[should_panic(expected = "Invalid query error")] // We whould test a panic
+                              // and `authorized_user`
+#[should_panic(expected = "Invalid query error")] // We would test a panic
 fn should_be_invalid_query_error(
     repository: impl Repository,
     #[case] user: User,
@@ -354,26 +357,27 @@ fn should_be_invalid_query_error(
 ```
 
 This example will generate exactly 6 tests grouped by 2 different cases:
-```
+
+```text
 running 6 tests
-test should_be_invalid_query_error::case_1_authed_user::query_1_____ - should panic ... ok
+test should_be_invalid_query_error::case_1_authorized_user::query_1_____ - should panic ... ok
 test should_be_invalid_query_error::case_2_guest::query_2_____someinvalid_chars__ - should panic ... ok
-test should_be_invalid_query_error::case_1_authed_user::query_2_____someinvalid_chars__ - should panic ... ok
+test should_be_invalid_query_error::case_1_authorized_user::query_2_____someinvalid_chars__ - should panic ... ok
 test should_be_invalid_query_error::case_2_guest::query_3____n_o_d_o_t_s___ - should panic ... ok
-test should_be_invalid_query_error::case_1_authed_user::query_3____n_o_d_o_t_s___ - should panic ... ok
+test should_be_invalid_query_error::case_1_authorized_user::query_3____n_o_d_o_t_s___ - should panic ... ok
 test should_be_invalid_query_error::case_2_guest::query_1_____ - should panic ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
 
-Note that the names of the values _try_ to convert the input expression in a 
-Rust valid identifier name to help you to find which tests fail.
+Note that the names of the values _try_ to convert the input expression in a
+Rust valid identifier name to help you find which tests fail.
 
 ## More
 
 Is that all? Not quite yet!
 
-A fixture can be injected by another fixture and they can be called
+A fixture can be injected by another fixture, and they can be called
 using just some of its arguments.
 
 ```rust
@@ -406,7 +410,7 @@ fn is_42(#[with("", 42)] user: User) {
 As you noted you can provide default values without the need of a fixture
 to define it.
 
-Finally if you need tracing the input values you can just
+Finally, if you need tracing the input values you can just
 add the `trace` attribute to your test to enable the dump of all input
 variables.
 
@@ -414,13 +418,13 @@ variables.
 #[rstest]
 #[case(42, "FortyTwo", ("minus twelve", -12))]
 #[case(24, "TwentyFour", ("minus twentyfour", -24))]
-#[trace] //This attribute enable traceing
+#[trace] //This attribute enable tracing
 fn should_fail(#[case] number: u32, #[case] name: &str, #[case] tuple: (&str, i32)) {
     assert!(false); // <- stdout come out just for failed tests
 }
 ```
 
-```
+```text
 running 2 tests
 test should_fail::case_1 ... FAILED
 test should_fail::case_2 ... FAILED
@@ -456,7 +460,7 @@ In case one or more variables don't implement the `Debug` trait, an error
 is raised, but it's also possible to exclude a variable using the
 `#[notrace]` argument attribute.
 
-You can learn more on [Docs][docs-link] and find more examples in 
+You can learn more on [Docs][docs-link] and find more examples in
 [`tests/resources`](tests/resources) directory.
 
 ## Changelog
