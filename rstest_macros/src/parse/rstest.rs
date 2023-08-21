@@ -1,9 +1,11 @@
 use syn::{
     parse::{Parse, ParseStream},
-    Ident, ItemFn, Token,
+    spanned::Spanned,
+    visit_mut::VisitMut,
+    FnArg, Ident, ItemFn, LitStr, Token,
 };
 
-use self::files::{extract_files, ValueListFromFiles};
+use self::files_args::{extract_files_args, ValueListFromFiles};
 
 use super::{
     arguments::ArgumentsInfo,
@@ -14,15 +16,16 @@ use super::{
     testcase::TestCase,
     Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
-use crate::parse::vlist::ValueList;
+use crate::{error::attribute_used_more_than_once, parse::vlist::ValueList};
 use crate::{
     error::ErrorsVec,
     refident::{MaybeIdent, RefIdent},
+    utils::attr_is,
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
 
-pub(crate) mod files;
+pub(crate) mod files_args;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -115,6 +118,101 @@ impl RsTestData {
     pub(crate) fn has_list_values(&self) -> bool {
         self.list_values().next().is_some()
     }
+
+    fn files(&self) -> Option<&Files> {
+        self.items.iter().find_map(|it| match it {
+            RsTestItem::Files(ref files) => Some(files),
+            _ => None,
+        })
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub(crate) struct Files {
+    hierarchy: Folder,
+    data: Vec<Ident>,
+    args: Vec<StructField>,
+}
+
+impl Files {
+    pub(crate) fn hierarchy(&self) -> &Folder {
+        &self.hierarchy
+    }
+
+    pub(crate) fn data(&self) -> &[Ident] {
+        self.data.as_ref()
+    }
+
+    pub(crate) fn args(&self) -> &[StructField] {
+        self.args.as_ref()
+    }
+}
+
+impl ToTokens for Files {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.data.iter().for_each(|data| data.to_tokens(tokens));
+        self.args.iter().for_each(|f| f.to_tokens(tokens));
+    }
+}
+
+impl From<Folder> for Files {
+    fn from(hierarchy: Folder) -> Self {
+        Self {
+            hierarchy,
+            data: Default::default(),
+            args: Default::default(),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub(crate) struct Folder {
+    name: String,
+    files: Vec<String>,
+    folders: Vec<Folder>,
+}
+
+impl Folder {
+    #[cfg(test)]
+    pub(crate) fn fake() -> Self {
+        Self {
+            name: "fake".to_string(),
+            files: vec!["foo".to_string(), "bar".to_string()],
+            folders: vec![Folder {
+                name: "baz".to_string(),
+                files: vec![],
+                folders: vec![],
+            }],
+        }
+    }
+
+    #[cfg(test)]
+    fn build_hierarchy(_path: LitStr) -> syn::Result<Self> {
+        Ok(Self::fake())
+    }
+
+    #[cfg(not(test))]
+    fn build_hierarchy(_path: LitStr) -> syn::Result<Self> {
+        todo!("Not implemented yet")
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Hash, Clone)]
+pub(crate) struct StructField {
+    ident: Ident,
+    field: Option<String>,
+}
+
+impl StructField {
+    pub(crate) fn new(ident: Ident, field: Option<String>) -> Self {
+        Self { ident, field }
+    }
+}
+
+impl ToTokens for StructField {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.ident.to_tokens(tokens);
+    }
 }
 
 impl Parse for RsTestData {
@@ -129,23 +227,146 @@ impl Parse for RsTestData {
     }
 }
 
+/// Simple struct used to visit function attributes and extract files and
+/// eventually parsing errors
+#[derive(Default)]
+struct FilesExtractor(Option<Files>, Vec<syn::Error>);
+
+impl VisitMut for FilesExtractor {
+    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
+        let attrs = std::mem::take(&mut node.attrs);
+        let mut attrs_buffer = Vec::<syn::Attribute>::default();
+        for attr in attrs.into_iter() {
+            if attr_is(&attr, "json") {
+                match attr
+                    .parse_args::<LitStr>()
+                    .and_then(Folder::build_hierarchy)
+                {
+                    Ok(hierarchy) => {
+                        self.0 = Some(hierarchy.into());
+                    }
+                    Err(err) => self.1.push(err),
+                };
+            } else {
+                attrs_buffer.push(attr)
+            }
+        }
+        node.attrs = std::mem::take(&mut attrs_buffer);
+        syn::visit_mut::visit_item_fn_mut(self, node)
+    }
+
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        let (name, node) = match (node.maybe_ident().cloned(), node) {
+            (Some(name), FnArg::Typed(node)) => (name, node),
+            _ => {
+                return;
+            }
+        };
+        let (field, mut errors) = maybe_parse_attribute_args_just_once::<LitStr>(node, "field");
+        if let Some(field) = field {
+            if let Some(files) = self.0.as_mut() {
+                files
+                    .args
+                    .push(StructField::new(name.clone(), field.map(|l| l.value())));
+            } else {
+                self.1.push(syn::Error::new(
+                    name.span(),
+                    format!("`field` attribute must be used on files test set"),
+                ))
+            }
+        }
+        self.1.append(&mut errors);
+        let (attr, mut errors) = attribute_args_once(node, "data");
+        if let Some(attr) = attr {
+            if let Some(files) = self.0.as_mut() {
+                files.data.push(name.clone());
+            } else {
+                self.1.push(syn::Error::new(
+                    attr.span(),
+                    format!("`data` attribute must be used on files test set"),
+                ))
+            }
+        }
+        self.1.append(&mut errors);
+    }
+}
+
+fn maybe_parse_attribute_args_just_once<T: Parse>(
+    node: &syn::PatType,
+    name: &str,
+) -> (Option<Option<T>>, Vec<syn::Error>) {
+    let mut errors = Vec::new();
+    let val = node
+        .attrs
+        .iter()
+        .filter(|&a| attr_is(a, name))
+        .map(|a| {
+            (
+                a,
+                match &a.meta {
+                    syn::Meta::Path(_path) => None,
+                    _ => Some(a.parse_args::<T>()),
+                },
+            )
+        })
+        .fold(None, |first, (a, res)| match (first, res) {
+            (None, None) => Some(None),
+            (None, Some(Ok(parsed))) => Some(Some(parsed)),
+            (first, Some(Err(err))) => {
+                errors.push(err);
+                first
+            }
+            (first, _) => {
+                errors.push(attribute_used_more_than_once(a, name));
+                first
+            }
+        });
+    (val, errors)
+}
+
+fn attribute_args_once<'a>(
+    node: &'a syn::PatType,
+    name: &str,
+) -> (Option<&'a syn::Attribute>, Vec<syn::Error>) {
+    let mut errors = Vec::new();
+    let mut attributes = node.attrs.iter().filter(|&a| attr_is(a, name));
+    let val = attributes.next();
+    while let Some(attr) = attributes.next() {
+        errors.push(attribute_used_more_than_once(attr, name));
+    }
+    (val, errors)
+}
+
+pub(crate) fn extract_files(item_fn: &mut ItemFn) -> Result<Option<Files>, ErrorsVec> {
+    let mut extractor = FilesExtractor::default();
+    extractor.visit_item_fn_mut(item_fn);
+
+    if extractor.1.is_empty() {
+        Ok(extractor.0)
+    } else {
+        Err(extractor.1.into())
+    }
+}
+
 impl ExtendWithFunctionAttrs for RsTestData {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(fixtures, case_args, cases, value_list, files) = merge_errors!(
+        let composed_tuple!(fixtures, case_args, cases, value_list, files, files_args) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
             extract_cases(item_fn),
             extract_value_list(item_fn),
-            extract_files(item_fn)
+            extract_files(item_fn),
+            extract_files_args(item_fn)
         )?;
 
         self.items.extend(fixtures.into_iter().map(|f| f.into()));
         self.items.extend(case_args.into_iter().map(|f| f.into()));
         self.items.extend(cases.into_iter().map(|f| f.into()));
         self.items.extend(value_list.into_iter().map(|f| f.into()));
+        self.items.extend(files.into_iter().map(|f| f.into()));
         self.items.extend(
             ValueListFromFiles::default()
-                .to_value_list(files)?
+                .to_value_list(files_args)?
                 .into_iter()
                 .map(|f| f.into()),
         );
@@ -159,6 +380,7 @@ pub(crate) enum RsTestItem {
     CaseArgName(Ident),
     TestCase(TestCase),
     ValueList(ValueList),
+    Files(Files),
 }
 
 impl From<Fixture> for RsTestItem {
@@ -182,6 +404,12 @@ impl From<TestCase> for RsTestItem {
 impl From<ValueList> for RsTestItem {
     fn from(value_list: ValueList) -> Self {
         RsTestItem::ValueList(value_list)
+    }
+}
+
+impl From<Files> for RsTestItem {
+    fn from(value: Files) -> Self {
+        RsTestItem::Files(value)
     }
 }
 
@@ -209,6 +437,7 @@ impl MaybeIdent for RsTestItem {
             CaseArgName(ref case_arg) => Some(case_arg),
             ValueList(ref value_list) => Some(value_list.ident()),
             TestCase(_) => None,
+            Files(_) => None,
         }
     }
 }
@@ -221,6 +450,7 @@ impl ToTokens for RsTestItem {
             CaseArgName(ref case_arg) => case_arg.to_tokens(tokens),
             TestCase(ref case) => case.to_tokens(tokens),
             ValueList(ref list) => list.to_tokens(tokens),
+            Files(files) => files.to_tokens(tokens),
         }
     }
 }
@@ -899,6 +1129,39 @@ mod test {
                     list_values[1].args()
                 );
             }
+        }
+    }
+
+    mod json {
+        use std::collections::HashSet;
+
+        use super::{assert_eq, *};
+
+        #[test]
+        fn happy_path() {
+            let mut item_fn = r#"
+            #[json("resources/tests/*.json")]
+            fn base(#[field] age: u16, #[data] user: User, #[field("first_name")] name: String) {
+                assert!(age==user.age);
+            }
+            "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            let files = info.data.files().unwrap();
+
+            assert_eq!(&Folder::fake(), files.hierarchy());
+            assert_eq!([ident("user")], files.data());
+            assert_eq!(
+                HashSet::<&StructField>::from_iter(vec![
+                    &StructField::new(ident("age"), None),
+                    &StructField::new(ident("name"), Some("first_name".to_string())),
+                ]),
+                HashSet::from_iter(files.args())
+            );
         }
     }
 

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
 use syn::{spanned::Spanned, visit::Visit};
-use syn::{visit, ItemFn};
+use syn::{visit, Attribute, ItemFn};
 
 use crate::parse::{
     fixture::FixtureInfo,
@@ -223,6 +223,13 @@ fn case_args_without_cases(params: &RsTestData) -> Errors {
         );
     }
     Box::new(std::iter::empty())
+}
+
+pub(crate) fn attribute_used_more_than_once(a: &Attribute, name: &str) -> syn::Error {
+    syn::Error::new_spanned(
+        a,
+        format!("You cannot use '{name}' attribute more than once for the same argument"),
+    )
 }
 
 #[cfg(test)]

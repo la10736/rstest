@@ -31,13 +31,20 @@ impl<'a> RefIdent for &'a Ident {
     }
 }
 
+impl MaybeIdent for PatType {
+    fn maybe_ident(&self) -> Option<&Ident> {
+        let PatType { pat, .. } = self;
+        match pat.as_ref() {
+            Pat::Ident(ident) => Some(&ident.ident),
+            _ => None,
+        }
+    }
+}
+
 impl MaybeIdent for FnArg {
     fn maybe_ident(&self) -> Option<&Ident> {
         match self {
-            FnArg::Typed(PatType { pat, .. }) => match pat.as_ref() {
-                Pat::Ident(ident) => Some(&ident.ident),
-                _ => None,
-            },
+            FnArg::Typed(p) => p.maybe_ident(),
             _ => None,
         }
     }

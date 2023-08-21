@@ -638,8 +638,6 @@ pub(crate) mod arguments {
         Await,
     }
 
-    
-
     #[derive(PartialEq, Default, Debug)]
     pub(crate) struct ArgumentInfo {
         future: FutureArg,

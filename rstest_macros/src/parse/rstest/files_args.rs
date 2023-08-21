@@ -129,7 +129,7 @@ impl From<Vec<LitStrAttr>> for FilesGlobReferences {
 }
 
 /// Entry point function to extract files attributes
-pub(crate) fn extract_files(
+pub(crate) fn extract_files_args(
     item_fn: &mut ItemFn,
 ) -> Result<Vec<(Ident, FilesGlobReferences)>, ErrorsVec> {
     let mut extractor = ValueFilesExtractor::default();
@@ -459,7 +459,7 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
 
-        let files = extract_files(&mut item_fn).unwrap();
+        let files = extract_files_args(&mut item_fn).unwrap();
 
         assert_eq!(expected, item_fn);
         assert_eq!(
@@ -512,7 +512,7 @@ mod should {
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
-        let err = extract_files(&mut item_fn).unwrap_err();
+        let err = extract_files_args(&mut item_fn).unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
     }
