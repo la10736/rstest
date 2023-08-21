@@ -329,7 +329,19 @@ fn attribute_args_once<'a>(
     name: &str,
 ) -> (Option<&'a syn::Attribute>, Vec<syn::Error>) {
     let mut errors = Vec::new();
-    let mut attributes = node.attrs.iter().filter(|&a| attr_is(a, name));
+    let mut attributes = node
+        .attrs
+        .iter()
+        .filter(|&a| attr_is(a, name))
+        .map(|a| match a.meta.require_path_only() {
+            Ok(_) => a,
+            Err(err) => {
+                errors.push(err);
+                a
+            }
+        })
+        .collect::<Vec<_>>()
+        .into_iter();
     let val = attributes.next();
     while let Some(attr) = attributes.next() {
         errors.push(attribute_used_more_than_once(attr, name));
@@ -1135,6 +1147,8 @@ mod test {
     mod json {
         use std::collections::HashSet;
 
+        use rstest_test::assert_in;
+
         use super::{assert_eq, *};
 
         #[test]
@@ -1162,6 +1176,62 @@ mod test {
                 ]),
                 HashSet::from_iter(files.args())
             );
+        }
+
+        #[rstest]
+        #[case::field_just_once(
+            r#"
+            #[json("resources/tests/*.json")]
+            fn base(#[field] #[field("first_name")] age: u16) {}"#,
+            &["field", "more than once"]
+        )]
+        #[case::field_without_files(
+            r#"
+            fn base(#[field] age: u16) {}"#,
+            &["field", "files test set"]
+        )]
+        #[case::field_as_name_value(
+            r#"
+            fn base(#[field = "first_name"] name: String) {}"#,
+            &["field", "expected parentheses"]
+        )]
+        #[case::data_just_once(
+            r#"
+            #[json("resources/tests/*.json")]
+            fn base(#[data] #[data] user: User) {}"#,
+            &["data", "more than once"]
+        )]
+        #[case::data_wrong_syntax(
+            r#"
+            #[json("resources/tests/*.json")]
+            fn base(#[data()] user: User) {}"#,
+            &["unexpected token"]
+        )]
+        #[case::data_wrong_syntax(
+            r#"
+            #[json("resources/tests/*.json")]
+            fn base(#[data = "some"] user: User) {}"#,
+            &["unexpected token"]
+        )]
+        #[case::data_without_files(
+            r#"
+            fn base(#[data] user: User) {}"#,
+            &["data", "files test set"]
+        )]
+        fn error(#[case] code: &str, #[case] expected: &[&str]) {
+            let mut item_fn = code.ast();
+
+            let mut info = RsTestInfo::default();
+
+            let error_code = info
+                .extend_with_function_attrs(&mut item_fn)
+                .unwrap_err()
+                .to_token_stream()
+                .display_code();
+
+            for &e in expected {
+                assert_in!(error_code, e);
+            }
         }
     }
 

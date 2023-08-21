@@ -33,14 +33,14 @@ macro_rules! assert_in {
 #[macro_export]
 macro_rules! assert_all_in {
     ($text:expr, $expected:expr) => (
-        assert_in!($text, $expected)
+        $crate::assert_in!($text, $expected)
     );
     ($text:expr, $expected:expr, ) => (
-        assert_in!($text, $message)
+        $crate::assert_in!($text, $message)
     );
     ($text:expr, $expected:expr, $( $others:expr ) ,+) => (
         {
-            assert_in!($text, $expected);
+            $crate::assert_in!($text, $expected);
             assert_all_in!($text $(, $others)*);
         }
     );
