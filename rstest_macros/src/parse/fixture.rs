@@ -11,7 +11,9 @@ use super::{
     extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
     extract_partials_return_type,
     future::{extract_futures, extract_global_awt},
-    parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
+    parse_vector_trailing_till_double_comma,
+    sys::{DefaultSysEngine, SysEngine},
+    Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};
 use crate::{parse::Attribute, utils::attr_in};
@@ -49,7 +51,7 @@ impl Parse for FixtureInfo {
 }
 
 impl ExtendWithFunctionAttrs for FixtureInfo {
-    fn extend_with_function_attrs(
+    fn extend_with_function_attrs<S: SysEngine>(
         &mut self,
         item_fn: &mut ItemFn,
     ) -> std::result::Result<(), ErrorsVec> {
@@ -419,7 +421,8 @@ mod extend {
             let mut item_fn: ItemFn = to_parse.ast();
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             let expected = FixtureInfo {
                 data: vec![
@@ -459,7 +462,8 @@ mod extend {
             };
 
             let mut data = FixtureInfo::default();
-            data.extend_with_function_attrs(&mut item_fn).unwrap();
+            data.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert_eq!(expected, data);
         }
@@ -473,7 +477,8 @@ mod extend {
             let mut item_fn: ItemFn = to_parse.ast();
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             let expected = FixtureInfo {
                 data: vec![
@@ -502,7 +507,8 @@ mod extend {
 
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert_eq!(
                 info.attributes.extract_default_type(),
@@ -529,7 +535,8 @@ mod extend {
 
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert_eq!(
                 info.attributes.extract_partial_type(1),
@@ -559,7 +566,8 @@ mod extend {
 
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert!(info.arguments.is_once());
         }
@@ -573,7 +581,8 @@ mod extend {
 
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert!(!info.arguments.is_once());
         }
@@ -585,7 +594,8 @@ mod extend {
 
             let mut info = FixtureInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert_eq!(item_fn, expected);
             assert!(info.arguments.is_future(&ident("a")));
@@ -604,7 +614,7 @@ mod extend {
                 .ast();
 
                 let errors = FixtureInfo::default()
-                    .extend_with_function_attrs(&mut item_fn)
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
                     .unwrap_err();
 
                 assert_eq!(2, errors.len());
@@ -619,7 +629,7 @@ mod extend {
                 .ast();
 
                 let errors = FixtureInfo::default()
-                    .extend_with_function_attrs(&mut item_fn)
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
                     .unwrap_err();
 
                 assert_eq!(1, errors.len());
@@ -633,7 +643,7 @@ mod extend {
                 .ast();
 
                 let errors = FixtureInfo::default()
-                    .extend_with_function_attrs(&mut item_fn)
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
                     .err()
                     .unwrap_or_default();
 
@@ -648,7 +658,7 @@ mod extend {
                 .ast();
 
                 let errors = FixtureInfo::default()
-                    .extend_with_function_attrs(&mut item_fn)
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
                     .err()
                     .unwrap_or_default();
 
@@ -666,7 +676,9 @@ mod extend {
 
                 let mut info = FixtureInfo::default();
 
-                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+                let error = info
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap_err();
 
                 assert_in!(
                     format!("{:?}", error).to_lowercase(),
@@ -685,7 +697,9 @@ mod extend {
 
                 let mut info = FixtureInfo::default();
 
-                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+                let error = info
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap_err();
 
                 assert_in!(
                     format!("{:?}", error).to_lowercase(),
@@ -702,7 +716,7 @@ mod extend {
                 .ast();
 
                 let errors = FixtureInfo::default()
-                    .extend_with_function_attrs(&mut item_fn)
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
                     .unwrap_err();
 
                 assert_eq!(1, errors.len());
@@ -718,7 +732,9 @@ mod extend {
 
                 let mut info = FixtureInfo::default();
 
-                let error = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+                let error = info
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap_err();
 
                 assert_in!(
                     format!("{:?}", error).to_lowercase(),

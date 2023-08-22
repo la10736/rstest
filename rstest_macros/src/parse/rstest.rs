@@ -13,6 +13,7 @@ use super::{
     extract_fixtures, extract_value_list,
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma,
+    sys::SysEngine,
     testcase::TestCase,
     Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
@@ -52,9 +53,12 @@ impl Parse for RsTestInfo {
 }
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
-    fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
+    fn extend_with_function_attrs<S: SysEngine>(
+        &mut self,
+        item_fn: &mut ItemFn,
+    ) -> Result<(), ErrorsVec> {
         let composed_tuple!(_inner, excluded, _timeout, futures, global_awt) = merge_errors!(
-            self.data.extend_with_function_attrs(item_fn),
+            self.data.extend_with_function_attrs::<S>(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
             extract_futures(item_fn),
@@ -361,7 +365,10 @@ pub(crate) fn extract_files(item_fn: &mut ItemFn) -> Result<Option<Files>, Error
 }
 
 impl ExtendWithFunctionAttrs for RsTestData {
-    fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
+    fn extend_with_function_attrs<S: SysEngine>(
+        &mut self,
+        item_fn: &mut ItemFn,
+    ) -> Result<(), ErrorsVec> {
         let composed_tuple!(fixtures, case_args, cases, value_list, files, files_args) = merge_errors!(
             extract_fixtures(item_fn),
             extract_case_args(item_fn),
@@ -522,7 +529,10 @@ impl Parse for RsTestAttributes {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::{assert_eq, *};
+    use crate::{
+        parse::sys::DefaultSysEngine,
+        test::{assert_eq, *},
+    };
 
     mod parse_rstest_data {
         use super::assert_eq;
@@ -558,7 +568,9 @@ mod test {
 
         let mut info = RsTestInfo::default();
 
-        let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+        let errors = info
+            .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+            .unwrap_err();
 
         assert_eq!(2, errors.len());
     }
@@ -575,7 +587,8 @@ mod test {
 
         let mut info = RsTestInfo::default();
 
-        info.extend_with_function_attrs(&mut item_fn).unwrap();
+        info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+            .unwrap();
     }
 
     #[cfg(not(feature = "async-timeout"))]
@@ -590,7 +603,9 @@ mod test {
 
         let mut info = RsTestInfo::default();
 
-        let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+        let errors = info
+            .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+            .unwrap_err();
 
         assert_eq!(1, errors.len());
         assert!(format!("{:?}", errors).contains("async-timeout feature"))
@@ -680,7 +695,8 @@ mod test {
 
                 let mut data = RsTestInfo::default();
 
-                data.extend_with_function_attrs(&mut item_fn).unwrap();
+                data.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 assert_eq!(expected, data);
             }
@@ -704,7 +720,8 @@ mod test {
 
                 let mut data = RsTestInfo::default();
 
-                data.extend_with_function_attrs(&mut item_fn).unwrap();
+                data.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 assert_eq!(expected, data);
             }
@@ -750,7 +767,8 @@ mod test {
 
             let mut info = RsTestInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
             info.attributes.add_trace(ident("trace"));
 
             assert!(!info.attributes.trace_me(&ident("a")));
@@ -776,7 +794,8 @@ mod test {
 
             let mut info = RsTestInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             assert_eq!(item_fn, expected);
             assert!(info.arguments.is_future(&ident("a")));
@@ -846,7 +865,8 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
+                info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
                 let cases = info.data.cases().cloned().collect::<Vec<_>>();
@@ -871,7 +891,8 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
+                info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 let cases = info.data.cases().cloned().collect::<Vec<_>>();
 
@@ -894,7 +915,8 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
+                info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
                 let cases = info.data.cases().cloned().collect::<Vec<_>>();
@@ -926,7 +948,8 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
+                info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 let cases = info.data.cases().cloned().collect::<Vec<_>>();
 
@@ -964,7 +987,8 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
+                info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 assert_eq!(
                     item_fn.attrs,
@@ -988,7 +1012,9 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+                let errors = info
+                    .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap_err();
 
                 assert_eq!(2, errors.len());
             }
@@ -1130,7 +1156,8 @@ mod test {
 
                 let mut info = RsTestInfo::default();
 
-                info.extend_with_function_attrs(&mut item_fn).unwrap();
+                info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                    .unwrap();
 
                 let list_values = info.data.list_values().cloned().collect::<Vec<_>>();
 
@@ -1163,7 +1190,8 @@ mod test {
 
             let mut info = RsTestInfo::default();
 
-            info.extend_with_function_attrs(&mut item_fn).unwrap();
+            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+                .unwrap();
 
             let files = info.data.files().unwrap();
 
@@ -1224,7 +1252,7 @@ mod test {
             let mut info = RsTestInfo::default();
 
             let error_code = info
-                .extend_with_function_attrs(&mut item_fn)
+                .extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
                 .unwrap_err()
                 .to_token_stream()
                 .display_code();

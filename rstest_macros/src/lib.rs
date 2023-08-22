@@ -18,7 +18,7 @@ mod utils;
 use syn::{parse_macro_input, ItemFn};
 
 use crate::parse::{fixture::FixtureInfo, rstest::RsTestInfo};
-use parse::ExtendWithFunctionAttrs;
+use parse::{sys::DefaultSysEngine, ExtendWithFunctionAttrs};
 use quote::ToTokens;
 
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
@@ -314,7 +314,7 @@ pub fn fixture(
     let mut info: FixtureInfo = parse_macro_input!(args as FixtureInfo);
     let mut fixture = parse_macro_input!(input as ItemFn);
 
-    let extend_result = info.extend_with_function_attrs(&mut fixture);
+    let extend_result = info.extend_with_function_attrs::<DefaultSysEngine>(&mut fixture);
 
     let mut errors = error::fixture(&fixture, &info);
 
@@ -1088,7 +1088,7 @@ pub fn rstest(
     let mut test = parse_macro_input!(input as ItemFn);
     let mut info = parse_macro_input!(args as RsTestInfo);
 
-    let extend_result = info.extend_with_function_attrs(&mut test);
+    let extend_result = info.extend_with_function_attrs::<DefaultSysEngine>(&mut test);
 
     let mut errors = error::rstest(&test, &info);
 
