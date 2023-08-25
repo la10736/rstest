@@ -461,20 +461,20 @@ is raised, but it's also possible to exclude a variable using the
 `#[notrace]` argument attribute.
 
 You can learn more on [Docs][docs-link] and find more examples in
-[`tests/resources`](tests/resources) directory.
+[`tests/resources`](/rstest/tests/resources) directory.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md)
+See [CHANGELOG.md](/CHANGELOG.md)
 
 ## License
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+* Apache License, Version 2.0, ([LICENSE-APACHE](/LICENSE-APACHE) or
 [license-apache-link])
 
-* MIT license [LICENSE-MIT](LICENSE-MIT) or [license-MIT-link]
+* MIT license [LICENSE-MIT](/LICENSE-MIT) or [license-MIT-link]
 at your option.
 
 [//]: # (links)
