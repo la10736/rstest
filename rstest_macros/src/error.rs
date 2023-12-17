@@ -232,6 +232,16 @@ pub(crate) fn attribute_used_more_than_once(a: &Attribute, name: &str) -> syn::E
     )
 }
 
+pub(crate) trait RaiseError {
+    fn error<S: AsRef<str>>(&self, msg: S) -> syn::Error;
+}
+
+impl<T: quote::ToTokens> RaiseError for T {
+    fn error<S: AsRef<str>>(&self, msg: S) -> syn::Error {
+        syn::Error::new_spanned(self, msg.as_ref())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::test::{assert_eq, *};

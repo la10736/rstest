@@ -7,7 +7,7 @@ use relative_path::RelativePath;
 use syn::{parse_quote, visit_mut::VisitMut, Attribute, Expr, FnArg, Ident, ItemFn, LitStr};
 
 use crate::{
-    error::ErrorsVec,
+    error::{ErrorsVec, RaiseError},
     parse::{
         extract_argument_attrs,
         vlist::{Value, ValueList},
@@ -38,14 +38,6 @@ impl FilesGlobReferences {
     }
 }
 
-trait RaiseError: ToTokens {
-    fn error(&self, msg: &str) -> syn::Error {
-        syn::Error::new_spanned(self, msg)
-    }
-}
-
-impl RaiseError for Attribute {}
-impl RaiseError for LitStrAttr {}
 impl ToTokens for LitStrAttr {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.attr.to_tokens(tokens)

@@ -319,3 +319,18 @@ pub(crate) fn await_argument_code_string(arg_name: &str) -> String {
     };
     statment.display_code()
 }
+
+pub(crate) type SysEngineGuard = std::sync::MutexGuard<'static, ()>;
+
+#[rstest::fixture]
+#[once]
+fn mutex_mock_sys_engine() -> std::sync::Mutex<()> {
+    std::sync::Mutex::new(())
+}
+
+#[rstest::fixture]
+pub(crate) fn sys_engine_lock(
+    mutex_mock_sys_engine: &'static std::sync::Mutex<()>,
+) -> SysEngineGuard {
+    mutex_mock_sys_engine.lock().unwrap()
+}

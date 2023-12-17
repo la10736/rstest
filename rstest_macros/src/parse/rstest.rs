@@ -1,11 +1,13 @@
 use syn::{
     parse::{Parse, ParseStream},
-    spanned::Spanned,
     visit_mut::VisitMut,
-    FnArg, Ident, ItemFn, LitStr, Token,
+    Ident, ItemFn, Token,
 };
 
-use self::files_args::{extract_files_args, ValueListFromFiles};
+use self::{
+    files_args::{extract_files_args, ValueListFromFiles},
+    json::{Files, FilesExtractor},
+};
 
 use super::{
     arguments::ArgumentsInfo,
@@ -27,6 +29,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
 
 pub(crate) mod files_args;
+mod json;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -131,94 +134,6 @@ impl RsTestData {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub(crate) struct Files {
-    hierarchy: Folder,
-    data: Vec<Ident>,
-    args: Vec<StructField>,
-}
-
-impl Files {
-    pub(crate) fn hierarchy(&self) -> &Folder {
-        &self.hierarchy
-    }
-
-    pub(crate) fn data(&self) -> &[Ident] {
-        self.data.as_ref()
-    }
-
-    pub(crate) fn args(&self) -> &[StructField] {
-        self.args.as_ref()
-    }
-}
-
-impl ToTokens for Files {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.data.iter().for_each(|data| data.to_tokens(tokens));
-        self.args.iter().for_each(|f| f.to_tokens(tokens));
-    }
-}
-
-impl From<Folder> for Files {
-    fn from(hierarchy: Folder) -> Self {
-        Self {
-            hierarchy,
-            data: Default::default(),
-            args: Default::default(),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub(crate) struct Folder {
-    name: String,
-    files: Vec<String>,
-    folders: Vec<Folder>,
-}
-
-impl Folder {
-    #[cfg(test)]
-    pub(crate) fn fake() -> Self {
-        Self {
-            name: "fake".to_string(),
-            files: vec!["foo".to_string(), "bar".to_string()],
-            folders: vec![Folder {
-                name: "baz".to_string(),
-                files: vec![],
-                folders: vec![],
-            }],
-        }
-    }
-
-    #[cfg(test)]
-    fn build_hierarchy(_path: LitStr) -> syn::Result<Self> {
-        Ok(Self::fake())
-    }
-
-    #[cfg(not(test))]
-    fn build_hierarchy(_path: LitStr) -> syn::Result<Self> {
-        todo!("Not implemented yet")
-    }
-}
-
-#[derive(PartialEq, Eq, Debug, Hash, Clone)]
-pub(crate) struct StructField {
-    ident: Ident,
-    field: Option<String>,
-}
-
-impl StructField {
-    pub(crate) fn new(ident: Ident, field: Option<String>) -> Self {
-        Self { ident, field }
-    }
-}
-
-impl ToTokens for StructField {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.ident.to_tokens(tokens);
-    }
-}
-
 impl Parse for RsTestData {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(Token![::]) {
@@ -228,70 +143,6 @@ impl Parse for RsTestData {
                 items: parse_vector_trailing_till_double_comma::<_, Token![,]>(input)?,
             })
         }
-    }
-}
-
-/// Simple struct used to visit function attributes and extract files and
-/// eventually parsing errors
-#[derive(Default)]
-struct FilesExtractor(Option<Files>, Vec<syn::Error>);
-
-impl VisitMut for FilesExtractor {
-    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = std::mem::take(&mut node.attrs);
-        let mut attrs_buffer = Vec::<syn::Attribute>::default();
-        for attr in attrs.into_iter() {
-            if attr_is(&attr, "json") {
-                match attr
-                    .parse_args::<LitStr>()
-                    .and_then(Folder::build_hierarchy)
-                {
-                    Ok(hierarchy) => {
-                        self.0 = Some(hierarchy.into());
-                    }
-                    Err(err) => self.1.push(err),
-                };
-            } else {
-                attrs_buffer.push(attr)
-            }
-        }
-        node.attrs = std::mem::take(&mut attrs_buffer);
-        syn::visit_mut::visit_item_fn_mut(self, node)
-    }
-
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        let (name, node) = match (node.maybe_ident().cloned(), node) {
-            (Some(name), FnArg::Typed(node)) => (name, node),
-            _ => {
-                return;
-            }
-        };
-        let (field, mut errors) = maybe_parse_attribute_args_just_once::<LitStr>(node, "field");
-        if let Some(field) = field {
-            if let Some(files) = self.0.as_mut() {
-                files
-                    .args
-                    .push(StructField::new(name.clone(), field.map(|l| l.value())));
-            } else {
-                self.1.push(syn::Error::new(
-                    name.span(),
-                    format!("`field` attribute must be used on files test set"),
-                ))
-            }
-        }
-        self.1.append(&mut errors);
-        let (attr, mut errors) = attribute_args_once(node, "data");
-        if let Some(attr) = attr {
-            if let Some(files) = self.0.as_mut() {
-                files.data.push(name.clone());
-            } else {
-                self.1.push(syn::Error::new(
-                    attr.span(),
-                    format!("`data` attribute must be used on files test set"),
-                ))
-            }
-        }
-        self.1.append(&mut errors);
     }
 }
 
@@ -353,14 +204,16 @@ fn attribute_args_once<'a>(
     (val, errors)
 }
 
-pub(crate) fn extract_files(item_fn: &mut ItemFn) -> Result<Option<Files>, ErrorsVec> {
-    let mut extractor = FilesExtractor::default();
+pub(crate) fn extract_files<S: SysEngine>(
+    item_fn: &mut ItemFn,
+) -> Result<Option<Files>, ErrorsVec> {
+    let mut extractor = FilesExtractor::<S>::default();
     extractor.visit_item_fn_mut(item_fn);
 
-    if extractor.1.is_empty() {
-        Ok(extractor.0)
+    if extractor.errors.is_empty() {
+        Ok(extractor.hierarchy)
     } else {
-        Err(extractor.1.into())
+        Err(extractor.errors.into())
     }
 }
 
@@ -374,7 +227,7 @@ impl ExtendWithFunctionAttrs for RsTestData {
             extract_case_args(item_fn),
             extract_cases(item_fn),
             extract_value_list(item_fn),
-            extract_files(item_fn),
+            extract_files::<S>(item_fn),
             extract_files_args(item_fn)
         )?;
 
@@ -1172,30 +1025,70 @@ mod test {
     }
 
     mod json {
-        use std::collections::HashSet;
+        use std::{collections::HashSet, path::PathBuf};
 
+        use mockall::predicate::eq;
         use rstest_test::assert_in;
+
+        use crate::parse::{
+            rstest::json::{Folder, Hierarchy, StructField, TestFile, TestFileBodies},
+            sys::MockSysEngine,
+        };
 
         use super::{assert_eq, *};
 
-        #[test]
-        fn happy_path() {
+        #[rstest]
+        fn happy_path(#[from(sys_engine_lock)] _lock: SysEngineGuard) {
             let mut item_fn = r#"
-            #[json("resources/tests/*.json")]
+            #[json("resources/tests/happy.json")]
             fn base(#[field] age: u16, #[data] user: User, #[field("first_name")] name: String) {
                 assert!(age==user.age);
             }
             "#
             .ast();
+            let crate_root = PathBuf::from("/fake/root");
+
+            let cr_ctx = MockSysEngine::crate_root_context();
+            cr_ctx.expect().return_const(Ok(crate_root.clone()));
+
+            let g_ctx = MockSysEngine::glob_context();
+            g_ctx
+                .expect()
+                .with(eq("resources/tests/happy.json"))
+                .return_const(Ok(vec![PathBuf::from(
+                    "/fake/root/resources/tests/happy.json",
+                )]));
+
+            let r_ctx = MockSysEngine::read_file_context();
+            r_ctx
+                .expect()
+                .with(eq("/fake/root/resources/tests/happy.json"))
+                .return_const(Ok(r#"[
+                    {"age":42,"first_name":"Bob"},
+                    {"age":24,"first_name":"Alice"}
+                ]"#
+                .to_string()));
 
             let mut info = RsTestInfo::default();
 
-            info.extend_with_function_attrs::<DefaultSysEngine>(&mut item_fn)
+            info.extend_with_function_attrs::<MockSysEngine>(&mut item_fn)
                 .unwrap();
 
             let files = info.data.files().unwrap();
+            let expected_hierarchy = Hierarchy {
+                folder: Folder::empty(&crate_root).add_folder(
+                    Folder::empty("resources").add_folder(
+                        Folder::empty("tests").add_file(TestFile {
+                            name: std::ffi::OsStr::new("happy.json").to_owned(),
+                            tests: TestFileBodies::array()
+                                .add(r#"{"age":42,"first_name":"Bob"}"#)
+                                .add(r#"{"age":24,"first_name":"Alice"}"#),
+                        }),
+                    ),
+                ),
+            };
 
-            assert_eq!(&Folder::fake(), files.hierarchy());
+            assert_eq!(&expected_hierarchy, files.hierarchy());
             assert_eq!([ident("user")], files.data());
             assert_eq!(
                 HashSet::<&StructField>::from_iter(vec![
@@ -1220,6 +1113,7 @@ mod test {
         )]
         #[case::field_as_name_value(
             r#"
+            #[json("resources/tests/*.json")]
             fn base(#[field = "first_name"] name: String) {}"#,
             &["field", "expected parentheses"]
         )]

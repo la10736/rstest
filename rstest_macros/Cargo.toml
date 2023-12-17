@@ -35,6 +35,9 @@ syn = { version = "2.0.2", features = [
     "visit-mut",
 ] }
 unicode-ident = "1.0.5"
+mockall = "0.11.4"
+thiserror = "1.0.50"
+json = "0.12.4"
 
 [dev-dependencies]
 actix-rt = "2.7.0"
