@@ -320,7 +320,10 @@ pub(crate) fn await_argument_code_string(arg_name: &str) -> String {
     statment.display_code()
 }
 
-pub(crate) type SysEngineGuard = std::sync::MutexGuard<'static, ()>;
+pub(crate) type SysEngineGuard = Result<
+    std::sync::MutexGuard<'static, ()>,
+    std::sync::PoisonError<std::sync::MutexGuard<'static, ()>>,
+>;
 
 #[rstest::fixture]
 #[once]
@@ -332,5 +335,9 @@ fn mutex_mock_sys_engine() -> std::sync::Mutex<()> {
 pub(crate) fn sys_engine_lock(
     mutex_mock_sys_engine: &'static std::sync::Mutex<()>,
 ) -> SysEngineGuard {
-    mutex_mock_sys_engine.lock().unwrap()
+    // The mutex might be poisoned if another test fails.  But we don't
+    // care, because it doesn't hold any data.  So don't unwrap the Result
+    // object; whether it's poisoned or not, we'll still hold the
+    // MutexGuard.
+    mutex_mock_sys_engine.lock()
 }

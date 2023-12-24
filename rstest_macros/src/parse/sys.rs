@@ -30,8 +30,8 @@ pub(crate) trait SysEngine {
             .collect()
     }
 
-    fn read_file(path: &str) -> Result<String, String> {
-        std::fs::read_to_string(path).map_err(|e| format!("failed to read file `{path}` due {e}"))
+    fn read_file(path: &str) -> std::io::Result<String> {
+        std::fs::read_to_string(path)
     }
 }
 
@@ -39,3 +39,44 @@ pub(crate) trait SysEngine {
 pub(crate) struct DefaultSysEngine;
 
 impl SysEngine for DefaultSysEngine {}
+
+#[cfg(test)]
+pub(crate) mod mock {
+    use std::path::PathBuf;
+
+    use super::MockSysEngine;
+
+    pub(crate) fn expected_crate_root(
+        crate_root: PathBuf,
+    ) -> super::__mock_MockSysEngine_SysEngine::__crate_root::Context {
+        let cr_ctx = MockSysEngine::crate_root_context();
+        cr_ctx.expect().return_const(Ok(crate_root));
+        cr_ctx
+    }
+
+    pub(crate) fn expected_glob(
+        query: impl ToString,
+        globs: Vec<PathBuf>,
+    ) -> super::__mock_MockSysEngine_SysEngine::__glob::Context {
+        let g_ctx = MockSysEngine::glob_context();
+        g_ctx
+            .expect()
+            .with(mockall::predicate::eq(query.to_string()))
+            .return_const(Ok(globs));
+        g_ctx
+    }
+
+    pub(crate) fn expected_file_context(
+        s: &[(&str, &str)],
+    ) -> super::__mock_MockSysEngine_SysEngine::__read_file::Context {
+        let r_ctx = MockSysEngine::read_file_context();
+        for &(path, content) in s {
+            let content = content.to_string();
+            r_ctx
+                .expect()
+                .with(mockall::predicate::eq(path.to_string()))
+                .returning(move |_| Ok(content.to_string()));
+        }
+        r_ctx
+    }
+}
