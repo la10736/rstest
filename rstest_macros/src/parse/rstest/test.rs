@@ -642,13 +642,13 @@ mod matrix_cases {
 mod json {
     use std::{collections::HashSet, path::PathBuf};
 
-    use file;
+    use hierarchy;
     use rstest_test::assert_in;
 
     use crate::parse::{
         rstest::{
-            file::Folder,
-            json::{Hierarchy, JsonBody, StructField},
+            hierarchy::*,
+            json::{JsonBody, StructField},
         },
         sys::{mock::*, MockSysEngine},
     };
@@ -689,7 +689,7 @@ mod json {
         let expected_hierarchy = Hierarchy {
             folder: Folder::empty(&crate_root).add_folder(
                 Folder::empty("resources").add_folder(
-                    Folder::empty("tests").add_file(file::File {
+                    Folder::empty("tests").add_file(hierarchy::File {
                         name: std::ffi::OsStr::new("happy.json").to_owned(),
                         content: JsonBody::array()
                             .add(r#"{"age":42,"first_name":"Bob"}"#)

@@ -3,6 +3,7 @@ use syn::{
     visit_mut::VisitMut,
     Ident, ItemFn, Token,
 };
+use thiserror::Error;
 
 use self::{
     files_args::{extract_files_args, ValueListFromFiles},
@@ -28,12 +29,20 @@ use crate::{
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
 
-pub(crate) mod file;
 pub(crate) mod files_args;
+pub(crate) mod hierarchy;
 mod json;
 
 #[cfg(test)]
 mod test;
+
+#[derive(Error, Debug)]
+pub(crate) enum ParseError {
+    #[error("Invalid json")]
+    InvalidJson(#[from] ::json::Error),
+    #[error("Should be a object or an array of object")]
+    InvalidJsonData,
+}
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {

@@ -6,33 +6,13 @@ use std::{
 use syn::{spanned::Spanned, visit_mut::VisitMut, FnArg, Ident, ItemFn, LitStr};
 use thiserror::Error;
 
-use crate::{
-    error::RaiseError,
-    parse::{rstest::file, sys::SysEngine},
-    refident::MaybeIdent,
-    utils::attr_is,
+use crate::{error::RaiseError, parse::sys::SysEngine, refident::MaybeIdent, utils::attr_is};
+
+use super::{
+    attribute_args_once,
+    hierarchy::{Folder, Hierarchy, HierarchyError},
+    maybe_parse_attribute_args_just_once, ParseError,
 };
-
-use super::{attribute_args_once, file::Folder, maybe_parse_attribute_args_just_once};
-
-#[derive(Error, Debug)]
-pub(crate) enum HierarchyError {
-    #[error("Cannot guess crate root due: {0}")]
-    CrateRoot(String),
-    #[error("Cannot get files from glob due: {0}")]
-    InvalidGlob(String),
-    #[error("Not a file error: {0}")]
-    NotAFile(PathBuf),
-    #[error("The file should be in a folder: '{0}'")]
-    NotInFolder(PathBuf),
-    #[error("Cannot read file '{path}' due: {source}")]
-    ReadFileError {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-    #[error("Parse error '{path}' due: {source}")]
-    ParseError { path: PathBuf, source: ParseError },
-}
 
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
 pub(crate) struct StructField {
@@ -90,34 +70,6 @@ impl From<Hierarchy<JsonBody>> for JsonFiles {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub(crate) struct Hierarchy<T> {
-    pub(crate) folder: Folder<T>,
-}
-
-impl<'a, T> From<&'a Path> for Hierarchy<T> {
-    fn from(abs: &'a Path) -> Self {
-        Self {
-            folder: Folder::empty(abs),
-        }
-    }
-}
-
-impl<T> Hierarchy<T> {
-    fn add_file_relative(
-        &mut self,
-        path: &std::path::Path,
-        test_file: file::File<T>,
-    ) -> Result<(), HierarchyError> {
-        let parent = path
-            .parent()
-            .ok_or_else(|| HierarchyError::NotInFolder(path.to_path_buf()))?;
-
-        self.folder.add_file_path(parent, test_file);
-        Ok(())
-    }
-}
-
 /// Simple struct used to visit function attributes and extract files and
 /// eventually parsing errors
 pub(crate) struct FilesExtractor<S> {
@@ -148,17 +100,11 @@ impl Default for JsonBody {
     }
 }
 
-#[derive(Error, Debug)]
-pub(crate) enum ParseError {
-    #[error("Invalid json")]
-    InvalidJson(#[from] json::JsonError),
-    #[error("Should be a object or an array of object")]
-    InvalidJsonData,
-}
+impl std::str::FromStr for JsonBody {
+    type Err = ParseError;
 
-impl JsonBody {
-    pub(crate) fn parse_json_str(json_str: &str) -> Result<Self, ParseError> {
-        match json::parse(&json_str)? {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match json::parse(&s)? {
             json::JsonValue::Object(body) => Ok(Self::root(&json::stringify(body))),
             json::JsonValue::Array(array) if array.iter().all(|j| j.is_object()) => {
                 let mut bodies = Self::array();
@@ -170,7 +116,9 @@ impl JsonBody {
             _ => Err(ParseError::InvalidJsonData),
         }
     }
+}
 
+impl JsonBody {
     pub(crate) fn root(body: &str) -> Self {
         Self::Root(body.to_string())
     }
@@ -195,29 +143,18 @@ impl<S: SysEngine> FilesExtractor<S> {
         let crate_root = S::crate_root().map_err(|m| HierarchyError::CrateRoot(m))?;
         let mut paths = S::glob(&path.value()).map_err(|e| HierarchyError::InvalidGlob(e))?;
         paths.sort();
-        let mut hierarchy = Hierarchy::from(crate_root.as_path());
-        for path in paths {
-            let fname = path
-                .file_name()
-                .ok_or_else(|| HierarchyError::NotAFile(path.to_path_buf()))?;
-            let data = S::read_file(&path.to_string_lossy()).map_err(|e| {
-                HierarchyError::ReadFileError {
-                    path: path.clone(),
-                    source: e,
-                }
-            })?;
-            let bodies =
-                JsonBody::parse_json_str(&data).map_err(|e| HierarchyError::ParseError {
+        Hierarchy::<JsonBody>::build::<S>(&crate_root, paths, |path| {
+            S::read_file(&path.to_string_lossy())
+                .map_err(|e| HierarchyError::ReadFileError {
                     path: path.to_owned(),
                     source: e,
-                })?;
-            let test_file = file::File::empty(fname).content(bodies);
-
-            hierarchy
-                .add_file_relative(&path.strip_prefix(&crate_root).unwrap(), test_file)
-                .unwrap();
-        }
-        Ok(hierarchy)
+                })?
+                .parse()
+                .map_err(|e| HierarchyError::ParseError {
+                    path: path.to_owned(),
+                    source: e,
+                })
+        })
     }
 }
 
@@ -290,7 +227,10 @@ mod files_extractor {
             use super::*;
 
             use crate::{
-                parse::sys::{mock::*, MockSysEngine},
+                parse::{
+                    rstest::hierarchy::*,
+                    sys::{mock::*, MockSysEngine},
+                },
                 test::{assert_eq, *},
             };
 
@@ -317,17 +257,17 @@ mod files_extractor {
                 let expected_hierarchy = Hierarchy {
                     folder: Folder::empty(&crate_root).add_folder(
                         Folder::empty("my_path")
-                            .add_file(file::File {
+                            .add_file(File {
                                 name: std::ffi::OsStr::new("a.json").to_owned(),
                                 content: JsonBody::root(r#"{"age":42,"first_name":"Alice"}"#),
                             })
-                            .add_file(file::File {
+                            .add_file(File {
                                 name: std::ffi::OsStr::new("b.json").to_owned(),
                                 content: JsonBody::root(r#"{"age":24,"first_name":"Bob"}"#),
                             })
                             .add_folder(Folder::empty("other").add_folder(
                                 Folder::empty("some").add_folder(Folder::empty("path").add_file(
-                                    file::File {
+                                    File {
                                         name: std::ffi::OsStr::new("o.json").to_owned(),
                                         content: JsonBody::root(
                                             r#"{"age":99,"first_name":"Other"}"#,
@@ -365,7 +305,7 @@ mod files_extractor {
                 ];
                 let crate_root = PathBuf::from("/fake/root");
 
-                let empty_file = |name: &str| file::File {
+                let empty_file = |name: &str| File {
                     name: std::ffi::OsStr::new(name).to_owned(),
                     content: JsonBody::root("{}"),
                 };
@@ -400,16 +340,15 @@ mod files_extractor {
 
 #[cfg(test)]
 mod parse_json_str_should {
+    use std::str::FromStr;
+
     use super::*;
     use crate::test::{assert_eq, *};
 
     #[test]
     fn read_an_object_as_single_root_test() {
         let json_str = r#"{"age":42,"first_name":"Alice"}"#;
-        assert_eq!(
-            JsonBody::root(json_str),
-            JsonBody::parse_json_str(json_str).unwrap()
-        );
+        assert_eq!(JsonBody::root(json_str), json_str.parse().unwrap());
     }
 
     #[test]
@@ -422,7 +361,7 @@ mod parse_json_str_should {
             JsonBody::array()
                 .add(r#"{"age":42,"first_name":"Bob"}"#)
                 .add(r#"{"age":24,"first_name":"Alice"}"#),
-            JsonBody::parse_json_str(json_str).unwrap()
+            json_str.parse().unwrap()
         );
     }
 
@@ -433,6 +372,6 @@ mod parse_json_str_should {
     #[case::all_array_items_should_be_object(r#"[{},12]"#)]
     #[should_panic]
     fn raise_error(#[case] json_str: &str) {
-        JsonBody::parse_json_str(json_str).unwrap();
+        JsonBody::from_str(json_str).unwrap();
     }
 }
