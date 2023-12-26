@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf};
+use std::{env, marker::PhantomData, path::PathBuf};
 
 use glob::glob;
 use quote::ToTokens;
@@ -10,6 +10,7 @@ use crate::{
     error::{ErrorsVec, RaiseError},
     parse::{
         extract_argument_attrs,
+        sys::{DefaultSysEngine, SysEngine},
         vlist::{Value, ValueList},
     },
     refident::MaybeIdent,
@@ -245,7 +246,6 @@ impl BaseDir for DefaultBaseDir {}
 
 trait GlobResolver {
     fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
-        let pattern = pattern;
         let globs =
             glob(pattern).map_err(|e| format!("glob failed for whole path `{pattern}` due {e}"))?;
         globs
@@ -267,21 +267,19 @@ impl GlobResolver for DefaultGlobResolver {}
 
 /// The struct used to gel te values from the files attributes. You can inject
 /// the base dir resolver and glob resolver implementation.
-pub(crate) struct ValueListFromFiles<'a> {
-    base_dir: Box<dyn BaseDir + 'a>,
-    g_resolver: Box<dyn GlobResolver + 'a>,
+pub(crate) struct ValueListFromFiles<S> {
+    _phantom: PhantomData<S>,
 }
 
-impl<'a> Default for ValueListFromFiles<'a> {
+impl<S: SysEngine> Default for ValueListFromFiles<S> {
     fn default() -> Self {
         Self {
-            g_resolver: Box::new(DefaultGlobResolver),
-            base_dir: Box::new(DefaultBaseDir),
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a> ValueListFromFiles<'a> {
+impl<S: SysEngine> ValueListFromFiles<S> {
     pub fn to_value_list(
         &self,
         files: Vec<(Ident, FilesGlobReferences)>,
@@ -296,10 +294,11 @@ impl<'a> ValueListFromFiles<'a> {
     }
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
-        let base_dir = self
-            .base_dir
-            .base_dir()
-            .map_err(|msg| refs.glob[0].error(&msg))?;
+        let base_dir = {
+            let ref this = self;
+            S::crate_root()
+        }
+        .map_err(|msg| refs.glob[0].error(&msg))?;
         let resolved_paths = refs.paths(&base_dir)?;
         let base_dir = base_dir
             .into_os_string()
@@ -348,10 +347,13 @@ impl<'a> ValueListFromFiles<'a> {
         let mut paths = resolved_paths
             .iter()
             .map(|(attr, pattern)| {
-                self.g_resolver
-                    .glob(pattern.as_ref())
-                    .map_err(|msg| attr.error(&msg))
-                    .map(|p| (attr, p))
+                {
+                    let ref this = self;
+                    let pattern = pattern.as_ref();
+                    S::glob(pattern)
+                }
+                .map_err(|msg| attr.error(&msg))
+                .map(|p| (attr, p))
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
@@ -382,7 +384,10 @@ mod should {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::test::{assert_eq, *};
+    use crate::{
+        parse::sys::{mock::*, MockSysEngine},
+        test::{assert_eq, *},
+    };
     use maplit::hashmap;
     use rstest_test::assert_in;
 
@@ -516,18 +521,10 @@ mod should {
             Self(PathBuf::from(value))
         }
     }
+
     impl BaseDir for FakeBaseDir {
         fn base_dir(&self) -> Result<PathBuf, String> {
             Ok(self.0.clone())
-        }
-    }
-
-    impl<'a> ValueListFromFiles<'a> {
-        fn new(bdir: impl BaseDir + 'a, g_resover: impl GlobResolver + 'a) -> Self {
-            Self {
-                base_dir: Box::new(bdir),
-                g_resolver: Box::new(g_resover),
-            }
         }
     }
 
@@ -577,6 +574,8 @@ mod should {
         }
     }
 
+    type MockedValueListFromFiles = ValueListFromFiles<MockSysEngine>;
+
     #[rstest]
     #[case::simple("/base", None, FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["first", "second"])]
     #[case::more_glob("/base", Some(["path1", "path2"].as_slice()), FakeMapResolver::from(
@@ -612,7 +611,7 @@ mod should {
     fn generate_a_variable_with_the_glob_resolved_path(
         #[case] bdir: &str,
         #[case] paths: Option<&[&str]>,
-        #[case] resolver: impl GlobResolver,
+        #[case] resolver: impl GlobResolver + 'static,
         #[case] exclude: Vec<Exclude>,
         #[case] ignore_dot_files: bool,
         #[case] expected: &[&str],
@@ -620,7 +619,11 @@ mod should {
         let paths = paths
             .map(|inner| inner.into_iter().map(files_attr).collect())
             .unwrap_or(vec![files_attr("no_mater")]);
-        let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
+
+        let ctx = Context::default().expected_crate_root(bdir.into());
+        ctx.g.expect().returning_st(move |p| resolver.glob(p));
+
+        let values = MockedValueListFromFiles::default()
             .to_value_list(vec![(
                 ident("a"),
                 FilesGlobReferences::new(paths, exclude, ignore_dot_files),
@@ -669,15 +672,12 @@ mod should {
     #[test]
     #[should_panic(expected = "Fake error")]
     fn raise_error_if_fail_to_get_root() {
-        #[derive(Default)]
-        struct ErrorBaseDir;
-        impl BaseDir for ErrorBaseDir {
-            fn base_dir(&self) -> Result<PathBuf, String> {
-                Err("Fake error".to_string())
-            }
-        }
+        let ctx = Context::default();
+        ctx.cr
+            .expect()
+            .return_const_st(Err("Fake error".to_string()));
 
-        ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
+        MockedValueListFromFiles::default()
             .to_value_list(vec![(
                 ident("a"),
                 FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true),
@@ -688,17 +688,13 @@ mod should {
     #[test]
     #[should_panic(expected = "No file found")]
     fn raise_error_if_no_files_found() {
-        ValueListFromFiles::new(FakeBaseDir::default(), FakeResolver::default())
+        let ctx = Context::default().expected_crate_root("any".into());
+        ctx.g.expect().returning_st(|_p| Ok(vec![]));
+        MockedValueListFromFiles::default()
             .to_value_list(vec![(
                 ident("a"),
                 FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true),
             )])
             .unwrap();
-    }
-
-    #[test]
-    #[should_panic(expected = "glob failed")]
-    fn default_glob_resolver_raise_error_if_invalid_glob_path() {
-        DefaultGlobResolver.glob("/invalid/path/***").unwrap();
     }
 }

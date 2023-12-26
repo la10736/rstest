@@ -339,12 +339,13 @@ mod files_extractor {
                     ),
                 };
 
-                let _cr = expected_crate_root(crate_root.clone());
-                let _g = expected_glob(
-                    g_str,
-                    data.iter().map(|&(p, _d)| p.into()).collect::<Vec<_>>(),
-                );
-                let _rc = expected_file_context(&data);
+                let _ctx = Context::default()
+                    .expected_crate_root(crate_root.clone())
+                    .expected_glob(
+                        g_str,
+                        data.iter().map(|&(p, _d)| p.into()).collect::<Vec<_>>(),
+                    )
+                    .expected_file_context(&data);
 
                 let extractor = FilesExtractor::<MockSysEngine>::default();
                 let hierarchy = extractor.build_hierarchy(&glob).unwrap();
@@ -381,12 +382,13 @@ mod files_extractor {
                     ),
                 };
 
-                let _cr = expected_crate_root(crate_root.clone());
-                let _g = expected_glob(
-                    g_str,
-                    data.iter().map(|&(p, _d)| p.into()).collect::<Vec<_>>(),
-                );
-                let _rc = expected_file_context(&data);
+                let _ctx = Context::default()
+                    .expected_crate_root(crate_root.clone())
+                    .expected_glob(
+                        g_str,
+                        data.iter().map(|&(p, _d)| p.into()).collect::<Vec<_>>(),
+                    )
+                    .expected_file_context(&data);
 
                 let extractor = FilesExtractor::<MockSysEngine>::default();
                 let hierarchy = extractor.build_hierarchy(&glob).unwrap();

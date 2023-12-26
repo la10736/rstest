@@ -663,18 +663,19 @@ mod json {
         .ast();
         let crate_root = PathBuf::from("/fake/root");
 
-        let _cr = expected_crate_root(crate_root.clone());
-        let _g = expected_glob(
-            "resources/tests/happy.json",
-            vec![PathBuf::from("/fake/root/resources/tests/happy.json")],
-        );
-        let _rc = expected_file_context(&[(
-            "/fake/root/resources/tests/happy.json",
-            r#"[
+        let _ctx = Context::default()
+            .expected_crate_root(crate_root.clone())
+            .expected_glob(
+                "resources/tests/happy.json",
+                vec![PathBuf::from("/fake/root/resources/tests/happy.json")],
+            )
+            .expected_file_context(&[(
+                "/fake/root/resources/tests/happy.json",
+                r#"[
                     {"age":42,"first_name":"Bob"},
                     {"age":24,"first_name":"Alice"}
                 ]"#,
-        )]);
+            )]);
 
         let mut info = RsTestInfo::default();
 

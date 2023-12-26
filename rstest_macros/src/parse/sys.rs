@@ -41,42 +41,61 @@ pub(crate) struct DefaultSysEngine;
 impl SysEngine for DefaultSysEngine {}
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "glob failed")]
+    fn default_glob_resolver_raise_error_if_invalid_glob_path() {
+        DefaultSysEngine::glob("/invalid/path/***").unwrap();
+    }
+}
+
+#[cfg(test)]
 pub(crate) mod mock {
     use std::path::PathBuf;
 
     use super::MockSysEngine;
 
-    pub(crate) fn expected_crate_root(
-        crate_root: PathBuf,
-    ) -> super::__mock_MockSysEngine_SysEngine::__crate_root::Context {
-        let cr_ctx = MockSysEngine::crate_root_context();
-        cr_ctx.expect().return_const(Ok(crate_root));
-        cr_ctx
+    pub(crate) struct Context {
+        pub(crate) cr: super::__mock_MockSysEngine_SysEngine::__crate_root::Context,
+        pub(crate) g: super::__mock_MockSysEngine_SysEngine::__glob::Context,
+        pub(crate) r: super::__mock_MockSysEngine_SysEngine::__read_file::Context,
     }
 
-    pub(crate) fn expected_glob(
-        query: impl ToString,
-        globs: Vec<PathBuf>,
-    ) -> super::__mock_MockSysEngine_SysEngine::__glob::Context {
-        let g_ctx = MockSysEngine::glob_context();
-        g_ctx
-            .expect()
-            .with(mockall::predicate::eq(query.to_string()))
-            .return_const(Ok(globs));
-        g_ctx
-    }
-
-    pub(crate) fn expected_file_context(
-        s: &[(&str, &str)],
-    ) -> super::__mock_MockSysEngine_SysEngine::__read_file::Context {
-        let r_ctx = MockSysEngine::read_file_context();
-        for &(path, content) in s {
-            let content = content.to_string();
-            r_ctx
-                .expect()
-                .with(mockall::predicate::eq(path.to_string()))
-                .returning(move |_| Ok(content.to_string()));
+    impl Context {
+        pub fn expected_crate_root(self, crate_root: PathBuf) -> Self {
+            self.cr.expect().return_const(Ok(crate_root));
+            self
         }
-        r_ctx
+
+        pub fn expected_glob(self, query: impl ToString, globs: Vec<PathBuf>) -> Self {
+            self.g
+                .expect()
+                .with(mockall::predicate::eq(query.to_string()))
+                .return_const(Ok(globs));
+            self
+        }
+
+        pub fn expected_file_context(self, s: &[(&str, &str)]) -> Self {
+            for &(path, content) in s {
+                let content = content.to_string();
+                self.r
+                    .expect()
+                    .with(mockall::predicate::eq(path.to_string()))
+                    .returning(move |_| Ok(content.to_string()));
+            }
+            self
+        }
+    }
+
+    impl Default for Context {
+        fn default() -> Self {
+            Self {
+                cr: MockSysEngine::crate_root_context(),
+                g: MockSysEngine::glob_context(),
+                r: MockSysEngine::read_file_context(),
+            }
+        }
     }
 }

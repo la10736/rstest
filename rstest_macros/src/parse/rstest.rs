@@ -15,7 +15,7 @@ use super::{
     extract_fixtures, extract_value_list,
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma,
-    sys::SysEngine,
+    sys::{DefaultSysEngine, SysEngine},
     testcase::TestCase,
     Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
@@ -241,7 +241,7 @@ impl ExtendWithFunctionAttrs for RsTestData {
         self.items.extend(value_list.into_iter().map(|f| f.into()));
         self.items.extend(files.into_iter().map(|f| f.into()));
         self.items.extend(
-            ValueListFromFiles::default()
+            ValueListFromFiles::<DefaultSysEngine>::default()
                 .to_value_list(files_args)?
                 .into_iter()
                 .map(|f| f.into()),
