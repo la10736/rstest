@@ -609,6 +609,7 @@ mod should {
     #[case::relative_path("/base/some/other/folders", None, 
         FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["../../../first", "../../../second"])]
     fn generate_a_variable_with_the_glob_resolved_path(
+        #[from(sys_engine_lock)] _lock: SysEngineGuard,
         #[case] bdir: &str,
         #[case] paths: Option<&[&str]>,
         #[case] resolver: impl GlobResolver + 'static,
@@ -669,9 +670,9 @@ mod should {
         );
     }
 
-    #[test]
+    #[rstest]
     #[should_panic(expected = "Fake error")]
-    fn raise_error_if_fail_to_get_root() {
+    fn raise_error_if_fail_to_get_root(#[from(sys_engine_lock)] _lock: SysEngineGuard) {
         let ctx = Context::default();
         ctx.cr
             .expect()
@@ -685,9 +686,9 @@ mod should {
             .unwrap();
     }
 
-    #[test]
+    #[rstest]
     #[should_panic(expected = "No file found")]
-    fn raise_error_if_no_files_found() {
+    fn raise_error_if_no_files_found(#[from(sys_engine_lock)] _lock: SysEngineGuard) {
         let ctx = Context::default().expected_crate_root("any".into());
         ctx.g.expect().returning_st(|_p| Ok(vec![]));
         MockedValueListFromFiles::default()

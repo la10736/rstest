@@ -6,7 +6,7 @@ use syn::{
 
 use self::{
     files_args::{extract_files_args, ValueListFromFiles},
-    json::{Files, FilesExtractor},
+    json::{FilesExtractor, JsonFiles},
 };
 
 use super::{
@@ -130,7 +130,7 @@ impl RsTestData {
         self.list_values().next().is_some()
     }
 
-    fn files(&self) -> Option<&Files> {
+    fn files(&self) -> Option<&JsonFiles> {
         self.items.iter().find_map(|it| match it {
             RsTestItem::Files(ref files) => Some(files),
             _ => None,
@@ -210,7 +210,7 @@ fn attribute_args_once<'a>(
 
 pub(crate) fn extract_files<S: SysEngine>(
     item_fn: &mut ItemFn,
-) -> Result<Option<Files>, ErrorsVec> {
+) -> Result<Option<JsonFiles>, ErrorsVec> {
     let mut extractor = FilesExtractor::<S>::default();
     extractor.visit_item_fn_mut(item_fn);
 
@@ -256,7 +256,7 @@ pub(crate) enum RsTestItem {
     CaseArgName(Ident),
     TestCase(TestCase),
     ValueList(ValueList),
-    Files(Files),
+    Files(JsonFiles),
 }
 
 impl From<Fixture> for RsTestItem {
@@ -283,8 +283,8 @@ impl From<ValueList> for RsTestItem {
     }
 }
 
-impl From<Files> for RsTestItem {
-    fn from(value: Files) -> Self {
+impl From<JsonFiles> for RsTestItem {
+    fn from(value: JsonFiles) -> Self {
         RsTestItem::Files(value)
     }
 }

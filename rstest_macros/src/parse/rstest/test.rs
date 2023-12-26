@@ -646,7 +646,10 @@ mod json {
     use rstest_test::assert_in;
 
     use crate::parse::{
-        rstest::json::{Folder, Hierarchy, StructField},
+        rstest::{
+            file::Folder,
+            json::{Hierarchy, JsonBody, StructField},
+        },
         sys::{mock::*, MockSysEngine},
     };
 
@@ -686,9 +689,9 @@ mod json {
         let expected_hierarchy = Hierarchy {
             folder: Folder::empty(&crate_root).add_folder(
                 Folder::empty("resources").add_folder(
-                    Folder::empty("tests").add_file(file::Entry {
+                    Folder::empty("tests").add_file(file::File {
                         name: std::ffi::OsStr::new("happy.json").to_owned(),
-                        tests: file::Bodies::array()
+                        content: JsonBody::array()
                             .add(r#"{"age":42,"first_name":"Bob"}"#)
                             .add(r#"{"age":24,"first_name":"Alice"}"#),
                     }),
