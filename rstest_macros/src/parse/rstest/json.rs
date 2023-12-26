@@ -143,18 +143,23 @@ impl<S: SysEngine> FilesExtractor<S> {
         let crate_root = S::crate_root().map_err(|m| HierarchyError::CrateRoot(m))?;
         let mut paths = S::glob(&path.value()).map_err(|e| HierarchyError::InvalidGlob(e))?;
         paths.sort();
-        Hierarchy::<JsonBody>::build::<S>(&crate_root, paths, |path| {
-            S::read_file(&path.to_string_lossy())
-                .map_err(|e| HierarchyError::ReadFileError {
-                    path: path.to_owned(),
-                    source: e,
-                })?
-                .parse()
-                .map_err(|e| HierarchyError::ParseError {
-                    path: path.to_owned(),
-                    source: e,
-                })
-        })
+        Hierarchy::<JsonBody>::build::<S, _>(
+            &crate_root,
+            paths,
+            |p| Ok(p.clone()),
+            |path, _abs_path, _relative_path| {
+                S::read_file(&path.to_string_lossy())
+                    .map_err(|e| HierarchyError::ReadFileError {
+                        path: path.to_owned(),
+                        source: e,
+                    })?
+                    .parse()
+                    .map_err(|e| HierarchyError::ParseError {
+                        path: path.to_owned(),
+                        source: e,
+                    })
+            },
+        )
     }
 }
 

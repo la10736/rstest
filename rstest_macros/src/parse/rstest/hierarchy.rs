@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use relative_path::{Component, RelativePath};
 use thiserror::Error;
 
 use crate::parse::sys::SysEngine;
@@ -65,7 +66,7 @@ impl<T> Folder<T> {
         self.files.push(file);
     }
 
-    fn add_file_in_sub_folder(&mut self, path: &[&OsStr], file: File<T>) {
+    fn add_file_in_sub_folder(&mut self, path: &[&str], file: File<T>) {
         if path.len() == 0 {
             self._add_file(file);
         } else {
@@ -79,7 +80,7 @@ impl<T> Folder<T> {
         }
     }
 
-    pub(crate) fn add_file_path(&mut self, path: &Path, test_file: File<T>) {
+    pub(crate) fn add_file_path(&mut self, path: &RelativePath, test_file: File<T>) {
         let segments = path.iter().collect::<Vec<_>>();
         self.add_file_in_sub_folder(&segments, test_file);
     }
@@ -105,6 +106,8 @@ pub(crate) enum HierarchyError {
         path: PathBuf,
         source: super::ParseError,
     },
+    #[error("Invalid Absolute path: '{s}'")]
+    AbsPath { s: String },
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -123,34 +126,46 @@ impl<'a, T> From<&'a Path> for Hierarchy<T> {
 impl<T> Hierarchy<T> {
     fn add_file_relative(
         &mut self,
-        path: &std::path::Path,
+        path: &RelativePath,
         test_file: File<T>,
     ) -> Result<(), HierarchyError> {
         let parent = path
             .parent()
-            .ok_or_else(|| HierarchyError::NotInFolder(path.to_path_buf()))?;
+            .ok_or_else(|| HierarchyError::NotInFolder(path.to_logical_path(".")))?;
 
         self.folder.add_file_path(parent, test_file);
         Ok(())
     }
 
-    pub fn build<S: SysEngine>(
+    pub fn build<S: SysEngine, F>(
         crate_root: &Path,
-        mut paths: Vec<PathBuf>,
-        mut get_content: impl FnMut(&Path) -> Result<T, HierarchyError>,
+        files: Vec<F>,
+        get_abs_path: impl Fn(&F) -> Result<PathBuf, HierarchyError>,
+        mut get_content: impl FnMut(&F, &PathBuf, &RelativePath) -> Result<T, HierarchyError>,
     ) -> Result<Self, HierarchyError> {
-        paths.sort();
-        paths.dedup();
         let mut hierarchy = Hierarchy::from(crate_root);
-        for path in paths {
-            let fname = path
-                .file_name()
-                .ok_or_else(|| HierarchyError::NotAFile(path.to_path_buf()))?;
-            let test_file = File::new(fname.to_owned(), get_content(&path)?);
+        for f in files {
+            let abs_path = get_abs_path(&f)?;
+            let relative_path = abs_path
+                .clone()
+                .into_os_string()
+                .into_string()
+                .map(|inner| {
+                    RelativePath::new(&crate_root.as_os_str().to_string_lossy()).relative(inner)
+                })
+                .map_err(|e| HierarchyError::AbsPath {
+                    s: e.to_string_lossy().to_string(),
+                })?;
 
-            hierarchy
-                .add_file_relative(&path.strip_prefix(&crate_root).unwrap(), test_file)
-                .unwrap();
+            let fname = abs_path
+                .file_name()
+                .ok_or_else(|| HierarchyError::NotAFile(abs_path.clone()))?;
+            let test_file = File::new(
+                fname.to_owned(),
+                get_content(&f, &abs_path, &relative_path)?,
+            );
+
+            hierarchy.add_file_relative(&relative_path, test_file)?;
         }
         Ok(hierarchy)
     }
