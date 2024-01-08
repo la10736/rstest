@@ -10,12 +10,14 @@ use crate::{
     error::{ErrorsVec, RaiseError},
     parse::{
         extract_argument_attrs,
-        sys::{DefaultSysEngine, SysEngine},
+        sys::SysEngine,
         vlist::{Value, ValueList},
     },
     refident::MaybeIdent,
     utils::attr_is,
 };
+
+use super::hierarchy::Hierarchy;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences {
@@ -294,47 +296,31 @@ impl<S: SysEngine> ValueListFromFiles<S> {
     }
 
     fn file_list_values(&self, refs: FilesGlobReferences) -> Result<Vec<Value>, syn::Error> {
-        let base_dir = {
-            let ref this = self;
-            S::crate_root()
-        }
-        .map_err(|msg| refs.glob[0].error(&msg))?;
-        let resolved_paths = refs.paths(&base_dir)?;
-        let base_dir = base_dir
-            .into_os_string()
-            .into_string()
-            .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?;
+        let crate_root = S::crate_root().map_err(|msg| refs.glob[0].error(&msg))?;
+        let resolved_paths = refs.paths(&crate_root)?;
+        let values = Hierarchy::<Option<(Expr, String)>>::build::<S, _>(
+            &crate_root,
+            self.all_files_path(resolved_paths)?,
+            |(_, p)| Ok(p.clone()),
+            |_, abs_path, relative_path| {
+                let path_str = abs_path.to_string_lossy();
 
-        let mut values: Vec<(Expr, String)> = vec![];
-        for (attr, abs_path) in self.all_files_path(resolved_paths)? {
-            let relative_path = abs_path
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map(|inner| RelativePath::new(base_dir.as_str()).relative(inner))
-                .map_err(|e| {
-                    attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
-                })?;
-
-            if !refs.is_valid(&relative_path) {
-                continue;
-            }
-
-            let path_str = abs_path.to_string_lossy();
-            values.push((
-                parse_quote! {
-                    <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
-                },
-                render_file_description(&relative_path),
-            ));
-        }
-
-        if values.is_empty() {
+                Ok(refs.is_valid(&relative_path).then_some((
+                    parse_quote! {
+                        <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
+                    },
+                    render_file_description(&relative_path),
+                )))
+            },
+        )
+        .map_err(|e| refs.glob[0].error(e.to_string()))?;
+        if values.no_files() {
             Err(refs.glob[0].error("No file found"))?;
         }
 
         Ok(values
             .into_iter()
+            .filter_map(|f| f.content)
             .map(|(e, desc)| Value::new(e, Some(desc)))
             .collect())
     }
@@ -347,13 +333,9 @@ impl<S: SysEngine> ValueListFromFiles<S> {
         let mut paths = resolved_paths
             .iter()
             .map(|(attr, pattern)| {
-                {
-                    let ref this = self;
-                    let pattern = pattern.as_ref();
-                    S::glob(pattern)
-                }
-                .map_err(|msg| attr.error(&msg))
-                .map(|p| (attr, p))
+                S::glob(pattern.as_ref())
+                    .map_err(|msg| attr.error(&msg))
+                    .map(|p| (attr, p))
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()

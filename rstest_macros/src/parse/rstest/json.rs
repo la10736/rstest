@@ -1,16 +1,10 @@
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
-
 use syn::{spanned::Spanned, visit_mut::VisitMut, FnArg, Ident, ItemFn, LitStr};
-use thiserror::Error;
 
 use crate::{error::RaiseError, parse::sys::SysEngine, refident::MaybeIdent, utils::attr_is};
 
 use super::{
     attribute_args_once,
-    hierarchy::{Folder, Hierarchy, HierarchyError},
+    hierarchy::{Hierarchy, HierarchyError},
     maybe_parse_attribute_args_just_once, ParseError,
 };
 
@@ -39,6 +33,7 @@ pub(crate) struct JsonFiles {
     args: Vec<StructField>,
 }
 
+#[allow(dead_code)]
 impl JsonFiles {
     pub(crate) fn hierarchy(&self) -> &Hierarchy<JsonBody> {
         &self.hierarchy
@@ -229,6 +224,8 @@ mod files_extractor {
     mod should {
         use super::*;
         mod build_hierarchy {
+            use std::path::PathBuf;
+
             use super::*;
 
             use crate::{

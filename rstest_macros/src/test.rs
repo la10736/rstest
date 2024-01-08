@@ -15,7 +15,7 @@ use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, Item
 use super::*;
 use crate::parse::{
     fixture::{FixtureData, FixtureItem},
-    rstest::{RsTestData, RsTestItem},
+    rstest::{hierarchy::File, RsTestData, RsTestItem},
     testcase::TestCase,
     vlist::ValueList,
     Attribute, Fixture, Positional,
@@ -340,4 +340,13 @@ pub(crate) fn sys_engine_lock(
     // object; whether it's poisoned or not, we'll still hold the
     // MutexGuard.
     mutex_mock_sys_engine.lock()
+}
+
+impl<T: Default> File<T> {
+    pub(crate) fn empty<S: AsRef<std::ffi::OsStr> + ?Sized>(name: &S) -> Self {
+        Self {
+            name: name.as_ref().to_owned(),
+            content: Default::default(),
+        }
+    }
 }
