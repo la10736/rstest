@@ -17,7 +17,7 @@ use crate::{
     utils::attr_is,
 };
 
-use super::hierarchy::Hierarchy;
+use super::hierarchy::{Hierarchy, HierarchyError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences {
@@ -300,10 +300,15 @@ impl<S: SysEngine> ValueListFromFiles<S> {
         let resolved_paths = refs.paths(&crate_root)?;
         let values = Hierarchy::<Option<(Expr, String)>>::build::<S, _>(
             &crate_root,
-            self.all_files_path(resolved_paths)?,
-            |(_, p)| Ok(p.clone()),
-            |_, abs_path, relative_path| {
-                let path_str = abs_path.to_string_lossy();
+            self.all_files_path(resolved_paths)?.as_slice(),
+            |(_attr, path)| path,
+            |path, relative_path| {
+                let path_str =
+                    path.as_os_str()
+                        .to_str()
+                        .ok_or_else(|| HierarchyError::AbsPath {
+                            s: path.to_string_lossy().to_string(),
+                        })?;
 
                 Ok(refs.is_valid(&relative_path).then_some((
                     parse_quote! {
@@ -313,7 +318,7 @@ impl<S: SysEngine> ValueListFromFiles<S> {
                 )))
             },
         )
-        .map_err(|e| refs.glob[0].error(e.to_string()))?;
+        .map_err(|((attr, _path), err)| attr.error(err.to_string()))?;
         if values.no_files() {
             Err(refs.glob[0].error("No file found"))?;
         }

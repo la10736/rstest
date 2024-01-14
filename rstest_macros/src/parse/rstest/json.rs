@@ -140,9 +140,9 @@ impl<S: SysEngine> FilesExtractor<S> {
         paths.sort();
         Hierarchy::<JsonBody>::build::<S, _>(
             &crate_root,
-            paths,
-            |p| Ok(p.clone()),
-            |path, _abs_path, _relative_path| {
+            paths.as_slice(),
+            std::path::PathBuf::as_path,
+            |path, _relative_path| {
                 S::read_file(&path.to_string_lossy())
                     .map_err(|e| HierarchyError::ReadFileError {
                         path: path.to_owned(),
@@ -155,6 +155,7 @@ impl<S: SysEngine> FilesExtractor<S> {
                     })
             },
         )
+        .map_err(|e| e.1)
     }
 }
 

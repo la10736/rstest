@@ -123,37 +123,47 @@ impl<T> Hierarchy<T> {
         self.folder.no_files()
     }
 
-    pub fn build<S: SysEngine, F>(
+    pub fn build<'a, S: SysEngine, WRAP>(
         crate_root: &Path,
-        files: Vec<F>,
-        get_abs_path: impl Fn(&F) -> Result<PathBuf, HierarchyError>,
-        mut get_content: impl FnMut(&F, &PathBuf, &RelativePath) -> Result<T, HierarchyError>,
-    ) -> Result<Self, HierarchyError> {
+        wraps: &'a [WRAP],
+        get_path: impl Fn(&WRAP) -> &Path,
+        mut get_content: impl FnMut(&Path, &RelativePath) -> Result<T, HierarchyError>,
+    ) -> Result<Self, (&'a WRAP, HierarchyError)> {
         let mut hierarchy = Hierarchy::from(crate_root);
-        for f in files {
-            let abs_path = get_abs_path(&f)?;
-            let relative_path = abs_path
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map(|inner| {
-                    RelativePath::new(&crate_root.as_os_str().to_string_lossy()).relative(inner)
-                })
-                .map_err(|e| HierarchyError::AbsPath {
-                    s: e.to_string_lossy().to_string(),
-                })?;
-
-            let fname = abs_path
-                .file_name()
-                .ok_or_else(|| HierarchyError::NotAFile(abs_path.clone()))?;
-            let test_file = File::new(fname, get_content(&f, &abs_path, &relative_path)?);
-
-            let parent = relative_path
-                .parent()
-                .ok_or_else(|| HierarchyError::NotInFolder(relative_path.to_logical_path(".")))?;
-            hierarchy.folder.add_file_path(&parent, test_file);
+        for f in wraps {
+            hierarchy
+                .process_path::<S>(crate_root, get_path(f), &mut get_content)
+                .map_err(|e| (f, e))?
         }
         Ok(hierarchy)
+    }
+
+    fn process_path<'a, S: SysEngine>(
+        &mut self,
+        crate_root: &Path,
+        abs_path: &'a Path,
+        mut get_content: impl FnMut(&Path, &RelativePath) -> Result<T, HierarchyError>,
+    ) -> Result<(), HierarchyError> {
+        let relative_path = abs_path
+            .as_os_str()
+            .to_str()
+            .map(|inner| {
+                RelativePath::new(&crate_root.as_os_str().to_string_lossy()).relative(inner)
+            })
+            .ok_or_else(|| HierarchyError::AbsPath {
+                s: abs_path.to_string_lossy().to_string(),
+            })?;
+
+        let fname = abs_path
+            .file_name()
+            .ok_or_else(|| HierarchyError::NotAFile(abs_path.to_owned()))?;
+        let test_file = File::new(fname, get_content(abs_path, &relative_path)?);
+
+        let parent = relative_path
+            .parent()
+            .ok_or_else(|| HierarchyError::NotInFolder(relative_path.to_logical_path(".")))?;
+        self.folder.add_file_path(&parent, test_file);
+        Ok(())
     }
 }
 
