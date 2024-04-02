@@ -117,6 +117,25 @@ fn it_works(#[case] a: u32, #[case] b: u32) {
 
 See [`rstest_reuse`][reuse-crate-link] for more details.
 
+#### Feature flagged cases
+
+In case you want certain test cases to only be present if a certain feature is
+enabled, use `#[cfg_attr(feature = …, case(…))]`:
+
+```rust
+use rstest::rstest;
+
+#[rstest]
+#[case(2, 2)]
+#[cfg_attr(feature = "frac", case(4/2, 2))]
+#[case(4/2, 2)]
+fn it_works(#[case] a: u32, #[case] b: u32) {
+    assert!(a == b);
+}
+```
+
+This also works with [`rstest_reuse`][reuse-crate-link].
+
 ### Magic Conversion
 
 If you need a value where its type implement `FromStr()` trait you can use a literal
