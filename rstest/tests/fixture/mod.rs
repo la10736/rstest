@@ -347,5 +347,20 @@ mod should {
             )
             .unindent()
         );
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error[E0277]: `Cell<u32>` cannot be shared between threads safely
+                   --> {}/src/lib.rs:54:1
+                    |
+                54  | #[fixture]
+                    | ^^^^^^^^^^ `Cell<u32>` cannot be shared between threads safely
+                "#,
+                name,
+            )
+            .unindent(),
+        );
     }
 }
