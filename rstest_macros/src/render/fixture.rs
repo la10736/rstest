@@ -21,9 +21,9 @@ fn wrap_return_type_as_static_ref(rt: ReturnType) -> ReturnType {
 fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -> TokenStream {
     match rt {
         syn::ReturnType::Type(_, t) => parse_quote! {
-            static CELL: ::rstest::once_cell::sync::OnceCell<#t> =
-                ::rstest::once_cell::sync::OnceCell::new();
-            CELL.get_or_init(|| #call_impl)
+            static CELL: std::sync::OnceLock<#t> =
+                std::sync::OnceLock::new();
+            CELL.get_or_init(|| #call_impl )
         },
         _ => parse_quote! {
             static CELL: std::sync::Once = std::sync::Once::new();

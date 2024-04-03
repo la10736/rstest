@@ -236,9 +236,6 @@
 //! tests.
 
 #[doc(hidden)]
-pub use once_cell;
-
-#[doc(hidden)]
 pub mod magic_conversion;
 #[doc(hidden)]
 pub mod timeout;
