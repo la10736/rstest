@@ -33,20 +33,3 @@ fn f(name: &str) -> String {
 #[fixture(f("first"), f("second"))]
 fn error_inject_a_fixture_more_than_once(f: String) {
 }
-
-#[fixture]
-#[once]
-async fn error_async_once_fixture() {
-}
-
-#[fixture]
-#[once]
-fn error_generics_once_fixture<T: std::fmt::Debug>() -> T {
-    42
-}
-
-#[fixture]
-#[once]
-fn error_generics_once_fixture() -> impl Iterator<Item: u32> {
-    std::iter::once(42)
-}

@@ -221,131 +221,202 @@ mod should {
         assert_eq!(1, occurences);
     }
 
-    #[test]
-    fn show_correct_errors() {
-        let prj = prj("errors.rs");
-        let output = prj.run_tests().unwrap();
-        let name = prj.get_name();
+    mod show_correct_errors {
+        use super::*;
+        use std::process::Output;
 
-        assert_in!(output.stderr.str(), "error[E0433]: ");
-        assert_in!(
-            output.stderr.str(),
-            format!(
-                r#"
-                  --> {}/src/lib.rs:12:33
-                   |
-                12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#,
-                name
-            )
-            .unindent()
-        );
+        use rstest::{fixture, rstest};
 
-        assert_in!(
-            output.stderr.str(),
-            format!(
-                r#"
-                error[E0308]: mismatched types
-                 --> {}/src/lib.rs:8:18
-                  |
-                8 |     let a: u32 = "";
-                "#,
-                name
-            )
-            .unindent()
-        );
+        #[fixture]
+        #[once]
+        fn errors_rs() -> (Output, String) {
+            run_test("errors.rs")
+        }
 
-        assert_in!(
-            output.stderr.str(),
-            format!(
-                "
-                error[E0308]: mismatched types
-                  --> {}/src/lib.rs:16:29
-                ",
-                name
-            )
-            .unindent()
-        );
-        assert_in!(
-            output.stderr.str(),
-            "
-            16 | fn error_fixture_wrong_type(fixture: String) {
-               |                             ^^^^^^"
+        #[rstest]
+        fn when_cannot_resolve_fixture(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
+    
+            assert_in!(output.stderr.str(), "error[E0433]: ");
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                      --> {}/src/lib.rs:12:33
+                       |
+                    12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#,
+                    name
+                )
                 .unindent()
-        );
+            );
+        }
 
-        assert_in!(
-            output.stderr.str(),
-            format!(
+        #[rstest]
+        fn on_mismatched_types_inner(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
+    
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error[E0308]: mismatched types
+                     --> {}/src/lib.rs:8:18
+                      |
+                    8 |     let a: u32 = "";
+                    "#,
+                    name
+                )
+                .unindent()
+            );
+        }
+
+        #[rstest]
+        fn on_mismatched_types_argument(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
+    
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    "
+                    error[E0308]: mismatched types
+                      --> {}/src/lib.rs:16:29
+                    ",
+                    name
+                )
+                .unindent()
+            );
+    
+            assert_in!(
+                output.stderr.str(),
                 "
-                error: Missed argument: 'not_a_fixture' should be a test function argument.
-                  --> {}/src/lib.rs:19:11
-                   |
-                19 | #[fixture(not_a_fixture(24))]
-                   |           ^^^^^^^^^^^^^
-                ",
-                name
-            )
-            .unindent()
-        );
+                16 | fn error_fixture_wrong_type(fixture: String) {
+                   |                             ^^^^^^"
+                    .unindent()
+            );
+        }
 
-        assert_in!(
-            output.stderr.str(),
-            format!(
-                r#"
-                error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:33:23
-                   |
-                33 | #[fixture(f("first"), f("second"))]
-                   |                       ^
-                "#,
-                name
-            )
-            .unindent()
-        );
+        #[rstest]
+        fn on_invalid_fixture(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
 
-        assert_in!(
-            output.stderr.str(),
-            format!(
-                r#"
-                error: Cannot apply #[once] to async fixture.
-                  --> {}/src/lib.rs:38:3
-                   |
-                38 | #[once]
-                   |   ^^^^
-                "#,
-                name
-            )
-            .unindent()
-        );
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    "
+                    error: Missed argument: 'not_a_fixture' should be a test function argument.
+                      --> {}/src/lib.rs:19:11
+                       |
+                    19 | #[fixture(not_a_fixture(24))]
+                       |           ^^^^^^^^^^^^^
+                    ",
+                    name
+                )
+                .unindent()
+            );
+        }
 
-        assert_in!(
+        #[rstest]
+        fn on_duplicate_fixture_argument(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
+
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error: Duplicate argument: 'f' is already defined.
+                      --> {}/src/lib.rs:33:23
+                       |
+                    33 | #[fixture(f("first"), f("second"))]
+                       |                       ^
+                    "#,
+                    name
+                )
+                .unindent()
+            );
+        }
+
+
+        #[fixture]
+        #[once]
+        fn errors_once_rs() -> (Output, String) {
+            run_test("errors_once.rs")
+        }
+
+        #[rstest]
+        fn once_async(errors_once_rs: &(Output, String)) {
+            let (output, name) = errors_once_rs.clone();
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error: Cannot apply #[once] to async fixture.
+                     --> {}/src/lib.rs:4:3
+                      |
+                    4 | #[once]
+                      |   ^^^^
+                    "#,
+                    name
+                )
+                .unindent()
+            );
+        }
+
+        #[rstest]
+        fn once_generic_type(errors_once_rs: &(Output, String)) {
+            let (output, name) = errors_once_rs.clone();
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error: Cannot apply #[once] on generic fixture.
+                     --> {}/src/lib.rs:9:3
+                      |
+                    9 | #[once]
+                      |   ^^^^
+                    "#,
+                    name
+                )
+                .unindent()
+            );
+        }
+
+        #[rstest]
+        fn once_generic_impl(errors_once_rs: &(Output, String)) {
+            let (output, name) = errors_once_rs.clone();
+            assert_in!(
             output.stderr.str(),
             format!(
                 r#"
                 error: Cannot apply #[once] on generic fixture.
-                  --> {}/src/lib.rs:43:3
+                  --> {}/src/lib.rs:15:3
                    |
-                43 | #[once]
+                15 | #[once]
                    |   ^^^^
                 "#,
                 name
             )
             .unindent()
-        );
+            );
 
-        assert_in!(
-            output.stderr.str(),
-            format!(
-                r#"
-                error: Cannot apply #[once] on generic fixture.
-                  --> {}/src/lib.rs:49:3
-                   |
-                49 | #[once]
-                   |   ^^^^
-                "#,
-                name
-            )
-            .unindent()
-        );
-    }
+        }
+        
+        #[rstest]
+        fn once_on_not_sync_type(errors_once_rs: &(Output, String)) {
+            let (output, name) = errors_once_rs.clone();
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error[E0277]: `Cell<u32>` cannot be shared between threads safely
+                      --> {}/src/lib.rs:20:1
+                       |
+                    20 | #[fixture]
+                       | ^^^^^^^^^^ `Cell<u32>` cannot be shared between threads safely
+                    "#,
+                    name,
+                )
+                .unindent(),
+            );
+        }
+    } 
 }

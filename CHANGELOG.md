@@ -8,6 +8,11 @@
 
 ### Fixed
 
+- `#[once]` fixtures now require the returned type to be
+[`Sync`](https://doc.rust-lang.org/std/marker/trait.Sync.html) to prevent UB
+when tests are executed in parallel. (see [#235](https://github.com/la10736/rstest/issues/235)
+for more details)
+
 ## [0.18.2] 2023/8/13
 
 ### Changed
