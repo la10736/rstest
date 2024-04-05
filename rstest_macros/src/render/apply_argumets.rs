@@ -3,7 +3,7 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, Lifetime, Signature, Type
 
 use crate::{
     parse::{arguments::ArgumentsInfo, future::MaybeFutureImplType},
-    refident::MaybeIdent,
+    refident::{MaybeIdent, MaybeMutability, SetMutability},
 };
 
 pub(crate) trait ApplyArgumets<R: Sized = ()> {
@@ -63,13 +63,13 @@ impl ApplyArgumets for ItemFn {
             .sig
             .inputs
             .iter()
-            .filter_map(|a| a.maybe_ident())
-            .filter(|&a| arguments.is_future_await(a))
-            .cloned();
+            .filter_map(|a| a.maybe_ident().map(|i| (i, a.maybe_mutability())))
+            .filter(|(a, _)| arguments.is_future_await(a))
+            .map(|(a, m)| quote::quote! { let #m #a = #a.await; });
         let orig_block_impl = self.block.clone();
         self.block = parse_quote! {
             {
-                #(let #awaited_args = #awaited_args.await;)*
+                #(#awaited_args)*
                 #orig_block_impl
             }
         };
@@ -90,6 +90,7 @@ impl ImplFutureArg for FnArg {
                 *ty = parse_quote! {
                     impl std::future::Future<Output = #ty>
                 };
+                self.set_mutability(None);
                 lifetime
             }
             None => None,
