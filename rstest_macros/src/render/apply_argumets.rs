@@ -3,7 +3,7 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, Lifetime, Signature, Type
 
 use crate::{
     parse::{arguments::ArgumentsInfo, future::MaybeFutureImplType},
-    refident::{MaybeIdent, MaybeMutability, SetMutability},
+    refident::{MaybeIdent, MaybePatIdent, SetMutability},
 };
 
 pub(crate) trait ApplyArgumets<R: Sized = ()> {
@@ -59,17 +59,20 @@ impl ApplyArgumets for Signature {
 
 impl ApplyArgumets for ItemFn {
     fn apply_argumets(&mut self, arguments: &ArgumentsInfo) {
-        let awaited_args = self
+        let rebound_awaited_args = self
             .sig
             .inputs
             .iter()
-            .filter_map(|a| a.maybe_ident().map(|i| (i, a.maybe_mutability())))
-            .filter(|(a, _)| arguments.is_future_await(a))
-            .map(|(a, m)| quote::quote! { let #m #a = #a.await; });
+            .filter_map(|a| a.maybe_patident())
+            .filter(|p| arguments.is_future_await(&p.ident))
+            .map(|p| {
+                let a = &p.ident;
+                quote::quote! { let #p = #a.await; }
+            });
         let orig_block_impl = self.block.clone();
         self.block = parse_quote! {
             {
-                #(#awaited_args)*
+                #(#rebound_awaited_args)*
                 #orig_block_impl
             }
         };
@@ -154,6 +157,11 @@ mod should {
         "fn f<S: AsRef<str>>(a: S) {}",
         &["a"],
         "fn f<S: AsRef<str>>(a: impl std::future::Future<Output = S>) {}"
+    )]
+    #[case::remove_mut(
+        "fn f(a: u32) {}",
+        &["a"],
+        r#"fn f(a: impl std::future::Future<Output = u32>) {}"#
     )]
     fn replace_future_basic_type(
         #[case] item_fn: &str,
@@ -245,6 +253,18 @@ mod should {
             assert_not_in!(code, await_argument_code_string("a"));
             assert_in!(code, await_argument_code_string("b"));
             assert_not_in!(code, await_argument_code_string("c"));
+        }
+
+        #[test]
+        fn with_mut_await() {
+            let mut item_fn: ItemFn = r#"fn test(mut a: i32) {} "#.ast();
+            let mut arguments: ArgumentsInfo = Default::default();
+            arguments.set_future(ident("a"), FutureArg::Await);
+
+            item_fn.apply_argumets(&arguments);
+
+            let code = item_fn.block.display_code();
+            assert_in!(code, mut_await_argument_code_string("a"));
         }
     }
 }

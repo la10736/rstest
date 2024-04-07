@@ -4,6 +4,9 @@
 
 ### Add
 
+- `#[future(awt)]` and `#[awt]` now properly handle mutable (`mut`) parameters by treating futures as immutable and
+  treating the awaited rebinding as mutable.
+
 ### Changed
 
 ### Fixed

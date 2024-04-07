@@ -1,7 +1,7 @@
 /// Provide `RefIdent` and `MaybeIdent` traits that give a shortcut to extract identity reference
 /// (`syn::Ident` struct).
 use proc_macro2::Ident;
-use syn::{FnArg, Pat, PatType, Token, Type};
+use syn::{FnArg, Pat, PatType, Type};
 
 pub trait RefIdent {
     /// Return the reference to ident if any
@@ -87,15 +87,15 @@ impl MaybeIdent for crate::parse::Attribute {
     }
 }
 
-pub trait MaybeMutability {
-    fn maybe_mutability(&self) -> Option<Token![mut]>;
+pub trait MaybePatIdent {
+    fn maybe_patident(&self) -> Option<&syn::PatIdent>;
 }
 
-impl MaybeMutability for FnArg {
-    fn maybe_mutability(&self) -> Option<Token![mut]> {
+impl MaybePatIdent for FnArg {
+    fn maybe_patident(&self) -> Option<&syn::PatIdent> {
         match self {
             FnArg::Typed(PatType { pat, .. }) => match pat.as_ref() {
-                Pat::Ident(ident) => ident.mutability,
+                Pat::Ident(ident) => Some(ident),
                 _ => None,
             },
             _ => None,
@@ -104,11 +104,11 @@ impl MaybeMutability for FnArg {
 }
 
 pub trait SetMutability {
-    fn set_mutability(&mut self, mutability: Option<Token![mut]>);
+    fn set_mutability(&mut self, mutability: Option<syn::token::Mut>);
 }
 
 impl SetMutability for FnArg {
-    fn set_mutability(&mut self, mutability: Option<Token![mut]>) {
+    fn set_mutability(&mut self, mutability: Option<syn::token::Mut>) {
         match self {
             FnArg::Typed(PatType { pat, .. }) => match pat.as_mut() {
                 Pat::Ident(ident) => ident.mutability = mutability,
