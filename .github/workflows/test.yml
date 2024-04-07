@@ -33,3 +33,9 @@ jobs:
       run: RSTEST_TEST_CHANNEL=beta; cargo test --all --verbose
     - name: Run tests nightly
       run: RSTEST_TEST_CHANNEL=nightly; cargo test --all --verbose
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: taiki-e/install-action@cargo-hack
+    - run: cargo hack check --rust-version --workspace --all-targets --ignore-private

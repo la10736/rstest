@@ -6,6 +6,8 @@
 
 # Fixture-based test framework for Rust
 
+
+
 ## Introduction
 
 `rstest` uses procedural macros to help you on writing
@@ -481,6 +483,10 @@ is raised, but it's also possible to exclude a variable using the
 
 You can learn more on [Docs][docs-link] and find more examples in
 [`tests/resources`](/rstest/tests/resources) directory.
+
+## Rust version compatibility
+
+The minimum supported Rust version is 1.67.1.
 
 ## Changelog
 

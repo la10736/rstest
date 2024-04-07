@@ -229,11 +229,16 @@
 //!
 //! # Optional features
 //!
-//! `rstest` Enable all fetures by default. You can disable them if you need to
+//! `rstest` Enable all features by default. You can disable them if you need to
 //! speed up compilation.
 //!
 //! - **`async-timeout`** *(enabled by default)* — Implement timeout for async
 //! tests.
+//!
+//! # Rust version compatibility
+//!
+//! The minimum supported Rust version is 1.67.1.
+//!
 
 #[doc(hidden)]
 pub mod magic_conversion;
