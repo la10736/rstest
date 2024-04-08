@@ -103,15 +103,15 @@ impl MaybePatIdent for FnArg {
     }
 }
 
-pub trait SetMutability {
-    fn set_mutability(&mut self, mutability: Option<syn::token::Mut>);
+pub trait RemoveMutability {
+    fn remove_mutability(&mut self);
 }
 
-impl SetMutability for FnArg {
-    fn set_mutability(&mut self, mutability: Option<syn::token::Mut>) {
+impl RemoveMutability for FnArg {
+    fn remove_mutability(&mut self) {
         match self {
             FnArg::Typed(PatType { pat, .. }) => match pat.as_mut() {
-                Pat::Ident(ident) => ident.mutability = mutability,
+                Pat::Ident(ident) => ident.mutability = None,
                 _ => {}
             },
             _ => {}

@@ -3,7 +3,7 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, Lifetime, Signature, Type
 
 use crate::{
     parse::{arguments::ArgumentsInfo, future::MaybeFutureImplType},
-    refident::{MaybeIdent, MaybePatIdent, SetMutability},
+    refident::{MaybeIdent, MaybePatIdent, RemoveMutability},
 };
 
 pub(crate) trait ApplyArgumets<R: Sized = ()> {
@@ -93,7 +93,7 @@ impl ImplFutureArg for FnArg {
                 *ty = parse_quote! {
                     impl std::future::Future<Output = #ty>
                 };
-                self.set_mutability(None);
+                self.remove_mutability();
                 lifetime
             }
             None => None,
@@ -159,7 +159,7 @@ mod should {
         "fn f<S: AsRef<str>>(a: impl std::future::Future<Output = S>) {}"
     )]
     #[case::remove_mut(
-        "fn f(a: u32) {}",
+        "fn f(mut a: u32) {}",
         &["a"],
         r#"fn f(a: impl std::future::Future<Output = u32>) {}"#
     )]
