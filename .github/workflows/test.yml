@@ -25,6 +25,10 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - name: Install latest beta
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: beta
     - name: Build
       run: cargo build --all --verbose
     - name: Run tests stable
