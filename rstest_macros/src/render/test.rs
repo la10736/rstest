@@ -317,6 +317,7 @@ impl Parse for TestsGroup {
 }
 
 trait QueryAttrs {
+    #[allow(dead_code)]
     fn has_attr(&self, attr: &syn::Path) -> bool;
     fn has_attr_that_ends_with(&self, attr: &syn::PathSegment) -> bool;
 }
@@ -480,14 +481,12 @@ impl From<TokenStream> for TestsGroup {
 }
 
 mod cases_should {
-    use std::iter::FromIterator;
 
     use rstest_test::{assert_in, assert_not_in};
 
     use crate::parse::{
         arguments::{ArgumentsInfo, FutureArg},
-        rstest::{RsTestData, RsTestInfo, RsTestItem},
-        testcase::TestCase,
+        rstest::RsTestItem,
     };
 
     use super::{assert_eq, *};
@@ -1025,10 +1024,7 @@ mod cases_should {
 mod matrix_cases_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::parse::{
-        arguments::{ArgumentsInfo, FutureArg},
-        vlist::ValueList,
-    };
+    use crate::parse::arguments::{ArgumentsInfo, FutureArg};
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
     /// transformation

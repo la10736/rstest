@@ -4,13 +4,12 @@
 /// testing bolilerplate.
 ///
 use std::borrow::Cow;
-use std::iter::FromIterator;
 
 pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
 pub(crate) use rstest::{fixture, rstest};
-use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, ItemFn, Stmt};
+use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, Stmt};
 
 use super::*;
 use crate::parse::{

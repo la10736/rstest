@@ -149,7 +149,7 @@ mod should {
     use rstest_test::{assert_in, assert_not_in};
     use syn::{
         parse::{Parse, ParseStream},
-        parse2, parse_str, ItemFn, ItemImpl, ItemStruct, Result,
+        parse2, parse_str, ItemImpl, ItemStruct, Result,
     };
 
     use crate::parse::{

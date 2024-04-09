@@ -360,7 +360,6 @@ mod test {
 
     mod no_cases {
         use super::{assert_eq, *};
-        use crate::parse::{Attribute, Attributes};
 
         #[test]
         fn happy_path() {
@@ -544,7 +543,6 @@ mod test {
 
     mod parametrize_cases {
         use super::{assert_eq, *};
-        use std::iter::FromIterator;
 
         #[test]
         fn one_simple_case_one_arg() {
@@ -803,7 +801,6 @@ mod test {
     }
 
     mod matrix_cases {
-        use crate::parse::Attribute;
 
         use super::{assert_eq, *};
 
