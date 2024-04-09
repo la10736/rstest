@@ -1,5 +1,4 @@
 use std::{
-    self,
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},

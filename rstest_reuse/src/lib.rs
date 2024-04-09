@@ -194,9 +194,7 @@ use std::collections::HashMap;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{
-    self, parse, parse::Parse, parse_macro_input, Attribute, Ident, ItemFn, PatType, Path, Token,
-};
+use syn::{parse, parse::Parse, parse_macro_input, Attribute, Ident, ItemFn, PatType, Path, Token};
 
 struct MergeAttrs {
     template: ItemFn,
