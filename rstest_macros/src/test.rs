@@ -319,3 +319,11 @@ pub(crate) fn await_argument_code_string(arg_name: &str) -> String {
     };
     statment.display_code()
 }
+
+pub(crate) fn mut_await_argument_code_string(arg_name: &str) -> String {
+    let arg_name = ident(arg_name);
+    let statement: Stmt = parse_quote! {
+        let mut #arg_name = #arg_name.await;
+    };
+    statement.display_code()
+}

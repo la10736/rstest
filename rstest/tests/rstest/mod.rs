@@ -534,6 +534,19 @@ mod cases {
             .assert(output);
     }
 
+    #[rstest]
+    fn should_run_async_mut() {
+        let prj = prj(res("async_awt_mut.rs"));
+        prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("my_mut_test_global_awt::case_1_pass")
+            .ok("my_mut_test_local_awt::case_1_pass")
+            .assert(output);
+    }
+
     #[test]
     fn should_use_injected_test_attr() {
         let prj = prj(res("inject.rs"));

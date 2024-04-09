@@ -86,3 +86,35 @@ impl MaybeIdent for crate::parse::Attribute {
         }
     }
 }
+
+pub trait MaybePatIdent {
+    fn maybe_patident(&self) -> Option<&syn::PatIdent>;
+}
+
+impl MaybePatIdent for FnArg {
+    fn maybe_patident(&self) -> Option<&syn::PatIdent> {
+        match self {
+            FnArg::Typed(PatType { pat, .. }) => match pat.as_ref() {
+                Pat::Ident(ident) => Some(ident),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
+
+pub trait RemoveMutability {
+    fn remove_mutability(&mut self);
+}
+
+impl RemoveMutability for FnArg {
+    fn remove_mutability(&mut self) {
+        match self {
+            FnArg::Typed(PatType { pat, .. }) => match pat.as_mut() {
+                Pat::Ident(ident) => ident.mutability = None,
+                _ => {}
+            },
+            _ => {}
+        };
+    }
+}

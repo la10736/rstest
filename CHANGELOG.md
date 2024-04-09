@@ -12,6 +12,8 @@
 [`Sync`](https://doc.rust-lang.org/std/marker/trait.Sync.html) to prevent UB
 when tests are executed in parallel. (see [#235](https://github.com/la10736/rstest/issues/235)
 for more details)
+- `#[future(awt)]` and `#[awt]` now properly handle mutable (`mut`) parameters by treating futures as immutable and
+  treating the awaited rebinding as mutable.
 
 ## [0.18.2] 2023/8/13
 
