@@ -109,12 +109,10 @@ pub trait RemoveMutability {
 
 impl RemoveMutability for FnArg {
     fn remove_mutability(&mut self) {
-        match self {
-            FnArg::Typed(PatType { pat, .. }) => match pat.as_mut() {
-                Pat::Ident(ident) => ident.mutability = None,
-                _ => {}
-            },
-            _ => {}
+        if let FnArg::Typed(PatType { pat, .. }) = self {
+            if let Pat::Ident(ident) = pat.as_mut() {
+                ident.mutability = None
+            }
         };
     }
 }

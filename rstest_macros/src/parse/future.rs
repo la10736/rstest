@@ -108,6 +108,21 @@ impl FutureFunctionExtractor {
             Err(self.errors.into())
         }
     }
+
+    fn compute_arguments_kind(arg: &syn::Attribute) -> Result<FutureArg, syn::Error> {
+        if matches!(arg.meta, syn::Meta::Path(_)) {
+            Ok(FutureArg::Define)
+        } else {
+            match arg.parse_args::<Option<Ident>>()? {
+                Some(awt) if awt == format_ident!("awt") => Ok(FutureArg::Await),
+                None => Ok(FutureArg::Define),
+                Some(invalid) => Err(syn::Error::new_spanned(
+                    arg.parse_args::<Option<Ident>>()?.into_token_stream(),
+                    format!("Invalid '{invalid}' #[future(...)] arg."),
+                )),
+            }
+        }
+    }
 }
 
 impl VisitMut for FutureFunctionExtractor {
@@ -118,23 +133,7 @@ impl VisitMut for FutureFunctionExtractor {
         match extract_argument_attrs(
             node,
             |a| attr_is(a, "future"),
-            |arg, name| {
-                let kind = if matches!(arg.meta, syn::Meta::Path(_)) {
-                    FutureArg::Define
-                } else {
-                    match arg.parse_args::<Option<Ident>>()? {
-                        Some(awt) if awt == format_ident!("awt") => FutureArg::Await,
-                        None => FutureArg::Define,
-                        Some(invalid) => {
-                            return Err(syn::Error::new_spanned(
-                                arg.parse_args::<Option<Ident>>()?.into_token_stream(),
-                                format!("Invalid '{invalid}' #[future(...)] arg."),
-                            ));
-                        }
-                    }
-                };
-                Ok((arg, name.clone(), kind))
-            },
+            |arg, name| Self::compute_arguments_kind(&arg).map(|kind| (arg, name.clone(), kind)),
         )
         .collect::<Result<Vec<_>, _>>()
         {

@@ -253,7 +253,6 @@ impl BaseDir for DefaultBaseDir {}
 
 trait GlobResolver {
     fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
-        let pattern = pattern;
         let globs =
             glob(pattern).map_err(|e| format!("glob failed for whole path `{pattern}` due {e}"))?;
         globs

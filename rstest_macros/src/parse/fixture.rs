@@ -134,9 +134,9 @@ impl VisitMut for FixturesFunctionExtractor {
             arg.attrs = remain;
 
             let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
-            self.1.extend(errors.into_iter());
+            self.1.extend(errors);
             let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
-            self.1.extend(errors.into_iter());
+            self.1.extend(errors);
             if pos.is_some() || resolve.is_some() {
                 self.0
                     .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
