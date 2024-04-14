@@ -38,13 +38,6 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
     let asyncness = test.sig.asyncness;
-    let generic_types = test
-        .sig
-        .generics
-        .type_params()
-        .map(|tp| &tp.ident)
-        .cloned()
-        .collect::<Vec<_>>();
 
     single_test_case(
         &test.sig.ident,
@@ -56,7 +49,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         Some(&test),
         resolver,
         &info.attributes,
-        &generic_types,
+        &test.sig.generics,
     )
 }
 
@@ -207,7 +200,8 @@ fn render_test_call(
 ) -> TokenStream {
     let timeout = timeout.map(|x| quote! {#x}).or_else(|| {
         std::env::var("RSTEST_TIMEOUT")
-            .ok().map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
+            .ok()
+            .map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
     });
     match (timeout, is_async) {
         (Some(to_expr), true) => quote! {
@@ -220,6 +214,10 @@ fn render_test_call(
         },
         _ => render_exec_call(fn_path, args, is_async),
     }
+}
+
+fn generics_types_ident<'a>(generics: &'a syn::Generics) -> impl Iterator<Item = &'a Ident> {
+    generics.type_params().map(|tp| &tp.ident)
 }
 
 /// Render a single test case:
@@ -247,7 +245,7 @@ fn single_test_case(
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
     attributes: &RsTestAttributes,
-    generic_types: &[Ident],
+    generics: &syn::Generics,
 ) -> TokenStream {
     let (attrs, trace_me): (Vec<_>, Vec<_>) =
         attrs.iter().cloned().partition(|a| !attr_is(a, "trace"));
@@ -255,7 +253,8 @@ fn single_test_case(
     if !trace_me.is_empty() {
         attributes.add_trace(format_ident!("trace"));
     }
-    let inject = inject::resolve_aruments(args.iter(), &resolver, generic_types);
+    let generics_types = generics_types_ident(generics).cloned().collect::<Vec<_>>();
+    let inject = inject::resolve_aruments(args.iter(), &resolver, &generics_types);
     let args = args
         .iter()
         .filter_map(MaybeIdent::maybe_ident)
@@ -282,11 +281,12 @@ fn single_test_case(
         Some(resolve_default_test_attr(is_async))
     };
     let execute = render_test_call(testfn_name.clone().into(), &args, timeout, is_async);
+    let lifetimes = generics.lifetimes();
 
     quote! {
         #test_attr
         #(#attrs)*
-        #asyncness fn #name() #output {
+        #asyncness fn #name<#(#lifetimes,)*>() #output {
             #test_impl
             #inject
             #trace_args
@@ -339,13 +339,6 @@ impl<'a> TestCaseRender<'a> {
         let mut attrs = testfn.attrs.clone();
         attrs.extend(self.attrs.iter().cloned());
         let asyncness = testfn.sig.asyncness;
-        let generic_types = testfn
-            .sig
-            .generics
-            .type_params()
-            .map(|tp| &tp.ident)
-            .cloned()
-            .collect::<Vec<_>>();
 
         single_test_case(
             &self.name,
@@ -357,7 +350,7 @@ impl<'a> TestCaseRender<'a> {
             None,
             self.resolver,
             attributes,
-            &generic_types,
+            &testfn.sig.generics,
         )
     }
 }
