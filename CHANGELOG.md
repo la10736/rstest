@@ -8,11 +8,14 @@
 
 ### Fixed
 
+- Don't remove Lifetimes from test function if any. See [#230](https://github.com/la10736/rstest/issues/230)
+[#241](https://github.com/la10736/rstest/issues/241) for more details.
+
 ## [0.19.0] 2024/4/9
 
 ### Changed
 
-- Defined `rust-version` for each crate (see [#227](https://github.com/la10736/rstest/issues/235))
+- Defined `rust-version` for each crate (see [#227](https://github.com/la10736/rstest/issues/227))
 
 ### Fixed
 
