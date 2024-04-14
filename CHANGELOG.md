@@ -10,6 +10,8 @@
 
 - Don't remove Lifetimes from test function if any. See [#230](https://github.com/la10736/rstest/issues/230)
 [#241](https://github.com/la10736/rstest/issues/241) for more details.
+- [`PathBuf`](https://doc.rust-lang.org/std/path/struct.PathBuf.html) does no longer need to be
+in scope when using `#[files]` (see [#242](https://github.com/la10736/rstest/pull/242))
 
 ## [0.19.0] 2024/4/9
 
