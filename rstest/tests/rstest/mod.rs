@@ -169,6 +169,18 @@ fn use_mutable_fixture_in_parametric_argumnts() {
 }
 
 #[test]
+fn should_not_remove_lifetimes() {
+    let (output, _) = run_test("lifetimes.rs");
+
+    TestResults::new()
+        .with_contains(true)
+        .ok("case")
+        .ok("values")
+        .ok("fixture")
+        .assert(output);
+}
+
+#[test]
 fn should_reject_no_item_function() {
     let (output, name) = run_test("reject_no_item_function.rs");
 

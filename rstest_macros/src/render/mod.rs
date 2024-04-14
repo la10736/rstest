@@ -7,7 +7,9 @@ use std::collections::HashMap;
 use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt};
+use syn::{
+    parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, LifetimeParam, Path, ReturnType, Stmt,
+};
 
 use quote::{format_ident, quote};
 
@@ -45,6 +47,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
+    let lifetimes = test.sig.generics.lifetimes().cloned().collect::<Vec<_>>();
 
     single_test_case(
         &test.sig.ident,
@@ -57,6 +60,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         resolver,
         &info.attributes,
         &generic_types,
+        &lifetimes,
     )
 }
 
@@ -207,7 +211,8 @@ fn render_test_call(
 ) -> TokenStream {
     let timeout = timeout.map(|x| quote! {#x}).or_else(|| {
         std::env::var("RSTEST_TIMEOUT")
-            .ok().map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
+            .ok()
+            .map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
     });
     match (timeout, is_async) {
         (Some(to_expr), true) => quote! {
@@ -248,6 +253,7 @@ fn single_test_case(
     resolver: impl Resolver,
     attributes: &RsTestAttributes,
     generic_types: &[Ident],
+    lifetimes: &[LifetimeParam],
 ) -> TokenStream {
     let (attrs, trace_me): (Vec<_>, Vec<_>) =
         attrs.iter().cloned().partition(|a| !attr_is(a, "trace"));
@@ -286,7 +292,7 @@ fn single_test_case(
     quote! {
         #test_attr
         #(#attrs)*
-        #asyncness fn #name() #output {
+        #asyncness fn #name<#(#lifetimes,)*>() #output {
             #test_impl
             #inject
             #trace_args
@@ -346,6 +352,7 @@ impl<'a> TestCaseRender<'a> {
             .map(|tp| &tp.ident)
             .cloned()
             .collect::<Vec<_>>();
+        let lifetimes = testfn.sig.generics.lifetimes().cloned().collect::<Vec<_>>();
 
         single_test_case(
             &self.name,
@@ -358,6 +365,7 @@ impl<'a> TestCaseRender<'a> {
             self.resolver,
             attributes,
             &generic_types,
+            &lifetimes,
         )
     }
 }
