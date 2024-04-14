@@ -80,6 +80,20 @@ mod single_test_should {
         assert_eq!(inner_fn_impl.display_code(), input_fn.block.display_code());
     }
 
+    #[test]
+    fn not_remove_lifetimes() {
+        let input_fn: ItemFn = r#"
+                pub fn test<'a, 'b, 'c: 'a + 'b>(a: A<'a>, b: A<'b>, c: A<'c>) -> A<'c>
+                {
+                }
+                "#
+        .ast();
+
+        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+
+        assert_eq!(3, result.sig.generics.lifetimes().count());
+    }
+
     #[rstest]
     fn not_copy_any_attributes(
         #[values(
