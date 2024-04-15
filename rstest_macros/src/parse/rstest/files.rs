@@ -331,7 +331,7 @@ impl<'a> ValueListFromFiles<'a> {
             let path_str = abs_path.to_string_lossy();
             values.push((
                 parse_quote! {
-                    <PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
+                    <::std::path::PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
                 },
                 render_file_description(&relative_path),
             ));
@@ -642,7 +642,7 @@ mod should {
                 .map(|r| r.to_logical_path(bdir))
                 .map(|p| {
                     format!(
-                        r#"<PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
+                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
                         p.as_os_str().to_str().unwrap()
                     )
                 })

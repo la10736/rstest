@@ -32,3 +32,14 @@ fn start_with_name_with_include(
 
     assert!(contents.starts_with(name.to_str().unwrap()))
 }
+
+mod module {
+    #[rstest::rstest]
+    fn pathbuf_need_not_be_in_scope(
+        #[files("files/**/*.txt")]
+        #[exclude("exclude")]
+        #[include_dot_files]
+        path: std::path::PathBuf,
+    ) {
+    }
+}
