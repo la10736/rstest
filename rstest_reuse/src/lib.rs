@@ -360,7 +360,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         #macro_attribute
         macro_rules! #macro_name_rand {
             ( $test:item ) => {
-                        $crate::rstest_reuse::merge_attrs! {
+                        ::rstest_reuse::merge_attrs! {
                             #template,
                             $test
                         }
