@@ -25,6 +25,7 @@ use self::{expressions::Expressions, vlist::ValueList};
 #[macro_use]
 pub(crate) mod macros;
 
+pub(crate) mod by_ref;
 pub(crate) mod expressions;
 pub(crate) mod fixture;
 pub(crate) mod future;
@@ -638,16 +639,25 @@ pub(crate) mod arguments {
         Await,
     }
 
-    
-
     #[derive(PartialEq, Default, Debug)]
     pub(crate) struct ArgumentInfo {
         future: FutureArg,
+        by_ref: bool,
     }
 
     impl ArgumentInfo {
         fn future(future: FutureArg) -> Self {
-            Self { future }
+            Self {
+                future,
+                ..Default::default()
+            }
+        }
+
+        fn by_ref() -> Self {
+            Self {
+                by_ref: true,
+                ..Default::default()
+            }
         }
 
         fn is_future(&self) -> bool {
@@ -660,6 +670,10 @@ pub(crate) mod arguments {
             use FutureArg::*;
 
             matches!(self.future, Await)
+        }
+
+        fn is_by_ref(&self) -> bool {
+            self.by_ref
         }
     }
 
@@ -719,6 +733,24 @@ pub(crate) mod arguments {
 
         pub(crate) fn is_once(&self) -> bool {
             self.get_once().is_some()
+        }
+
+        pub(crate) fn set_by_ref(&mut self, ident: Ident) {
+            self.args
+                .entry(ident)
+                .and_modify(|v| v.by_ref = true)
+                .or_insert_with(|| ArgumentInfo::by_ref());
+        }
+
+        pub(crate) fn set_by_refs(&mut self, by_refs: impl Iterator<Item = Ident>) {
+            by_refs.for_each(|ident| self.set_by_ref(ident));
+        }
+
+        pub(crate) fn is_by_refs(&self, id: &Ident) -> bool {
+            self.args
+                .get(id)
+                .map(|arg| arg.is_by_ref())
+                .unwrap_or_default()
         }
     }
 

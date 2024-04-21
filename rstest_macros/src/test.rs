@@ -319,6 +319,14 @@ pub(crate) fn await_argument_code_string(arg_name: &str) -> String {
     statment.display_code()
 }
 
+pub(crate) fn ref_argument_code_string(arg_name: &str) -> String {
+    let arg_name = ident(arg_name);
+    let statment: Expr = parse_quote! {
+        &#arg_name
+    };
+    statment.display_code()
+}
+
 pub(crate) fn mut_await_argument_code_string(arg_name: &str) -> String {
     let arg_name = ident(arg_name);
     let statement: Stmt = parse_quote! {
