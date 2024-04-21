@@ -10,8 +10,6 @@ fn make_e_from_bool<'a>(_bump: &'a (), b: bool) -> E<'a> {
     E::A(b)
 }
 
-fn new_bump() {}
-
 #[cfg(test)]
 mod tests {
     use rstest::*;
