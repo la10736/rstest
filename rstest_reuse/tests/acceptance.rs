@@ -183,6 +183,15 @@ fn should_export_main_root() {
     TestResults::new().ok("test::case_1").assert(output);
 }
 
+#[test]
+fn rstest_reuse_not_in_crate_root() {
+    let (output, _) = run_test("rstest_reuse_not_in_crate_root.rs");
+
+    TestResults::new()
+        .ok("test::case_1")
+        .assert(output);
+}
+
 lazy_static! {
     static ref ROOT_DIR: TempDir = TempDir::new(std::env::temp_dir().join("rstest_reuse"), false);
     static ref ROOT_PROJECT: Project = Project::new(ROOT_DIR.as_ref());

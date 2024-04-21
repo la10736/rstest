@@ -1,5 +1,5 @@
 use rstest::rstest;
-use rstest_reuse::{self, *};
+use rstest_reuse::*;
 
 #[template]
 #[rstest(a,  b, case(2, 2), case(4/2, 2))]
