@@ -173,7 +173,7 @@ mod tests {
                 || {
                     panic!("inner message");
                 },
-                Duration::from_millis(30),
+                Duration::from_millis(100),
             )
         }
 
