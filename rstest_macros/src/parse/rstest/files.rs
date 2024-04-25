@@ -3,7 +3,7 @@ use std::{env, path::PathBuf};
 use glob::glob;
 use quote::ToTokens;
 use regex::Regex;
-use relative_path::RelativePath;
+use relative_path::{RelativePath, RelativePathBuf};
 use syn::{parse_quote, visit_mut::VisitMut, Attribute, Expr, FnArg, Ident, ItemFn, LitStr};
 
 use crate::{
@@ -21,21 +21,6 @@ pub(crate) struct FilesGlobReferences {
     glob: Vec<LitStrAttr>,
     exclude: Vec<Exclude>,
     ignore_dot_files: bool,
-}
-
-impl FilesGlobReferences {
-    /// Return the tuples attribute, path string if they are valid relative paths
-    fn paths(&self, base_dir: &PathBuf) -> Result<Vec<(&LitStrAttr, String)>, syn::Error> {
-        self.glob
-            .iter()
-            .map(|attr| {
-                RelativePath::from_path(&attr.value())
-                    .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
-                    .map(|p| p.to_logical_path(base_dir))
-                    .map(|p| (attr, p.to_string_lossy().into_owned()))
-            })
-            .collect::<Result<Vec<_>, _>>()
-    }
 }
 
 trait RaiseError: ToTokens {
@@ -306,24 +291,21 @@ impl<'a> ValueListFromFiles<'a> {
         let base_dir = self
             .base_dir
             .base_dir()
-            .map_err(|msg| refs.glob[0].error(&msg))?;
-        let resolved_paths = refs.paths(&base_dir)?;
-        let base_dir = base_dir
+            .map_err(|msg| refs.glob[0].error(&msg))?
             .into_os_string()
             .into_string()
             .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?;
+        let abs_paths = self.abs_paths(&base_dir, &refs.glob)?;
+        let mut relative_paths = abs_paths
+            .iter()
+            .map(|abs_path| {
+                RelativePath::new(base_dir.as_str()).relative(abs_path.to_string_lossy().as_ref())
+            })
+            .collect::<Vec<_>>();
+        strip_common_prefix(&mut relative_paths);
 
         let mut values: Vec<(Expr, String)> = vec![];
-        for (attr, abs_path) in self.all_files_path(resolved_paths)? {
-            let relative_path = abs_path
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map(|inner| RelativePath::new(base_dir.as_str()).relative(inner))
-                .map_err(|e| {
-                    attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
-                })?;
-
+        for (abs_path, relative_path) in abs_paths.iter().zip(relative_paths) {
             if !refs.is_valid(&relative_path) {
                 continue;
             }
@@ -347,26 +329,55 @@ impl<'a> ValueListFromFiles<'a> {
             .collect())
     }
 
-    /// Return the tuples of attribute, file path resolved via glob resolver, sorted by path and without duplications.
-    fn all_files_path<'b>(
+    fn abs_paths(
         &self,
-        resolved_paths: Vec<(&'b LitStrAttr, String)>,
-    ) -> Result<Vec<(&'b LitStrAttr, PathBuf)>, syn::Error> {
-        let mut paths = resolved_paths
-            .iter()
-            .map(|(attr, pattern)| {
-                self.g_resolver
-                    .glob(pattern.as_ref())
-                    .map_err(|msg| attr.error(&msg))
-                    .map(|p| (attr, p))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
-            .collect::<Vec<_>>();
-        paths.sort_by(|(_, a), (_, b)| a.cmp(b));
-        paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
+        base_dir: &str,
+        attributes: &[LitStrAttr],
+    ) -> Result<Vec<PathBuf>, syn::Error> {
+        let mut paths = vec![];
+        for attr in attributes {
+            let pattern = RelativePath::from_path(&attr.value())
+                .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
+                .map(|p| p.to_logical_path(base_dir))
+                .map(|p| p.to_string_lossy().into_owned())?;
+            let glob_paths = self
+                .g_resolver
+                .glob(pattern.as_ref())
+                .map_err(|msg| attr.error(&msg))?;
+            paths.extend(glob_paths);
+        }
+        paths.sort();
+        paths.dedup();
         Ok(paths)
+    }
+}
+
+// Finds the maximum common prefix for the given paths or returns None, if such a prefix would be empty.
+fn strip_common_prefix(relative_paths: &mut Vec<RelativePathBuf>) {
+    // Set initial common path to the first path or return early when we are dealing with 0 or 1 paths.
+    let mut prefix = match relative_paths.len() {
+        0..=1 => return,
+        _ => relative_paths[0].clone(),
+    };
+
+    // Shorten the common prefix, one component at a time, as long as it is still a prefix of every path.
+    for relative_path in relative_paths.iter() {
+        while !relative_path.starts_with(&prefix) {
+            // If the given paths have an empty common prefix, return without stripping a prefix.
+            if !prefix.pop() {
+                return;
+            }
+        }
+    }
+
+    let prefix = prefix.as_relative_path();
+    for relative_path in relative_paths {
+        *relative_path = relative_path
+            .strip_prefix(prefix)
+            .expect(&format!(
+                "\"{prefix:?}\" is not a prefix of path \"{relative_path:?}\""
+            ))
+            .to_owned();
     }
 }
 
@@ -614,7 +625,7 @@ mod should {
     #[case::include_dot_files("/base", None, FakeResolver::from([
         "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
         vec![], false, &[".ignore", ".ignore_dir/a", "first", "in/.out/other/ignored", "second/.not", "second/but_include"])]
-    #[case::relative_path("/base/some/other/folders", None, 
+    #[case::relative_path("/base/some/other/folders", None,
         FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["../../../first", "../../../second"])]
     fn generate_a_variable_with_the_glob_resolved_path(
         #[case] bdir: &str,
@@ -643,14 +654,19 @@ mod should {
                 .map(|p| format!("{p:?}"))
                 .collect::<Vec<_>>(),
         );
+
+        let mut expected_relative_paths = expected
+            .iter()
+            .map(|&ex| RelativePathBuf::from(ex))
+            .collect::<Vec<_>>();
+        strip_common_prefix(&mut expected_relative_paths);
+
         v_list
             .values
             .iter_mut()
-            .zip(expected.iter())
-            .for_each(|(v, &ex)| {
-                v.description = Some(render_file_description(
-                    &RelativePath::from_path(ex).unwrap(),
-                ))
+            .zip(expected_relative_paths)
+            .for_each(|(v, ex)| {
+                v.description = Some(render_file_description(RelativePath::new(&ex)))
             });
         assert_eq!(vec![v_list], values);
     }
