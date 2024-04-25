@@ -331,7 +331,7 @@ impl<'a> ValueListFromFiles<'a> {
             let path_str = abs_path.to_string_lossy();
             values.push((
                 parse_quote! {
-                    <::std::path::PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
+                    #path_str
                 },
                 render_file_description(&relative_path),
             ));
@@ -640,12 +640,7 @@ mod should {
                 .iter()
                 .map(|&p| RelativePath::from_path(p).unwrap())
                 .map(|r| r.to_logical_path(bdir))
-                .map(|p| {
-                    format!(
-                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
-                        p.as_os_str().to_str().unwrap()
-                    )
-                })
+                .map(|p| format!("{p:?}"))
                 .collect::<Vec<_>>(),
         );
         v_list
