@@ -11,7 +11,6 @@ use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, 
 
 use quote::{format_ident, quote};
 
-use crate::parse::arguments::ArgumentsInfo;
 use crate::utils::{attr_ends_with, sanitize_ident};
 use crate::{
     parse::{
@@ -49,9 +48,8 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
         asyncness,
         Some(&test),
         resolver,
-        &info.attributes,
+        &info,
         &test.sig.generics,
-        &info.arguments,
     )
 }
 
@@ -222,8 +220,8 @@ fn generics_types_ident<'a>(generics: &'a syn::Generics) -> impl Iterator<Item =
 /// * `asyncness` - The `async` fn token
 /// * `test_impl` - If you want embed test function (should be the one called by `testfn_name`)
 /// * `resolver` - The resolver used to resolve injected values
-/// * `attributes` - Test attributes to select test behaviour
-/// * `generic_types` - The genrics type used in signature
+/// * `info` - `RsTestInfo` that's expose the requested test behavior
+/// * `generic_types` - The generic types used in signature
 ///
 // Ok I need some refactoring here but now that not a real issue
 #[allow(clippy::too_many_arguments)]
@@ -236,13 +234,12 @@ fn single_test_case(
     asyncness: Option<Async>,
     test_impl: Option<&ItemFn>,
     resolver: impl Resolver,
-    attributes: &RsTestAttributes,
+    info: &RsTestInfo,
     generics: &syn::Generics,
-    arguments: &ArgumentsInfo,
 ) -> TokenStream {
     let (attrs, trace_me): (Vec<_>, Vec<_>) =
         attrs.iter().cloned().partition(|a| !attr_is(a, "trace"));
-    let mut attributes = attributes.clone();
+    let mut attributes = info.attributes.clone();
     if !trace_me.is_empty() {
         attributes.add_trace(format_ident!("trace"));
     }
@@ -276,7 +273,7 @@ fn single_test_case(
     let args = args
         .into_iter()
         .map(|arg| {
-            if arguments.is_by_refs(&arg) {
+            if info.arguments.is_by_refs(&arg) {
                 parse_quote! { &#arg }
             } else {
                 parse_quote! { #arg }
@@ -352,9 +349,8 @@ impl<'a> TestCaseRender<'a> {
             asyncness,
             None,
             self.resolver,
-            &info.attributes,
+            &info,
             &testfn.sig.generics,
-            &info.arguments,
         )
     }
 }
