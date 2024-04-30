@@ -62,12 +62,12 @@ fn files() {
     let output = prj.run_tests().unwrap();
 
     TestResults::new()
-        .ok("start_with_name::path_1__UP_files_test_sub_folder_from_parent_folder_txt")
-        .ok("start_with_name::path_2_files_element_0_txt")
-        .ok("start_with_name::path_3_files_element_1_txt")
-        .ok("start_with_name::path_4_files_element_2_txt")
-        .ok("start_with_name::path_5_files_element_3_txt")
-        .ok("start_with_name::path_6_files_sub_sub_dir_file_txt")
+        .ok("start_with_name::path_1_files_test_sub_folder_from_parent_folder_txt")
+        .ok("start_with_name::path_2_rstest_files_files_element_0_txt")
+        .ok("start_with_name::path_3_rstest_files_files_element_1_txt")
+        .ok("start_with_name::path_4_rstest_files_files_element_2_txt")
+        .ok("start_with_name::path_5_rstest_files_files_element_3_txt")
+        .ok("start_with_name::path_6_rstest_files_files_sub_sub_dir_file_txt")
         .ok("start_with_name_with_include::path_1__ignore_me_txt")
         .ok("start_with_name_with_include::path_2_element_0_txt")
         .ok("start_with_name_with_include::path_3_element_1_txt")
