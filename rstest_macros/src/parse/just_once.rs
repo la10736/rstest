@@ -1,23 +1,23 @@
 use std::marker::PhantomData;
 
 use quote::ToTokens;
-use syn::{visit_mut::VisitMut, Attribute, FnArg, Ident};
+use syn::{visit_mut::VisitMut, Attribute, FnArg, Ident, ItemFn};
 
 use crate::{error::ErrorsVec, refident::MaybeIdent, utils::attr_is};
 
-pub trait Builder {
+pub trait AttrBuilder<E> {
     type Out;
 
-    fn build(attr: Attribute, ident: &Ident) -> syn::Result<Self::Out>;
+    fn build(attr: Attribute, extra: &E) -> syn::Result<Self::Out>;
 }
 
-pub trait Validator {
-    fn validate(_arg: &FnArg) -> syn::Result<()> {
+pub trait Validator<T> {
+    fn validate(_arg: &T) -> syn::Result<()> {
         Ok(())
     }
 }
 
-impl Builder for () {
+impl AttrBuilder<Ident> for () {
     type Out = Ident;
 
     fn build(_attr: Attribute, ident: &Ident) -> syn::Result<Self::Out> {
@@ -25,13 +25,21 @@ impl Builder for () {
     }
 }
 
-impl Validator for () {}
+impl AttrBuilder<ItemFn> for () {
+    type Out = Attribute;
 
-/// Simple struct used to visit function attributes and extract attributes that match
+    fn build(attr: Attribute, _item_fn: &ItemFn) -> syn::Result<Self::Out> {
+        Ok(attr.clone())
+    }
+}
+
+impl<T> Validator<T> for () {}
+
+/// Simple struct used to visit function argument attributes and extract attributes that match
 /// the `name`: Only one attribute is allowed for arguments.
-pub struct JustOnceAttributeExtractor<'a, B = ()>
+pub struct JustOnceFnArgAttributeExtractor<'a, B = ()>
 where
-    B: Builder,
+    B: AttrBuilder<Ident>,
 {
     name: &'a str,
     elements: Vec<B::Out>,
@@ -39,15 +47,15 @@ where
     _phantom: PhantomData<B>,
 }
 
-impl<'a> From<&'a str> for JustOnceAttributeExtractor<'a, ()> {
+impl<'a> From<&'a str> for JustOnceFnArgAttributeExtractor<'a, ()> {
     fn from(value: &'a str) -> Self {
         Self::new(value)
     }
 }
 
-impl<'a, B> JustOnceAttributeExtractor<'a, B>
+impl<'a, B> JustOnceFnArgAttributeExtractor<'a, B>
 where
-    B: Builder,
+    B: AttrBuilder<Ident>,
 {
     pub fn new(name: &'a str) -> Self {
         Self {
@@ -67,10 +75,10 @@ where
     }
 }
 
-impl<B> VisitMut for JustOnceAttributeExtractor<'_, B>
+impl<B> VisitMut for JustOnceFnArgAttributeExtractor<'_, B>
 where
-    B: Builder,
-    B: Validator,
+    B: AttrBuilder<Ident>,
+    B: Validator<FnArg>,
 {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
         let name = if let Some(name) = node.maybe_ident().cloned() {
@@ -90,6 +98,7 @@ where
                 .into_iter()
                 .map(|attr| B::build(attr.clone(), &name).map(|t| (attr, t)))
                 .collect::<Result<Vec<_>, _>>();
+
             match parsed {
                 Ok(data) => match data.len() {
                     1 => match B::validate(node) {
@@ -116,6 +125,94 @@ where
             }
         } else {
             return;
+        }
+    }
+}
+
+/// Simple struct used to visit function attributes and extract attributes that match
+/// the `name`: Only one attribute is allowed for arguments.
+pub struct JustOnceFnAttributeExtractor<'a, B = ()>
+where
+    B: AttrBuilder<ItemFn>,
+{
+    name: &'a str,
+    inner: Result<Option<B::Out>, Vec<syn::Error>>,
+    _phantom: PhantomData<B>,
+}
+
+impl<'a> From<&'a str> for JustOnceFnAttributeExtractor<'a, ()> {
+    fn from(value: &'a str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<'a, B> JustOnceFnAttributeExtractor<'a, B>
+where
+    B: AttrBuilder<ItemFn>,
+{
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            inner: Ok(Default::default()),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn take(self) -> Result<Option<B::Out>, ErrorsVec> {
+        self.inner.map_err(Into::into)
+    }
+}
+
+impl<B> VisitMut for JustOnceFnAttributeExtractor<'_, B>
+where
+    B: AttrBuilder<ItemFn>,
+    B: Validator<ItemFn>,
+{
+    fn visit_item_fn_mut(&mut self, item_fn: &mut ItemFn) {
+        // Extract interesting attributes
+        let attrs = std::mem::take(&mut item_fn.attrs);
+        let (extracted, remain): (Vec<_>, Vec<_>) =
+            attrs.into_iter().partition(|a| attr_is(a, self.name));
+
+        item_fn.attrs = remain;
+
+        let parsed = extracted
+            .into_iter()
+            .map(|attr| B::build(attr.clone(), &item_fn).map(|t| (attr, t)))
+            .collect::<Result<Vec<_>, _>>();
+        let mut errors = Vec::default();
+        let mut out = None;
+
+        match parsed {
+            Ok(data) => match data.len() {
+                1 => match B::validate(item_fn) {
+                    Ok(_) => {
+                        print!("DDDDD");
+                        out = data.into_iter().next().map(|(_attr, t)| t);
+                    }
+                    Err(e) => {
+                        errors.push(e);
+                    }
+                },
+
+                0 => {}
+                _ => {
+                    errors.extend(data.into_iter().skip(1).map(|(attr, _t)| {
+                        syn::Error::new_spanned(
+                            attr.into_token_stream(),
+                            format!("Cannot use #[{}] more than once.", self.name),
+                        )
+                    }));
+                }
+            },
+            Err(e) => {
+                errors.push(e);
+            }
+        };
+        if errors.is_empty() {
+            self.inner = Ok(out);
+        } else {
+            self.inner = Err(errors);
         }
     }
 }

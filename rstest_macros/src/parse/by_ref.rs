@@ -2,10 +2,10 @@ use syn::{visit_mut::VisitMut, Ident, ItemFn};
 
 use crate::error::ErrorsVec;
 
-use super::just_once::JustOnceAttributeExtractor;
+use super::just_once::JustOnceFnArgAttributeExtractor;
 
 pub(crate) fn extract_by_ref(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
-    let mut extractor = JustOnceAttributeExtractor::from("by_ref");
+    let mut extractor = JustOnceFnArgAttributeExtractor::from("by_ref");
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
 }
