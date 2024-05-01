@@ -290,7 +290,8 @@ impl VisitMut for DefaultTypeFunctionExtractor {
             None => {}
         };
         errors.extend(
-            defaults.map(|a| syn::Error::new_spanned(a, "You cannot use default more than once")),
+            defaults
+                .map(|a| syn::Error::new_spanned(a, "You cannot use #[default] more than once")),
         );
         self.0 = if errors.len() > 0 {
             Err(errors)

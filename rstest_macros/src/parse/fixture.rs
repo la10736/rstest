@@ -689,7 +689,7 @@ mod extend {
 
                 assert_in!(
                     format!("{:?}", error).to_lowercase(),
-                    "cannot use default more than once"
+                    "cannot use #[default] more than once"
                 );
             }
 
