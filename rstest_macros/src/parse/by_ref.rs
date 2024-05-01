@@ -1,65 +1,13 @@
-use quote::ToTokens;
-use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn};
+use syn::{visit_mut::VisitMut, Ident, ItemFn};
 
-use crate::{error::ErrorsVec, utils::attr_is};
+use crate::error::ErrorsVec;
 
-use super::extract_argument_attrs;
+use super::just_once::JustOnceAttributeExtractor;
 
 pub(crate) fn extract_by_ref(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
-    let mut extractor = ByRefFunctionExtractor::default();
+    let mut extractor = JustOnceAttributeExtractor::from("by_ref");
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
-}
-
-/// Simple struct used to visit function attributes and extract by_ref args
-#[derive(Default)]
-struct ByRefFunctionExtractor {
-    by_refs: Vec<Ident>,
-    errors: Vec<syn::Error>,
-}
-
-impl ByRefFunctionExtractor {
-    pub(crate) fn take(self) -> Result<Vec<Ident>, ErrorsVec> {
-        if self.errors.is_empty() {
-            Ok(self.by_refs)
-        } else {
-            Err(self.errors.into())
-        }
-    }
-}
-
-impl VisitMut for ByRefFunctionExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        if matches!(node, FnArg::Receiver(_)) {
-            return;
-        }
-        match extract_argument_attrs(
-            node,
-            |a| attr_is(a, "by_ref"),
-            |arg, name| Ok((arg, name.clone())),
-        )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            Ok(refs) => match refs.len().cmp(&1) {
-                std::cmp::Ordering::Equal => {
-                    self.by_refs.push(refs[0].1.clone());
-                }
-                std::cmp::Ordering::Greater => {
-                    self.errors
-                        .extend(refs.iter().skip(1).map(|(attr, _ident)| {
-                            syn::Error::new_spanned(
-                                attr.into_token_stream(),
-                                "Cannot use #[by_ref] more than once.".to_owned(),
-                            )
-                        }));
-                }
-                std::cmp::Ordering::Less => {}
-            },
-            Err(e) => {
-                self.errors.push(e);
-            }
-        };
-    }
 }
 
 #[cfg(test)]
