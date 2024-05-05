@@ -236,7 +236,7 @@ mod should {
         #[rstest]
         fn when_cannot_resolve_fixture(errors_rs: &(Output, String)) {
             let (output, name) = errors_rs.clone();
-    
+
             assert_in!(output.stderr.str(), "error[E0433]: ");
             assert_in!(
                 output.stderr.str(),
@@ -254,7 +254,7 @@ mod should {
         #[rstest]
         fn on_mismatched_types_inner(errors_rs: &(Output, String)) {
             let (output, name) = errors_rs.clone();
-    
+
             assert_in!(
                 output.stderr.str(),
                 format!(
@@ -273,7 +273,7 @@ mod should {
         #[rstest]
         fn on_mismatched_types_argument(errors_rs: &(Output, String)) {
             let (output, name) = errors_rs.clone();
-    
+
             assert_in!(
                 output.stderr.str(),
                 format!(
@@ -285,7 +285,7 @@ mod should {
                 )
                 .unindent()
             );
-    
+
             assert_in!(
                 output.stderr.str(),
                 "
@@ -335,7 +335,6 @@ mod should {
             );
         }
 
-
         #[fixture]
         #[once]
         fn errors_once_rs() -> (Output, String) {
@@ -350,10 +349,10 @@ mod should {
                 format!(
                     r#"
                     error: Cannot apply #[once] to async fixture.
-                     --> {}/src/lib.rs:4:3
+                     --> {}/src/lib.rs:4:1
                       |
                     4 | #[once]
-                      |   ^^^^
+                      | ^
                     "#,
                     name
                 )
@@ -369,10 +368,10 @@ mod should {
                 format!(
                     r#"
                     error: Cannot apply #[once] on generic fixture.
-                     --> {}/src/lib.rs:9:3
+                     --> {}/src/lib.rs:9:1
                       |
                     9 | #[once]
-                      |   ^^^^
+                      | ^
                     "#,
                     name
                 )
@@ -384,22 +383,21 @@ mod should {
         fn once_generic_impl(errors_once_rs: &(Output, String)) {
             let (output, name) = errors_once_rs.clone();
             assert_in!(
-            output.stderr.str(),
-            format!(
-                r#"
+                output.stderr.str(),
+                format!(
+                    r#"
                 error: Cannot apply #[once] on generic fixture.
-                  --> {}/src/lib.rs:15:3
+                  --> {}/src/lib.rs:15:1
                    |
                 15 | #[once]
-                   |   ^^^^
+                   | ^
                 "#,
-                name
-            )
-            .unindent()
+                    name
+                )
+                .unindent()
             );
-
         }
-        
+
         #[rstest]
         fn once_on_not_sync_type(errors_once_rs: &(Output, String)) {
             let (output, name) = errors_once_rs.clone();
@@ -418,5 +416,5 @@ mod should {
                 .unindent(),
             );
         }
-    } 
+    }
 }

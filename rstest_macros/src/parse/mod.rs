@@ -10,21 +10,23 @@ use syn::{
 
 use crate::{
     error::ErrorsVec,
+    parse::just_once::{AttrBuilder, JustOnceFnAttributeExtractor, Validator},
     refident::{MaybeIdent, RefIdent},
     utils::{attr_is, attr_starts_with},
 };
-use fixture::{
-    ArgumentValue, DefaultsFunctionExtractor, FixtureModifiers, FixturesFunctionExtractor,
-};
+use fixture::{ArgumentValue, FixtureModifiers, FixturesFunctionExtractor};
 use quote::ToTokens;
 use testcase::TestCase;
 
-use self::{expressions::Expressions, vlist::ValueList};
+use self::{
+    expressions::Expressions, just_once::JustOnceFnArgAttributeExtractor, vlist::ValueList,
+};
 
 // To use the macros this should be the first one module
 #[macro_use]
 pub(crate) mod macros;
 
+pub(crate) mod arguments;
 pub(crate) mod by_ref;
 pub(crate) mod expressions;
 pub(crate) mod fixture;
@@ -198,24 +200,42 @@ pub(crate) fn extract_fixtures(item_fn: &mut ItemFn) -> Result<Vec<Fixture>, Err
         Err(fixtures_extractor.1.into())
     }
 }
-
 pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue>, ErrorsVec> {
-    let mut defaults_extractor = DefaultsFunctionExtractor::default();
-    defaults_extractor.visit_item_fn_mut(item_fn);
+    struct DefaultBuilder;
+    impl AttrBuilder<Ident> for DefaultBuilder {
+        type Out = ArgumentValue;
 
-    if defaults_extractor.1.is_empty() {
-        Ok(defaults_extractor.0)
-    } else {
-        Err(defaults_extractor.1.into())
+        fn build(attr: syn::Attribute, name: &Ident) -> syn::Result<Self::Out> {
+            attr.parse_args::<syn::Expr>()
+                .map(|e| ArgumentValue::new(name.clone(), e))
+        }
     }
+    impl Validator<syn::FnArg> for DefaultBuilder {}
+
+    let mut extractor = JustOnceFnArgAttributeExtractor::<DefaultBuilder>::new("default");
+    extractor.visit_item_fn_mut(item_fn);
+
+    extractor.take()
 }
 
 pub(crate) fn extract_default_return_type(
     item_fn: &mut ItemFn,
 ) -> Result<Option<syn::Type>, ErrorsVec> {
-    let mut default_type_extractor = DefaultTypeFunctionExtractor::default();
-    default_type_extractor.visit_item_fn_mut(item_fn);
-    default_type_extractor.take()
+    struct DefaultTypeBuilder;
+    impl AttrBuilder<ItemFn> for DefaultTypeBuilder {
+        type Out = syn::Type;
+
+        fn build(attr: syn::Attribute, _extra: &ItemFn) -> syn::Result<Self::Out> {
+            attr.parse_args::<syn::Type>()
+        }
+    }
+    impl Validator<syn::ItemFn> for DefaultTypeBuilder {}
+
+    let mut extractor =
+        JustOnceFnAttributeExtractor::<DefaultTypeBuilder>::new(FixtureModifiers::DEFAULT_RET_ATTR);
+
+    extractor.visit_item_fn_mut(item_fn);
+    extractor.take()
 }
 
 pub(crate) fn extract_partials_return_type(
@@ -226,8 +246,9 @@ pub(crate) fn extract_partials_return_type(
     partials_type_extractor.take()
 }
 
-pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<Ident>, ErrorsVec> {
-    let mut extractor = IsOnceAttributeFunctionExtractor::default();
+pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<syn::Attribute>, ErrorsVec> {
+    let mut extractor = JustOnceFnAttributeExtractor::from("once");
+
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
 }
@@ -254,50 +275,6 @@ pub(crate) fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
         Box::new(extracted.into_iter().map(move |attr| build(attr, &name)))
     } else {
         Box::new(std::iter::empty())
-    }
-}
-
-/// Simple struct used to visit function attributes and extract default return
-/// type
-struct DefaultTypeFunctionExtractor(Result<Option<syn::Type>, ErrorsVec>);
-
-impl DefaultTypeFunctionExtractor {
-    fn take(self) -> Result<Option<syn::Type>, ErrorsVec> {
-        self.0
-    }
-}
-
-impl Default for DefaultTypeFunctionExtractor {
-    fn default() -> Self {
-        Self(Ok(None))
-    }
-}
-
-impl VisitMut for DefaultTypeFunctionExtractor {
-    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = std::mem::take(&mut node.attrs);
-        let (defaults, remain): (Vec<_>, Vec<_>) = attrs
-            .into_iter()
-            .partition(|attr| attr_is(attr, FixtureModifiers::DEFAULT_RET_ATTR));
-
-        node.attrs = remain;
-        let mut defaults = defaults.into_iter();
-        let mut data = None;
-        let mut errors = ErrorsVec::default();
-        match defaults.next().map(|def| def.parse_args::<syn::Type>()) {
-            Some(Ok(t)) => data = Some(t),
-            Some(Err(e)) => errors.push(e),
-            None => {}
-        };
-        errors.extend(
-            defaults
-                .map(|a| syn::Error::new_spanned(a, "You cannot use #[default] more than once")),
-        );
-        self.0 = if errors.len() > 0 {
-            Err(errors)
-        } else {
-            Ok(data)
-        };
     }
 }
 
@@ -357,43 +334,6 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         };
     }
 }
-
-/// Simple struct used to visit function attributes and extract once
-/// type
-struct IsOnceAttributeFunctionExtractor(Result<Option<Ident>, ErrorsVec>);
-
-impl IsOnceAttributeFunctionExtractor {
-    fn take(self) -> Result<Option<Ident>, ErrorsVec> {
-        self.0
-    }
-}
-
-impl Default for IsOnceAttributeFunctionExtractor {
-    fn default() -> Self {
-        Self(Ok(None))
-    }
-}
-
-impl VisitMut for IsOnceAttributeFunctionExtractor {
-    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = std::mem::take(&mut node.attrs);
-        let (onces, remain): (Vec<_>, Vec<_>) =
-            attrs.into_iter().partition(|attr| attr_is(attr, "once"));
-
-        node.attrs = remain;
-        self.0 = match onces.len() {
-            1 => Ok(onces[0].path().get_ident().cloned()),
-            0 => Ok(None),
-            _ => Err(onces
-                .into_iter()
-                .skip(1)
-                .map(|attr| syn::Error::new_spanned(attr, "You cannot use #[once] more than once"))
-                .collect::<Vec<_>>()
-                .into()),
-        };
-    }
-}
-
 /// Simple struct used to visit function attributes and extract case arguments and
 /// eventualy parsing errors
 #[derive(Default)]
@@ -413,14 +353,10 @@ impl VisitMut for CaseArgsFunctionExtractor {
 }
 
 pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
-    let mut case_args_extractor = CaseArgsFunctionExtractor::default();
-    case_args_extractor.visit_item_fn_mut(item_fn);
+    let mut extractor = JustOnceFnArgAttributeExtractor::from("case");
+    extractor.visit_item_fn_mut(item_fn);
 
-    if case_args_extractor.1.is_empty() {
-        Ok(case_args_extractor.0)
-    } else {
-        Err(case_args_extractor.1.into())
-    }
+    extractor.take()
 }
 
 /// Simple struct used to visit function attributes and extract cases and
@@ -466,42 +402,24 @@ pub(crate) fn extract_cases(item_fn: &mut ItemFn) -> Result<Vec<TestCase>, Error
     }
 }
 
-/// Simple struct used to visit function attributes and extract value list and
-/// eventualy parsing errors
-#[derive(Default)]
-struct ValueListFunctionExtractor(Vec<ValueList>, Vec<syn::Error>);
-
-impl VisitMut for ValueListFunctionExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        for r in extract_argument_attrs(
-            node,
-            |a| attr_is(a, "values"),
-            |a, name| {
-                a.parse_args::<Expressions>().map(|v| ValueList {
-                    arg: name.clone(),
-                    values: v.take().into_iter().map(|e| e.into()).collect(),
-                })
-            },
-        ) {
-            match r {
-                Ok(vlist) => self.0.push(vlist),
-                Err(err) => self.1.push(err),
-            }
-        }
-
-        syn::visit_mut::visit_fn_arg_mut(self, node);
-    }
-}
-
 pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>, ErrorsVec> {
-    let mut vlist_extractor = ValueListFunctionExtractor::default();
-    vlist_extractor.visit_item_fn_mut(item_fn);
+    struct ValueListBuilder;
+    impl AttrBuilder<Ident> for ValueListBuilder {
+        type Out = ValueList;
 
-    if vlist_extractor.1.is_empty() {
-        Ok(vlist_extractor.0)
-    } else {
-        Err(vlist_extractor.1.into())
+        fn build(attr: syn::Attribute, extra: &Ident) -> syn::Result<Self::Out> {
+            attr.parse_args::<Expressions>().map(|v| ValueList {
+                arg: extra.clone(),
+                values: v.take().into_iter().map(|e| e.into()).collect(),
+            })
+        }
     }
+    impl Validator<FnArg> for ValueListBuilder {}
+
+    let mut extractor = JustOnceFnArgAttributeExtractor::<ValueListBuilder>::new("values");
+
+    extractor.visit_item_fn_mut(item_fn);
+    extractor.take()
 }
 
 /// Simple struct used to visit function args attributes to extract the
@@ -624,178 +542,6 @@ pub(crate) fn check_timeout_attrs(item_fn: &mut ItemFn) -> Result<(), ErrorsVec>
     let mut checker = CheckTimeoutAttributesFunction::default();
     checker.visit_item_fn_mut(item_fn);
     checker.take()
-}
-
-pub(crate) mod arguments {
-    use std::collections::HashMap;
-
-    use syn::Ident;
-
-    #[derive(PartialEq, Debug, Clone, Copy)]
-    #[allow(dead_code)]
-    #[derive(Default)]
-    pub(crate) enum FutureArg {
-        #[default]
-        None,
-        Define,
-        Await,
-    }
-
-    #[derive(PartialEq, Default, Debug)]
-    pub(crate) struct ArgumentInfo {
-        future: FutureArg,
-        by_ref: bool,
-    }
-
-    impl ArgumentInfo {
-        fn future(future: FutureArg) -> Self {
-            Self {
-                future,
-                ..Default::default()
-            }
-        }
-
-        fn by_ref() -> Self {
-            Self {
-                by_ref: true,
-                ..Default::default()
-            }
-        }
-
-        fn is_future(&self) -> bool {
-            use FutureArg::*;
-
-            matches!(self.future, Define | Await)
-        }
-
-        fn is_future_await(&self) -> bool {
-            use FutureArg::*;
-
-            matches!(self.future, Await)
-        }
-
-        fn is_by_ref(&self) -> bool {
-            self.by_ref
-        }
-    }
-
-    #[derive(PartialEq, Default, Debug)]
-    pub(crate) struct ArgumentsInfo {
-        args: HashMap<Ident, ArgumentInfo>,
-        is_global_await: bool,
-        once: Option<Ident>,
-    }
-
-    impl ArgumentsInfo {
-        pub(crate) fn set_future(&mut self, ident: Ident, kind: FutureArg) {
-            self.args
-                .entry(ident)
-                .and_modify(|v| v.future = kind)
-                .or_insert_with(|| ArgumentInfo::future(kind));
-        }
-
-        pub(crate) fn set_futures(&mut self, futures: impl Iterator<Item = (Ident, FutureArg)>) {
-            futures.for_each(|(ident, k)| self.set_future(ident, k));
-        }
-
-        pub(crate) fn set_global_await(&mut self, is_global_await: bool) {
-            self.is_global_await = is_global_await;
-        }
-
-        #[allow(dead_code)]
-        pub(crate) fn add_future(&mut self, ident: Ident) {
-            self.set_future(ident, FutureArg::Define);
-        }
-
-        pub(crate) fn is_future(&self, id: &Ident) -> bool {
-            self.args
-                .get(id)
-                .map(|arg| arg.is_future())
-                .unwrap_or_default()
-        }
-
-        pub(crate) fn is_future_await(&self, ident: &Ident) -> bool {
-            match self.args.get(ident) {
-                Some(arg) => arg.is_future_await() || (arg.is_future() && self.is_global_await()),
-                None => false,
-            }
-        }
-
-        pub(crate) fn is_global_await(&self) -> bool {
-            self.is_global_await
-        }
-
-        pub(crate) fn set_once(&mut self, once: Option<Ident>) {
-            self.once = once
-        }
-
-        pub(crate) fn get_once(&self) -> Option<&Ident> {
-            self.once.as_ref()
-        }
-
-        pub(crate) fn is_once(&self) -> bool {
-            self.get_once().is_some()
-        }
-
-        pub(crate) fn set_by_ref(&mut self, ident: Ident) {
-            self.args
-                .entry(ident)
-                .and_modify(|v| v.by_ref = true)
-                .or_insert_with(|| ArgumentInfo::by_ref());
-        }
-
-        pub(crate) fn set_by_refs(&mut self, by_refs: impl Iterator<Item = Ident>) {
-            by_refs.for_each(|ident| self.set_by_ref(ident));
-        }
-
-        pub(crate) fn is_by_refs(&self, id: &Ident) -> bool {
-            self.args
-                .get(id)
-                .map(|arg| arg.is_by_ref())
-                .unwrap_or_default()
-        }
-    }
-
-    #[cfg(test)]
-    mod should_implement_is_future_await_logic {
-        use super::*;
-        use crate::test::*;
-
-        #[fixture]
-        fn info() -> ArgumentsInfo {
-            let mut a = ArgumentsInfo::default();
-            a.set_future(ident("simple"), FutureArg::Define);
-            a.set_future(ident("other_simple"), FutureArg::Define);
-            a.set_future(ident("awaited"), FutureArg::Await);
-            a.set_future(ident("other_awaited"), FutureArg::Await);
-            a.set_future(ident("none"), FutureArg::None);
-            a
-        }
-
-        #[rstest]
-        fn no_matching_ident(info: ArgumentsInfo) {
-            assert!(!info.is_future_await(&ident("some")));
-            assert!(!info.is_future_await(&ident("simple")));
-            assert!(!info.is_future_await(&ident("none")));
-        }
-
-        #[rstest]
-        fn matching_ident(info: ArgumentsInfo) {
-            assert!(info.is_future_await(&ident("awaited")));
-            assert!(info.is_future_await(&ident("other_awaited")));
-        }
-
-        #[rstest]
-        fn global_matching_future_ident(mut info: ArgumentsInfo) {
-            info.set_global_await(true);
-            assert!(info.is_future_await(&ident("simple")));
-            assert!(info.is_future_await(&ident("other_simple")));
-            assert!(info.is_future_await(&ident("awaited")));
-
-            assert!(!info.is_future_await(&ident("some")));
-            assert!(!info.is_future_await(&ident("none")));
-        }
-    }
 }
 
 #[cfg(test)]

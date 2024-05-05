@@ -119,6 +119,12 @@ pub(crate) fn expr(s: impl AsRef<str>) -> syn::Expr {
     s.as_ref().ast()
 }
 
+pub(crate) fn attr(s: impl AsRef<str>) -> syn::Attribute {
+    let a = attrs(s);
+    assert_eq!(1, a.len());
+    a.into_iter().next().unwrap()
+}
+
 pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
     parse_str::<ItemFn>(&format!(
         r#"{}
@@ -306,7 +312,7 @@ impl<T: ToTokens> DisplayCode for T {
 
 impl crate::parse::fixture::FixtureInfo {
     pub(crate) fn with_once(mut self) -> Self {
-        self.arguments.set_once(Some(ident("once")));
+        self.arguments.set_once(Some(attr("#[once]")));
         self
     }
 }

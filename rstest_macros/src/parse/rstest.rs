@@ -284,6 +284,7 @@ impl Parse for RsTestAttributes {
 mod test {
     use super::*;
     use crate::test::{assert_eq, *};
+    use rstest_test::assert_in;
 
     mod parse_rstest_data {
         use super::assert_eq;
@@ -801,6 +802,23 @@ mod test {
             assert_eq!(1, cases.len());
             assert_eq!(to_args!(["42"]), cases[0].args());
         }
+
+        #[test]
+        fn should_reject_case_args_marked_more_than_once() {
+            let mut item_fn = r#"
+                    #[case(42)]
+                    fn test_fn(#[case] #[case] arg: u32) {
+                    }
+                "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+            assert_eq!(1, errors.len());
+            assert_in!(errors[0].to_string(), "more than once");
+        }
     }
 
     mod matrix_cases {
@@ -899,6 +917,22 @@ mod test {
                     list_values[1].args()
                 );
             }
+        }
+
+        #[test]
+        fn should_reject_values_attribute_marked_more_than_once() {
+            let mut item_fn = r#"
+                fn test_fn(#[values(1, 2, 1+2)] #[values(1, 2, 1+2)] arg1: u32, ) {
+                }
+                "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+            assert_eq!(1, errors.len());
+            assert_in!(errors[0].to_string(), "more than once");
         }
     }
 
