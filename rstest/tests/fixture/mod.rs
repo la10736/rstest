@@ -352,7 +352,6 @@ mod should {
                      --> {}/src/lib.rs:4:1
                       |
                     4 | #[once]
-                      | ^
                     "#,
                     name
                 )
@@ -363,6 +362,7 @@ mod should {
         #[rstest]
         fn once_generic_type(errors_once_rs: &(Output, String)) {
             let (output, name) = errors_once_rs.clone();
+
             assert_in!(
                 output.stderr.str(),
                 format!(
@@ -371,7 +371,6 @@ mod should {
                      --> {}/src/lib.rs:9:1
                       |
                     9 | #[once]
-                      | ^
                     "#,
                     name
                 )
@@ -390,7 +389,6 @@ mod should {
                   --> {}/src/lib.rs:15:1
                    |
                 15 | #[once]
-                   | ^
                 "#,
                     name
                 )
