@@ -7,6 +7,7 @@ use self::files::{extract_files, ValueListFromFiles};
 
 use super::{
     arguments::ArgumentsInfo,
+    by_ref::extract_by_ref,
     check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
     extract_fixtures, extract_value_list,
     future::{extract_futures, extract_global_awt},
@@ -50,16 +51,18 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(_inner, excluded, _timeout, futures, global_awt) = merge_errors!(
+        let composed_tuple!(_inner, excluded, _timeout, futures, global_awt, by_refs) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
             extract_futures(item_fn),
-            extract_global_awt(item_fn)
+            extract_global_awt(item_fn),
+            extract_by_ref(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
+        self.arguments.set_by_refs(by_refs.into_iter());
         Ok(())
     }
 }
@@ -281,6 +284,7 @@ impl Parse for RsTestAttributes {
 mod test {
     use super::*;
     use crate::test::{assert_eq, *};
+    use rstest_test::assert_in;
 
     mod parse_rstest_data {
         use super::assert_eq;
@@ -798,6 +802,23 @@ mod test {
             assert_eq!(1, cases.len());
             assert_eq!(to_args!(["42"]), cases[0].args());
         }
+
+        #[test]
+        fn should_reject_case_args_marked_more_than_once() {
+            let mut item_fn = r#"
+                    #[case(42)]
+                    fn test_fn(#[case] #[case] arg: u32) {
+                    }
+                "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+            assert_eq!(1, errors.len());
+            assert_in!(errors[0].to_string(), "more than once");
+        }
     }
 
     mod matrix_cases {
@@ -896,6 +917,22 @@ mod test {
                     list_values[1].args()
                 );
             }
+        }
+
+        #[test]
+        fn should_reject_values_attribute_marked_more_than_once() {
+            let mut item_fn = r#"
+                fn test_fn(#[values(1, 2, 1+2)] #[values(1, 2, 1+2)] arg1: u32, ) {
+                }
+                "#
+            .ast();
+
+            let mut info = RsTestInfo::default();
+
+            let errors = info.extend_with_function_attrs(&mut item_fn).unwrap_err();
+
+            assert_eq!(1, errors.len());
+            assert_in!(errors[0].to_string(), "more than once");
         }
     }
 

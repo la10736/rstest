@@ -13,7 +13,12 @@ use super::{
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
-use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};
+use crate::{
+    error::ErrorsVec,
+    parse::extract_once,
+    refident::{MaybeIdent, RefIdent},
+    utils::attr_is,
+};
 use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
@@ -123,24 +128,27 @@ pub(crate) struct FixturesFunctionExtractor(pub(crate) Vec<Fixture>, pub(crate) 
 
 impl VisitMut for FixturesFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        if let FnArg::Typed(ref mut arg) = node {
-            let name = match arg.pat.as_ref() {
-                syn::Pat::Ident(ident) => ident.ident.clone(),
-                _ => return,
-            };
-            let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
-                .into_iter()
-                .partition(|attr| attr_in(attr, &["with", "from"]));
-            arg.attrs = remain;
+        let arg = if let FnArg::Typed(ref mut arg) = node {
+            arg
+        } else {
+            return;
+        };
+        let name = match arg.maybe_ident().cloned() {
+            Some(ident) => ident,
+            _ => return,
+        };
+        let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
+            .into_iter()
+            .partition(|attr| attr_in(attr, &["with", "from"]));
+        arg.attrs = remain;
 
-            let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
-            self.1.extend(errors);
-            let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
-            self.1.extend(errors);
-            if pos.is_some() || resolve.is_some() {
-                self.0
-                    .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
-            }
+        let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
+        self.1.extend(errors);
+        let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
+        self.1.extend(errors);
+        if pos.is_some() || resolve.is_some() {
+            self.0
+                .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
         }
     }
 }
@@ -656,6 +664,38 @@ mod extend {
             }
 
             #[test]
+            fn future_is_used_more_than_once() {
+                let mut item_fn: ItemFn = r#"
+                    fn my_fix(#[future] #[future] fixture1: u32) {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .err()
+                    .unwrap_or_default();
+
+                assert_eq!(1, errors.len());
+                assert_in!(errors[0].to_string(), "more than once");
+            }
+
+            #[test]
+            fn default_used_more_than_once() {
+                let mut item_fn: ItemFn = r#"
+                    fn my_fix(#[default(2)] #[default(3)] f1: u32) {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .err()
+                    .unwrap_or_default();
+
+                assert_eq!(1, errors.len());
+                assert_in!(errors[0].to_string(), "more than once");
+            }
+
+            #[test]
             fn if_once_is_defined_more_than_once() {
                 let mut item_fn: ItemFn = r#"
                     #[once]
@@ -689,7 +729,7 @@ mod extend {
 
                 assert_in!(
                     format!("{:?}", error).to_lowercase(),
-                    "cannot use default more than once"
+                    "cannot use #[default] more than once"
                 );
             }
 

@@ -192,6 +192,29 @@ mod single_test_should {
     }
 
     #[test]
+    fn use_ref_if_any() {
+        let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
+        let mut info: RsTestInfo = Default::default();
+        info.arguments.set_by_ref(ident("a"));
+        info.arguments.set_by_ref(ident("c"));
+
+        let item_fn: ItemFn = single(input_fn.clone(), info).ast();
+
+        assert_in!(
+            item_fn.block.stmts.last().display_code(),
+            ref_argument_code_string("a")
+        );
+        assert_not_in!(
+            item_fn.block.stmts.last().display_code(),
+            ref_argument_code_string("b")
+        );
+        assert_in!(
+            item_fn.block.stmts.last().display_code(),
+            ref_argument_code_string("c")
+        );
+    }
+
+    #[test]
     fn trace_arguments_values() {
         let input_fn: ItemFn = r#"#[trace]fn test(s: String, a:i32) {} "#.ast();
 

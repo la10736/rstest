@@ -342,6 +342,36 @@ fn single(once_fixture: &i32) {
 }
 ```
 
+## Local timeout and `#[by_ref]` attribute
+
+In some cases you may want to use a local lifetime for some arguments of your test.
+In these cases you can use the `#[by_ref]` attribute then use the reference instead
+the value.
+
+```rust
+enum E<'a> {
+    A(bool),
+    B(&'a Cell<E<'a>>),
+}
+
+fn make_e_from_bool<'a>(_bump: &'a (), b: bool) -> E<'a> {
+    E::A(b)
+}
+
+#[fixture]
+fn bump() -> () {}
+ 
+#[rstest]
+#[case(true, E::A(true))]
+fn it_works<'a>(#[by_ref] bump: &'a (), #[case] b: bool, #[case] expected: E<'a>) {
+    let actual = make_e_from_bool(&bump, b);
+    assert_eq!(actual, expected);
+}
+```
+
+You can use `#[by_ref]` attribute for all arguments of your test and not just for fixture
+but also for cases, values and files.
+
 ## Complete Example
 
 All these features can be used together with a mixture of fixture variables,
