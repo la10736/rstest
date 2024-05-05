@@ -210,24 +210,6 @@ impl Parse for MergeAttrs {
     }
 }
 
-#[cfg(sanitize_multiple_should_panic_compiler_bug)]
-fn is_should_panic(attr: &syn::Attribute) -> bool {
-    let should_panic: Ident = syn::parse_str("should_panic").unwrap();
-    attr.path.is_ident(&should_panic)
-}
-
-#[cfg(sanitize_multiple_should_panic_compiler_bug)]
-fn sanitize_should_panic_duplication_bug(
-    mut attributes: Vec<syn::Attribute>,
-) -> Vec<syn::Attribute> {
-    if attributes.len() != 2 || attributes[0] != attributes[1] || !is_should_panic(&attributes[0]) {
-        // Nothing to do
-        return attributes;
-    }
-    attributes.pop();
-    attributes
-}
-
 fn collect_template_args(template: &ItemFn) -> HashMap<&Ident, &PatType> {
     template
         .sig
@@ -289,10 +271,6 @@ pub fn merge_attrs(item: TokenStream) -> TokenStream {
     expand_function_arguments(&mut function, &template);
 
     let mut attrs = template.attrs;
-    #[cfg(sanitize_multiple_should_panic_compiler_bug)]
-    {
-        function.attrs = sanitize_should_panic_duplication_bug(function.attrs);
-    }
     attrs.append(&mut function.attrs);
     function.attrs = attrs;
 
