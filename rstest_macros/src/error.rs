@@ -79,7 +79,7 @@ fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct ErrorsVec(Vec<syn::Error>);
+pub struct ErrorsVec(Vec<syn::Error>);
 
 pub(crate) fn _merge_errors<R1, R2>(
     r1: Result<R1, ErrorsVec>,
