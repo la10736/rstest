@@ -1,4 +1,5 @@
 #![allow(clippy::test_attr_in_doctest)]
+#![allow(unexpected_cfgs)]
 #![cfg_attr(use_proc_macro_diagnostic, feature(proc_macro_diagnostic))]
 extern crate proc_macro;
 

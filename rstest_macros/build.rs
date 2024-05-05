@@ -13,7 +13,7 @@ fn allow_features() -> Option<Vec<String>> {
 
 fn can_enable_proc_macro_diagnostic() -> bool {
     allow_features()
-        .map(|f| f.iter().any(|f| dbg!(f) == "proc_macro_diagnostic"))
+        .map(|f| f.iter().any(|f| f == "proc_macro_diagnostic"))
         .unwrap_or(true)
 }
 
