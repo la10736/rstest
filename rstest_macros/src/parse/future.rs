@@ -1,20 +1,77 @@
 use quote::{format_ident, ToTokens};
 use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, PatType, Type};
 
-use crate::{error::ErrorsVec, refident::MaybeType, utils::attr_is};
+use crate::{error::ErrorsVec, refident::MaybeType};
 
-use super::{arguments::FutureArg, extract_argument_attrs};
+use super::{
+    arguments::FutureArg,
+    just_once::{
+        AttrBuilder, JustOnceFnArgAttributeExtractor, JustOnceFnAttributeExtractor, Validator,
+    },
+};
 
 pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
-    let mut extractor = FutureFunctionExtractor::default();
+    let mut extractor = JustOnceFnArgAttributeExtractor::<FutureBuilder>::new("future");
+
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
 }
 
 pub(crate) fn extract_global_awt(item_fn: &mut ItemFn) -> Result<bool, ErrorsVec> {
-    let mut extractor = GlobalAwtExtractor::default();
+    let mut extractor = JustOnceFnAttributeExtractor::<GlobalAwtBuilder>::new("awt");
+
     extractor.visit_item_fn_mut(item_fn);
-    extractor.take()
+    extractor.take().map(|inner| inner.is_some())
+}
+
+struct GlobalAwtBuilder;
+
+impl AttrBuilder<ItemFn> for GlobalAwtBuilder {
+    type Out = ();
+
+    fn build(_attr: syn::Attribute, _ident: &ItemFn) -> syn::Result<Self::Out> {
+        Ok(())
+    }
+}
+
+impl Validator<ItemFn> for GlobalAwtBuilder {}
+
+struct FutureBuilder;
+
+impl AttrBuilder<Ident> for FutureBuilder {
+    type Out = (Ident, FutureArg);
+
+    fn build(attr: syn::Attribute, ident: &Ident) -> syn::Result<Self::Out> {
+        Self::compute_arguments_kind(&attr).map(|kind| (ident.clone(), kind))
+    }
+}
+
+impl Validator<FnArg> for FutureBuilder {
+    fn validate(arg: &FnArg) -> syn::Result<()> {
+        arg.as_future_impl_type().map(|_| ()).ok_or_else(|| {
+            syn::Error::new_spanned(
+                arg.maybe_type().unwrap().into_token_stream(),
+                "This type cannot used to generate impl Future.".to_owned(),
+            )
+        })
+    }
+}
+
+impl FutureBuilder {
+    fn compute_arguments_kind(arg: &syn::Attribute) -> syn::Result<FutureArg> {
+        if matches!(arg.meta, syn::Meta::Path(_)) {
+            Ok(FutureArg::Define)
+        } else {
+            match arg.parse_args::<Option<Ident>>()? {
+                Some(awt) if awt == format_ident!("awt") => Ok(FutureArg::Await),
+                None => Ok(FutureArg::Define),
+                Some(invalid) => Err(syn::Error::new_spanned(
+                    arg.parse_args::<Option<Ident>>()?.into_token_stream(),
+                    format!("Invalid '{invalid}' #[future(...)] arg."),
+                )),
+            }
+        }
+    }
 }
 
 pub(crate) trait MaybeFutureImplType {
@@ -52,115 +109,6 @@ fn can_impl_future(ty: &Type) -> bool {
             | TraitObject(_)
             | Verbatim(_)
     )
-}
-
-/// Simple struct used to visit function attributes and extract global awt.
-#[derive(Default)]
-struct GlobalAwtExtractor {
-    awt: bool,
-    errors: Vec<syn::Error>,
-}
-
-impl GlobalAwtExtractor {
-    pub(crate) fn take(self) -> Result<bool, ErrorsVec> {
-        if self.errors.is_empty() {
-            Ok(self.awt)
-        } else {
-            Err(self.errors.into())
-        }
-    }
-}
-
-impl VisitMut for GlobalAwtExtractor {
-    fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = std::mem::take(&mut node.attrs);
-        let (awts, remain): (Vec<_>, Vec<_>) = attrs.into_iter().partition(|a| attr_is(a, "awt"));
-        self.awt = match awts.len().cmp(&1) {
-            std::cmp::Ordering::Equal => true,
-            std::cmp::Ordering::Greater => {
-                self.errors.extend(awts.into_iter().skip(1).map(|a| {
-                    syn::Error::new_spanned(
-                        a.into_token_stream(),
-                        "Cannot use #[awt] more than once.".to_owned(),
-                    )
-                }));
-                false
-            }
-            std::cmp::Ordering::Less => false,
-        };
-        node.attrs = remain;
-    }
-}
-
-/// Simple struct used to visit function attributes and extract future args to
-/// implement the boilerplate.
-#[derive(Default)]
-struct FutureFunctionExtractor {
-    futures: Vec<(Ident, FutureArg)>,
-    errors: Vec<syn::Error>,
-}
-
-impl FutureFunctionExtractor {
-    pub(crate) fn take(self) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
-        if self.errors.is_empty() {
-            Ok(self.futures)
-        } else {
-            Err(self.errors.into())
-        }
-    }
-
-    fn compute_arguments_kind(arg: &syn::Attribute) -> Result<FutureArg, syn::Error> {
-        if matches!(arg.meta, syn::Meta::Path(_)) {
-            Ok(FutureArg::Define)
-        } else {
-            match arg.parse_args::<Option<Ident>>()? {
-                Some(awt) if awt == format_ident!("awt") => Ok(FutureArg::Await),
-                None => Ok(FutureArg::Define),
-                Some(invalid) => Err(syn::Error::new_spanned(
-                    arg.parse_args::<Option<Ident>>()?.into_token_stream(),
-                    format!("Invalid '{invalid}' #[future(...)] arg."),
-                )),
-            }
-        }
-    }
-}
-
-impl VisitMut for FutureFunctionExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        if matches!(node, FnArg::Receiver(_)) {
-            return;
-        }
-        match extract_argument_attrs(
-            node,
-            |a| attr_is(a, "future"),
-            |arg, name| Self::compute_arguments_kind(&arg).map(|kind| (arg, name.clone(), kind)),
-        )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            Ok(futures) => match futures.len().cmp(&1) {
-                std::cmp::Ordering::Equal => match node.as_future_impl_type() {
-                    Some(_) => self.futures.push((futures[0].1.clone(), futures[0].2)),
-                    None => self.errors.push(syn::Error::new_spanned(
-                        node.maybe_type().unwrap().into_token_stream(),
-                        "This type cannot used to generate impl Future.".to_owned(),
-                    )),
-                },
-                std::cmp::Ordering::Greater => {
-                    self.errors
-                        .extend(futures.iter().skip(1).map(|(attr, _ident, _type)| {
-                            syn::Error::new_spanned(
-                                attr.into_token_stream(),
-                                "Cannot use #[future] more than once.".to_owned(),
-                            )
-                        }));
-                }
-                std::cmp::Ordering::Less => {}
-            },
-            Err(e) => {
-                self.errors.push(e);
-            }
-        };
-    }
 }
 
 #[cfg(test)]

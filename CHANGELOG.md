@@ -6,6 +6,10 @@
 
 ### Add
 
+- Implemented `#[by_ref]` attribute to take get a local lifetime for test arguments.
+See [#241](https://github.com/la10736/rstest/issues/241) for more details. Thanks to 
+@narpfel for suggesting it and useful discussions.
+
 ### Fixed
 
 - Don't remove Lifetimes from test function if any. See [#230](https://github.com/la10736/rstest/issues/230)

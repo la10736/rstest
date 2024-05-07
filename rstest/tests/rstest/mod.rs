@@ -1052,6 +1052,32 @@ fn timeout() {
         .assert(output);
 }
 
+#[test]
+fn local_lifetime() {
+    let (output, _) = run_test("local_lifetime.rs");
+
+    TestResults::new()
+        .ok("tests::it_works::case_1")
+        .assert(output);
+}
+
+#[test]
+fn by_ref() {
+    let prj = prj("by_ref.rs");
+    let files_path = prj.path().join("files");
+    std::fs::create_dir(&files_path).unwrap();
+    let name = "my_name.txt";
+    let mut out = File::create(files_path.join(name)).unwrap();
+    out.write_all(name.as_bytes()).unwrap();
+    let output = prj.run_tests().unwrap();
+
+    TestResults::new()
+        .ok("test::case_1::v_1_42")
+        .ok("test::case_1::v_2_142")
+        .ok("start_with_name::path_1_files_my_name_txt")
+        .assert(output);
+}
+
 mod async_timeout_feature {
     use super::*;
 
