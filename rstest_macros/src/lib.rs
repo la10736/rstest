@@ -136,6 +136,23 @@ use quote::ToTokens;
 ///     assert_eq!(42, short)
 /// }
 /// ```
+/// 
+/// This feature can also be useful when you don't want to declare the `use` of a fixture or simple
+/// use the fixture's path:
+/// 
+/// ```
+/// use rstest::*;
+/// 
+/// # mod magic_numbers {
+/// #     use rstest::*;
+/// #     #[fixture]
+/// #     pub fn fortytwo() -> i32 { 42 }
+/// # }
+/// #[rstest]
+/// fn the_test(#[from(magic_numbers::fortytwo)] x: i32) {
+///     assert_eq!(42, x)
+/// }
+/// ```
 ///
 /// # `#[once]` Fixture
 ///
