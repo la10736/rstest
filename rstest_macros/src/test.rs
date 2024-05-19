@@ -115,6 +115,10 @@ pub(crate) fn ident(s: impl AsRef<str>) -> Ident {
     s.as_ref().ast()
 }
 
+pub(crate) fn path(s: impl AsRef<str>) -> syn::Path {
+    s.as_ref().ast()
+}
+
 pub(crate) fn expr(s: impl AsRef<str>) -> syn::Expr {
     s.as_ref().ast()
 }
@@ -218,8 +222,8 @@ impl RsTestInfo {
 }
 
 impl Fixture {
-    pub fn with_resolve(mut self, resolve_ident: &str) -> Self {
-        self.resolve = Some(ident(resolve_ident));
+    pub fn with_resolve(mut self, resolve_path: &str) -> Self {
+        self.resolve = Some(path(resolve_path));
         self
     }
 }

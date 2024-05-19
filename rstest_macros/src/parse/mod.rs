@@ -137,12 +137,12 @@ impl Parse for Positional {
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) struct Fixture {
     pub(crate) name: Ident,
-    pub(crate) resolve: Option<Ident>,
+    pub(crate) resolve: Option<syn::Path>,
     pub(crate) positional: Positional,
 }
 
 impl Fixture {
-    pub(crate) fn new(name: Ident, resolve: Option<Ident>, positional: Positional) -> Self {
+    pub(crate) fn new(name: Ident, resolve: Option<syn::Path>, positional: Positional) -> Self {
         Self {
             name,
             resolve,
@@ -153,7 +153,7 @@ impl Fixture {
 
 impl Parse for Fixture {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let resolve = input.parse()?;
+        let resolve: syn::Path = input.parse()?;
         if input.peek(Paren) || input.peek(Token![as]) {
             let positional = if input.peek(Paren) {
                 let content;
@@ -167,7 +167,13 @@ impl Parse for Fixture {
                 let _: Token![as] = input.parse()?;
                 Ok(Self::new(input.parse()?, Some(resolve), positional))
             } else {
-                Ok(Self::new(resolve, None, positional))
+                let name = resolve.get_ident().ok_or_else(|| {
+                    syn::Error::new_spanned(
+                        resolve.to_token_stream(),
+                        format!("Should be an ident"),
+                    )
+                })?;
+                Ok(Self::new(name.clone(), None, positional))
             }
         } else {
             Err(syn::Error::new(

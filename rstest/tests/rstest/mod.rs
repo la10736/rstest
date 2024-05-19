@@ -979,8 +979,10 @@ fn rename() {
 
     TestResults::new()
         .ok("compact")
+        .ok("compact_mod")
         .ok("compact_injected")
         .ok("attribute")
+        .ok("attribute_mod")
         .ok("attribute_injected")
         .assert(output);
 }

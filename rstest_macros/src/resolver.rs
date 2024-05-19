@@ -22,7 +22,10 @@ pub(crate) mod fixtures {
     }
 
     fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
-        let resolve = fixture.resolve.as_ref().unwrap_or(&fixture.name);
+        let resolve = fixture
+            .resolve
+            .clone()
+            .unwrap_or_else(|| fixture.name.clone().into());
         let positional = &fixture.positional.0;
         let f_name = match positional.len() {
             0 => format_ident!("default"),
@@ -53,13 +56,17 @@ pub(crate) mod fixtures {
         #[case(&[], "default()")]
         #[case(&["my_expression"], "partial_1(my_expression)")]
         #[case(&["first", "other"], "partial_2(first, other)")]
-        fn resolve_by_use_the_resolve_field(#[case] args: &[&str], #[case] expected: &str) {
-            let data = vec![fixture("pippo", args).with_resolve("pluto")];
+        fn resolve_by_use_the_resolve_field(
+            #[case] args: &[&str],
+            #[case] expected: &str,
+            #[values("pluto", "minnie::pluto")] resolver_path: &str,
+        ) {
+            let data = vec![fixture("pippo", args).with_resolve(resolver_path)];
             let resolver = get(data.iter());
 
             let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
 
-            assert_eq!(resolved, format!("pluto::{}", expected).ast());
+            assert_eq!(resolved, format!("{}::{}", resolver_path, expected).ast());
         }
     }
 }
