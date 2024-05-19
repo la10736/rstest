@@ -448,6 +448,8 @@ mod extend {
                     fn test_fn(
                         #[from(long_fixture_name)] 
                         #[with(42, "other")] short: u32, 
+                        #[from(sub_module::fix)]
+                        f: u32,
                         #[from(simple)]
                         s: &str,
                         no_change: i32) {
@@ -460,6 +462,7 @@ mod extend {
                     fixture("short", &["42", r#""other""#])
                         .with_resolve("long_fixture_name")
                         .into(),
+                    fixture("f", &[]).with_resolve("sub_module::fix").into(),
                     fixture("s", &[]).with_resolve("simple").into(),
                 ]
                 .into(),

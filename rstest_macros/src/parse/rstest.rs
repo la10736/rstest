@@ -397,7 +397,7 @@ mod test {
             #[test]
             fn rename() {
                 let data = parse_rstest(
-                    r#"long_fixture_name(42, "other") as short, simple as s, no_change()"#,
+                    r#"long_fixture_name(42, "other") as short, sub_module::fix as f, simple as s, no_change()"#,
                 );
 
                 let expected = RsTestInfo {
@@ -405,6 +405,7 @@ mod test {
                         fixture("short", &["42", r#""other""#])
                             .with_resolve("long_fixture_name")
                             .into(),
+                        fixture("f", &[]).with_resolve("sub_module::fix").into(),
                         fixture("s", &[]).with_resolve("simple").into(),
                         fixture("no_change", &[]).into(),
                     ]
@@ -423,6 +424,8 @@ mod test {
                         #[with(42, "other")] short: u32, 
                         #[from(simple)]
                         s: &str,
+                        #[from(sub_module::fix)]
+                        f: u32,
                         no_change: i32) {
                     }
                     "#
@@ -434,6 +437,7 @@ mod test {
                             .with_resolve("long_fixture_name")
                             .into(),
                         fixture("s", &[]).with_resolve("simple").into(),
+                        fixture("f", &[]).with_resolve("sub_module::fix").into(),
                     ]
                     .into(),
                     ..Default::default()
