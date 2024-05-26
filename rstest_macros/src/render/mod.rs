@@ -1,3 +1,4 @@
+pub mod crate_resolver;
 pub(crate) mod fixture;
 mod test;
 mod wrapper;
@@ -29,6 +30,7 @@ use wrapper::WrapByModule;
 pub(crate) use fixture::render as fixture;
 
 use self::apply_argumets::ApplyArgumets;
+use self::crate_resolver::crate_name;
 pub(crate) mod apply_argumets;
 pub(crate) mod inject;
 
@@ -193,13 +195,14 @@ fn render_test_call(
             .ok()
             .map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
     });
+    let rstest_path = crate_name();
     match (timeout, is_async) {
         (Some(to_expr), true) => quote! {
-            use rstest::timeout::*;
+            use #rstest_path::timeout::*;
             execute_with_timeout_async(move || #fn_path(#(#args),*), #to_expr).await
         },
         (Some(to_expr), false) => quote! {
-            use rstest::timeout::*;
+            use #rstest_path::timeout::*;
             execute_with_timeout_sync(move || #fn_path(#(#args),*), #to_expr)
         },
         _ => render_exec_call(fn_path, args, is_async),
