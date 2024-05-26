@@ -6,6 +6,7 @@ use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
 
 use crate::{
     refident::{MaybeIdent, MaybeType},
+    render::crate_resolver::crate_name,
     resolver::Resolver,
     utils::{fn_arg_mutability, IsLiteralExpression},
 };
@@ -101,9 +102,10 @@ fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
 }
 
 fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
+    let rstest_path = crate_name();
     parse_quote! {
         {
-            use rstest::magic_conversion::*;
+            use #rstest_path::magic_conversion::*;
             (&&&Magic::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
         }
     }

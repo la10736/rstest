@@ -9,6 +9,7 @@
 - Implemented `#[by_ref]` attribute to take get a local lifetime for test arguments.
 See [#241](https://github.com/la10736/rstest/issues/241) for more details. Thanks to
 @narpfel for suggesting it and useful discussions.
+- Support for import `rstest` with another name. See [#221](https://github.com/la10736/rstest/issues/221)
 
 ### Fixed
 

@@ -1054,6 +1054,35 @@ fn timeout() {
         .assert(output);
 }
 
+mod import_crate_with_other_name {
+    use super::*;
+
+    fn prj(res: &str) -> Project {
+        let prj = crate::base_prj();
+        prj.add_dependency(
+            "other_name",
+            &format!(
+                r#"{{path="{}", package = "rstest"}}"#,
+                prj.exec_dir_str().as_str(),
+            ),
+        );
+        prj.set_code_file(resources(res))
+    }
+
+    #[test]
+    fn timeout_should_compile_and_run() {
+        let mut prj = prj("timeout.rs");
+        prj.set_default_timeout(1);
+        assert!(prj.run_tests().is_ok());
+    }
+
+    #[test]
+    fn convert_string_literal_should_compile_and_run() {
+        let prj = prj("convert_string_literal.rs");
+        assert!(prj.run_tests().is_ok());
+    }
+}
+
 #[test]
 fn local_lifetime() {
     let (output, _) = run_test("local_lifetime.rs");
