@@ -17,5 +17,4 @@
 - [ ] Create tag (Use github release)
 - [ ] prepare deploy `cargo publish --dry-run`
 - [ ] deploy `cargo publish`
-- [ ] Change dependency (inner `rstest` and `rstest_reuse`)
 - [ ] Prepare next changelog
