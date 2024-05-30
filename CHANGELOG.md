@@ -2,8 +2,6 @@
 
 ## [0.20.0] 2024/5/30
 
-### Changed
-
 ### Add
 
 - Implemented `#[by_ref]` attribute to take get a local lifetime for test arguments.
