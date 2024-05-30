@@ -5,14 +5,13 @@
 
 # Helper crate for testing `rstest` crate
 
-This crate proivides a little framework for wrinting end to end test. You can crete rust
+This crate provides a little framework for writing end-to-end test. You can create rust
 project, add workspace modules and code file. Run `build` and `test` actions and write
 assertions based on passed and failed tests.
 
 Moreover give some utilities on assertions, strings manipulations and test name.
 
-This crate isn't designed for general pourpuse use but just as `rstest` develop helper crate.
-
+This crate isn't designed for general purpose use but just as `rstest` develop helper crate.
 
 ## License
 
