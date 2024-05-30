@@ -7,15 +7,17 @@
 
 :warning: [**Version 0.5.0 introduce a breaking change**](#dismiss-macro_use-attribute-support)
 
-This crate give a way to define a tests set and apply them to every case you need to
+This crate gives a way to define tests set and apply them to every case you need to
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
 to another test function you must rewrite all cases or write some macros that do the job.
 
 Both solutions have some drawbreak:
-- intruduce duplication
+
+- introduce duplication
 - macros makes code harder to read and shift out the focus from tests core
 
-The aim of this crate is solve this problem. `rstest_resuse` expose two attributes:
+The aim of this crate is solve this problem. `rstest_reuse` expose two attributes:
+
 - `#[template]`: to define a template
 - `#[apply]`: to apply a defined template to create tests
 
@@ -78,8 +80,8 @@ error: test failed, to rerun pass '--bin playground'
 
 Simple and neat!
 
-Note that if the test arguments names match the template's ones you can don't 
-repeate the arguments attributes.
+Note that if the test arguments names match the template's ones you can don't
+repeat the arguments attributes.
 
 ## Composition and Values
 
@@ -104,7 +106,7 @@ fn it_works(a: u32, b: u32, #[values("a", "b")] t: &str) {
 
 run 6 tests:
 
-```
+```text
 running 6 tests
 test it_works::case_1::t_2 ... ok
 test it_works::case_2::t_2 ... ok
@@ -139,7 +141,7 @@ fn use_it_without_fixture(v: u32) {
 
 Run also 6 tests:
 
-```
+```text
 running 6 tests
 test use_it_with_fixture::v_1 ... ok
 test use_it_without_fixture::v_1 ... ok
@@ -152,14 +154,15 @@ test use_it_with_fixture::v_2 ... ok
 ## Cavelets
 
 ### `use rstest_resuse` at the top of your crate
-You **should** add `use rstest_resuse` at the top of your crate:
+
+You **should** add `use rstest_reuse` at the top of your crate:
 
 ```rust
 #[cfg(test)]
 use rstest_reuse;
 ```
 
-This is due `rstest_reuse::template` define a macro that need to call a `rstest_resuse`'s macro.
+This is due `rstest_reuse::template` define a macro that need to call a `rstest_reuse`'s macro.
 I hope to remove this in the future but for now we should live with it.
 
 Note that
@@ -167,17 +170,18 @@ Note that
 ```rust
 use rstest_reuse::*;
 ```
-is not enougth: this statment doesn't include `rstest_reuse` but just its public items.
+
+is not enough: this statment doesn't include `rstest_reuse` but just its public items.
 
 ## `#[export]` Attribute
 
 :warning: **Version 0.5.0 introduce a breaking change**
 
 Now `#[export]` attribute give you the possibility to export your template across crates
-but don't lift the macro definition at the top of your crate (that was the default behaviour 
+but don't lift the macro definition at the top of your crate (that was the default behavior
 prior the 0.5.0 version).
 
-Now if you want put your template at the root of your crate you can define it in the root
+Now if you want to put your template at the root of your crate you can define it in the root
 module or reexport it at the top with something like the following line at the top of
 your crate:
 
@@ -203,10 +207,10 @@ And not just `use rstest_reuse` like in the standard cases.
 :warning: **Version 0.5.0 introduce a breaking change**
 
 Till version 0.4.0 you can use `#[macro_use]` to annotate your modules and lift your
-macro template to the up level. Now `rstest` leverege only on import and paths like all
-othter function and original macro is hidden by a random name.
+macro template to the up level. Now `rstest` leverage only on import and paths like all
+other function and original macro is hidden by a random name.
 
-So now if you would use your template from other module you should import it like any 
+So now if you would use your template from other module you should import it like any
 other symbol.
 
 ```rust
@@ -242,17 +246,16 @@ fn it_works_after_use(a: u32, b: u32) {
 
 This crate is in a development stage. I don't know if I'll include it in `rstest` or change some syntax in the future.
 
-I did't test it in a lot of cases: if you have some cases where it doesn't works file a ticket on [`rstest`][rstest-link]
-
+I didn't test it in a lot of cases: if you have some cases where it doesn't work file a ticket on [`rstest`][rstest-link]
 
 ## License
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 [license-apache-link])
 
-* MIT license [LICENSE-MIT](LICENSE-MIT) or [license-MIT-link]
+- MIT license [LICENSE-MIT](LICENSE-MIT) or [license-MIT-link]
 at your option.
 
 [//]: # (links)
