@@ -209,7 +209,7 @@ fn render_test_call(
     }
 }
 
-fn generics_types_ident<'a>(generics: &'a syn::Generics) -> impl Iterator<Item = &'a Ident> {
+fn generics_types_ident(generics: &syn::Generics) -> impl Iterator<Item = &'_ Ident> {
     generics.type_params().map(|tp| &tp.ident)
 }
 
@@ -352,7 +352,7 @@ impl<'a> TestCaseRender<'a> {
             asyncness,
             None,
             self.resolver,
-            &info,
+            info,
             &testfn.sig.generics,
         )
     }

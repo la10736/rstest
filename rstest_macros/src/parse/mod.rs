@@ -170,7 +170,7 @@ impl Parse for Fixture {
                 let name = resolve.get_ident().ok_or_else(|| {
                     syn::Error::new_spanned(
                         resolve.to_token_stream(),
-                        format!("Should be an ident"),
+                        "Should be an ident".to_string(),
                     )
                 })?;
                 Ok(Self::new(name.clone(), None, positional))

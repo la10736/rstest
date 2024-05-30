@@ -123,8 +123,6 @@ where
                     self.errors.push(e);
                 }
             }
-        } else {
-            return;
         }
     }
 }
@@ -178,7 +176,7 @@ where
 
         let parsed = extracted
             .into_iter()
-            .map(|attr| B::build(attr.clone(), &item_fn).map(|t| (attr, t)))
+            .map(|attr| B::build(attr.clone(), item_fn).map(|t| (attr, t)))
             .collect::<Result<Vec<_>, _>>();
         let mut errors = Vec::default();
         let mut out = None;

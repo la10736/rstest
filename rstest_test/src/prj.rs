@@ -90,7 +90,7 @@ impl Project {
     }
 
     pub fn name<O: AsRef<OsStr>>(mut self, name: O) -> Self {
-        self.name = name.as_ref().to_owned();
+        name.as_ref().clone_into(&mut self.name);
         self
     }
 

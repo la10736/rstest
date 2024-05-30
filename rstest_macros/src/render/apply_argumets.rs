@@ -107,7 +107,7 @@ fn update_type_with_lifetime(ty: &mut Type, ident: Ident) -> Option<Lifetime> {
             apostrophe: ident.span(),
             ident,
         });
-        ty_ref.lifetime = lifetime.clone();
+        ty_ref.lifetime.clone_from(&lifetime);
         lifetime
     } else {
         None

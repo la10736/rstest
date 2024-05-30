@@ -112,7 +112,7 @@ impl ArgumentsInfo {
         self.args
             .entry(ident)
             .and_modify(|v| v.by_ref = true)
-            .or_insert_with(|| ArgumentInfo::by_ref());
+            .or_insert_with(ArgumentInfo::by_ref);
     }
 
     pub(crate) fn set_by_refs(&mut self, by_refs: impl Iterator<Item = Ident>) {

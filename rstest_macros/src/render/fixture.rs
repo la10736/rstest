@@ -66,7 +66,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
 
     let args = args
-        .into_iter()
+        .iter()
         .map(|arg| parse_quote! { #arg })
         .collect::<Vec<_>>();
     let call_get = render_exec_call(parse_quote! { Self::get }, &args, asyncness.is_some());
