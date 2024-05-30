@@ -10,6 +10,3 @@
 - [ ] Check README
 - [ ] prepare deploy `cargo publish --dry-run`
 - [ ] deploy `cargo publish`
-- [ ] Update `rstest` dependency
-- [ ] Change next version
-  - [ ] `Cargo.toml`
