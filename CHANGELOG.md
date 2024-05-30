@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.20.0] 2024/5/30
 
 ### Changed
 
@@ -17,7 +17,7 @@ See [#241](https://github.com/la10736/rstest/issues/241) for more details. Thank
 [#241](https://github.com/la10736/rstest/issues/241) for more details.
 - [`PathBuf`](https://doc.rust-lang.org/std/path/struct.PathBuf.html) does no longer need to be
 in scope when using `#[files]` (see [#242](https://github.com/la10736/rstest/pull/242))
-- `#[from(now::accept::also::path::for::fixture)]` See [#246](https://github.com/la10736/rstest/issues/246) 
+- `#[from(now::accept::also::path::for::fixture)]` See [#246](https://github.com/la10736/rstest/issues/246)
 for more details
 
 ## [0.19.0] 2024/4/9

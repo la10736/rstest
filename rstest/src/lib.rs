@@ -1103,7 +1103,7 @@ pub use rstest_macros::fixture;
 /// in this case the `#[actix_rt::test]` attribute will replace the standard `#[test]`
 /// attribute.
 ///
-/// ## Local timeout and `#[by_ref]` attribute
+/// ## Local lifetime and `#[by_ref]` attribute
 ///
 /// In some cases you may want to use a local lifetime for some arguments of your test.
 /// In these cases you can use the `#[by_ref]` attribute then use the reference instead
