@@ -28,7 +28,7 @@ default = ["async-timeout"]
 [dependencies]
 futures = { version = "0.3.21", optional = true }
 futures-timer = { version = "3.0.2", optional = true }
-rstest_macros = { path = "../rstest_macros", default-features = false }
+rstest_macros = { version = "0.20.0", path = "../rstest_macros", default-features = false }
 
 [dev-dependencies]
 actix-rt = "2.7.0"
