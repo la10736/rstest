@@ -2,10 +2,8 @@
 [![Status][test-action-image]][test-action-link]
 [![Apache 2.0 Licensed][license-apache-image]][license-apache-link]
 [![MIT Licensed][license-mit-image]][license-mit-link]
- 
-# Reuse `rstest`'s parametrized cases
 
-:warning: [**Version 0.5.0 introduce a breaking change**](#dismiss-macro_use-attribute-support)
+# Reuse `rstest`'s parametrized cases
 
 This crate gives a way to define tests set and apply them to every case you need to
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
@@ -116,7 +114,7 @@ test it_works::case_3::t_1 ... ok
 test it_works::case_1::t_1 ... ok
 ```
 
-Template can also used for values and with arguments if you need:
+Template can also be used for values and with arguments if you need:
 
 ```rust
 #[template]
@@ -151,31 +149,7 @@ test use_it_without_fixture::v_3 ... ok
 test use_it_with_fixture::v_2 ... ok
 ```
 
-## Cavelets
-
-### `use rstest_resuse` at the top of your crate
-
-You **should** add `use rstest_reuse` at the top of your crate:
-
-```rust
-#[cfg(test)]
-use rstest_reuse;
-```
-
-This is due `rstest_reuse::template` define a macro that need to call a `rstest_reuse`'s macro.
-I hope to remove this in the future but for now we should live with it.
-
-Note that
-
-```rust
-use rstest_reuse::*;
-```
-
-is not enough: this statment doesn't include `rstest_reuse` but just its public items.
-
 ## `#[export]` Attribute
-
-:warning: **Version 0.5.0 introduce a breaking change**
 
 Now `#[export]` attribute give you the possibility to export your template across crates
 but don't lift the macro definition at the top of your crate (that was the default behavior
@@ -201,46 +175,6 @@ pub use rstest_reuse;
 ```
 
 And not just `use rstest_reuse` like in the standard cases.
-
-## Dismiss `#[macro_use]` Attribute Support
-
-:warning: **Version 0.5.0 introduce a breaking change**
-
-Till version 0.4.0 you can use `#[macro_use]` to annotate your modules and lift your
-macro template to the up level. Now `rstest` leverage only on import and paths like all
-other function and original macro is hidden by a random name.
-
-So now if you would use your template from other module you should import it like any
-other symbol.
-
-```rust
-mod inner {
-    pub(crate) mod sub {
-        use rstest_reuse::*;
-        #[template]
-        #[rstest(a,  b,
-            case(2, 2),
-            case(4/2, 2),
-            )
-        ]
-        fn two_simple_cases(a: u32, b: u32) {}
-    }
-}
-use rstest_reuse::*;
-use rstest::*;
-
-#[apply(inner::sub::two_simple_cases)]
-fn it_works_by_path(a: u32, b: u32) {
-    assert!(a == b);
-}
-
-use inner::sub::two_simple_cases
-#[apply(inner::sub::two_simple_cases)]
-fn it_works_after_use(a: u32, b: u32) {
-    assert!(a == b);
-}
-
-```
 
 ## Disclamer
 
