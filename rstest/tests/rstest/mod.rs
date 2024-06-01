@@ -1057,29 +1057,65 @@ fn timeout() {
 mod import_crate_with_other_name {
     use super::*;
 
-    fn prj(res: &str) -> Project {
+    fn prj(res: &str, features: Option<&[&str]>) -> Project {
         let prj = crate::base_prj();
+        let default_features = features.is_none();
+        let features = features
+            .map(|features| {
+                features
+                    .iter()
+                    .map(|f| format!(r#""{}""#, f))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .unwrap_or_else(|| "".to_string());
         prj.add_dependency(
             "other_name",
             &format!(
-                r#"{{path="{}", package = "rstest"}}"#,
+                r#"{{path="{}", package = "rstest", default-features = {}, features = [{}]}}"#,
                 prj.exec_dir_str().as_str(),
+                default_features,
+                features
             ),
         );
         prj.set_code_file(resources(res))
     }
 
     #[test]
-    fn timeout_should_compile_and_run() {
-        let mut prj = prj("timeout.rs");
-        prj.set_default_timeout(1);
-        assert!(prj.run_tests().is_ok());
+    fn should_fails_to_compile_if_crate_name_feature_is_not_enabled() {
+        let prj = prj("timeout_other_name.rs", Some(&[]));
+        assert!(!prj.compile().unwrap().status.success());
     }
 
     #[test]
-    fn convert_string_literal_should_compile_and_run() {
-        let prj = prj("convert_string_literal.rs");
-        assert!(prj.run_tests().is_ok());
+    fn should_always_compile_project_that_use_default_name() {
+        let prj = crate::base_prj();
+        prj.add_dependency(
+            "rstest",
+            &format!(
+                r#"{{path="{}", default-features = false}}"#,
+                prj.exec_dir_str().as_str(),
+            ),
+        );
+        let prj = prj.set_code_file(resources("convert_string_literal.rs"));
+
+        assert!(prj.compile().unwrap().status.success());
+    }
+
+    #[rstest]
+    #[case::default_features(None)]
+    #[case::with_crate_name_feature(Some(["crate-name"].as_slice()))]
+    fn timeout_should_compile_and_run(#[case] features: Option<&[&str]>) {
+        let prj = prj("timeout_other_name.rs", features);
+        assert!(prj.compile().unwrap().status.success());
+    }
+
+    #[rstest]
+    #[case::default(None)]
+    #[case::with_crate_name_feature(Some(["crate-name"].as_slice()))]
+    fn convert_string_literal_should_compile_and_run(#[case] features: Option<&[&str]>) {
+        let prj = prj("convert_string_literal_other_name.rs", features);
+        assert!(prj.compile().unwrap().status.success());
     }
 }
 

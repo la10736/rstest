@@ -93,6 +93,10 @@
 //!     assert!(string_processor.output.contains("Alice"));
 //! }
 //! ```
+//! ### Features
+//!
+//! - `async-timeout`: `timeout` for `async` tests (Default enabled)
+//! - `crate-name`: Import `rstest` package with different name (Default enabled)
 //!
 //! ## Injecting fixtures as function arguments
 //!

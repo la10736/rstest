@@ -21,7 +21,8 @@ async-timeout = [
     "dep:futures-timer",
     "rstest_macros/async-timeout",
 ]
-default = ["async-timeout"]
+crate-name = ["rstest_macros/crate-name"]
+default = ["async-timeout", "crate-name"]
 
 [lib]
 

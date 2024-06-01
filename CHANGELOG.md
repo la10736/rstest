@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Add feature `crate-name` (enable by default to opt-in crate rename
+support. See [#258](https://github.com/la10736/rstest/issues/258)
+
 ### Add
 
 ### Fixed

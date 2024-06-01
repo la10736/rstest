@@ -6,8 +6,6 @@
 
 # Fixture-based test framework for Rust
 
-
-
 ## Introduction
 
 `rstest` uses procedural macros to help you on writing
@@ -18,6 +16,11 @@ following lines to your `Cargo.toml` file:
 [dev-dependencies]
 rstest = "0.20.0"
 ```
+
+### Features
+
+- `async-timeout`: `timeout` for `async` tests (Default enabled)
+- `crate-name`: Import `rstest` package with different name (Default enabled)
 
 ### Fixture
 
