@@ -1,15 +1,11 @@
 # Changelog
 
-## Unreleased
+## [0.21.0] 2024/6/1
 
 ### Changed
 
-- Add feature `crate-name` (enable by default to opt-in crate rename
+- Add feature `crate-name` enabled by default to opt-in crate rename
 support. See [#258](https://github.com/la10736/rstest/issues/258)
-
-### Add
-
-### Fixed
 
 ## [0.20.0] 2024/5/30
 

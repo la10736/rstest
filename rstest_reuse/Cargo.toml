@@ -30,4 +30,4 @@ lazy_static = "1.4.0"
 rstest_test = { path = "../rstest_test" }
 temp_testdir = "0.2.3"
 # To compile doc tests
-rstest = { version = "0.19.0" }
+rstest = { version = "0.20.0" }
