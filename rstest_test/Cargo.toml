@@ -12,7 +12,7 @@ name = "rstest_test"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
 rust-version = "1.69.0"
-version = "0.12.0"
+version = "0.13.0"
 
 [dependencies]
 regex = "1.5.6"
