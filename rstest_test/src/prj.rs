@@ -125,6 +125,7 @@ impl Project {
         Command::new("cargo")
             .current_dir(&self.path())
             .arg("build")
+            .arg("--tests")
             .output()
     }
 
