@@ -118,3 +118,9 @@ fn error_timeout_without_duration() {}
 
 #[rstest]
 fn error_absolute_path_files(#[files("/tmp/tmp.Q81idVZYAV/*.txt")] path: std::path::PathBuf) {}
+
+struct T(u32, u32);
+
+#[rstest]
+#[case(T(3, 4))]
+fn wrong_destruct_fixture(T(a, b): T, #[with(42)] T(c, d): T) {}

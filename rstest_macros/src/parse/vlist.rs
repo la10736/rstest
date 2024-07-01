@@ -2,10 +2,10 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{
     parse::{Parse, ParseStream, Result},
-    Expr, Ident, Token,
+    Expr, Ident, Pat, Token,
 };
 
-use crate::refident::RefIdent;
+use crate::refident::IntoPat;
 
 use super::expressions::Expressions;
 
@@ -35,20 +35,20 @@ impl From<Expr> for Value {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct ValueList {
-    pub(crate) arg: Ident,
+    pub(crate) arg: Pat,
     pub(crate) values: Vec<Value>,
 }
 
 impl Parse for ValueList {
     fn parse(input: ParseStream) -> Result<Self> {
-        let arg = input.parse()?;
+        let ident: Ident = input.parse()?;
         let _to: Token![=>] = input.parse()?;
         let content;
         let paren = syn::bracketed!(content in input);
         let values: Expressions = content.parse()?;
 
         let ret = Self {
-            arg,
+            arg: ident.into_pat(),
             values: values.take().into_iter().map(|e| e.into()).collect(),
         };
         if ret.values.is_empty() {
@@ -59,12 +59,6 @@ impl Parse for ValueList {
         } else {
             Ok(ret)
         }
-    }
-}
-
-impl RefIdent for ValueList {
-    fn ident(&self) -> &Ident {
-        &self.arg
     }
 }
 
@@ -103,7 +97,7 @@ mod should {
                     .join(", ")
             ));
 
-            assert_eq!(name, &values_list.arg.to_string());
+            assert_eq!(name, &values_list.arg.display_code());
             assert_eq!(values_list.args(), to_args!(literals));
         }
 

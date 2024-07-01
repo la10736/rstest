@@ -1,5 +1,5 @@
 use quote::{format_ident, ToTokens};
-use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, PatType, Type};
+use syn::{visit_mut::VisitMut, FnArg, Ident, ItemFn, Pat, PatType, Type};
 
 use crate::{error::ErrorsVec, refident::MaybeType};
 
@@ -10,7 +10,7 @@ use super::{
     },
 };
 
-pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<(Ident, FutureArg)>, ErrorsVec> {
+pub(crate) fn extract_futures(item_fn: &mut ItemFn) -> Result<Vec<(Pat, FutureArg)>, ErrorsVec> {
     let mut extractor = JustOnceFnArgAttributeExtractor::<FutureBuilder>::new("future");
 
     extractor.visit_item_fn_mut(item_fn);
@@ -38,11 +38,11 @@ impl Validator<ItemFn> for GlobalAwtBuilder {}
 
 struct FutureBuilder;
 
-impl AttrBuilder<Ident> for FutureBuilder {
-    type Out = (Ident, FutureArg);
+impl AttrBuilder<Pat> for FutureBuilder {
+    type Out = (Pat, FutureArg);
 
-    fn build(attr: syn::Attribute, ident: &Ident) -> syn::Result<Self::Out> {
-        Self::compute_arguments_kind(&attr).map(|kind| (ident.clone(), kind))
+    fn build(attr: syn::Attribute, pat: &Pat) -> syn::Result<Self::Out> {
+        Self::compute_arguments_kind(&attr).map(|kind| (pat.clone(), kind))
     }
 }
 
@@ -183,7 +183,7 @@ mod should {
             futures,
             expected_futures
                 .into_iter()
-                .map(|(id, a)| (ident(id), *a))
+                .map(|(id, a)| (pat(id), *a))
                 .collect::<Vec<_>>()
         );
         assert_eq!(expected_awt, awt);

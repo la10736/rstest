@@ -8,14 +8,15 @@ use std::collections::HashMap;
 use syn::token::Async;
 
 use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, Stmt};
+use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Pat, Path, ReturnType, Stmt};
 
 use quote::{format_ident, quote};
 
+use crate::refident::MaybePat;
 use crate::utils::{attr_ends_with, sanitize_ident};
 use crate::{
     parse::{
-        rstest::{RsTestAttributes, RsTestData, RsTestInfo},
+        rstest::{RsTestAttributes, RsTestInfo},
         testcase::TestCase,
         vlist::ValueList,
     },
@@ -29,14 +30,16 @@ use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
 
-use self::apply_argumets::ApplyArgumets;
+use self::apply_argumets::ApplyArguments;
 use self::crate_resolver::crate_name;
 pub(crate) mod apply_argumets;
 pub(crate) mod inject;
 
-pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&info.arguments);
-    let resolver = resolver::fixtures::get(info.data.fixtures());
+pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
+    test.apply_argumets(&mut info.arguments, &mut ());
+
+    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
+
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
     let asyncness = test.sig.asyncness;
@@ -56,10 +59,12 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
 }
 
 pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&info.arguments);
-    let resolver_fixtures = resolver::fixtures::get(info.data.fixtures());
+    let mut arguments_info = info.arguments.clone();
+    test.apply_argumets(&mut arguments_info, &mut ());
 
-    let rendered_cases = cases_data(&info.data, test.sig.ident.span())
+    let resolver_fixtures = resolver::fixtures::get(&info.arguments, info.data.fixtures());
+
+    let rendered_cases = cases_data(&info, test.sig.ident.span())
         .map(|(name, attrs, resolver)| {
             TestCaseRender::new(name, attrs, (resolver, &resolver_fixtures))
         })
@@ -79,7 +84,7 @@ impl ValueList {
     ) -> TokenStream {
         let span = test.sig.ident.span();
         let test_cases = self
-            .argument_data(resolver)
+            .argument_data(resolver, info)
             .map(|(name, r)| TestCaseRender::new(Ident::new(&name, span), attrs, r))
             .map(|test_case| test_case.render(test, info));
 
@@ -89,17 +94,25 @@ impl ValueList {
     fn argument_data<'a>(
         &'a self,
         resolver: &'a dyn Resolver,
-    ) -> impl Iterator<Item = (String, Box<(&'a dyn Resolver, (String, Expr))>)> + 'a {
+        info: &'a RsTestInfo,
+    ) -> impl Iterator<Item = (String, Box<(&'a dyn Resolver, (Pat, Expr))>)> + 'a {
         let max_len = self.values.len();
         self.values.iter().enumerate().map(move |(index, value)| {
             let description = sanitize_ident(&value.description());
+            let arg = info.arguments.inner_pat(&self.arg);
+
+            let arg_name = arg
+                .maybe_ident()
+                .expect("BUG: Here all arguments should be PatIdent types")
+                .to_string();
+
             let name = format!(
                 "{}_{:0len$}_{description:.64}",
-                self.arg,
+                arg_name,
                 index + 1,
                 len = max_len.display_len()
             );
-            let resolver_this = (self.arg.to_string(), value.expr.clone());
+            let resolver_this = (arg.clone(), value.expr.clone());
             (name, Box::new((resolver, resolver_this)))
         })
     }
@@ -126,10 +139,12 @@ fn _matrix_recursive<'a>(
         vlist.render(test, resolver, &attrs, info)
     } else {
         let span = test.sig.ident.span();
-        let modules = vlist.argument_data(resolver).map(move |(name, resolver)| {
-            _matrix_recursive(test, list_values, &resolver, attrs, info)
-                .wrap_by_mod(&Ident::new(&name, span))
-        });
+        let modules = vlist
+            .argument_data(resolver, info)
+            .map(move |(name, resolver)| {
+                _matrix_recursive(test, list_values, &resolver, attrs, info)
+                    .wrap_by_mod(&Ident::new(&name, span))
+            });
 
         quote! { #(
             #[allow(non_snake_case)]
@@ -138,13 +153,13 @@ fn _matrix_recursive<'a>(
     }
 }
 
-pub(crate) fn matrix(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&info.arguments);
+pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
+    test.apply_argumets(&mut info.arguments, &mut ());
     let span = test.sig.ident.span();
 
-    let cases = cases_data(&info.data, span).collect::<Vec<_>>();
+    let cases = cases_data(&info, span).collect::<Vec<_>>();
 
-    let resolver = resolver::fixtures::get(info.data.fixtures());
+    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
     let rendered_cases = if cases.is_empty() {
         let list_values = info.data.list_values().collect::<Vec<_>>();
         _matrix_recursive(&test, &list_values, &resolver, &[], &info)
@@ -246,11 +261,16 @@ fn single_test_case(
     if !trace_me.is_empty() {
         attributes.add_trace(format_ident!("trace"));
     }
+
     let generics_types = generics_types_ident(generics).cloned().collect::<Vec<_>>();
+    let args = info
+        .arguments
+        .replace_fn_args_with_related_inner_pat(args.iter().cloned())
+        .collect::<Vec<_>>();
 
     let (injectable_args, ignored_args): (Vec<_>, Vec<_>) =
-        args.iter().partition(|arg| match arg.maybe_ident() {
-            Some(ident) => !info.arguments.is_ignore(ident),
+        args.iter().partition(|arg| match arg.maybe_pat() {
+            Some(pat) => !info.arguments.is_ignore(pat),
             None => true,
         });
 
@@ -258,7 +278,7 @@ fn single_test_case(
 
     let args = args
         .iter()
-        .filter_map(MaybeIdent::maybe_ident)
+        .filter_map(MaybePat::maybe_pat)
         .cloned()
         .collect::<Vec<_>>();
     let trace_args = trace_arguments(args.iter(), &attributes);
@@ -283,9 +303,11 @@ fn single_test_case(
     };
 
     let args = args
-        .into_iter()
-        .map(|arg| {
-            if info.arguments.is_by_refs(&arg) {
+        .iter()
+        .map(|arg| (arg, info.arguments.is_by_refs(arg)))
+        .filter_map(|(a, by_refs)| a.maybe_ident().map(|id| (id, by_refs)))
+        .map(|(arg, by_ref)| {
+            if by_ref {
                 parse_quote! { &#arg }
             } else {
                 parse_quote! { #arg }
@@ -309,7 +331,7 @@ fn single_test_case(
 }
 
 fn trace_arguments<'a>(
-    args: impl Iterator<Item = &'a Ident>,
+    args: impl Iterator<Item = &'a Pat>,
     attributes: &RsTestAttributes,
 ) -> Option<TokenStream> {
     let mut statements = args
@@ -405,15 +427,17 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
 }
 
 fn cases_data(
-    data: &RsTestData,
+    info: &RsTestInfo,
     name_span: Span,
-) -> impl Iterator<Item = (Ident, &[syn::Attribute], HashMap<String, &syn::Expr>)> {
-    let display_len = data.cases().count().display_len();
-    data.cases().enumerate().map({
+) -> impl Iterator<Item = (Ident, &[syn::Attribute], HashMap<Pat, &syn::Expr>)> {
+    let display_len = info.data.cases().count().display_len();
+    info.data.cases().enumerate().map({
         move |(n, case)| {
-            let resolver_case = data
+            let resolver_case = info
+                .data
                 .case_args()
-                .map(|a| a.to_string())
+                .cloned()
+                .map(|arg| info.arguments.inner_pat(&arg).clone())
                 .zip(case.args.iter())
                 .collect::<HashMap<_, _>>();
             (

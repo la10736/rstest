@@ -1,12 +1,13 @@
 use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Ident, ItemFn, ReturnType};
+use syn::token::Async;
+use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
-use super::apply_argumets::ApplyArgumets;
+use super::apply_argumets::ApplyArguments;
 use super::{inject, render_exec_call};
+use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
-use crate::utils::{fn_args, fn_args_idents};
 use crate::{parse::fixture::FixtureInfo, utils::generics_clean_up};
 
 fn wrap_return_type_as_static_ref(rt: ReturnType) -> ReturnType {
@@ -33,12 +34,19 @@ fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -
 }
 
 pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
-    fixture.apply_argumets(&info.arguments);
+    let mut arguments = info.arguments.clone();
+    fixture.apply_argumets(&mut arguments, &mut ());
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
-    let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
-    let args = &vargs;
-    let orig_args = &fixture.sig.inputs;
+    let inner_args = info
+        .arguments
+        .replace_fn_args_with_related_inner_pat(fixture.sig.inputs.iter().cloned())
+        .collect::<Vec<_>>();
+    let args_ident = inner_args
+        .iter()
+        .filter_map(MaybeIdent::maybe_ident)
+        .cloned()
+        .collect::<Vec<_>>();
     let orig_attrs = &fixture.attrs;
     let generics = &fixture.sig.generics;
     let mut default_output = info
@@ -52,7 +60,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let mut output = fixture.sig.output.clone();
     let visibility = &fixture.vis;
     let resolver = (
-        resolver::fixtures::get(info.data.fixtures()),
+        resolver::fixtures::get(&info.arguments, info.data.fixtures()),
         resolver::values::get(info.data.values()),
     );
     let generics_idents = generics
@@ -60,12 +68,21 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
+    let inject = inject::resolve_aruments(inner_args.iter(), &resolver, &generics_idents);
 
-    let partials =
-        (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
+    let partials = (1..=inner_args.len()).map(|n| {
+        render_partial_impl(
+            &inner_args,
+            &fixture.sig.output,
+            &fixture.sig.generics,
+            fixture.sig.asyncness.as_ref(),
+            n,
+            &resolver,
+            &info,
+        )
+    });
 
-    let args = args
+    let args = args_ident
         .iter()
         .map(|arg| parse_quote! { #arg })
         .collect::<Vec<_>>();
@@ -85,7 +102,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         impl #name {
             #(#orig_attrs)*
             #[allow(unused_mut)]
-            pub #asyncness fn get #generics (#orig_args) #output #where_clause {
+            pub #asyncness fn get #generics (#(#inner_args),*) #output #where_clause {
                 #call_impl
             }
 
@@ -103,7 +120,10 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
 }
 
 fn render_partial_impl(
-    fixture: &ItemFn,
+    args: &[FnArg],
+    output: &ReturnType,
+    generics: &Generics,
+    asyncness: Option<&Async>,
     n: usize,
     resolver: &impl Resolver,
     info: &FixtureInfo,
@@ -111,26 +131,27 @@ fn render_partial_impl(
     let mut output = info
         .attributes
         .extract_partial_type(n)
-        .unwrap_or_else(|| fixture.sig.output.clone());
+        .unwrap_or_else(|| output.clone());
 
     if info.arguments.is_once() {
         output = wrap_return_type_as_static_ref(output);
     }
 
-    let generics = generics_clean_up(&fixture.sig.generics, fn_args(fixture).take(n), &output);
+    let generics = generics_clean_up(generics, args.iter().take(n), &output);
     let where_clause = &generics.where_clause;
-    let asyncness = &fixture.sig.asyncness;
+    let asyncness = asyncness;
 
     let genercs_idents = generics
         .type_params()
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject =
-        inject::resolve_aruments(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
+    let inject = inject::resolve_aruments(args.iter().skip(n), resolver, &genercs_idents);
 
-    let sign_args = fn_args(fixture).take(n);
-    let fixture_args = fn_args_idents(fixture)
+    let sign_args = args.iter().take(n);
+    let fixture_args = args
+        .iter()
+        .filter_map(MaybeIdent::maybe_ident)
         .map(|arg| parse_quote! {#arg})
         .collect::<Vec<_>>();
     let name = Ident::new(&format!("partial_{n}"), Span::call_site());
@@ -502,8 +523,8 @@ mod should {
             r#"async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32) { }"#.ast();
 
         let mut arguments = ArgumentsInfo::default();
-        arguments.add_future(ident("async_ref_u32"));
-        arguments.add_future(ident("async_u32"));
+        arguments.add_future(pat("async_ref_u32"));
+        arguments.add_future(pat("async_u32"));
 
         let tokens = render(
             item_fn.clone(),
@@ -536,8 +557,8 @@ mod should {
         let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut arguments: ArgumentsInfo = Default::default();
         arguments.set_global_await(true);
-        arguments.add_future(ident("a"));
-        arguments.add_future(ident("b"));
+        arguments.add_future(pat("a"));
+        arguments.add_future(pat("b"));
 
         let tokens = render(
             item_fn.clone(),
@@ -559,8 +580,8 @@ mod should {
     fn use_selective_await() {
         let item_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut arguments: ArgumentsInfo = Default::default();
-        arguments.set_future(ident("a"), FutureArg::Define);
-        arguments.set_future(ident("b"), FutureArg::Await);
+        arguments.set_future(pat("a"), FutureArg::Define);
+        arguments.set_future(pat("b"), FutureArg::Await);
 
         let tokens = render(
             item_fn.clone(),

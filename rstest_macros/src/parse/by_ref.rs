@@ -1,10 +1,10 @@
-use syn::{visit_mut::VisitMut, Ident, ItemFn};
+use syn::{visit_mut::VisitMut, ItemFn, Pat};
 
 use crate::error::ErrorsVec;
 
 use super::just_once::JustOnceFnArgAttributeExtractor;
 
-pub(crate) fn extract_by_ref(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+pub(crate) fn extract_by_ref(item_fn: &mut ItemFn) -> Result<Vec<Pat>, ErrorsVec> {
     let mut extractor = JustOnceFnArgAttributeExtractor::from("by_ref");
     extractor.visit_item_fn_mut(item_fn);
     extractor.take()
@@ -46,7 +46,7 @@ mod should {
         let by_refs = extract_by_ref(&mut item_fn).unwrap();
 
         assert_eq!(expected, item_fn);
-        assert_eq!(by_refs, to_idents!(expected_refs));
+        assert_eq!(by_refs, to_pats!(expected_refs));
     }
 
     #[rstest]

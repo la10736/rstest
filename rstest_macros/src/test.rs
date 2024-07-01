@@ -9,7 +9,8 @@ pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
 pub(crate) use rstest::{fixture, rstest};
-use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, Stmt};
+use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, Pat, Stmt};
+use utils::fn_args_pats;
 
 use super::*;
 use crate::parse::{
@@ -20,15 +21,17 @@ use crate::parse::{
     Attribute, Fixture, Positional,
 };
 use crate::resolver::Resolver;
-use crate::utils::fn_args_idents;
 use parse::fixture::ArgumentValue;
 
 macro_rules! to_args {
     ($e:expr) => {{
-        $e.iter()
-            .map(|s| s as &dyn AsRef<str>)
-            .map(expr)
-            .collect::<Vec<_>>()
+        $e.iter().map(expr).collect::<Vec<_>>()
+    }};
+}
+
+macro_rules! to_fnargs {
+    ($e:expr) => {{
+        $e.iter().map(fn_arg).collect::<Vec<_>>()
     }};
 }
 
@@ -47,6 +50,12 @@ macro_rules! to_strs {
 macro_rules! to_idents {
     ($e:expr) => {
         $e.iter().map(|s| ident(s)).collect::<Vec<_>>()
+    };
+}
+
+macro_rules! to_pats {
+    ($e:expr) => {
+        $e.iter().map(|s| pat(s)).collect::<Vec<_>>()
     };
 }
 
@@ -119,7 +128,31 @@ pub(crate) fn path(s: impl AsRef<str>) -> syn::Path {
     s.as_ref().ast()
 }
 
+pub(crate) fn pat(s: impl AsRef<str>) -> syn::Pat {
+    syn::parse::Parser::parse_str(Pat::parse_single, s.as_ref()).unwrap()
+}
+
+pub trait PatBuilder {
+    fn with_mut(self) -> Self;
+}
+
+impl PatBuilder for syn::Pat {
+    fn with_mut(self) -> Self {
+        match self {
+            Pat::Ident(mut ident) => {
+                ident.mutability = Some("mut".ast());
+                syn::Pat::Ident(ident)
+            }
+            _ => unimplemented!("Unsupported pattern: {:?}", self,),
+        }
+    }
+}
+
 pub(crate) fn expr(s: impl AsRef<str>) -> syn::Expr {
+    s.as_ref().ast()
+}
+
+pub(crate) fn fn_arg(s: impl AsRef<str>) -> syn::FnArg {
     s.as_ref().ast()
 }
 
@@ -141,22 +174,23 @@ pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
 }
 
 pub(crate) fn fixture(name: impl AsRef<str>, args: &[&str]) -> Fixture {
-    Fixture::new(ident(name), None, Positional(to_exprs!(args)))
+    let name = name.as_ref().to_owned();
+    Fixture::new(pat(&name), path(&name), Positional(to_exprs!(args)))
 }
 
 pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> ArgumentValue {
-    ArgumentValue::new(ident(name), expr(value))
+    ArgumentValue::new(pat(name), expr(value))
 }
 
 pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
     ValueList {
-        arg: ident(arg),
+        arg: pat(arg),
         values: values.into_iter().map(|s| expr(s).into()).collect(),
     }
 }
 
-pub(crate) fn first_arg_ident(ast: &ItemFn) -> &Ident {
-    fn_args_idents(&ast).next().unwrap()
+pub(crate) fn first_arg_pat(ast: &ItemFn) -> &Pat {
+    fn_args_pats(&ast).next().unwrap()
 }
 
 pub(crate) fn extract_inner_functions(block: &syn::Block) -> impl Iterator<Item = &syn::ItemFn> {
@@ -203,7 +237,7 @@ impl Attribute {
     }
 
     pub fn tagged<SI: AsRef<str>, SA: AsRef<str>>(tag: SI, attrs: Vec<SA>) -> Self {
-        Attribute::Tagged(ident(tag), attrs.into_iter().map(|a| ident(a)).collect())
+        Attribute::Tagged(ident(tag), attrs.into_iter().map(pat).collect())
     }
 
     pub fn typed<S: AsRef<str>, T: AsRef<str>>(tag: S, inner: T) -> Self {
@@ -223,7 +257,7 @@ impl RsTestInfo {
 
 impl Fixture {
     pub fn with_resolve(mut self, resolve_path: &str) -> Self {
-        self.resolve = Some(path(resolve_path));
+        self.resolve = path(resolve_path);
         self
     }
 }
@@ -286,7 +320,7 @@ impl From<Vec<FixtureItem>> for FixtureData {
 pub(crate) struct EmptyResolver;
 
 impl<'a> Resolver for EmptyResolver {
-    fn resolve(&self, _ident: &Ident) -> Option<Cow<Expr>> {
+    fn resolve(&self, _pat: &Pat) -> Option<Cow<Expr>> {
         None
     }
 }
@@ -339,8 +373,8 @@ pub(crate) fn ref_argument_code_string(arg_name: &str) -> String {
 
 pub(crate) fn mut_await_argument_code_string(arg_name: &str) -> String {
     let arg_name = ident(arg_name);
-    let statement: Stmt = parse_quote! {
+    let statment: Stmt = parse_quote! {
         let mut #arg_name = #arg_name.await;
     };
-    statement.display_code()
+    statment.display_code()
 }

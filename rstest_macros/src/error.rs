@@ -3,21 +3,29 @@ use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
 use syn::{spanned::Spanned, visit::Visit};
-use syn::{visit, ItemFn};
+use syn::{visit, ItemFn, Pat};
 
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestData, RsTestInfo},
 };
-use crate::refident::MaybeIdent;
+use crate::refident::{MaybeIdent, MaybePat};
 
-use super::utils::fn_args_has_ident;
+use super::utils::fn_args_has_pat;
+
+pub mod messages {
+    pub const DESTRUCT_WITHOUT_FROM : &'static str = "To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.";
+    pub fn use_more_than_once(name: &str) -> String {
+        format!("You cannot use '{name}' attribute more than once for the same argument")
+    }
+}
 
 pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
     missed_arguments(test, info.data.items.iter())
         .chain(duplicate_arguments(info.data.items.iter()))
         .chain(invalid_cases(&info.data))
         .chain(case_args_without_cases(&info.data))
+        .chain(destruct_fixture_without_from(test, info))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -27,14 +35,15 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
         .chain(duplicate_arguments(info.data.items.iter()))
         .chain(async_once(test, info))
         .chain(generics_once(test, info))
+        .chain(destruct_fixture_without_from(test, info))
         .map(|e| e.to_compile_error())
         .collect()
 }
 
 fn async_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
     match (test.sig.asyncness, info.arguments.get_once()) {
-        (Some(_asyncness), Some(once)) => Box::new(std::iter::once(syn::Error::new(
-            once.span(),
+        (Some(_asyncness), Some(once)) => Box::new(std::iter::once(syn::Error::new_spanned(
+            once,
             "Cannot apply #[once] to async fixture.",
         ))),
         _ => Box::new(std::iter::empty()),
@@ -70,12 +79,46 @@ fn has_some_generics(test: &ItemFn) -> bool {
 
 fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
     match (has_some_generics(test), info.arguments.get_once()) {
-        (true, Some(once)) => Box::new(std::iter::once(syn::Error::new(
-            once.span(),
+        (true, Some(once)) => Box::new(std::iter::once(syn::Error::new_spanned(
+            once,
             "Cannot apply #[once] on generic fixture.",
         ))),
         _ => Box::new(std::iter::empty()),
     }
+}
+
+trait IsImplicitFixture {
+    fn is_implicit_fixture(&self, pat: &Pat) -> bool;
+}
+
+impl IsImplicitFixture for FixtureInfo {
+    fn is_implicit_fixture(&self, pat: &Pat) -> bool {
+        !self.data.fixtures().any(|f| &f.arg == pat)
+    }
+}
+
+impl IsImplicitFixture for RsTestInfo {
+    fn is_implicit_fixture(&self, pat: &Pat) -> bool {
+        !self.data.case_args().any(|a| a == pat)
+            && !self.data.list_values().any(|a| &a.arg == pat)
+            && !self.data.fixtures().any(|f| &f.arg == pat)
+    }
+}
+
+fn destruct_fixture_without_from<'a>(
+    function: &'a ItemFn,
+    info: &'a impl IsImplicitFixture,
+) -> Errors<'a> {
+    Box::new(
+        function
+            .sig
+            .inputs
+            .iter()
+            .filter_map(|a| a.maybe_pat().map(|p| (a, p)))
+            .filter(|&(_, p)| p.maybe_ident().is_none())
+            .filter(|&(_, p)| info.is_implicit_fixture(p))
+            .map(|(a, _)| syn::Error::new_spanned(a, messages::DESTRUCT_WITHOUT_FROM)),
+    )
 }
 
 #[derive(Debug, Default)]
@@ -159,41 +202,46 @@ impl From<ErrorsVec> for proc_macro::TokenStream {
 
 type Errors<'a> = Box<dyn Iterator<Item = syn::Error> + 'a>;
 
-fn missed_arguments<'a, I: MaybeIdent + Spanned + 'a>(
+fn missed_arguments<'a, I: MaybePat + Spanned + 'a>(
     test: &'a ItemFn,
     args: impl Iterator<Item = &'a I> + 'a,
 ) -> Errors<'a> {
     Box::new(
-        args.filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
-            .filter(move |(_, ident)| !fn_args_has_ident(test, ident))
-            .map(|(missed, ident)| {
+        args.filter_map(|it| it.maybe_pat().map(|pat| (it, pat)))
+            .filter(move |(_, pat)| !fn_args_has_pat(test, pat))
+            .map(|(missed, pat)| {
                 syn::Error::new(
                     missed.span(),
-                    format!("Missed argument: '{ident}' should be a test function argument."),
+                    format!(
+                        "Missed argument: '{}' should be a test function argument.",
+                        pat.render_type()
+                    ),
                 )
             }),
     )
 }
 
-fn duplicate_arguments<'a, I: MaybeIdent + Spanned + 'a>(
+fn duplicate_arguments<'a, I: MaybePat + Spanned + 'a>(
     args: impl Iterator<Item = &'a I> + 'a,
 ) -> Errors<'a> {
     let mut used = HashMap::new();
     Box::new(
-        args.filter_map(|it| it.maybe_ident().map(|ident| (it, ident)))
-            .filter_map(move |(it, ident)| {
-                let name = ident.to_string();
-                let is_duplicate = used.contains_key(&name);
-                used.insert(name, it);
+        args.filter_map(|it| it.maybe_pat().map(|pat| (it, pat)))
+            .filter_map(move |(it, pat)| {
+                let is_duplicate = used.contains_key(&pat);
+                used.insert(pat, it);
                 match is_duplicate {
-                    true => Some((it, ident)),
+                    true => Some((it, pat)),
                     false => None,
                 }
             })
-            .map(|(duplicate, ident)| {
+            .map(|(duplicate, pat)| {
                 syn::Error::new(
                     duplicate.span(),
-                    format!("Duplicate argument: '{ident}' is already defined."),
+                    format!(
+                        "Duplicate argument: '{}' is already defined.",
+                        pat.render_type()
+                    ),
                 )
             }),
     )
@@ -225,9 +273,25 @@ fn case_args_without_cases(params: &RsTestData) -> Errors {
     Box::new(std::iter::empty())
 }
 
+trait RenderType {
+    fn render_type(&self) -> String;
+}
+
+impl RenderType for syn::Pat {
+    fn render_type(&self) -> String {
+        match self {
+            syn::Pat::Ident(ref i) => i.ident.to_string(),
+            other => format!("{other:?}"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::test::{assert_eq, *};
+    use crate::{
+        parse::ExtendWithFunctionAttrs,
+        test::{assert_eq, *},
+    };
     use rstest_test::assert_in;
 
     use super::*;
@@ -265,6 +329,69 @@ mod test {
         let info = FixtureInfo::default();
 
         let errors = generics_once(&f, &info);
+
+        assert_eq!(0, errors.count());
+    }
+
+    #[rstest]
+    #[case::base_in_fixture("fn f(T{a}: T){}", FixtureInfo::default(), 1)]
+    #[case::one_of_two("fn f(T{a}: T, #[from(f)] T{a: c}: T){}", FixtureInfo::default(), 1)]
+    #[case::find_all(
+        "fn f(T{a}: T, z: u32, S(a,b): S, x: u32, (f , g, h): (u32, String, f32)){}",
+        FixtureInfo::default(),
+        3
+    )]
+    #[case::base_in_test("fn f(T{a}: T){}", RsTestInfo::default(), 1)]
+    #[case::not_case_or_values(
+        "fn f(#[case] T{a}: T, #[values(T::a(),T::b())] T{v}: T, S{e}: S){}",
+        RsTestInfo::default(),
+        1
+    )]
+    #[case::mixed_more(
+        r#"fn wrong_destruct_fixture(
+            T(a, b): T,
+            #[case] T(e, f): T,
+            #[values(T(1, 2))] T(g, h): T,
+        ) {}"#,
+        RsTestInfo::default(),
+        1
+    )]
+    fn destruct_implicit_from_should_return_error(
+        #[case] f: &str,
+        #[case] mut info: impl ExtendWithFunctionAttrs + IsImplicitFixture,
+        #[case] n: usize,
+    ) {
+        let mut f: ItemFn = f.ast();
+
+        info.extend_with_function_attrs(&mut f).unwrap();
+
+        let errors = destruct_fixture_without_from(&f, &info);
+
+        let out = errors
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert_in!(out, messages::DESTRUCT_WITHOUT_FROM);
+        assert_eq!(n, out.lines().count())
+    }
+
+    #[rstest]
+    #[case::happy_fixture("fn f(#[from(b)] T{a}: T){}", FixtureInfo::default())]
+    #[case::happy_test("fn f(#[from(b)] T{a}: T){}", RsTestInfo::default())]
+    #[case::some_cases_or_values(
+        "fn f(#[case] T{a}: T, #[values(T::a(),T::b())] T{v}: T){}",
+        RsTestInfo::default()
+    )]
+    fn destruct_not_implicit_should_not_return_error(
+        #[case] f: &str,
+        #[case] mut info: impl ExtendWithFunctionAttrs + IsImplicitFixture,
+    ) {
+        let mut f: ItemFn = f.ast();
+
+        info.extend_with_function_attrs(&mut f).unwrap();
+
+        let errors = destruct_fixture_without_from(&f, &info);
 
         assert_eq!(0, errors.count());
     }

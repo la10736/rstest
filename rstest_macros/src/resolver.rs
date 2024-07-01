@@ -5,27 +5,33 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use proc_macro2::Ident;
-use syn::{parse_quote, Expr};
+use syn::{parse_quote, Expr, Pat};
 
 use crate::parse::Fixture;
 
 pub(crate) mod fixtures {
     use quote::format_ident;
 
+    use crate::parse::arguments::ArgumentsInfo;
+
     use super::*;
 
-    pub(crate) fn get<'a>(fixtures: impl Iterator<Item = &'a Fixture>) -> impl Resolver + 'a {
+    pub(crate) fn get<'a>(
+        arguments: &ArgumentsInfo,
+        fixtures: impl Iterator<Item = &'a Fixture>,
+    ) -> impl Resolver + 'a {
         fixtures
-            .map(|f| (f.name.to_string(), extract_resolve_expression(f)))
+            .map(|f| {
+                (
+                    arguments.inner_pat(&f.arg).clone(),
+                    extract_resolve_expression(f),
+                )
+            })
             .collect::<HashMap<_, Expr>>()
     }
 
     fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
-        let resolve = fixture
-            .resolve
-            .clone()
-            .unwrap_or_else(|| fixture.name.clone().into());
+        let resolve = fixture.resolve.clone();
         let positional = &fixture.positional.0;
         let f_name = match positional.len() {
             0 => format_ident!("default"),
@@ -43,11 +49,22 @@ pub(crate) mod fixtures {
         #[case(&[], "default()")]
         #[case(&["my_expression"], "partial_1(my_expression)")]
         #[case(&["first", "other"], "partial_2(first, other)")]
-        fn resolve_by_use_the_given_name(#[case] args: &[&str], #[case] expected: &str) {
+        fn resolve_by_use_the_given_name(
+            #[case] args: &[&str],
+            #[case] expected: &str,
+            #[values(None, Some("minnie"), Some("__destruct_1"))] inner_pat: Option<&str>,
+        ) {
             let data = vec![fixture("pippo", args)];
-            let resolver = get(data.iter());
+            let mut arguments: ArgumentsInfo = Default::default();
+            let mut request = pat("pippo");
+            if let Some(inner) = inner_pat {
+                arguments.set_inner_pat(pat("pippo"), pat(inner));
+                request = pat(inner);
+            }
 
-            let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
+            let resolver = get(&arguments, data.iter());
+
+            let resolved = resolver.resolve(&request).unwrap().into_owned();
 
             assert_eq!(resolved, format!("pippo::{}", expected).ast());
         }
@@ -60,11 +77,18 @@ pub(crate) mod fixtures {
             #[case] args: &[&str],
             #[case] expected: &str,
             #[values("pluto", "minnie::pluto")] resolver_path: &str,
+            #[values(None, Some("minnie"), Some("__destruct_1"))] inner_pat: Option<&str>,
         ) {
             let data = vec![fixture("pippo", args).with_resolve(resolver_path)];
-            let resolver = get(data.iter());
+            let mut arguments: ArgumentsInfo = Default::default();
+            let mut request = pat("pippo");
+            if let Some(inner) = inner_pat {
+                arguments.set_inner_pat(pat("pippo"), pat(inner));
+                request = pat(inner);
+            }
+            let resolver = get(&arguments, data.iter());
 
-            let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
+            let resolved = resolver.resolve(&request).unwrap().into_owned();
 
             assert_eq!(resolved, format!("{}::{}", resolver_path, expected).ast());
         }
@@ -77,7 +101,7 @@ pub(crate) mod values {
 
     pub(crate) fn get<'a>(values: impl Iterator<Item = &'a ArgumentValue>) -> impl Resolver + 'a {
         values
-            .map(|av| (av.name.to_string(), &av.expr))
+            .map(|av| (av.arg.clone(), &av.expr))
             .collect::<HashMap<_, &'a Expr>>()
     }
 
@@ -95,11 +119,11 @@ pub(crate) mod values {
             let resolver = get(data.iter());
 
             assert_eq!(
-                resolver.resolve(&ident("pippo")).unwrap().into_owned(),
+                resolver.resolve(&pat("pippo")).unwrap().into_owned(),
                 "42".ast()
             );
             assert_eq!(
-                resolver.resolve(&ident("donaldduck")).unwrap().into_owned(),
+                resolver.resolve(&pat("donaldduck")).unwrap().into_owned(),
                 "vec![1,2]".ast()
             );
         }
@@ -108,48 +132,61 @@ pub(crate) mod values {
 
 /// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>>;
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>>;
 }
 
-impl<'a> Resolver for HashMap<String, &'a Expr> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        let ident = ident.to_string();
-        self.get(&ident).map(|&c| Cow::Borrowed(c))
+impl<'a> Resolver for HashMap<Pat, &'a Expr> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+        self.get(arg)
+            .or_else(|| self.get(&pat_invert_mutability(arg)))
+            .map(|&c| Cow::Borrowed(c))
     }
 }
 
-impl Resolver for HashMap<String, Expr> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        let ident = ident.to_string();
-        self.get(&ident).map(Cow::Borrowed)
+impl Resolver for HashMap<Pat, Expr> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+        self.get(arg).map(Cow::Borrowed)
     }
 }
 
 impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        self.0.resolve(ident).or_else(|| self.1.resolve(ident))
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+        self.0.resolve(arg).or_else(|| self.1.resolve(arg))
     }
 }
 
 impl<R: Resolver + ?Sized> Resolver for &R {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        (*self).resolve(ident)
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+        (*self).resolve(arg)
     }
 }
 
 impl<R: Resolver + ?Sized> Resolver for Box<R> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        (**self).resolve(ident)
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+        (**self).resolve(arg)
     }
 }
 
-impl Resolver for (String, Expr) {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        if *ident == self.0 {
+impl Resolver for (Pat, Expr) {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+        if arg == &self.0 {
             Some(Cow::Borrowed(&self.1))
         } else {
             None
         }
+    }
+}
+
+pub(crate) fn pat_invert_mutability(p: &Pat) -> Pat {
+    match p.clone() {
+        Pat::Ident(mut ident) => {
+            ident.mutability = match ident.mutability {
+                Some(_) => None,
+                None => Some(syn::parse_quote! { mut }),
+            };
+            syn::Pat::Ident(ident)
+        }
+        p => p,
     }
 }
 
@@ -162,11 +199,23 @@ mod should {
     #[test]
     fn return_the_given_expression() {
         let ast = parse_str("fn function(mut foo: String) {}").unwrap();
-        let arg = first_arg_ident(&ast);
+        let arg = first_arg_pat(&ast);
         let expected = expr("bar()");
         let mut resolver = HashMap::new();
 
-        resolver.insert("foo".to_string(), &expected);
+        resolver.insert(pat("foo").with_mut(), &expected);
+
+        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+    }
+
+    #[test]
+    fn return_the_given_expression_also_if_not_mut_searched() {
+        let ast = parse_str("fn function(foo: String) {}").unwrap();
+        let arg = first_arg_pat(&ast);
+        let expected = expr("bar()");
+        let mut resolver = HashMap::new();
+
+        resolver.insert(pat("foo").with_mut(), &expected);
 
         assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
     }
@@ -174,7 +223,7 @@ mod should {
     #[test]
     fn return_none_for_unknown_argument() {
         let ast = "fn function(mut fix: String) {}".ast();
-        let arg = first_arg_ident(&ast);
+        let arg = first_arg_pat(&ast);
 
         assert!(EmptyResolver.resolve(&arg).is_none())
     }

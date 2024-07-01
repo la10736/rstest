@@ -3,19 +3,20 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_quote,
     visit_mut::VisitMut,
-    Expr, FnArg, Ident, ItemFn, Token,
+    Expr, FnArg, Ident, ItemFn, Pat, Token,
 };
 
 use super::{
     arguments::ArgumentsInfo,
-    extract_default_return_type, extract_defaults, extract_fixtures, extract_partials_return_type,
+    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
+    extract_partials_return_type,
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
 use crate::{
     error::ErrorsVec,
     parse::extract_once,
-    refident::{MaybeIdent, RefIdent},
+    refident::{IntoPat, MaybeIdent, MaybePat, MaybePatTypeMut, RefPat},
     utils::attr_is,
 };
 use crate::{parse::Attribute, utils::attr_in};
@@ -89,6 +90,9 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
         self.arguments.set_once(once);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
+        self.arguments
+            .register_inner_destructored_idents_names(item_fn);
+
         Ok(())
     }
 }
@@ -110,9 +114,7 @@ fn parse_attribute_args_just_once<'a, T: Parse>(
             (first, _) => {
                 errors.push(syn::Error::new_spanned(
                     a,
-                    format!(
-                        "You cannot use '{name}' attribute more than once for the same argument"
-                    ),
+                    crate::error::messages::use_more_than_once(name),
                 ));
                 first
             }
@@ -127,14 +129,9 @@ pub(crate) struct FixturesFunctionExtractor(pub(crate) Vec<Fixture>, pub(crate) 
 
 impl VisitMut for FixturesFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        let arg = if let FnArg::Typed(ref mut arg) = node {
-            arg
-        } else {
-            return;
-        };
-        let name = match arg.maybe_ident().cloned() {
-            Some(ident) => ident,
-            _ => return,
+        let arg = match node.maybe_pat_type_mut() {
+            Some(pt) => pt,
+            None => return,
         };
         let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
             .into_iter()
@@ -143,11 +140,58 @@ impl VisitMut for FixturesFunctionExtractor {
 
         let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
         self.1.extend(errors);
-        let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
+        let (resolve, errors): (Option<syn::Path>, _) =
+            parse_attribute_args_just_once(extracted.iter(), "from");
         self.1.extend(errors);
-        if pos.is_some() || resolve.is_some() {
-            self.0
-                .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
+
+        match (resolve, arg.pat.maybe_ident()) {
+            (Some(res), _) => self.0.push(Fixture::new(
+                arg.pat.as_ref().clone(),
+                res,
+                pos.unwrap_or_default(),
+            )),
+            (None, Some(ident)) if pos.is_some() => self.0.push(Fixture::new(
+                arg.pat.as_ref().clone(),
+                ident.clone().into(),
+                pos.unwrap_or_default(),
+            )),
+            (None, None) if pos.is_some() => {
+                self.1.push(syn::Error::new_spanned(
+                    node,
+                    crate::error::messages::DESTRUCT_WITHOUT_FROM,
+                ));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Simple struct used to visit function attributes and extract fixture default values info and
+/// eventualy parsing errors
+#[derive(Default)]
+pub(crate) struct DefaultsFunctionExtractor(
+    pub(crate) Vec<ArgumentValue>,
+    pub(crate) Vec<syn::Error>,
+);
+
+impl VisitMut for DefaultsFunctionExtractor {
+    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
+        let pat = match node.maybe_pat() {
+            Some(pat) => pat.clone(),
+            None => return,
+        };
+        for r in extract_argument_attrs(
+            node,
+            |a| attr_is(a, "default"),
+            |a| {
+                a.parse_args::<Expr>()
+                    .map(|e| ArgumentValue::new(pat.clone(), e))
+            },
+        ) {
+            match r {
+                Ok(value) => self.0.push(value),
+                Err(err) => self.1.push(err),
+            }
         }
     }
 }
@@ -187,13 +231,13 @@ impl Parse for FixtureData {
 
 #[derive(PartialEq, Debug)]
 pub(crate) struct ArgumentValue {
-    pub name: Ident,
+    pub arg: Pat,
     pub expr: Expr,
 }
 
 impl ArgumentValue {
-    pub(crate) fn new(name: Ident, expr: Expr) -> Self {
-        Self { name, expr }
+    pub(crate) fn new(arg: Pat, expr: Expr) -> Self {
+        Self { arg, expr }
     }
 }
 
@@ -219,18 +263,24 @@ impl Parse for FixtureItem {
     }
 }
 
-impl RefIdent for FixtureItem {
-    fn ident(&self) -> &Ident {
+impl RefPat for FixtureItem {
+    fn pat(&self) -> &Pat {
         match self {
-            FixtureItem::Fixture(Fixture { ref name, .. }) => name,
-            FixtureItem::ArgumentValue(ref av) => &av.name,
+            FixtureItem::Fixture(Fixture { ref arg, .. }) => arg,
+            FixtureItem::ArgumentValue(ref av) => &av.arg,
         }
+    }
+}
+
+impl MaybePat for FixtureItem {
+    fn maybe_pat(&self) -> Option<&syn::Pat> {
+        Some(self.pat())
     }
 }
 
 impl ToTokens for FixtureItem {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.ident().to_tokens(tokens)
+        self.pat().to_tokens(tokens)
     }
 }
 
@@ -242,10 +292,10 @@ impl From<ArgumentValue> for FixtureItem {
 
 impl Parse for ArgumentValue {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
+        let name: Ident = input.parse()?;
         let _eq: Token![=] = input.parse()?;
         let expr = input.parse()?;
-        Ok(ArgumentValue::new(name, expr))
+        Ok(ArgumentValue::new(name.into_pat(), expr))
     }
 }
 
@@ -572,8 +622,8 @@ mod extend {
             info.extend_with_function_attrs(&mut item_fn).unwrap();
 
             assert_eq!(item_fn, expected);
-            assert!(info.arguments.is_future(&ident("a")));
-            assert!(!info.arguments.is_future(&ident("b")));
+            assert!(info.arguments.is_future(&pat("a")));
+            assert!(!info.arguments.is_future(&pat("b")));
         }
 
         mod raise_error {
@@ -622,6 +672,21 @@ mod extend {
                     .unwrap_or_default();
 
                 assert_eq!(3, errors.len());
+            }
+
+            #[test]
+            fn fixture_destruct_without_from() {
+                let mut item_fn: ItemFn = r#"
+                    fn my_fix(#[with(1)] T{a}: T) {}
+                "#
+                .ast();
+
+                let errors = FixtureInfo::default()
+                    .extend_with_function_attrs(&mut item_fn)
+                    .err()
+                    .unwrap_or_default();
+
+                assert_in!(errors[0].to_string(), "destruct");
             }
 
             #[test]
