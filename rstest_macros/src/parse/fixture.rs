@@ -8,8 +8,7 @@ use syn::{
 
 use super::{
     arguments::ArgumentsInfo,
-    extract_argument_attrs, extract_default_return_type, extract_defaults, extract_fixtures,
-    extract_partials_return_type,
+    extract_default_return_type, extract_defaults, extract_fixtures, extract_partials_return_type,
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
@@ -149,32 +148,6 @@ impl VisitMut for FixturesFunctionExtractor {
         if pos.is_some() || resolve.is_some() {
             self.0
                 .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
-        }
-    }
-}
-
-/// Simple struct used to visit function attributes and extract fixture default values info and
-/// eventualy parsing errors
-#[derive(Default)]
-pub(crate) struct DefaultsFunctionExtractor(
-    pub(crate) Vec<ArgumentValue>,
-    pub(crate) Vec<syn::Error>,
-);
-
-impl VisitMut for DefaultsFunctionExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        for r in extract_argument_attrs(
-            node,
-            |a| attr_is(a, "default"),
-            |a, name| {
-                a.parse_args::<Expr>()
-                    .map(|e| ArgumentValue::new(name.clone(), e))
-            },
-        ) {
-            match r {
-                Ok(value) => self.0.push(value),
-                Err(err) => self.1.push(err),
-            }
         }
     }
 }

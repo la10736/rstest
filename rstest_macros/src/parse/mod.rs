@@ -340,23 +340,6 @@ impl VisitMut for PartialsTypeFunctionExtractor {
         };
     }
 }
-/// Simple struct used to visit function attributes and extract case arguments and
-/// eventualy parsing errors
-#[derive(Default)]
-struct CaseArgsFunctionExtractor(Vec<Ident>, Vec<syn::Error>);
-
-impl VisitMut for CaseArgsFunctionExtractor {
-    fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        for r in extract_argument_attrs(node, |a| attr_is(a, "case"), |_a, name| Ok(name.clone())) {
-            match r {
-                Ok(value) => self.0.push(value),
-                Err(err) => self.1.push(err),
-            }
-        }
-
-        syn::visit_mut::visit_fn_arg_mut(self, node);
-    }
-}
 
 pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
     let mut extractor = JustOnceFnArgAttributeExtractor::from("case");
