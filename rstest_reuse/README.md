@@ -9,7 +9,7 @@ This crate gives a way to define tests set and apply them to every case you need
 test. With `rstest` crate you can define a tests list but if you want to apply the same tests
 to another test function you must rewrite all cases or write some macros that do the job.
 
-Both solutions have some drawbreak:
+Both solutions have some drawbacks:
 
 - introduce duplication
 - macros makes code harder to read and shift out the focus from tests core
@@ -24,7 +24,8 @@ Here is a simple example:
 ```rust
 use rstest::rstest;
 use rstest_reuse::{self, *};
-// Here we define the template. This define
+
+// Here we define the template. This defines
 // * The test list name to `two_simple_cases`
 // * cases: here two cases
 #[template]
@@ -33,7 +34,9 @@ use rstest_reuse::{self, *};
 #[case(4/2, 2)]
 // Define a and b as cases arguments
 fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
-// Here we apply the `two_simple_cases` template: That is expanded in
+
+// Here we apply the `two_simple_cases` template.
+// This is expanded into:
 // #[template]
 // #[rstest]
 // #[case(2, 2)]
@@ -45,8 +48,9 @@ fn two_simple_cases(#[case] a: u32, #[case] b: u32) {}
 fn it_works(a: u32, b: u32) {
     assert!(a == b);
 }
+
 // Here we reuse the `two_simple_cases` template to create two 
-// other tests
+// other tests:
 #[apply(two_simple_cases)]
 fn it_fail(a: u32, b: u32) {
     assert!(a != b);
