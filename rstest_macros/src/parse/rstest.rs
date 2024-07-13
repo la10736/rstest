@@ -506,7 +506,7 @@ mod test {
         }
 
         #[test]
-        fn extract_notrace_args_atttribute() {
+        fn extract_notrace_args_attribute() {
             let mut item_fn = r#"
             fn test_fn(#[notrace] a: u32, #[something_else] b: &str, #[notrace] c: i32) {
             }

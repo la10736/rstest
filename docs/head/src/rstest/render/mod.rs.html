@@ -580,7 +580,7 @@
     <span class="kw">if</span> <span class="ident">trace_me</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
         <span class="ident">attributes</span>.<span class="ident">add_trace</span>(<span class="macro">format_ident!</span>(<span class="string">&quot;trace&quot;</span>));
     }
-    <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">inject::resolve_aruments</span>(<span class="ident">args</span>.<span class="ident">iter</span>(), <span class="kw-2">&amp;</span><span class="ident">resolver</span>, <span class="ident">generic_types</span>);
+    <span class="kw">let</span> <span class="ident">inject</span> <span class="op">=</span> <span class="ident">inject::resolve_arguments</span>(<span class="ident">args</span>.<span class="ident">iter</span>(), <span class="kw-2">&amp;</span><span class="ident">resolver</span>, <span class="ident">generic_types</span>);
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">args</span>
         .<span class="ident">iter</span>()
         .<span class="ident">filter_map</span>(<span class="ident">MaybeIdent::maybe_ident</span>)

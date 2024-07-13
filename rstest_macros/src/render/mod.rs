@@ -29,13 +29,13 @@ use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
 
-use self::apply_argumets::ApplyArgumets;
+use self::apply_arguments::ApplyArguments;
 use self::crate_resolver::crate_name;
-pub(crate) mod apply_argumets;
+pub(crate) mod apply_arguments;
 pub(crate) mod inject;
 
 pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&info.arguments);
+    test.apply_arguments(&info.arguments);
     let resolver = resolver::fixtures::get(info.data.fixtures());
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
@@ -56,7 +56,7 @@ pub(crate) fn single(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
 }
 
 pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&info.arguments);
+    test.apply_arguments(&info.arguments);
     let resolver_fixtures = resolver::fixtures::get(info.data.fixtures());
 
     let rendered_cases = cases_data(&info.data, test.sig.ident.span())
@@ -139,7 +139,7 @@ fn _matrix_recursive<'a>(
 }
 
 pub(crate) fn matrix(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&info.arguments);
+    test.apply_arguments(&info.arguments);
     let span = test.sig.ident.span();
 
     let cases = cases_data(&info.data, span).collect::<Vec<_>>();
@@ -247,7 +247,7 @@ fn single_test_case(
         attributes.add_trace(format_ident!("trace"));
     }
     let generics_types = generics_types_ident(generics).cloned().collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(args.iter(), &resolver, &generics_types);
+    let inject = inject::resolve_arguments(args.iter(), &resolver, &generics_types);
     let args = args
         .iter()
         .filter_map(MaybeIdent::maybe_ident)
@@ -264,7 +264,7 @@ fn single_test_case(
         .last()
         .map(|attribute| attribute.parse_args::<Expr>().unwrap());
 
-    // If no injected attribut provided use the default one
+    // If no injected attribute provided use the default one
     let test_attr = if attrs
         .iter()
         .any(|a| attr_ends_with(a, &parse_quote! {test}))

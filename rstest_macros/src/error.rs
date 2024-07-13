@@ -237,7 +237,7 @@ mod test {
     #[case::const_generics("fn f<const N: usize>(){}")]
     #[case::lifetimes("fn f<'a>(){}")]
     #[case::use_impl_in_answer("fn f() -> impl Iterator<Item=u32>{}")]
-    #[case::use_impl_in_argumets("fn f(it: impl Iterator<Item=u32>){}")]
+    #[case::use_impl_in_arguments("fn f(it: impl Iterator<Item=u32>){}")]
     #[should_panic]
     #[case::sanity_check_with_no_generics("fn f() {}")]
     fn generics_once_should_return_error(#[case] f: &str) {
@@ -259,7 +259,7 @@ mod test {
     #[case::const_generics("fn f<const N: usize>(){}")]
     #[case::lifetimes("fn f<'a>(){}")]
     #[case::use_impl_in_answer("fn f() -> impl Iterator<Item=u32>{}")]
-    #[case::use_impl_in_argumets("fn f(it: impl Iterator<Item=u32>){}")]
+    #[case::use_impl_in_arguments("fn f(it: impl Iterator<Item=u32>){}")]
     fn generics_once_should_not_return_if_no_once(#[case] f: &str) {
         let f: ItemFn = f.ast();
         let info = FixtureInfo::default();

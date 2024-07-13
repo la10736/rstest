@@ -3,7 +3,7 @@ use syn::{parse_quote, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
-use super::apply_argumets::ApplyArgumets;
+use super::apply_arguments::ApplyArguments;
 use super::{inject, render_exec_call};
 use crate::resolver::{self, Resolver};
 use crate::utils::{fn_args, fn_args_idents};
@@ -33,7 +33,7 @@ fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -
 }
 
 pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
-    fixture.apply_argumets(&info.arguments);
+    fixture.apply_arguments(&info.arguments);
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
     let vargs = fn_args_idents(&fixture).cloned().collect::<Vec<_>>();
@@ -60,7 +60,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
+    let inject = inject::resolve_arguments(fixture.sig.inputs.iter(), &resolver, &generics_idents);
 
     let partials =
         (1..=orig_args.len()).map(|n| render_partial_impl(&fixture, n, &resolver, &info));
@@ -127,7 +127,7 @@ fn render_partial_impl(
         .cloned()
         .collect::<Vec<_>>();
     let inject =
-        inject::resolve_aruments(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
+        inject::resolve_arguments(fixture.sig.inputs.iter().skip(n), resolver, &genercs_idents);
 
     let sign_args = fn_args(fixture).take(n);
     let fixture_args = fn_args_idents(fixture)
@@ -295,8 +295,8 @@ mod should {
         ));
 
         let body = select_method(out.core_impl, method).unwrap().block;
-        let last_statment = body.stmts.last().unwrap();
-        let is_await = match last_statment {
+        let last_statement = body.stmts.last().unwrap();
+        let is_await = match last_statement {
             syn::Stmt::Expr(syn::Expr::Await(_), _) => true,
             _ => false,
         };

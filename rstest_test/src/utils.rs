@@ -155,22 +155,22 @@ impl<S: AsRef<str>> TestResult<S> {
         }
     }
 
-    fn ok(name: S, exactly: bool, occurence: usize) -> Self {
+    fn ok(name: S, exactly: bool, occurrence: usize) -> Self {
         Self::Ok(
             name,
             TestInfo {
                 exactly,
-                times: occurence,
+                times: occurrence,
             },
         )
     }
 
-    fn fail(name: S, exactly: bool, occurence: usize) -> Self {
+    fn fail(name: S, exactly: bool, occurrence: usize) -> Self {
         Self::Fail(
             name,
             TestInfo {
                 exactly,
-                times: occurence,
+                times: occurrence,
             },
         )
     }
@@ -245,12 +245,12 @@ where
         }
     }
 
-    pub fn ok_with(self, name: S, exactly: bool, occurence: usize) -> Self {
-        self.append(TestResult::ok(name, exactly, occurence))
+    pub fn ok_with(self, name: S, exactly: bool, occurrence: usize) -> Self {
+        self.append(TestResult::ok(name, exactly, occurrence))
     }
 
-    pub fn fail_with(self, name: S, exactly: bool, occurence: usize) -> Self {
-        self.append(TestResult::fail(name, exactly, occurence))
+    pub fn fail_with(self, name: S, exactly: bool, occurrence: usize) -> Self {
+        self.append(TestResult::fail(name, exactly, occurrence))
     }
 
     pub fn ok(self, name: S) -> Self {
@@ -271,14 +271,14 @@ where
         self.fail_with(name, false, 1)
     }
 
-    pub fn ok_times(self, name: S, occurence: usize) -> Self {
+    pub fn ok_times(self, name: S, occurrence: usize) -> Self {
         let contains = self.contains;
-        self.ok_with(name, !contains, occurence)
+        self.ok_with(name, !contains, occurrence)
     }
 
-    pub fn fail_times(self, name: S, occurence: usize) -> Self {
+    pub fn fail_times(self, name: S, occurrence: usize) -> Self {
         let contains = self.contains;
-        self.fail_with(name, !contains, occurence)
+        self.fail_with(name, !contains, occurrence)
     }
 
     pub(crate) fn append(mut self, test: TestResult<S>) -> Self {
@@ -381,8 +381,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_count_message_occurence() {
-        let foo_occurences = "
+    fn should_count_message_occurrence() {
+        let foo_occurrences = "
         foobaz
         bar
         foobazfoo
@@ -391,11 +391,11 @@ mod test {
         "
         .count("foo");
 
-        assert_eq!(3, foo_occurences);
+        assert_eq!(3, foo_occurrences);
     }
 
     #[test]
-    fn should_count_regex_occurence() {
+    fn should_count_regex_occurrence() {
         let message = "
         123
         aa2bb

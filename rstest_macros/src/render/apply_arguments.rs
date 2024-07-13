@@ -6,12 +6,12 @@ use crate::{
     refident::{MaybeIdent, MaybePatIdent, RemoveMutability},
 };
 
-pub(crate) trait ApplyArgumets<R: Sized = ()> {
-    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) -> R;
+pub(crate) trait ApplyArguments<R: Sized = ()> {
+    fn apply_arguments(&mut self, arguments: &ArgumentsInfo) -> R;
 }
 
-impl ApplyArgumets<Option<Lifetime>> for FnArg {
-    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) -> Option<Lifetime> {
+impl ApplyArguments<Option<Lifetime>> for FnArg {
+    fn apply_arguments(&mut self, arguments: &ArgumentsInfo) -> Option<Lifetime> {
         if self
             .maybe_ident()
             .map(|id| arguments.is_future(id))
@@ -42,12 +42,12 @@ fn extend_generics_with_lifetimes<'a, 'b>(
     }
 }
 
-impl ApplyArgumets for Signature {
-    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) {
+impl ApplyArguments for Signature {
+    fn apply_arguments(&mut self, arguments: &ArgumentsInfo) {
         let new_lifetimes = self
             .inputs
             .iter_mut()
-            .filter_map(|arg| arg.apply_argumets(arguments))
+            .filter_map(|arg| arg.apply_arguments(arguments))
             .collect::<Vec<_>>();
         if !new_lifetimes.is_empty() || !self.generics.params.is_empty() {
             let new_generics =
@@ -57,8 +57,8 @@ impl ApplyArgumets for Signature {
     }
 }
 
-impl ApplyArgumets for ItemFn {
-    fn apply_argumets(&mut self, arguments: &ArgumentsInfo) {
+impl ApplyArguments for ItemFn {
+    fn apply_arguments(&mut self, arguments: &ArgumentsInfo) {
         let rebound_awaited_args = self
             .sig
             .inputs
@@ -76,7 +76,7 @@ impl ApplyArgumets for ItemFn {
                 #orig_block_impl
             }
         };
-        self.sig.apply_argumets(arguments);
+        self.sig.apply_arguments(arguments);
     }
 }
 
@@ -129,7 +129,7 @@ mod should {
         let mut item_fn: ItemFn = item_fn.ast();
         let orig = item_fn.clone();
 
-        item_fn.sig.apply_argumets(&ArgumentsInfo::default());
+        item_fn.sig.apply_arguments(&ArgumentsInfo::default());
 
         assert_eq!(orig, item_fn)
     }
@@ -176,7 +176,7 @@ mod should {
             .into_iter()
             .for_each(|&f| arguments.add_future(ident(f)));
 
-        item_fn.sig.apply_argumets(&arguments);
+        item_fn.sig.apply_arguments(&arguments);
 
         assert_eq!(expected, item_fn)
     }
@@ -210,7 +210,7 @@ mod should {
             .into_iter()
             .for_each(|&f| arguments.add_future(ident(f)));
 
-        item_fn.sig.apply_argumets(&arguments);
+        item_fn.sig.apply_arguments(&arguments);
 
         assert_eq!(expected, item_fn)
     }
@@ -230,7 +230,7 @@ mod should {
             arguments.add_future(ident("a"));
             arguments.add_future(ident("b"));
 
-            item_fn.apply_argumets(&arguments);
+            item_fn.apply_arguments(&arguments);
 
             let code = item_fn.block.display_code();
 
@@ -246,7 +246,7 @@ mod should {
             arguments.set_future(ident("a"), FutureArg::Define);
             arguments.set_future(ident("b"), FutureArg::Await);
 
-            item_fn.apply_argumets(&arguments);
+            item_fn.apply_arguments(&arguments);
 
             let code = item_fn.block.display_code();
 
@@ -261,7 +261,7 @@ mod should {
             let mut arguments: ArgumentsInfo = Default::default();
             arguments.set_future(ident("a"), FutureArg::Await);
 
-            item_fn.apply_argumets(&arguments);
+            item_fn.apply_arguments(&arguments);
 
             let code = item_fn.block.display_code();
             assert_in!(code, mut_await_argument_code_string("a"));

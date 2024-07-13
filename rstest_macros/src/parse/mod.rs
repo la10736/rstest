@@ -349,7 +349,7 @@ pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Ident>, Erro
 }
 
 /// Simple struct used to visit function attributes and extract cases and
-/// eventualy parsing errors
+/// eventually parsing errors
 #[derive(Default)]
 struct CasesFunctionExtractor(Vec<TestCase>, Vec<syn::Error>);
 
@@ -412,7 +412,7 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
 }
 
 /// Simple struct used to visit function args attributes to extract the
-/// excluded ones and eventualy parsing errors
+/// excluded ones and eventually parsing errors
 struct ExcludedTraceAttributesFunctionExtractor(Result<Vec<Ident>, ErrorsVec>);
 impl From<Result<Vec<Ident>, ErrorsVec>> for ExcludedTraceAttributesFunctionExtractor {
     fn from(inner: Result<Vec<Ident>, ErrorsVec>) -> Self {
