@@ -11,6 +11,7 @@ use super::{
     check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
     extract_fixtures, extract_value_list,
     future::{extract_futures, extract_global_awt},
+    ignore::extract_ignores,
     parse_vector_trailing_till_double_comma,
     testcase::TestCase,
     Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
@@ -51,18 +52,20 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(_inner, excluded, _timeout, futures, global_awt, by_refs) = merge_errors!(
+        let composed_tuple!(_inner, excluded, _timeout, futures, global_awt, by_refs, ignores) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
             extract_futures(item_fn),
             extract_global_awt(item_fn),
-            extract_by_ref(item_fn)
+            extract_by_ref(item_fn),
+            extract_ignores(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
         self.arguments.set_by_refs(by_refs.into_iter());
+        self.arguments.set_ignores(ignores.into_iter());
         Ok(())
     }
 }
