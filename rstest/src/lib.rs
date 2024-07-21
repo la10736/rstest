@@ -1107,6 +1107,10 @@ pub use rstest_macros::fixture;
 /// in this case the `#[actix_rt::test]` attribute will replace the standard `#[test]`
 /// attribute.
 ///
+/// Some test attributes allow to inject arguments into the test function, in a similar way to rstest.
+/// This can lead to compile errors when rstest is not able to resolve the additional arguments.
+/// To avoid this, see [Ignoring Arguments](attr.rstest.html#ignoring-arguments).
+///
 /// ## Local lifetime and `#[by_ref]` attribute
 ///
 /// In some cases you may want to use a local lifetime for some arguments of your test.

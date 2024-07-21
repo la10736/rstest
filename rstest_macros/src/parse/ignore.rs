@@ -49,13 +49,12 @@ mod should {
         assert_eq!(by_refs, to_idents!(expected_refs));
     }
 
-    #[rstest]
-    #[case::no_more_than_one("fn f(#[ignore] #[ignore] a: u32) {}", "more than once")]
-    fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
-        let mut item_fn: ItemFn = item_fn.ast();
+    #[test]
+    fn raise_error() {
+        let mut item_fn: ItemFn = "fn f(#[ignore] #[ignore] a: u32) {}".ast();
 
         let err = extract_ignores(&mut item_fn).unwrap_err();
 
-        assert_in!(format!("{:?}", err), message);
+        assert_in!(format!("{:?}", err), "more than once");
     }
 }
