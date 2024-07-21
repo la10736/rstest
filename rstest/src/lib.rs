@@ -1182,6 +1182,30 @@ pub use rstest_macros::fixture;
 /// }
 /// ```
 ///
+/// ## Ignoring Arguments
+///
+/// Sometimes, you may want to inject and use fixtures not managed by rstest
+/// (e.g. db connection pools for sqlx tests).
+///
+/// In these cases, you can use the `#[ignore]` attribute to ignore the additional
+/// parameter and let another crate take care of it:
+///
+/// ```rust, ignore
+/// use rstest::*;
+/// use sqlx::*;
+///
+/// #[fixture]
+/// fn my_fixture() -> i32 { 42 }
+///
+/// #[rstest]
+/// #[sqlx::test]
+/// async fn test_db(my_fixture: i32, #[ignore] pool: PgPool) {
+///     assert_eq!(42, injected);
+///     // do stuff with the connection pool
+/// }
+/// ```
+///
+///
 /// ## Trace Input Arguments
 ///
 /// Sometimes can be very helpful to print all test's input arguments. To
