@@ -6,6 +6,8 @@
 
 ### Add
 
+- Implemented `#[ignore]` attribute to ignore test parameters during fixtures resolution/injection. See [#228](https://github.com/la10736/rstest/issues/228) for details
+
 ### Fixed
 
 ## [0.21.0] 2024/6/1

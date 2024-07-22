@@ -31,6 +31,7 @@ pub(crate) mod by_ref;
 pub(crate) mod expressions;
 pub(crate) mod fixture;
 pub(crate) mod future;
+pub(crate) mod ignore;
 pub(crate) mod just_once;
 pub(crate) mod rstest;
 pub(crate) mod testcase;

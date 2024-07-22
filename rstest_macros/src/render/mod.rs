@@ -247,7 +247,15 @@ fn single_test_case(
         attributes.add_trace(format_ident!("trace"));
     }
     let generics_types = generics_types_ident(generics).cloned().collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(args.iter(), &resolver, &generics_types);
+
+    let (injectable_args, ignored_args): (Vec<_>, Vec<_>) =
+        args.iter().partition(|arg| match arg.maybe_ident() {
+            Some(ident) => !info.arguments.is_ignore(ident),
+            None => true,
+        });
+
+    let inject = inject::resolve_aruments(injectable_args.into_iter(), &resolver, &generics_types);
+
     let args = args
         .iter()
         .filter_map(MaybeIdent::maybe_ident)
@@ -273,6 +281,7 @@ fn single_test_case(
     } else {
         Some(resolve_default_test_attr(is_async))
     };
+
     let args = args
         .into_iter()
         .map(|arg| {
@@ -283,13 +292,14 @@ fn single_test_case(
             }
         })
         .collect::<Vec<_>>();
+
     let execute = render_test_call(testfn_name.clone().into(), &args, timeout, is_async);
     let lifetimes = generics.lifetimes();
 
     quote! {
         #test_attr
         #(#attrs)*
-        #asyncness fn #name<#(#lifetimes,)*>() #output {
+        #asyncness fn #name<#(#lifetimes,)*>(#(#ignored_args,)*) #output {
             #test_impl
             #inject
             #trace_args

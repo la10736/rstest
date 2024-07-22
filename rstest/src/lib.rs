@@ -1107,6 +1107,10 @@ pub use rstest_macros::fixture;
 /// in this case the `#[actix_rt::test]` attribute will replace the standard `#[test]`
 /// attribute.
 ///
+/// Some test attributes allow to inject arguments into the test function, in a similar way to rstest.
+/// This can lead to compile errors when rstest is not able to resolve the additional arguments.
+/// To avoid this, see [Ignoring Arguments](attr.rstest.html#ignoring-arguments).
+///
 /// ## Local lifetime and `#[by_ref]` attribute
 ///
 /// In some cases you may want to use a local lifetime for some arguments of your test.
@@ -1181,6 +1185,30 @@ pub use rstest_macros::fixture;
 ///     repository.find_items(&user, query).unwrap();
 /// }
 /// ```
+///
+/// ## Ignoring Arguments
+///
+/// Sometimes, you may want to inject and use fixtures not managed by rstest
+/// (e.g. db connection pools for sqlx tests).
+///
+/// In these cases, you can use the `#[ignore]` attribute to ignore the additional
+/// parameter and let another crate take care of it:
+///
+/// ```rust, ignore
+/// use rstest::*;
+/// use sqlx::*;
+///
+/// #[fixture]
+/// fn my_fixture() -> i32 { 42 }
+///
+/// #[rstest]
+/// #[sqlx::test]
+/// async fn test_db(my_fixture: i32, #[ignore] pool: PgPool) {
+///     assert_eq!(42, injected);
+///     // do stuff with the connection pool
+/// }
+/// ```
+///
 ///
 /// ## Trace Input Arguments
 ///

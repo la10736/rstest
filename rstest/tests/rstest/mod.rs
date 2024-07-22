@@ -1005,6 +1005,22 @@ fn ignore_underscore_args() {
 }
 
 #[test]
+fn ignore_args_not_fixtures() {
+    let prj = prj("ignore_not_fixture_arg.rs");
+    prj.add_dependency(
+        "sqlx",
+        r#"{version="*", features=["sqlite","macros","runtime-tokio"]}"#,
+    );
+
+    let output = prj.run_tests().unwrap();
+
+    TestResults::new()
+        .with_contains(true)
+        .ok("test_db")
+        .assert(output);
+}
+
+#[test]
 fn timeout() {
     let mut prj = prj("timeout.rs");
     prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);

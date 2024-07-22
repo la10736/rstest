@@ -16,6 +16,7 @@ pub(crate) enum FutureArg {
 pub(crate) struct ArgumentInfo {
     future: FutureArg,
     by_ref: bool,
+    ignore: bool,
 }
 
 impl ArgumentInfo {
@@ -29,6 +30,13 @@ impl ArgumentInfo {
     fn by_ref() -> Self {
         Self {
             by_ref: true,
+            ..Default::default()
+        }
+    }
+
+    fn ignore() -> Self {
+        Self {
+            ignore: true,
             ..Default::default()
         }
     }
@@ -47,6 +55,10 @@ impl ArgumentInfo {
 
     fn is_by_ref(&self) -> bool {
         self.by_ref
+    }
+
+    fn is_ignore(&self) -> bool {
+        self.ignore
     }
 }
 
@@ -115,14 +127,32 @@ impl ArgumentsInfo {
             .or_insert_with(ArgumentInfo::by_ref);
     }
 
+    pub(crate) fn set_ignore(&mut self, ident: Ident) {
+        self.args
+            .entry(ident)
+            .and_modify(|v| v.ignore = true)
+            .or_insert_with(ArgumentInfo::ignore);
+    }
+
     pub(crate) fn set_by_refs(&mut self, by_refs: impl Iterator<Item = Ident>) {
         by_refs.for_each(|ident| self.set_by_ref(ident));
+    }
+
+    pub(crate) fn set_ignores(&mut self, ignores: impl Iterator<Item = Ident>) {
+        ignores.for_each(|ident| self.set_ignore(ident));
     }
 
     pub(crate) fn is_by_refs(&self, id: &Ident) -> bool {
         self.args
             .get(id)
             .map(|arg| arg.is_by_ref())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn is_ignore(&self, id: &Ident) -> bool {
+        self.args
+            .get(id)
+            .map(|arg| arg.is_ignore())
             .unwrap_or_default()
     }
 }
