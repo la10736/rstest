@@ -216,9 +216,9 @@ mod should {
         // Just to see the errors if fixture doesn't compile
         assert_in!(output.stderr.str(), "Exec fixture() just once");
 
-        let occurences = output.stderr.str().count("Exec fixture() just once");
+        let occurrences = output.stderr.str().count("Exec fixture() just once");
 
-        assert_eq!(1, occurences);
+        assert_eq!(1, occurrences);
     }
 
     mod show_correct_errors {

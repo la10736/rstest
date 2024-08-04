@@ -12,6 +12,8 @@
 
 ### Fixed
 
+- Lot of typo in code
+
 ## [0.21.0] 2024/6/1
 
 ### Changed

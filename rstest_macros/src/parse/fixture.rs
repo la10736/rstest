@@ -122,7 +122,7 @@ fn parse_attribute_args_just_once<'a, T: Parse>(
 }
 
 /// Simple struct used to visit function attributes and extract Fixtures and
-/// eventualy parsing errors
+/// eventually parsing errors
 #[derive(Default)]
 pub(crate) struct FixturesFunctionExtractor(pub(crate) Vec<Fixture>, pub(crate) Vec<syn::Error>);
 

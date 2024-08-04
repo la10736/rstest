@@ -84,7 +84,7 @@
 //! Simple and neat!
 //!
 //! Note that if the test arguments names match the template's ones you can don't
-//! repeate the arguments attributes.
+//! repeat the arguments attributes.
 //!
 //! ## Composition and Values
 //!
@@ -179,9 +179,9 @@
 //! ```
 //! use rstest_reuse::*;
 //! ```
-//! is not enougth: this statment doesn't include `rstest_reuse` but just its public items.
+//! is not enough: this statement doesn't include `rstest_reuse` but just its public items.
 //!
-//! ## Disclamer
+//! ## Disclaimer
 //!
 //! This crate is in developer stage. I don't know if I'll include it in `rstest` or changing some syntax in
 //! the future.

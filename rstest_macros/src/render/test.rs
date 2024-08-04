@@ -27,10 +27,10 @@ impl SetAsync for ItemFn {
 
 fn trace_argument_code_string(arg_name: &str) -> String {
     let arg_name = ident(arg_name);
-    let statment: Stmt = parse_quote! {
+    let statement: Stmt = parse_quote! {
         println!("{} = {:?}", stringify!(#arg_name) ,#arg_name);
     };
-    statment.display_code()
+    statement.display_code()
 }
 
 mod single_test_should {
@@ -1289,12 +1289,12 @@ mod matrix_cases_should {
         assert!(tests.len() > 0);
 
         for test in tests {
-            let filterd: Vec<_> = test
+            let filtered: Vec<_> = test
                 .attrs
                 .into_iter()
                 .filter(|a| !filter.contains(a))
                 .collect();
-            assert_eq!(attributes, filterd);
+            assert_eq!(attributes, filtered);
         }
     }
 

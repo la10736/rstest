@@ -84,8 +84,8 @@ fn _is_used(
         return true;
     }
     if references.contains_key(id) {
-        for refered in references.get(id).unwrap() {
-            if _is_used(visited, refered, references, ends) {
+        for referred in references.get(id).unwrap() {
+            if _is_used(visited, referred, references, ends) {
                 return true;
             }
         }
@@ -306,7 +306,7 @@ mod test {
     #[test]
     fn fn_args_has_pat_should() {
         let item_fn = parse_quote! {
-            fn the_functon(first: u32, second: u32) {}
+            fn the_function(first: u32, second: u32) {}
         };
 
         assert!(fn_args_has_pat(&item_fn, &pat("first")));
