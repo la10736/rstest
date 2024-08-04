@@ -30,13 +30,13 @@ use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
 
-use self::apply_argumets::ApplyArguments;
+use self::apply_arguments::ApplyArguments;
 use self::crate_resolver::crate_name;
-pub(crate) mod apply_argumets;
+pub(crate) mod apply_arguments;
 pub(crate) mod inject;
 
 pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&mut info.arguments, &mut ());
+    test.apply_arguments(&mut info.arguments, &mut ());
 
     let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
@@ -60,7 +60,7 @@ pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
 
 pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     let mut arguments_info = info.arguments.clone();
-    test.apply_argumets(&mut arguments_info, &mut ());
+    test.apply_arguments(&mut arguments_info, &mut ());
 
     let resolver_fixtures = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
@@ -154,7 +154,7 @@ fn _matrix_recursive<'a>(
 }
 
 pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
-    test.apply_argumets(&mut info.arguments, &mut ());
+    test.apply_arguments(&mut info.arguments, &mut ());
     let span = test.sig.ident.span();
 
     let cases = cases_data(&info, span).collect::<Vec<_>>();
@@ -274,7 +274,7 @@ fn single_test_case(
             None => true,
         });
 
-    let inject = inject::resolve_aruments(injectable_args.into_iter(), &resolver, &generics_types);
+    let inject = inject::resolve_arguments(injectable_args.into_iter(), &resolver, &generics_types);
 
     let args = args
         .iter()
@@ -292,7 +292,7 @@ fn single_test_case(
         .last()
         .map(|attribute| attribute.parse_args::<Expr>().unwrap());
 
-    // If no injected attribut provided use the default one
+    // If no injected attribute provided use the default one
     let test_attr = if attrs
         .iter()
         .any(|a| attr_ends_with(a, &parse_quote! {test}))

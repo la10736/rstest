@@ -4,7 +4,7 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
-use super::apply_argumets::ApplyArguments;
+use super::apply_arguments::ApplyArguments;
 use super::{inject, render_exec_call};
 use crate::refident::MaybeIdent;
 use crate::resolver::{self, Resolver};
@@ -35,7 +35,7 @@ fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -
 
 pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     let mut arguments = info.arguments.clone();
-    fixture.apply_argumets(&mut arguments, &mut ());
+    fixture.apply_arguments(&mut arguments, &mut ());
     let name = &fixture.sig.ident;
     let asyncness = &fixture.sig.asyncness.clone();
     let inner_args = info
@@ -68,7 +68,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(inner_args.iter(), &resolver, &generics_idents);
+    let inject = inject::resolve_arguments(inner_args.iter(), &resolver, &generics_idents);
 
     let partials = (1..=inner_args.len()).map(|n| {
         render_partial_impl(
@@ -144,7 +144,7 @@ fn render_partial_impl(
         .map(|tp| &tp.ident)
         .cloned()
         .collect::<Vec<_>>();
-    let inject = inject::resolve_aruments(args.iter().skip(n), resolver, &genercs_idents);
+    let inject = inject::resolve_arguments(args.iter().skip(n), resolver, &genercs_idents);
 
     let sign_args = args.iter().take(n);
     let fixture_args = args
@@ -314,8 +314,8 @@ mod should {
         ));
 
         let body = select_method(out.core_impl, method).unwrap().block;
-        let last_statment = body.stmts.last().unwrap();
-        let is_await = match last_statment {
+        let last_statement = body.stmts.last().unwrap();
+        let is_await = match last_statement {
             syn::Stmt::Expr(syn::Expr::Await(_), _) => true,
             _ => false,
         };

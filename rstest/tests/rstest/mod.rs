@@ -165,8 +165,8 @@ fn impl_input() {
 }
 
 #[test]
-fn use_mutable_fixture_in_parametric_argumnts() {
-    let (output, _) = run_test("use_mutable_fixture_in_parametric_argumnts.rs");
+fn use_mutable_fixture_in_parametric_arguments() {
+    let (output, _) = run_test("use_mutable_fixture_in_parametric_arguments.rs");
 
     TestResults::new()
         .with_contains(true)

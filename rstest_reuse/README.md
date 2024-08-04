@@ -180,7 +180,7 @@ pub use rstest_reuse;
 
 And not just `use rstest_reuse` like in the standard cases.
 
-## Disclamer
+## Disclaimer
 
 This crate is in a development stage. I don't know if I'll include it in `rstest` or change some syntax in the future.
 

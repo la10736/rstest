@@ -11,7 +11,7 @@ use crate::{
     utils::{fn_arg_mutability, IsLiteralExpression},
 };
 
-pub(crate) fn resolve_aruments<'a>(
+pub(crate) fn resolve_arguments<'a>(
     args: impl Iterator<Item = &'a FnArg>,
     resolver: &impl Resolver,
     generic_types: &[Ident],
@@ -145,7 +145,7 @@ mod should {
     #[rstest]
     #[case::as_is("fix: String", ("fix", expr("bar()")), "let fix = bar();")]
     #[case::with_allow_unused_mut("mut fix: String", ("fix", expr("bar()")), "#[allow(unused_mut)] let mut fix = bar();")]
-    #[case::without_undescore("_fix: String", ("fix", expr("bar()")), "let _fix = bar();")]
+    #[case::without_underscore("_fix: String", ("fix", expr("bar()")), "let _fix = bar();")]
     #[case::without_remove_underscore_if_value("_orig: S", ("_orig", expr("S{}")), r#"let _orig = S{};"#)]
     fn call_given_fixture(
         #[case] arg_str: &str,
