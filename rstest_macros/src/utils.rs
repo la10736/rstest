@@ -4,19 +4,29 @@ use quote::format_ident;
 use std::collections::{HashMap, HashSet};
 use unicode_ident::is_xid_continue;
 
-use crate::refident::MaybeIdent;
-use syn::{Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Type, WherePredicate};
+use crate::refident::{MaybeIdent, MaybePat};
+use syn::{Attribute, Expr, FnArg, Generics, Ident, ItemFn, Pat, ReturnType, Type, WherePredicate};
 
 /// Return an iterator over fn arguments items.
 ///
-pub(crate) fn fn_args_idents(test: &ItemFn) -> impl Iterator<Item = &Ident> {
-    fn_args(test).filter_map(MaybeIdent::maybe_ident)
+pub(crate) fn fn_args_pats(test: &ItemFn) -> impl Iterator<Item = &Pat> {
+    fn_args(test).filter_map(MaybePat::maybe_pat)
+}
+
+pub(crate) fn compare_pat(a: &Pat, b: &Pat) -> bool {
+    match (a, b) {
+        (Pat::Ident(a), Pat::Ident(b)) => a.ident == b.ident,
+        (Pat::Tuple(a), Pat::Tuple(b)) => a.elems == b.elems,
+        (Pat::TupleStruct(a), Pat::TupleStruct(b)) => a.path == b.path && a.elems == b.elems,
+        (Pat::Struct(a), Pat::Struct(b)) => a.path == b.path && a.fields == b.fields,
+        _ => false,
+    }
 }
 
 /// Return if function declaration has an ident
 ///
-pub(crate) fn fn_args_has_ident(fn_decl: &ItemFn, ident: &Ident) -> bool {
-    fn_args_idents(fn_decl).any(|id| id == ident)
+pub(crate) fn fn_args_has_pat(fn_decl: &ItemFn, pat: &Pat) -> bool {
+    fn_args_pats(fn_decl).any(|id| compare_pat(id, pat))
 }
 
 /// Return an iterator over fn arguments.
@@ -294,25 +304,13 @@ mod test {
     use crate::test::{assert_eq, *};
 
     #[test]
-    fn fn_args_idents_should() {
+    fn fn_args_has_pat_should() {
         let item_fn = parse_quote! {
             fn the_functon(first: u32, second: u32) {}
         };
 
-        let mut args = fn_args_idents(&item_fn);
-
-        assert_eq!("first", args.next().unwrap().to_string());
-        assert_eq!("second", args.next().unwrap().to_string());
-    }
-
-    #[test]
-    fn fn_args_has_ident_should() {
-        let item_fn = parse_quote! {
-            fn the_functon(first: u32, second: u32) {}
-        };
-
-        assert!(fn_args_has_ident(&item_fn, &ident("first")));
-        assert!(!fn_args_has_ident(&item_fn, &ident("third")));
+        assert!(fn_args_has_pat(&item_fn, &pat("first")));
+        assert!(!fn_args_has_pat(&item_fn, &pat("third")));
     }
 
     #[rstest]

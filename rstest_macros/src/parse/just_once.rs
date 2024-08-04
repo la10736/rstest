@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use quote::ToTokens;
-use syn::{visit_mut::VisitMut, Attribute, FnArg, Ident, ItemFn};
+use syn::{visit_mut::VisitMut, Attribute, FnArg, ItemFn, Pat};
 
-use crate::{error::ErrorsVec, refident::MaybeIdent, utils::attr_is};
+use crate::{error::ErrorsVec, refident::MaybePat, utils::attr_is};
 
 pub trait AttrBuilder<E> {
     type Out;
@@ -17,11 +17,11 @@ pub trait Validator<T> {
     }
 }
 
-impl AttrBuilder<Ident> for () {
-    type Out = Ident;
+impl AttrBuilder<Pat> for () {
+    type Out = Pat;
 
-    fn build(_attr: Attribute, ident: &Ident) -> syn::Result<Self::Out> {
-        Ok(ident.clone())
+    fn build(_attr: Attribute, pat: &Pat) -> syn::Result<Self::Out> {
+        Ok(pat.clone())
     }
 }
 
@@ -39,7 +39,7 @@ impl<T> Validator<T> for () {}
 /// the `name`: Only one attribute is allowed for arguments.
 pub struct JustOnceFnArgAttributeExtractor<'a, B = ()>
 where
-    B: AttrBuilder<Ident>,
+    B: AttrBuilder<Pat>,
 {
     name: &'a str,
     elements: Vec<B::Out>,
@@ -55,7 +55,7 @@ impl<'a> From<&'a str> for JustOnceFnArgAttributeExtractor<'a, ()> {
 
 impl<'a, B> JustOnceFnArgAttributeExtractor<'a, B>
 where
-    B: AttrBuilder<Ident>,
+    B: AttrBuilder<Pat>,
 {
     pub fn new(name: &'a str) -> Self {
         Self {
@@ -77,14 +77,13 @@ where
 
 impl<B> VisitMut for JustOnceFnArgAttributeExtractor<'_, B>
 where
-    B: AttrBuilder<Ident>,
+    B: AttrBuilder<Pat>,
     B: Validator<FnArg>,
 {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        let name = if let Some(name) = node.maybe_ident().cloned() {
-            name
-        } else {
-            return;
+        let pat = match node.maybe_pat() {
+            Some(pat) => pat.clone(),
+            None => return,
         };
         if let FnArg::Typed(ref mut arg) = node {
             // Extract interesting attributes
@@ -96,7 +95,7 @@ where
 
             let parsed = extracted
                 .into_iter()
-                .map(|attr| B::build(attr.clone(), &name).map(|t| (attr, t)))
+                .map(|attr| B::build(attr.clone(), &pat).map(|t| (attr, t)))
                 .collect::<Result<Vec<_>, _>>();
 
             match parsed {
@@ -185,7 +184,6 @@ where
             Ok(data) => match data.len() {
                 1 => match B::validate(item_fn) {
                     Ok(_) => {
-                        print!("DDDDD");
                         out = data.into_iter().next().map(|(_attr, t)| t);
                     }
                     Err(e) => {

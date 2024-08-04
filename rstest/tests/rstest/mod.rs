@@ -974,6 +974,27 @@ fn happy_path() {
 }
 
 #[test]
+fn destruct() {
+    let (output, _) = run_test("destruct.rs");
+
+    TestResults::new()
+        .ok("cases_destruct::case_1_two_times_twenty_one::__destruct_3_1_T__new_42_1_")
+        .ok("cases_destruct::case_1_two_times_twenty_one::__destruct_3_2_T_a_3_b_14_")
+        .ok("cases_destruct::case_2_six_times_seven::__destruct_3_1_T__new_42_1_")
+        .ok("cases_destruct::case_2_six_times_seven::__destruct_3_2_T_a_3_b_14_")
+        .ok("cases_destruct_named_tuple::case_1_two_times_twenty_one::__destruct_3_1_S_42_1_")
+        .ok("cases_destruct_named_tuple::case_1_two_times_twenty_one::__destruct_3_2_S_3_14_")
+        .ok("cases_destruct_named_tuple::case_2_six_times_seven::__destruct_3_1_S_42_1_")
+        .ok("cases_destruct_named_tuple::case_2_six_times_seven::__destruct_3_2_S_3_14_")
+        .ok("cases_destruct_tuple::case_1_two_times_twenty_one::__destruct_3_1__42_1_")
+        .ok("cases_destruct_tuple::case_1_two_times_twenty_one::__destruct_3_2__3_14_")
+        .ok("cases_destruct_tuple::case_2_six_times_seven::__destruct_3_1__42_1_")
+        .ok("cases_destruct_tuple::case_2_six_times_seven::__destruct_3_2__3_14_")
+        .ok("swapped")
+        .assert(output);
+}
+
+#[test]
 fn rename() {
     let (output, _) = run_test("rename.rs");
 
@@ -1726,5 +1747,39 @@ mod should_show_correct_errors {
             "#
             .unindent()
         );
+    }
+
+    #[test]
+    fn try_to_destruct_implicit_fixture() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
+                   --> {name}/src/lib.rs:126:27
+                    |
+                126 | fn wrong_destruct_fixture(T(a, b): T, #[with(42)] T(c, d): T) {{}}
+                    |                           ^^^^^^^^^^"#,
+            )
+            .unindent()
+        );
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
+                   --> {name}/src/lib.rs:126:51
+                    |
+                126 | fn wrong_destruct_fixture(T(a, b): T, #[with(42)] T(c, d): T) {{}}
+                    |                                                   ^^^^^^^^^^"#,
+            )
+            .unindent()
+        );
+
+        assert_not_in!(output.stderr.str(), "#[case] T(e, f): T");
+        assert_not_in!(output.stderr.str(), "#[values(T(1, 2))] T(g, h): T");
     }
 }

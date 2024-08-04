@@ -5,13 +5,13 @@ use syn::{
     punctuated::Punctuated,
     token::{self, Async, Paren},
     visit_mut::VisitMut,
-    FnArg, Ident, ItemFn, Token,
+    FnArg, Ident, ItemFn, Pat, Token,
 };
 
 use crate::{
     error::ErrorsVec,
     parse::just_once::{AttrBuilder, JustOnceFnAttributeExtractor, Validator},
-    refident::{MaybeIdent, RefIdent},
+    refident::{IntoPat, MaybeIdent, MaybePat},
     utils::{attr_is, attr_starts_with},
 };
 use fixture::{ArgumentValue, FixtureModifiers, FixturesFunctionExtractor};
@@ -61,7 +61,7 @@ impl Parse for Attributes {
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum Attribute {
     Attr(Ident),
-    Tagged(Ident, Vec<Ident>),
+    Tagged(Ident, Vec<Pat>),
     Type(Ident, Box<syn::Type>),
 }
 
@@ -82,6 +82,7 @@ impl Parse for Attribute {
             let _ = syn::parenthesized!(content in input);
             let args = Punctuated::<Ident, Token![,]>::parse_terminated(&content)?
                 .into_iter()
+                .map(IntoPat::into_pat)
                 .collect();
 
             Ok(Attribute::Tagged(tag, args))
@@ -137,15 +138,15 @@ impl Parse for Positional {
 
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) struct Fixture {
-    pub(crate) name: Ident,
-    pub(crate) resolve: Option<syn::Path>,
+    pub(crate) arg: Pat,
+    pub(crate) resolve: syn::Path,
     pub(crate) positional: Positional,
 }
 
 impl Fixture {
-    pub(crate) fn new(name: Ident, resolve: Option<syn::Path>, positional: Positional) -> Self {
+    pub(crate) fn new(arg: Pat, resolve: syn::Path, positional: Positional) -> Self {
         Self {
-            name,
+            arg,
             resolve,
             positional,
         }
@@ -166,7 +167,8 @@ impl Parse for Fixture {
 
             if input.peek(Token![as]) {
                 let _: Token![as] = input.parse()?;
-                Ok(Self::new(input.parse()?, Some(resolve), positional))
+                let ident: Ident = input.parse()?;
+                Ok(Self::new(ident.into_pat(), resolve, positional))
             } else {
                 let name = resolve.get_ident().ok_or_else(|| {
                     syn::Error::new_spanned(
@@ -174,7 +176,11 @@ impl Parse for Fixture {
                         "Should be an ident".to_string(),
                     )
                 })?;
-                Ok(Self::new(name.clone(), None, positional))
+                Ok(Self::new(
+                    name.clone().into_pat(),
+                    name.clone().into(),
+                    positional,
+                ))
             }
         } else {
             Err(syn::Error::new(
@@ -185,15 +191,9 @@ impl Parse for Fixture {
     }
 }
 
-impl RefIdent for Fixture {
-    fn ident(&self) -> &Ident {
-        &self.name
-    }
-}
-
 impl ToTokens for Fixture {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.name.to_tokens(tokens)
+        self.arg.to_tokens(tokens)
     }
 }
 
@@ -209,10 +209,10 @@ pub(crate) fn extract_fixtures(item_fn: &mut ItemFn) -> Result<Vec<Fixture>, Err
 }
 pub(crate) fn extract_defaults(item_fn: &mut ItemFn) -> Result<Vec<ArgumentValue>, ErrorsVec> {
     struct DefaultBuilder;
-    impl AttrBuilder<Ident> for DefaultBuilder {
+    impl AttrBuilder<Pat> for DefaultBuilder {
         type Out = ArgumentValue;
 
-        fn build(attr: syn::Attribute, name: &Ident) -> syn::Result<Self::Out> {
+        fn build(attr: syn::Attribute, name: &Pat) -> syn::Result<Self::Out> {
             attr.parse_args::<syn::Expr>()
                 .map(|e| ArgumentValue::new(name.clone(), e))
         }
@@ -263,14 +263,13 @@ pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<syn::Attribute
 pub(crate) fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
     node: &mut FnArg,
     is_valid_attr: fn(&syn::Attribute) -> bool,
-    build: fn(syn::Attribute, &Ident) -> syn::Result<B>,
+    build: impl Fn(syn::Attribute) -> syn::Result<B> + 'a,
 ) -> Box<dyn Iterator<Item = syn::Result<B>> + 'a> {
     let name = node.maybe_ident().cloned();
     if name.is_none() {
         return Box::new(std::iter::empty());
     }
 
-    let name = name.unwrap();
     if let FnArg::Typed(ref mut arg) = node {
         // Extract interesting attributes
         let attrs = std::mem::take(&mut arg.attrs);
@@ -279,7 +278,7 @@ pub(crate) fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
         arg.attrs = remain;
 
         // Parse attrs
-        Box::new(extracted.into_iter().map(move |attr| build(attr, &name)))
+        Box::new(extracted.into_iter().map(build))
     } else {
         Box::new(std::iter::empty())
     }
@@ -342,7 +341,7 @@ impl VisitMut for PartialsTypeFunctionExtractor {
     }
 }
 
-pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Pat>, ErrorsVec> {
     let mut extractor = JustOnceFnArgAttributeExtractor::from("case");
     extractor.visit_item_fn_mut(item_fn);
 
@@ -394,10 +393,10 @@ pub(crate) fn extract_cases(item_fn: &mut ItemFn) -> Result<Vec<TestCase>, Error
 
 pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>, ErrorsVec> {
     struct ValueListBuilder;
-    impl AttrBuilder<Ident> for ValueListBuilder {
+    impl AttrBuilder<Pat> for ValueListBuilder {
         type Out = ValueList;
 
-        fn build(attr: syn::Attribute, extra: &Ident) -> syn::Result<Self::Out> {
+        fn build(attr: syn::Attribute, extra: &Pat) -> syn::Result<Self::Out> {
             attr.parse_args::<Expressions>().map(|v| ValueList {
                 arg: extra.clone(),
                 values: v.take().into_iter().map(|e| e.into()).collect(),
@@ -414,15 +413,15 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
 
 /// Simple struct used to visit function args attributes to extract the
 /// excluded ones and eventualy parsing errors
-struct ExcludedTraceAttributesFunctionExtractor(Result<Vec<Ident>, ErrorsVec>);
-impl From<Result<Vec<Ident>, ErrorsVec>> for ExcludedTraceAttributesFunctionExtractor {
-    fn from(inner: Result<Vec<Ident>, ErrorsVec>) -> Self {
+struct ExcludedTraceAttributesFunctionExtractor(Result<Vec<Pat>, ErrorsVec>);
+impl From<Result<Vec<Pat>, ErrorsVec>> for ExcludedTraceAttributesFunctionExtractor {
+    fn from(inner: Result<Vec<Pat>, ErrorsVec>) -> Self {
         Self(inner)
     }
 }
 
 impl ExcludedTraceAttributesFunctionExtractor {
-    pub(crate) fn take(self) -> Result<Vec<Ident>, ErrorsVec> {
+    pub(crate) fn take(self) -> Result<Vec<Pat>, ErrorsVec> {
         self.0
     }
 
@@ -433,7 +432,7 @@ impl ExcludedTraceAttributesFunctionExtractor {
         }
     }
 
-    fn update_excluded(&mut self, value: Ident) {
+    fn update_excluded(&mut self, value: Pat) {
         if let Some(inner) = self.0.iter_mut().next() {
             inner.push(value);
         }
@@ -448,11 +447,13 @@ impl Default for ExcludedTraceAttributesFunctionExtractor {
 
 impl VisitMut for ExcludedTraceAttributesFunctionExtractor {
     fn visit_fn_arg_mut(&mut self, node: &mut FnArg) {
-        for r in
-            extract_argument_attrs(node, |a| attr_is(a, "notrace"), |_a, name| Ok(name.clone()))
-        {
+        let pat = match node.maybe_pat().cloned() {
+            Some(pat) => pat,
+            None => return,
+        };
+        for r in extract_argument_attrs(node, |a| attr_is(a, "notrace"), |_a| Ok(())) {
             match r {
-                Ok(value) => self.update_excluded(value),
+                Ok(_) => self.update_excluded(pat.clone()),
                 Err(err) => self.update_error(err.into()),
             }
         }
@@ -461,7 +462,7 @@ impl VisitMut for ExcludedTraceAttributesFunctionExtractor {
     }
 }
 
-pub(crate) fn extract_excluded_trace(item_fn: &mut ItemFn) -> Result<Vec<Ident>, ErrorsVec> {
+pub(crate) fn extract_excluded_trace(item_fn: &mut ItemFn) -> Result<Vec<Pat>, ErrorsVec> {
     let mut excluded_trace_extractor = ExcludedTraceAttributesFunctionExtractor::default();
     excluded_trace_extractor.visit_item_fn_mut(item_fn);
     excluded_trace_extractor.take()

@@ -1,6 +1,6 @@
 use syn::{
     parse::{Parse, ParseStream},
-    Ident, ItemFn, Token,
+    Ident, ItemFn, Pat, Token,
 };
 
 use self::files::{extract_files, ValueListFromFiles};
@@ -16,11 +16,8 @@ use super::{
     testcase::TestCase,
     Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
-use crate::parse::vlist::ValueList;
-use crate::{
-    error::ErrorsVec,
-    refident::{MaybeIdent, RefIdent},
-};
+use crate::{error::ErrorsVec, refident::IntoPat};
+use crate::{parse::vlist::ValueList, refident::MaybePat};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
 
@@ -66,6 +63,8 @@ impl ExtendWithFunctionAttrs for RsTestInfo {
         self.arguments.set_futures(futures.into_iter());
         self.arguments.set_by_refs(by_refs.into_iter());
         self.arguments.set_ignores(ignores.into_iter());
+        self.arguments
+            .register_inner_destructored_idents_names(item_fn);
         Ok(())
     }
 }
@@ -76,7 +75,7 @@ pub(crate) struct RsTestData {
 }
 
 impl RsTestData {
-    pub(crate) fn case_args(&self) -> impl Iterator<Item = &Ident> {
+    pub(crate) fn case_args(&self) -> impl Iterator<Item = &Pat> {
         self.items.iter().filter_map(|it| match it {
             RsTestItem::CaseArgName(ref arg) => Some(arg),
             _ => None,
@@ -162,9 +161,26 @@ impl ExtendWithFunctionAttrs for RsTestData {
 #[derive(PartialEq, Debug)]
 pub(crate) enum RsTestItem {
     Fixture(Fixture),
-    CaseArgName(Ident),
+    CaseArgName(Pat),
     TestCase(TestCase),
     ValueList(ValueList),
+}
+
+impl MaybePat for Fixture {
+    fn maybe_pat(&self) -> Option<&syn::Pat> {
+        Some(&self.arg)
+    }
+}
+
+impl MaybePat for RsTestItem {
+    fn maybe_pat(&self) -> Option<&syn::Pat> {
+        match self {
+            RsTestItem::Fixture(f) => f.maybe_pat(),
+            RsTestItem::CaseArgName(c) => Some(c),
+            RsTestItem::TestCase(_) => None,
+            RsTestItem::ValueList(vl) => Some(&vl.arg),
+        }
+    }
 }
 
 impl From<Fixture> for RsTestItem {
@@ -173,9 +189,15 @@ impl From<Fixture> for RsTestItem {
     }
 }
 
+impl From<Pat> for RsTestItem {
+    fn from(pat: Pat) -> Self {
+        RsTestItem::CaseArgName(pat)
+    }
+}
+
 impl From<Ident> for RsTestItem {
     fn from(ident: Ident) -> Self {
-        RsTestItem::CaseArgName(ident)
+        RsTestItem::CaseArgName(ident.into_pat())
     }
 }
 
@@ -200,21 +222,12 @@ impl Parse for RsTestItem {
         } else if input.fork().parse::<Fixture>().is_ok() {
             input.parse::<Fixture>().map(RsTestItem::Fixture)
         } else if input.fork().parse::<Ident>().is_ok() {
-            input.parse::<Ident>().map(RsTestItem::CaseArgName)
+            input
+                .parse::<Ident>()
+                .map(IntoPat::into_pat)
+                .map(RsTestItem::CaseArgName)
         } else {
             Err(syn::Error::new(Span::call_site(), "Cannot parse it"))
-        }
-    }
-}
-
-impl MaybeIdent for RsTestItem {
-    fn maybe_ident(&self) -> Option<&Ident> {
-        use RsTestItem::*;
-        match self {
-            Fixture(ref fixture) => Some(fixture.ident()),
-            CaseArgName(ref case_arg) => Some(case_arg),
-            ValueList(ref value_list) => Some(value_list.ident()),
-            TestCase(_) => None,
         }
     }
 }
@@ -237,18 +250,18 @@ impl RsTestAttributes {
     const TRACE_VARIABLE_ATTR: &'static str = "trace";
     const NOTRACE_VARIABLE_ATTR: &'static str = "notrace";
 
-    pub(crate) fn trace_me(&self, ident: &Ident) -> bool {
+    pub(crate) fn trace_me(&self, pat: &Pat) -> bool {
         if self.should_trace() {
-            !self.iter().any(|m| Self::is_notrace(ident, m))
+            !self.iter().any(|m| Self::is_notrace(pat, m))
         } else {
             false
         }
     }
 
-    fn is_notrace(ident: &Ident, m: &Attribute) -> bool {
+    fn is_notrace(pat: &Pat, m: &Attribute) -> bool {
         match m {
             Attribute::Tagged(i, args) if i == Self::NOTRACE_VARIABLE_ATTR => {
-                args.iter().any(|a| a == ident)
+                args.iter().any(|a| a == pat)
             }
             _ => false,
         }
@@ -262,7 +275,7 @@ impl RsTestAttributes {
         self.inner.attributes.push(Attribute::Attr(trace));
     }
 
-    pub(crate) fn add_notraces(&mut self, notraces: Vec<Ident>) {
+    pub(crate) fn add_notraces(&mut self, notraces: Vec<Pat>) {
         if notraces.is_empty() {
             return;
         }
@@ -521,9 +534,9 @@ mod test {
             info.extend_with_function_attrs(&mut item_fn).unwrap();
             info.attributes.add_trace(ident("trace"));
 
-            assert!(!info.attributes.trace_me(&ident("a")));
-            assert!(info.attributes.trace_me(&ident("b")));
-            assert!(!info.attributes.trace_me(&ident("c")));
+            assert!(!info.attributes.trace_me(&pat("a")));
+            assert!(info.attributes.trace_me(&pat("b")));
+            assert!(!info.attributes.trace_me(&pat("c")));
             let b_args = item_fn
                 .sig
                 .inputs
@@ -547,8 +560,8 @@ mod test {
             info.extend_with_function_attrs(&mut item_fn).unwrap();
 
             assert_eq!(item_fn, expected);
-            assert!(info.arguments.is_future(&ident("a")));
-            assert!(!info.arguments.is_future(&ident("b")));
+            assert!(info.arguments.is_future(&pat("a")));
+            assert!(!info.arguments.is_future(&pat("b")));
         }
     }
 
@@ -564,7 +577,7 @@ mod test {
 
             assert_eq!(1, args.len());
             assert_eq!(1, cases.len());
-            assert_eq!("arg", &args[0].to_string());
+            assert_eq!("arg", &args[0].display_code());
             assert_eq!(to_args!(["42"]), cases[0].args())
         }
 
@@ -587,7 +600,7 @@ mod test {
             assert_eq!(
                 to_strs!(vec!["arg1", "arg2", "arg3"]),
                 data.case_args()
-                    .map(ToString::to_string)
+                    .map(DisplayCode::display_code)
                     .collect::<Vec<_>>()
             );
 
@@ -618,12 +631,46 @@ mod test {
                 let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
                 let cases = info.data.cases().cloned().collect::<Vec<_>>();
 
-                assert_eq!(to_idents!(["arg1", "arg2"]), case_args);
+                assert_eq!(to_pats!(["arg1", "arg2"]), case_args);
                 assert_eq!(
                     vec![
                         TestCase::from_iter(["42", r#""first""#].iter()).with_description("first"),
                     ],
                     cases
+                );
+            }
+
+            #[test]
+            fn destruct_case() {
+                let mut item_fn: ItemFn = r#"
+                #[case::destruct(T::new(2, 21))]
+                fn test_fn(#[case] T{a, b}: T) {
+                }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
+                let cases = info.data.cases().cloned().collect::<Vec<_>>();
+
+                // Should just remove attributes
+                assert_eq!(
+                    to_fnargs!(["T{a, b}: T"]),
+                    item_fn.sig.inputs.into_iter().collect::<Vec<_>>()
+                );
+                assert_eq!(to_pats!(["T{a, b}"]), case_args);
+                assert_eq!(
+                    vec![
+                        TestCase::from_iter(["T::new(2, 21)"].iter()).with_description("destruct"),
+                    ],
+                    cases
+                );
+                assert_eq!(
+                    info.arguments.inner_pat(&pat("T{a, b}")),
+                    &pat("__destruct_1")
                 );
             }
 
@@ -666,7 +713,7 @@ mod test {
                 let case_args = info.data.case_args().cloned().collect::<Vec<_>>();
                 let cases = info.data.cases().cloned().collect::<Vec<_>>();
 
-                assert_eq!(to_idents!(["arg1", "arg2"]), case_args);
+                assert_eq!(to_pats!(["arg1", "arg2"]), case_args);
                 assert_eq!(
                     vec![
                         TestCase::from_iter(["42", r#""first""#].iter()).with_description("first"),
@@ -776,7 +823,7 @@ mod test {
 
             assert_eq!(1, args.len());
             assert_eq!(1, cases.len());
-            assert_eq!("arg", &args[0].to_string());
+            assert_eq!("arg", &args[0].display_code());
             assert_eq!(to_args!(["42"]), cases[0].args())
         }
 
@@ -802,7 +849,7 @@ mod test {
             )
             .data;
 
-            assert_eq!("case", &data.case_args().next().unwrap().to_string());
+            assert_eq!("case", &data.case_args().next().unwrap().display_code());
 
             let cases = data.cases().collect::<Vec<_>>();
 
@@ -924,6 +971,43 @@ mod test {
                     list_values[1].args()
                 );
             }
+
+            #[test]
+            fn destruct() {
+                let mut item_fn = r#"
+                fn test_fn(#[values(S(1,2), S(3,4))] S(a,b): S, #[values(T::new("a", "b"), T{s: "a" ,t: "c" })] T{s, t}: T) {
+                }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                let list_values = info.data.list_values().cloned().collect::<Vec<_>>();
+
+                // Should just remove attributes
+                assert_eq!(
+                    to_fnargs!(["S(a, b): S", "T{s, t}: T"]),
+                    item_fn.sig.inputs.into_iter().collect::<Vec<_>>()
+                );
+                assert_eq!(2, list_values.len());
+                assert_eq!(list_values[0].arg, pat("S(a, b)"));
+                assert_eq!(to_args!(["S(1,2)", "S(3,4)"]), list_values[0].args());
+                assert_eq!(list_values[1].arg, pat("T{s, t}"));
+                assert_eq!(
+                    to_args!([r#"T::new("a", "b")"#, r#"T{s: "a" ,t: "c" }"#]),
+                    list_values[1].args()
+                );
+                assert_eq!(
+                    info.arguments.inner_pat(&pat("S(a, b)")),
+                    &pat("__destruct_1")
+                );
+                assert_eq!(
+                    info.arguments.inner_pat(&pat("T{s, t}")),
+                    &pat("__destruct_2")
+                );
+            }
         }
 
         #[test]
@@ -968,7 +1052,7 @@ mod test {
             assert_eq!(
                 to_strs!(vec!["u", "a", "d"]),
                 data.case_args()
-                    .map(ToString::to_string)
+                    .map(DisplayCode::display_code)
                     .collect::<Vec<_>>()
             );
 

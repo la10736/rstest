@@ -187,9 +187,7 @@ fn should_export_main_root() {
 fn rstest_reuse_not_in_crate_root() {
     let (output, _) = run_test("rstest_reuse_not_in_crate_root.rs");
 
-    TestResults::new()
-        .ok("test::case_1")
-        .assert(output);
+    TestResults::new().ok("test::case_1").assert(output);
 }
 
 lazy_static! {

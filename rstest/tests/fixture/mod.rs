@@ -242,10 +242,9 @@ mod should {
                 output.stderr.str(),
                 format!(
                     r#"
-                      --> {}/src/lib.rs:12:33
+                      --> {name}/src/lib.rs:14:33
                        |
-                    12 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#,
-                    name
+                    14 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#
                 )
                 .unindent()
             );
@@ -260,11 +259,10 @@ mod should {
                 format!(
                     r#"
                     error[E0308]: mismatched types
-                     --> {}/src/lib.rs:8:18
-                      |
-                    8 |     let a: u32 = "";
-                    "#,
-                    name
+                      --> {name}/src/lib.rs:10:18
+                       |
+                    10 |     let a: u32 = "";
+                    "#
                 )
                 .unindent()
             );
@@ -277,20 +275,19 @@ mod should {
             assert_in!(
                 output.stderr.str(),
                 format!(
-                    "
+                    r#"
                     error[E0308]: mismatched types
-                      --> {}/src/lib.rs:16:29
-                    ",
-                    name
+                      --> {name}/src/lib.rs:17:29
+                    "#
                 )
                 .unindent()
             );
 
             assert_in!(
                 output.stderr.str(),
-                "
-                16 | fn error_fixture_wrong_type(fixture: String) {
-                   |                             ^^^^^^"
+                r#"
+                17 | fn error_fixture_wrong_type(fixture: String) {}
+                   |                             ^^^^^^"#
                     .unindent()
             );
         }
@@ -304,12 +301,11 @@ mod should {
                 format!(
                     "
                     error: Missed argument: 'not_a_fixture' should be a test function argument.
-                      --> {}/src/lib.rs:19:11
+                      --> {name}/src/lib.rs:19:11
                        |
                     19 | #[fixture(not_a_fixture(24))]
                        |           ^^^^^^^^^^^^^
-                    ",
-                    name
+                    "
                 )
                 .unindent()
             );
@@ -324,15 +320,56 @@ mod should {
                 format!(
                     r#"
                     error: Duplicate argument: 'f' is already defined.
-                      --> {}/src/lib.rs:33:23
+                      --> {name}/src/lib.rs:32:23
                        |
-                    33 | #[fixture(f("first"), f("second"))]
+                    32 | #[fixture(f("first"), f("second"))]
                        |                       ^
-                    "#,
-                    name
+                    "#
                 )
                 .unindent()
             );
+        }
+
+        #[rstest]
+        fn on_destruct_implicit_fixture(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
+
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
+                      --> {name}/src/lib.rs:48:35
+                       |
+                    48 | fn error_destruct_without_resolve(T(a): T) {{}}
+                       |                                   ^^^^^^^
+                    "#
+                )
+                .unindent()
+            );
+        }
+
+        #[rstest]
+        fn on_destruct_explicit_fixture_without_from(errors_rs: &(Output, String)) {
+            let (output, name) = errors_rs.clone();
+
+            assert_in!(
+                output.stderr.str(),
+                format!(
+                    r#"
+                    error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
+                      --> {name}/src/lib.rs:51:57
+                       |
+                    51 | fn error_destruct_without_resolve_also_with(#[with(21)] T(a): T) {{}}
+                       |                                                         ^^^^^^^
+                    "#
+                )
+                .unindent()
+            );
+            assert_eq!(
+                1,
+                output.stderr.str().count("51 | fn error_destruct_without")
+            )
         }
 
         #[fixture]

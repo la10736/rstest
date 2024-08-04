@@ -149,8 +149,8 @@ mod single_test_should {
         let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut info: RsTestInfo = Default::default();
         info.arguments.set_global_await(true);
-        info.arguments.add_future(ident("a"));
-        info.arguments.add_future(ident("b"));
+        info.arguments.add_future(pat("a"));
+        info.arguments.add_future(pat("b"));
 
         let item_fn: ItemFn = single(input_fn.clone(), info).ast();
 
@@ -172,8 +172,8 @@ mod single_test_should {
     fn use_selective_await() {
         let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut info: RsTestInfo = Default::default();
-        info.arguments.set_future(ident("a"), FutureArg::Define);
-        info.arguments.set_future(ident("b"), FutureArg::Await);
+        info.arguments.set_future(pat("a"), FutureArg::Define);
+        info.arguments.set_future(pat("b"), FutureArg::Await);
 
         let item_fn: ItemFn = single(input_fn.clone(), info).ast();
 
@@ -195,8 +195,8 @@ mod single_test_should {
     fn use_ref_if_any() {
         let input_fn: ItemFn = r#"fn test(a: i32, b:i32, c:i32) {} "#.ast();
         let mut info: RsTestInfo = Default::default();
-        info.arguments.set_by_ref(ident("a"));
-        info.arguments.set_by_ref(ident("c"));
+        info.arguments.set_by_ref(pat("a"));
+        info.arguments.set_by_ref(pat("c"));
 
         let item_fn: ItemFn = single(input_fn.clone(), info).ast();
 
@@ -237,7 +237,7 @@ mod single_test_should {
                 .ast();
 
         let mut attributes = RsTestAttributes::default();
-        attributes.add_notraces(vec![ident("b_no_trace"), ident("c_no_trace")]);
+        attributes.add_notraces(vec![pat("b_no_trace"), pat("c_no_trace")]);
 
         let item_fn: ItemFn = single(
             input_fn.clone(),
@@ -313,8 +313,8 @@ mod single_test_should {
         .ast();
 
         let mut arguments = ArgumentsInfo::default();
-        arguments.add_future(ident("async_ref_u32"));
-        arguments.add_future(ident("async_u32"));
+        arguments.add_future(pat("async_ref_u32"));
+        arguments.add_future(pat("async_u32"));
 
         let info = RsTestInfo {
             arguments,
@@ -523,14 +523,14 @@ mod cases_should {
 
     use crate::parse::{
         arguments::{ArgumentsInfo, FutureArg},
-        rstest::RsTestItem,
+        rstest::{RsTestData, RsTestItem},
     };
 
     use super::{assert_eq, *};
 
     fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
         RsTestData {
-            items: fn_args_idents(item_fn)
+            items: fn_args_pats(item_fn)
                 .cloned()
                 .map(RsTestItem::CaseArgName)
                 .collect(),
@@ -571,8 +571,8 @@ mod cases_should {
             (self.item_fn, self.info)
         }
 
-        fn add_notrace(mut self, idents: Vec<Ident>) -> Self {
-            self.info.attributes.add_notraces(idents);
+        fn add_notrace(mut self, pats: Vec<Pat>) -> Self {
+            self.info.attributes.add_notraces(pats);
             self
         }
     }
@@ -898,8 +898,8 @@ mod cases_should {
         .take();
 
         let mut arguments = ArgumentsInfo::default();
-        arguments.add_future(ident("async_ref_u32"));
-        arguments.add_future(ident("async_u32"));
+        arguments.add_future(pat("async_ref_u32"));
+        arguments.add_future(pat("async_u32"));
 
         info.arguments = arguments;
 
@@ -965,7 +965,7 @@ mod cases_should {
             TestCaseBuilder::from(r#"#[trace] fn test(a_trace_me: i32, b_no_trace_me: i32, c_no_trace_me: i32, d_trace_me: i32) {}"#)
                 .push_case(TestCase::from_iter(vec!["1", "2", "1", "2"]))
                 .push_case(TestCase::from_iter(vec!["3", "4", "3", "4"]))
-                .add_notrace(to_idents!(["b_no_trace_me", "c_no_trace_me"]))
+                .add_notrace(to_pats!(["b_no_trace_me", "c_no_trace_me"]))
                 .take();
 
         let tokens = parametrize(item_fn, info);
@@ -995,7 +995,7 @@ mod cases_should {
             TestCaseBuilder::from(r#"fn test(a_no_trace_me: i32, b_trace_me: i32) {}"#)
                 .push_case(TestCase::from_iter(vec!["1", "2"]))
                 .push_case(TestCase::from_iter(vec!["3", "4"]).with_attrs(attrs("#[trace]")))
-                .add_notrace(to_idents!(["a_no_trace_me"]))
+                .add_notrace(to_pats!(["a_no_trace_me"]))
                 .take();
 
         let tokens = parametrize(item_fn, info);
@@ -1023,8 +1023,8 @@ mod cases_should {
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
             .take();
         info.arguments.set_global_await(true);
-        info.arguments.add_future(ident("a"));
-        info.arguments.add_future(ident("b"));
+        info.arguments.add_future(pat("a"));
+        info.arguments.add_future(pat("b"));
 
         let tokens = parametrize(item_fn, info);
 
@@ -1043,8 +1043,8 @@ mod cases_should {
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
             .push_case(TestCase::from_iter(vec!["1", "2", "3"]))
             .take();
-        info.arguments.set_future(ident("a"), FutureArg::Define);
-        info.arguments.set_future(ident("b"), FutureArg::Await);
+        info.arguments.set_future(pat("a"), FutureArg::Define);
+        info.arguments.set_future(pat("b"), FutureArg::Await);
 
         let tokens = parametrize(item_fn, info);
 
@@ -1061,7 +1061,10 @@ mod cases_should {
 mod matrix_cases_should {
     use rstest_test::{assert_in, assert_not_in};
 
-    use crate::parse::arguments::{ArgumentsInfo, FutureArg};
+    use crate::parse::{
+        arguments::{ArgumentsInfo, FutureArg},
+        rstest::RsTestData,
+    };
 
     /// Should test matrix tests render without take in account MatrixInfo to RsTestInfo
     /// transformation
@@ -1069,7 +1072,7 @@ mod matrix_cases_should {
 
     fn into_rstest_data(item_fn: &ItemFn) -> RsTestData {
         RsTestData {
-            items: fn_args_idents(item_fn)
+            items: fn_args_pats(item_fn)
                 .cloned()
                 .map(|it| {
                     ValueList {
@@ -1337,8 +1340,8 @@ mod matrix_cases_should {
         let item_fn = r#"async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32) { }"#.ast();
 
         let mut arguments = ArgumentsInfo::default();
-        arguments.add_future(ident("async_ref_u32"));
-        arguments.add_future(ident("async_u32"));
+        arguments.add_future(pat("async_ref_u32"));
+        arguments.add_future(pat("async_u32"));
 
         let info = RsTestInfo {
             arguments,
@@ -1455,7 +1458,7 @@ mod matrix_cases_should {
             .into(),
         };
         let mut attributes: RsTestAttributes = Default::default();
-        attributes.add_notraces(vec![ident("b_no_trace_me"), ident("c_no_trace_me")]);
+        attributes.add_notraces(vec![pat("b_no_trace_me"), pat("c_no_trace_me")]);
         let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_no_trace_me: u32, c_no_trace_me: u32, d_trace_me: u32) {}"#.ast();
 
         let tokens = matrix(
@@ -1503,8 +1506,8 @@ mod matrix_cases_should {
             arguments: Default::default(),
         };
         info.arguments.set_global_await(true);
-        info.arguments.add_future(ident("a"));
-        info.arguments.add_future(ident("b"));
+        info.arguments.add_future(pat("a"));
+        info.arguments.add_future(pat("b"));
 
         let tokens = matrix(item_fn, info);
 
@@ -1534,8 +1537,8 @@ mod matrix_cases_should {
             arguments: Default::default(),
         };
 
-        info.arguments.set_future(ident("a"), FutureArg::Define);
-        info.arguments.set_future(ident("b"), FutureArg::Await);
+        info.arguments.set_future(pat("a"), FutureArg::Define);
+        info.arguments.set_future(pat("b"), FutureArg::Await);
 
         let tokens = matrix(item_fn, info);
 
@@ -1734,6 +1737,8 @@ mod matrix_cases_should {
 }
 
 mod complete_should {
+    use crate::parse::rstest::RsTestData;
+
     use super::{assert_eq, *};
 
     fn rendered_case(fn_name: &str) -> TestsGroup {

@@ -12,7 +12,7 @@ use crate::{
         extract_argument_attrs,
         vlist::{Value, ValueList},
     },
-    refident::MaybeIdent,
+    refident::{IntoPat, MaybeIdent},
     utils::attr_is,
 };
 
@@ -168,7 +168,7 @@ impl ValueFilesExtractor {
         &mut self,
         node: &mut FnArg,
         is_valid_attr: fn(&syn::Attribute) -> bool,
-        build: fn(syn::Attribute, &Ident) -> syn::Result<B>,
+        build: impl Fn(syn::Attribute) -> syn::Result<B> + 'a,
     ) -> Vec<B> {
         self.collect_errors(
             extract_argument_attrs(node, is_valid_attr, build).collect::<Result<Vec<_>, _>>(),
@@ -176,22 +176,18 @@ impl ValueFilesExtractor {
     }
 
     fn extract_files(&mut self, node: &mut FnArg) -> Vec<LitStrAttr> {
-        self.extract_argument_attrs(node, |a| attr_is(a, "files"), |attr, _| attr.try_into())
+        self.extract_argument_attrs(node, |a| attr_is(a, "files"), |attr| attr.try_into())
     }
 
     fn extract_exclude(&mut self, node: &mut FnArg) -> Vec<Exclude> {
-        self.extract_argument_attrs(
-            node,
-            |a| attr_is(a, "exclude"),
-            |attr, _| Exclude::try_from(attr),
-        )
+        self.extract_argument_attrs(node, |a| attr_is(a, "exclude"), Exclude::try_from)
     }
 
     fn extract_include_dot_files(&mut self, node: &mut FnArg) -> Vec<Attribute> {
         self.extract_argument_attrs(
             node,
             |a| attr_is(a, "include_dot_files"),
-            |attr, _| {
+            |attr| {
                 attr.meta
                     .require_path_only()
                     .map_err(|_| attr.error("Use #[include_dot_files] to include dot files"))?;
@@ -296,8 +292,10 @@ impl<'a> ValueListFromFiles<'a> {
         files
             .into_iter()
             .map(|(arg, refs)| {
-                self.file_list_values(refs)
-                    .map(|values| ValueList { arg, values })
+                self.file_list_values(refs).map(|values| ValueList {
+                    arg: arg.into_pat(),
+                    values,
+                })
             })
             .collect::<Result<Vec<ValueList>, _>>()
     }

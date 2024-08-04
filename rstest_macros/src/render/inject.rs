@@ -2,10 +2,10 @@ use std::borrow::Cow;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
+use syn::{parse_quote, Expr, FnArg, Ident, Pat, Stmt, Type};
 
 use crate::{
-    refident::{MaybeIdent, MaybeType},
+    refident::{IntoPat, MaybeIdent, MaybePat, MaybeType},
     render::crate_resolver::crate_name,
     resolver::Resolver,
     utils::{fn_arg_mutability, IsLiteralExpression},
@@ -44,18 +44,18 @@ where
     }
 
     fn resolve(&self, arg: &FnArg) -> Option<Stmt> {
-        let ident = arg.maybe_ident()?;
+        let pat = arg.maybe_pat()?;
         let mutability = fn_arg_mutability(arg);
         let unused_mut: Option<syn::Attribute> = mutability
             .as_ref()
             .map(|_| parse_quote! {#[allow(unused_mut)]});
         let arg_type = arg.maybe_type()?;
-        let fixture_name = self.fixture_name(ident);
+        let fixture_name = self.fixture_name(pat);
 
         let mut fixture = self
             .resolver
-            .resolve(ident)
-            .or_else(|| self.resolver.resolve(&fixture_name))
+            .resolve(pat)
+            .or_else(|| self.resolver.resolve(&fixture_name.clone().into_pat()))
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
@@ -63,16 +63,20 @@ where
         }
         Some(parse_quote! {
             #unused_mut
-            let #mutability #ident = #fixture;
+            let #pat = #fixture;
         })
     }
 
-    fn fixture_name<'a>(&self, ident: &'a Ident) -> Cow<'a, Ident> {
+    fn fixture_name(&self, ident: &Pat) -> Ident {
+        let ident = ident
+            .maybe_ident()
+            .cloned()
+            .expect("BUG: Here all arguments should be PatIdent types");
         let id_str = ident.to_string();
         if id_str.starts_with('_') && !id_str.starts_with("__") {
-            Cow::Owned(Ident::new(&id_str[1..], ident.span()))
+            Ident::new(&id_str[1..], ident.span())
         } else {
-            Cow::Borrowed(ident)
+            ident
         }
     }
 
@@ -150,7 +154,7 @@ mod should {
     ) {
         let arg = arg_str.ast();
         let mut resolver = std::collections::HashMap::new();
-        resolver.insert(rule.0.to_owned(), &rule.1);
+        resolver.insert(pat(rule.0), &rule.1);
 
         let injected = ArgumentResolver::new(&resolver, &[]).resolve(&arg).unwrap();
 
@@ -192,7 +196,7 @@ mod should {
 
         let mut resolver = std::collections::HashMap::new();
         let expr = expr(r#""value to convert""#);
-        resolver.insert(arg.maybe_ident().unwrap().to_string(), &expr);
+        resolver.insert(arg.maybe_pat().unwrap().clone(), &expr);
 
         let ag = ArgumentResolver {
             resolver: &resolver,

@@ -1,7 +1,7 @@
 /// Provide `RefIdent` and `MaybeIdent` traits that give a shortcut to extract identity reference
 /// (`syn::Ident` struct).
 use proc_macro2::Ident;
-use syn::{FnArg, Pat, PatType, Type};
+use syn::{FnArg, Pat, PatIdent, PatType, Type};
 
 pub trait RefIdent {
     /// Return the reference to ident if any
@@ -99,6 +99,30 @@ impl MaybeIdent for crate::parse::Attribute {
     }
 }
 
+pub trait MaybeIntoPath {
+    fn maybe_into_path(self) -> Option<syn::Path>;
+}
+
+impl MaybeIntoPath for PatIdent {
+    fn maybe_into_path(self) -> Option<syn::Path> {
+        Some(self.ident.into())
+    }
+}
+
+impl MaybeIntoPath for Pat {
+    fn maybe_into_path(self) -> Option<syn::Path> {
+        match self {
+            Pat::Ident(pi) => pi.maybe_into_path(),
+            _ => None,
+        }
+    }
+}
+
+pub trait RefPat {
+    /// Return the reference to ident if any
+    fn pat(&self) -> &Pat;
+}
+
 pub trait MaybePatIdent {
     fn maybe_patident(&self) -> Option<&syn::PatIdent>;
 }
@@ -115,6 +139,54 @@ impl MaybePatIdent for FnArg {
     }
 }
 
+impl MaybePatIdent for Pat {
+    fn maybe_patident(&self) -> Option<&syn::PatIdent> {
+        match self {
+            Pat::Ident(ident) => Some(ident),
+            _ => None,
+        }
+    }
+}
+
+pub trait MaybePatType {
+    fn maybe_pat_type(&self) -> Option<&syn::PatType>;
+}
+
+impl MaybePatType for FnArg {
+    fn maybe_pat_type(&self) -> Option<&syn::PatType> {
+        match self {
+            FnArg::Typed(pt) => Some(pt),
+            _ => None,
+        }
+    }
+}
+
+pub trait MaybePatTypeMut {
+    fn maybe_pat_type_mut(&mut self) -> Option<&mut syn::PatType>;
+}
+
+impl MaybePatTypeMut for FnArg {
+    fn maybe_pat_type_mut(&mut self) -> Option<&mut syn::PatType> {
+        match self {
+            FnArg::Typed(pt) => Some(pt),
+            _ => None,
+        }
+    }
+}
+
+pub trait MaybePat {
+    fn maybe_pat(&self) -> Option<&syn::Pat>;
+}
+
+impl MaybePat for FnArg {
+    fn maybe_pat(&self) -> Option<&syn::Pat> {
+        match self {
+            FnArg::Typed(PatType { pat, .. }) => Some(pat.as_ref()),
+            _ => None,
+        }
+    }
+}
+
 pub trait RemoveMutability {
     fn remove_mutability(&mut self);
 }
@@ -126,5 +198,21 @@ impl RemoveMutability for FnArg {
                 ident.mutability = None
             }
         };
+    }
+}
+
+pub trait IntoPat {
+    fn into_pat(self) -> Pat;
+}
+
+impl IntoPat for Ident {
+    fn into_pat(self) -> Pat {
+        Pat::Ident(syn::PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: None,
+            ident: self,
+            subpat: None,
+        })
     }
 }
