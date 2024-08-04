@@ -139,8 +139,6 @@ fn render_partial_impl(
 
     let generics = generics_clean_up(generics, args.iter().take(n), &output);
     let where_clause = &generics.where_clause;
-    let asyncness = asyncness;
-
     let genercs_idents = generics
         .type_params()
         .map(|tp| &tp.ident)

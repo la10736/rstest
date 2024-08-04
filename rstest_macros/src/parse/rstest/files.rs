@@ -180,11 +180,7 @@ impl ValueFilesExtractor {
     }
 
     fn extract_exclude(&mut self, node: &mut FnArg) -> Vec<Exclude> {
-        self.extract_argument_attrs(
-            node,
-            |a| attr_is(a, "exclude"),
-            |attr| Exclude::try_from(attr),
-        )
+        self.extract_argument_attrs(node, |a| attr_is(a, "exclude"), Exclude::try_from)
     }
 
     fn extract_include_dot_files(&mut self, node: &mut FnArg) -> Vec<Attribute> {

@@ -354,6 +354,22 @@ pub mod timeout;
 /// shorter name for argument that represent it in your fixture or test. You can rename the fixture
 /// using `#[from(short_name)]` attribute like following example:
 ///
+/// ## Destructuring
+///
+/// It's possible to destructure the fixture type but, in this case, your're forced to use renaming syntax
+/// because it's not possible to guess the fixture name from this syntax:
+///
+/// ```
+/// use rstest::*;
+/// #[fixture]
+/// fn two_values() -> (u32, u32) { (42, 24) }
+///
+/// #[rstest]
+/// fn the_test(#[from(two_values)] (first, _): (u32, u32)) {
+///     assert_eq!(42, first)
+/// }
+/// ```
+///
 /// ```
 /// use rstest::*;
 ///
@@ -568,6 +584,9 @@ pub use rstest_macros::fixture;
 /// - return results
 /// - marked by `#[should_panic]` attribute
 ///
+/// In the function signature, where you define your tests inputs, you can also destructuring
+/// the values like any other rust function.
+///
 /// If the test function is an [`async` function](#async) `rstest` will run all tests as `async`
 /// tests. You can use it just with `async-std` and you should include `attributes` in
 /// `async-std`'s features.
@@ -621,6 +640,20 @@ pub use rstest_macros::fixture;
 /// #[rstest]
 /// fn the_test(#[from(long_and_boring_descriptive_name)] short: i32) {
 ///     assert_eq!(42, short)
+/// }
+/// ```
+///
+/// The use of `#[from(...)]` attribute is mandatory if you need to destructure the value:
+///
+/// ```
+/// use rstest::*;
+///
+/// #[fixture]
+/// fn tuple() -> (u32, f32) { (42, 42.0) }
+///
+/// #[rstest]
+/// fn the_test(#[from(tuple)] (u, _): (u32, f32)) {
+///     assert_eq!(42, u)
 /// }
 /// ```
 ///
@@ -894,6 +927,27 @@ pub use rstest_macros::fixture;
 /// #[rstest]
 /// fn given_port(#[values("1.2.3.4:8000", "4.3.2.1:8000", "127.0.0.1:8000")] addr: SocketAddr) {
 ///     assert_eq!(8000, addr.port())
+/// }
+/// ```
+///
+/// ## Destructuring inputs
+///
+/// Both paramtrized case and values can be destructured:
+///
+/// ```
+/// # use rstest::*;
+/// struct S {
+///     first: u32,
+///     second: u32,
+/// }
+///
+/// struct T(i32);
+///
+/// #[rstest]
+/// #[case(S{first: 21, second: 42})]
+/// fn some_test(#[case] S{first, second} : S, #[values(T(-1), T(1))] T(t): T) {
+///     assert_eq!(1, t * t);
+///     assert_eq!(2 * first, second);
 /// }
 /// ```
 ///

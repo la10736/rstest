@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Now it's possible destructuring input values both for cases, values and fixtures. See [#231](https://github.com/la10736/rstest/issues/231) for details
+
 ### Add
 
 - Implemented `#[ignore]` attribute to ignore test parameters during fixtures resolution/injection. See [#228](https://github.com/la10736/rstest/issues/228) for details

@@ -278,7 +278,7 @@ pub(crate) fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
         arg.attrs = remain;
 
         // Parse attrs
-        Box::new(extracted.into_iter().map(move |attr| build(attr)))
+        Box::new(extracted.into_iter().map(build))
     } else {
         Box::new(std::iter::empty())
     }

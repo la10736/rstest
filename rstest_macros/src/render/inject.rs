@@ -67,7 +67,7 @@ where
         })
     }
 
-    fn fixture_name<'a>(&self, ident: &'a Pat) -> Ident {
+    fn fixture_name(&self, ident: &Pat) -> Ident {
         let ident = ident
             .maybe_ident()
             .cloned()

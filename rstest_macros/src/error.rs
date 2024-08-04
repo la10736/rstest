@@ -14,7 +14,7 @@ use crate::refident::{MaybeIdent, MaybePat};
 use super::utils::fn_args_has_pat;
 
 pub mod messages {
-    pub const DESTRUCT_WITHOUT_FROM : &'static str = "To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.";
+    pub const DESTRUCT_WITHOUT_FROM : &str = "To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.";
     pub fn use_more_than_once(name: &str) -> String {
         format!("You cannot use '{name}' attribute more than once for the same argument")
     }

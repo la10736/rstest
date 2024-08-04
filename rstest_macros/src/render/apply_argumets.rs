@@ -85,7 +85,7 @@ impl ApplyArguments for ItemFn {
         let rebound_awaited_args = args
             .iter()
             .filter_map(MaybePat::maybe_pat)
-            .filter(|p| arguments.is_future_await(&p))
+            .filter(|p| arguments.is_future_await(p))
             .filter_map(MaybePatIdent::maybe_patident)
             .map(|p| {
                 let a = &p.ident;
