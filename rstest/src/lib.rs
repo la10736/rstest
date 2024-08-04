@@ -20,9 +20,9 @@
 //! The `rstest` crate defines the following procedural macros:
 //!
 //! - [`[rstest]`](macro@rstest): Declare that a test or a group of tests that may take
-//! [fixtures](attr.rstest.html#injecting-fixtures),
-//! [input table](attr.rstest.html#test-parametrized-cases) or
-//! [list of values](attr.rstest.html#values-lists).
+//!   [fixtures](attr.rstest.html#injecting-fixtures),
+//!   [input table](attr.rstest.html#test-parametrized-cases) or
+//!   [list of values](attr.rstest.html#values-lists).
 //! - [`[fixture]`](macro@fixture): To mark a function as a fixture.
 //!
 //! ## Why
@@ -238,7 +238,7 @@
 //! speed up compilation.
 //!
 //! - **`async-timeout`** *(enabled by default)* — Implement timeout for async
-//! tests.
+//!   tests.
 //!
 //! # Rust version compatibility
 //!
@@ -1348,10 +1348,10 @@ pub use rstest_macros::fixture;
 ///   - `ident` that match to one of function arguments for parametrized cases
 ///   - `case[::description](v1, ..., vl)` a test case
 ///   - `fixture(v1, ..., vl) [as argument_name]` where fixture is the injected
-/// fixture and argument_name (default use fixture) is one of function arguments
-/// that and `v1, ..., vl` is a partial list of fixture's arguments
+///     fixture and argument_name (default use fixture) is one of function arguments
+///     that and `v1, ..., vl` is a partial list of fixture's arguments
 ///   - `ident => [v1, ..., vl]` where `ident` is one of function arguments and
-/// `v1, ..., vl` is a list of values for ident
+///     `v1, ..., vl` is a list of values for ident
 /// - `attribute_j` a test attribute like `trace` or `notrace`
 ///
 /// ## Fixture Arguments

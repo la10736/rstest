@@ -109,8 +109,8 @@ impl Project {
             cmd.env("RSTEST_TIMEOUT", timeout.to_string());
         }
 
-        cmd.current_dir(&self.path())
-            .arg(&self.cargo_channel_arg())
+        cmd.current_dir(self.path())
+            .arg(self.cargo_channel_arg())
             .arg("test");
 
         if self.nocapture {
@@ -123,7 +123,7 @@ impl Project {
     pub fn compile(&self) -> Result<std::process::Output, std::io::Error> {
         let _guard = self.ws.read().expect("Cannot lock workspace resource");
         Command::new("cargo")
-            .current_dir(&self.path())
+            .current_dir(self.path())
             .arg("build")
             .arg("--tests")
             .output()
