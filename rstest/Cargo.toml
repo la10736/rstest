@@ -33,7 +33,7 @@ rstest_macros = { version = "0.22.0", path = "../rstest_macros", default-feature
 
 [dev-dependencies]
 actix-rt = "2.7.0"
-async-std = { version = "1.12.0", features = ["attributes"] }
+async-std = { version = "1.13.0", features = ["attributes"] }
 lazy_static = "1.4.0"
 mytest = { package = "rstest", version = "0.21.0", default-features = false }
 pretty_assertions = "1.2.1"

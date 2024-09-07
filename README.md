@@ -187,7 +187,7 @@ To use this feature, you need to enable `attributes` in the `async-std`
 features list in your `Cargo.toml`:
 
 ```toml
-async-std = { version = "1.5", features = ["attributes"] }
+async-std = { version = "1.13", features = ["attributes"] }
 ```
 
 If your test input is an async value (fixture or test parameter) you can use `#[future]`
