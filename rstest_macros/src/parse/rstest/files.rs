@@ -4,7 +4,7 @@ use glob::glob;
 use quote::ToTokens;
 use regex::Regex;
 use relative_path::RelativePath;
-use syn::{parse_quote, visit_mut::VisitMut, Attribute, Expr, FnArg, Ident, ItemFn, LitStr};
+use syn::{parse_quote, visit_mut::VisitMut, Attribute, FnArg, Ident, ItemFn, LitStr};
 
 use crate::{
     error::ErrorsVec,
@@ -21,21 +21,6 @@ pub(crate) struct FilesGlobReferences {
     glob: Vec<LitStrAttr>,
     exclude: Vec<Exclude>,
     ignore_dot_files: bool,
-}
-
-impl FilesGlobReferences {
-    /// Return the tuples attribute, path string if they are valid relative paths
-    fn paths(&self, base_dir: &PathBuf) -> Result<Vec<(&LitStrAttr, String)>, syn::Error> {
-        self.glob
-            .iter()
-            .map(|attr| {
-                RelativePath::from_path(&attr.value())
-                    .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
-                    .map(|p| p.to_logical_path(base_dir))
-                    .map(|p| (attr, p.to_string_lossy().into_owned()))
-            })
-            .collect::<Result<Vec<_>, _>>()
-    }
 }
 
 trait RaiseError: ToTokens {
@@ -61,14 +46,17 @@ impl FilesGlobReferences {
         }
     }
 
-    fn is_valid(&self, p: &RelativePath) -> bool {
-        if self.ignore_dot_files
-            && p.components()
-                .any(|c| matches!(c, relative_path::Component::Normal(c) if c.starts_with('.')))
-        {
-            return false;
-        }
-        !self.exclude.iter().any(|e| e.r.is_match(p.as_ref()))
+    fn is_excluded(&self, base_dir: &RelativePath, p: &PathBuf) -> bool {
+        let dot_file = p.components().any(|c| match c {
+            std::path::Component::Normal(c) => {
+                c.to_str().map(|s| s.starts_with('.')).unwrap_or_default()
+            }
+            _ => false,
+        });
+        let matches_exclude_pattern = self.exclude.iter().any(|e| {
+            e.r.is_match(base_dir.relative(p.to_string_lossy().as_ref()).as_str())
+        });
+        (self.ignore_dot_files && dot_file) || matches_exclude_pattern
     }
 }
 
@@ -304,68 +292,98 @@ impl<'a> ValueListFromFiles<'a> {
         let base_dir = self
             .base_dir
             .base_dir()
-            .map_err(|msg| refs.glob[0].error(&msg))?;
-        let resolved_paths = refs.paths(&base_dir)?;
-        let base_dir = base_dir
-            .into_os_string()
-            .into_string()
-            .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?;
+            .map_err(|msg| refs.glob[0].error(&msg))?
+            .to_string_lossy()
+            .into_owned();
 
-        let mut values: Vec<(Expr, String)> = vec![];
-        for (attr, abs_path) in self.all_files_path(resolved_paths)? {
-            let relative_path = abs_path
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map(|inner| RelativePath::new(base_dir.as_str()).relative(inner))
-                .map_err(|e| {
-                    attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
-                })?;
-
-            if !refs.is_valid(&relative_path) {
-                continue;
-            }
-
-            let path_str = abs_path.to_string_lossy();
-            values.push((
-                parse_quote! {
-                    <::std::path::PathBuf as std::str::FromStr>::from_str(#path_str).unwrap()
-                },
-                render_file_description(&relative_path),
-            ));
+        let paths = self.find_paths(&RelativePath::new(&base_dir), &refs)?;
+        if paths.is_empty() {
+            return Err(refs.glob[0].error("No file found"));
         }
 
-        if values.is_empty() {
-            Err(refs.glob[0].error("No file found"))?;
-        }
+        let file_descriptions = get_file_descriptions_strip_common_prefix(&paths);
 
-        Ok(values
+        let values = paths
             .into_iter()
-            .map(|(e, desc)| Value::new(e, Some(desc)))
-            .collect())
+            .map(|path| path.to_string_lossy().into_owned())
+            .zip(file_descriptions)
+            .map(|(path, file_description)| {
+                Value::new(parse_quote! { #path }, Some(file_description))
+            })
+            .collect();
+
+        Ok(values)
     }
 
-    /// Return the tuples of attribute, file path resolved via glob resolver, sorted by path and without duplications.
-    fn all_files_path<'b>(
+    fn find_paths(
         &self,
-        resolved_paths: Vec<(&'b LitStrAttr, String)>,
-    ) -> Result<Vec<(&'b LitStrAttr, PathBuf)>, syn::Error> {
-        let mut paths = resolved_paths
-            .iter()
-            .map(|(attr, pattern)| {
-                self.g_resolver
-                    .glob(pattern.as_ref())
-                    .map_err(|msg| attr.error(&msg))
-                    .map(|p| (attr, p))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .flat_map(|(&attr, inner)| inner.into_iter().map(move |p| (attr, p)))
-            .collect::<Vec<_>>();
-        paths.sort_by(|(_, a), (_, b)| a.cmp(b));
-        paths.dedup_by(|(_, a), (_, b)| a.eq(&b));
+        base_dir: &RelativePath,
+        refs: &FilesGlobReferences,
+    ) -> Result<Vec<PathBuf>, syn::Error> {
+        let mut paths = vec![];
+        for attr in &refs.glob {
+            let pattern = RelativePath::from_path(&attr.value())
+                .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))?
+                .to_logical_path(base_dir.as_str())
+                .to_string_lossy()
+                .into_owned();
+            let mut glob_paths = self
+                .g_resolver
+                .glob(pattern.as_ref())
+                .map_err(|msg| attr.error(&msg))?;
+            glob_paths.retain(|path| !refs.is_excluded(base_dir, path));
+            paths.extend(glob_paths);
+        }
+        paths.sort();
+        paths.dedup();
         Ok(paths)
     }
+}
+
+/// Applies [`render_file_description`] to each path in the input list.
+fn get_file_descriptions_dont_strip_common_prefix(paths: &[PathBuf]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|path| render_file_description(&RelativePath::new(&path.to_string_lossy())))
+        .collect()
+}
+
+/// Finds the maximum common prefix for the given paths and strips it from each path.
+/// Always returns a [`Vec<String>`] of file descriptions.
+///
+/// If the common prefix is empty, fewer than two paths are given or stripping of
+/// the common prefix from any path results in a [`std::path::StripPrefixError`],
+/// returns the result of [`get_file_descriptions_dont_strip_common_prefix`].
+fn get_file_descriptions_strip_common_prefix(paths: &[PathBuf]) -> Vec<String> {
+    let fallback_return_closure = || get_file_descriptions_dont_strip_common_prefix(paths);
+
+    // Set initial common path to the first path or return early when we are dealing with 0 or 1 paths.
+    let mut prefix = match paths.len() {
+        0..=1 => return fallback_return_closure(),
+        _ => paths[0].clone(),
+    };
+
+    // Shorten the common prefix, one component at a time, as long as it is still a prefix of every path.
+    for path in paths.iter() {
+        while !path.starts_with(&prefix) {
+            // If the given paths have an empty common prefix, return without stripping a prefix.
+            if !prefix.pop() {
+                return fallback_return_closure();
+            }
+        }
+    }
+
+    // If the given paths have an empty common prefix, return without stripping a prefix.
+    let mut file_descriptions = vec![];
+    for path in paths {
+        match path.strip_prefix(prefix.clone()) {
+            Ok(stripped_path) => file_descriptions.push(render_file_description(
+                &RelativePath::new(&stripped_path.to_string_lossy()),
+            )),
+            Err(_) => return fallback_return_closure(),
+        };
+    }
+    file_descriptions
 }
 
 fn render_file_description(file: &RelativePath) -> String {
@@ -612,7 +630,7 @@ mod should {
     #[case::include_dot_files("/base", None, FakeResolver::from([
         "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
         vec![], false, &[".ignore", ".ignore_dir/a", "first", "in/.out/other/ignored", "second/.not", "second/but_include"])]
-    #[case::relative_path("/base/some/other/folders", None, 
+    #[case::relative_path("/base/some/other/folders", None,
         FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["../../../first", "../../../second"])]
     fn generate_a_variable_with_the_glob_resolved_path(
         #[case] bdir: &str,
@@ -636,25 +654,18 @@ mod should {
             "a",
             &expected
                 .iter()
-                .map(|&p| RelativePath::from_path(p).unwrap())
-                .map(|r| r.to_logical_path(bdir))
-                .map(|p| {
-                    format!(
-                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
-                        p.as_os_str().to_str().unwrap()
-                    )
-                })
+                .map(|ex| RelativePath::new(ex).to_logical_path(bdir))
+                .map(|p| format!("{p:?}"))
                 .collect::<Vec<_>>(),
         );
+
+        let expected_paths = expected.iter().map(PathBuf::from).collect::<Vec<_>>();
+
         v_list
             .values
             .iter_mut()
-            .zip(expected.iter())
-            .for_each(|(v, &ex)| {
-                v.description = Some(render_file_description(
-                    &RelativePath::from_path(ex).unwrap(),
-                ))
-            });
+            .zip(get_file_descriptions_strip_common_prefix(&expected_paths))
+            .for_each(|(v, file_description)| v.description = Some(file_description));
         assert_eq!(vec![v_list], values);
     }
 
@@ -665,10 +676,7 @@ mod should {
     #[case::parent("../../name.txt", "_UP/_UP/name.txt")]
     #[case::ignore_current("./../other/name.txt", "_UP/other/name.txt")]
     fn render_file_description_should(#[case] path: &str, #[case] expected: &str) {
-        assert_eq!(
-            render_file_description(&RelativePath::from_path(path).unwrap()),
-            expected
-        );
+        assert_eq!(render_file_description(&RelativePath::new(path)), expected);
     }
 
     #[test]
