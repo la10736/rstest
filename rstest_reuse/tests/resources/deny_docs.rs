@@ -1,5 +1,7 @@
 #![deny(missing_docs)]
 
+//! We should provide also a docs for the crate itself if we set `#![deny(missing_docs)]`.
+
 use rstest::rstest;
 use rstest_reuse::{self, *};
 
