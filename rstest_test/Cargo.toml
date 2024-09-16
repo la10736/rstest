@@ -20,5 +20,5 @@ toml_edit = "=0.21.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-rstest = { version = "0.21.0", default-features = false }
+rstest = { version = "0.22.0", default-features = false }
 temp_testdir = "0.2.3"
