@@ -23,6 +23,8 @@ fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
 
 #[test]
 fn files() {
+    std::env::set_var("FILES_ENV_VAR", "files");
+
     let prj = prj("files.rs");
     let files_path = prj.path().join("files");
     let sub_folder = files_path.join("sub");
@@ -62,6 +64,11 @@ fn files() {
     let output = prj.run_tests().unwrap();
 
     TestResults::new()
+        .ok("env_vars::path_1_files_element_0_txt")
+        .ok("env_vars::path_2_files_element_1_txt")
+        .ok("env_vars::path_3_files_element_2_txt")
+        .ok("env_vars::path_4_files_element_3_txt")
+        .ok("env_vars::path_5_files_sub_sub_dir_file_txt")
         .ok("ignore_missing_env_vars::path_1_files_element_0_txt")
         .ok("ignore_missing_env_vars::path_2_files_element_1_txt")
         .ok("ignore_missing_env_vars::path_4_files_element_3_txt")

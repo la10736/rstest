@@ -43,6 +43,15 @@ fn ignore_missing_env_vars(
     let _ = path;
 }
 
+#[rstest]
+fn env_vars(
+    #[files("${FILES_ENV_VAR}/**/*.txt")]
+    #[exclude("exclude")]
+    path: PathBuf,
+) {
+    let _ = path;
+}
+
 mod module {
     #[rstest::rstest]
     fn pathbuf_need_not_be_in_scope(
