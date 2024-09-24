@@ -16,6 +16,47 @@ use crate::{
     utils::attr_is,
 };
 
+/// Replace environment variables in a string.
+fn replace_env_vars(attr: &LitStrAttr) -> Result<String, syn::Error> {
+    // Search-and-replace the `base_dir` for environment variables,
+    // in the form of `$VAR` or `${VAR}`.
+
+    let re =
+        Regex::new(r"\$([a-zA-Z_][a-zA-Z0-9_]*)|\$\{([^}]*)}").expect("Could not build the regex");
+
+    let mut result = String::with_capacity(attr.value().len());
+    let mut last_match = 0;
+    let path = attr.value();
+    let haystack = path.as_str();
+
+    for caps in re.captures_iter(haystack) {
+        let m = caps.get(0).expect("The regex should have matched");
+        let var_name = caps
+            .get(1)
+            .or_else(|| caps.get(2))
+            .expect("The regex should have matched either $VAR or ${VAR}")
+            .as_str();
+
+        let replacement = env::var(var_name).map_err(|_| {
+            attr.error(&format!(
+                "Could not find the environment variable {:?}",
+                var_name
+            ))
+        })?;
+
+        // Make sure cargo would rerun if the value of this environment variable changes.
+        println!("cargo::rerun-if-env-changed={var_name}");
+
+        result.push_str(&haystack[last_match..m.start()]);
+        result.push_str(&replacement);
+        last_match = m.end();
+    }
+
+    result.push_str(&haystack[last_match..]);
+
+    Ok(result)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FilesGlobReferences {
     glob: Vec<LitStrAttr>,
@@ -29,7 +70,8 @@ impl FilesGlobReferences {
         self.glob
             .iter()
             .map(|attr| {
-                RelativePath::from_path(&attr.value())
+                let path = replace_env_vars(&attr)?;
+                RelativePath::from_path(&path)
                     .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
                     .map(|p| p.to_logical_path(base_dir))
                     .map(|p| (attr, p.to_string_lossy().into_owned()))
@@ -431,8 +473,8 @@ mod should {
     #[case::simple(r#"fn f(#[files("some_glob")] a: PathBuf) {}"#, "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &[], true)])]
     #[case::more_than_one(
         r#"fn f(#[files("first")] a: PathBuf, b: u32, #[files("third")] c: PathBuf) {}"#,
-        r#"fn f(a: PathBuf, 
-                b: u32, 
+        r#"fn f(a: PathBuf,
+                b: u32,
                 c: PathBuf) {}"#,
         &[("a", &["first"], &[], true), ("c", &["third"], &[], true)],
     )]
@@ -441,11 +483,11 @@ mod should {
         r#"fn f(a: PathBuf) {}"#,
         &[("a", &["first", "second"], &[], true)],
     )]
-    #[case::exclude(r#"fn f(#[files("some_glob")] #[exclude("exclude")] a: PathBuf) {}"#, 
+    #[case::exclude(r#"fn f(#[files("some_glob")] #[exclude("exclude")] a: PathBuf) {}"#,
     "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &["exclude"], true)])]
-    #[case::exclude_more(r#"fn f(#[files("some_glob")] #[exclude("first")]  #[exclude("second")] a: PathBuf) {}"#, 
+    #[case::exclude_more(r#"fn f(#[files("some_glob")] #[exclude("first")]  #[exclude("second")] a: PathBuf) {}"#,
     "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &["first", "second"], true)])]
-    #[case::include_dot_files(r#"fn f(#[files("some_glob")] #[include_dot_files] a: PathBuf) {}"#, 
+    #[case::include_dot_files(r#"fn f(#[files("some_glob")] #[include_dot_files] a: PathBuf) {}"#,
     "fn f(a: PathBuf) {}", &[("a", &["some_glob"], &[], false)])]
 
     fn extract<'a, G: AsRef<[&'a str]>, E: AsRef<[&'a str]>>(
@@ -598,21 +640,21 @@ mod should {
     ), vec![], true, &["first", "second", "third"])]
     #[case::should_sort("/base", None, FakeResolver::from(["/base/second", "/base/first"].as_slice()), vec![], true, &["first", "second"])]
     #[case::exclude("/base", None, FakeResolver::from([
-        "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/second"].as_slice()), 
+        "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/second"].as_slice()),
         vec![Exclude::fake("no_mater", Some(Regex::new("rem_").unwrap()))], true, &["first", "second"])]
     #[case::exclude_more("/base", None, FakeResolver::from([
-        "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/some/other", "/base/second"].as_slice()), 
+        "/base/first", "/base/rem_1", "/base/other/rem_2", "/base/some/other", "/base/second"].as_slice()),
         vec![
             Exclude::fake("no_mater", Some(Regex::new("rem_").unwrap())),
             Exclude::fake("no_mater", Some(Regex::new("some").unwrap())),
             ], true, &["first", "second"])]
     #[case::ignore_dot_files("/base", None, FakeResolver::from([
-        "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
+        "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()),
         vec![], true, &["first", "second/but_include"])]
     #[case::include_dot_files("/base", None, FakeResolver::from([
-        "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()), 
+        "/base/first", "/base/.ignore", "/base/.ignore_dir/a", "/base/second/.not", "/base/second/but_include", "/base/in/.out/other/ignored"].as_slice()),
         vec![], false, &[".ignore", ".ignore_dir/a", "first", "in/.out/other/ignored", "second/.not", "second/but_include"])]
-    #[case::relative_path("/base/some/other/folders", None, 
+    #[case::relative_path("/base/some/other/folders", None,
         FakeResolver::from(["/base/first", "/base/second"].as_slice()), vec![], true, &["../../../first", "../../../second"])]
     fn generate_a_variable_with_the_glob_resolved_path(
         #[case] bdir: &str,

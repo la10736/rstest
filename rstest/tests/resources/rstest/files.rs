@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[rstest]
 fn start_with_name(
-    #[files("files/**/*.txt")]
+    #[files("${HELLO_WORLD}files/**/*.txt")]
     #[exclude("exclude")]
     #[files("../files_test_sub_folder/**/*.txt")]
     path: PathBuf,
