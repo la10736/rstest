@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[rstest]
 fn start_with_name(
-    #[files("${HELLO_WORLD}files/**/*.txt")]
+    #[files("files/**/*.txt")]
     #[exclude("exclude")]
     #[files("../files_test_sub_folder/**/*.txt")]
     path: PathBuf,
@@ -33,6 +33,16 @@ fn start_with_name_with_include(
     assert!(contents.starts_with(name.to_str().unwrap()))
 }
 
+#[rstest]
+fn ignore_missing_env_vars(
+    #[ignore_missing_env_vars]
+    #[files("files/**/${__SHOULD_NOT_BE_DECLARED__}*.txt")]
+    #[exclude("exclude")]
+    path: PathBuf,
+) {
+    let _ = path;
+}
+
 mod module {
     #[rstest::rstest]
     fn pathbuf_need_not_be_in_scope(
@@ -41,5 +51,6 @@ mod module {
         #[include_dot_files]
         path: std::path::PathBuf,
     ) {
+        let _ = path;
     }
 }

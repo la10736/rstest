@@ -17,17 +17,14 @@ use crate::{
 };
 
 /// Replace environment variables in a string.
-fn replace_env_vars(attr: &LitStrAttr) -> Result<String, syn::Error> {
-    // Search-and-replace the `base_dir` for environment variables,
-    // in the form of `$VAR` or `${VAR}`.
-
+fn replace_env_vars(attr: &LitStrAttr, ignore_missing: bool) -> Result<String, syn::Error> {
     let re =
         Regex::new(r"\$([a-zA-Z_][a-zA-Z0-9_]*)|\$\{([^}]*)}").expect("Could not build the regex");
 
-    let mut result = String::with_capacity(attr.value().len());
-    let mut last_match = 0;
     let path = attr.value();
     let haystack = path.as_str();
+    let mut result = String::with_capacity(attr.value().len());
+    let mut last_match = 0;
 
     for caps in re.captures_iter(haystack) {
         let m = caps.get(0).expect("The regex should have matched");
@@ -37,12 +34,16 @@ fn replace_env_vars(attr: &LitStrAttr) -> Result<String, syn::Error> {
             .expect("The regex should have matched either $VAR or ${VAR}")
             .as_str();
 
-        let replacement = env::var(var_name).map_err(|_| {
-            attr.error(&format!(
-                "Could not find the environment variable {:?}",
-                var_name
-            ))
-        })?;
+        let replacement = match env::var(var_name) {
+            Ok(val) => val,
+            Err(_) if ignore_missing => String::new(),
+            Err(_) => {
+                return Err(attr.error(&format!(
+                    "Could not find the environment variable {:?}",
+                    var_name
+                )))
+            }
+        };
 
         // Make sure cargo would rerun if the value of this environment variable changes.
         println!("cargo::rerun-if-env-changed={var_name}");
@@ -62,6 +63,7 @@ pub(crate) struct FilesGlobReferences {
     glob: Vec<LitStrAttr>,
     exclude: Vec<Exclude>,
     ignore_dot_files: bool,
+    ignore_missing_env_vars: bool,
 }
 
 impl FilesGlobReferences {
@@ -70,7 +72,7 @@ impl FilesGlobReferences {
         self.glob
             .iter()
             .map(|attr| {
-                let path = replace_env_vars(&attr)?;
+                let path = replace_env_vars(&attr, self.ignore_missing_env_vars)?;
                 RelativePath::from_path(&path)
                     .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
                     .map(|p| p.to_logical_path(base_dir))
@@ -95,11 +97,12 @@ impl ToTokens for LitStrAttr {
 }
 
 impl FilesGlobReferences {
-    fn new(glob: Vec<LitStrAttr>, exclude: Vec<Exclude>, ignore_dot_files: bool) -> Self {
+    fn new(glob: Vec<LitStrAttr>, exclude: Vec<Exclude>, ignore_dot_files: bool, ignore_missing_env_vars: bool) -> Self {
         Self {
             glob,
             exclude,
             ignore_dot_files,
+            ignore_missing_env_vars
         }
     }
 
@@ -166,7 +169,7 @@ impl TryFrom<Attribute> for Exclude {
 
 impl From<Vec<LitStrAttr>> for FilesGlobReferences {
     fn from(value: Vec<LitStrAttr>) -> Self {
-        Self::new(value, Default::default(), true)
+        Self::new(value, Default::default(), true, false)
     }
 }
 
@@ -237,6 +240,19 @@ impl ValueFilesExtractor {
             },
         )
     }
+
+    fn extract_ignore_missing_env_vars(&mut self, node: &mut FnArg) -> Vec<Attribute> {
+        self.extract_argument_attrs(
+            node,
+            |a| attr_is(a, "ignore_missing_env_vars"),
+            |attr| {
+                attr.meta
+                    .require_path_only()
+                    .map_err(|_| attr.error("Use #[ignore_missing_env_vars] to ignore missing environment variables"))?;
+                Ok(attr)
+            },
+        )
+    }
 }
 
 impl VisitMut for ValueFilesExtractor {
@@ -255,10 +271,17 @@ impl VisitMut for ValueFilesExtractor {
                     .push(attr.error("Cannot use #[include_dot_files] more than once"))
             })
         }
+        let ignore_missing_env_vars = self.extract_ignore_missing_env_vars(node);
+        if !ignore_missing_env_vars.is_empty() {
+            ignore_missing_env_vars.iter().skip(1).for_each(|attr| {
+                self.errors
+                    .push(attr.error("Cannot use #[ignore_missing_env_vars] more than once"))
+            })
+        }
         if !files.is_empty() {
             self.files.push((
                 name,
-                FilesGlobReferences::new(files, excludes, include_dot_files.is_empty()),
+                FilesGlobReferences::new(files, excludes, include_dot_files.is_empty(), !ignore_missing_env_vars.is_empty()),
             ))
         } else {
             excludes.into_iter().for_each(|e| {
@@ -270,6 +293,10 @@ impl VisitMut for ValueFilesExtractor {
             include_dot_files.into_iter().for_each(|attr| {
                 self.errors
                     .push(attr.error("You cannot use #[include_dot_files] without #[files(...)]"))
+            });
+            ignore_missing_env_vars.into_iter().for_each(|attr| {
+                self.errors
+                    .push(attr.error("You cannot use #[ignore_missing_env_vars] without #[files(...)]"))
             });
         }
     }
@@ -510,7 +537,8 @@ mod should {
                     FilesGlobReferences::new(
                         globs.as_ref().iter().map(files_attr).collect(),
                         ex.as_ref().iter().map(|&ex| ex.into()).collect(),
-                        *ignore
+                        *ignore,
+                        false
                     )
                 ))
                 .collect::<Vec<_>>()
@@ -670,7 +698,7 @@ mod should {
         let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(paths, exclude, ignore_dot_files),
+                FilesGlobReferences::new(paths, exclude, ignore_dot_files, false),
             )])
             .unwrap();
 
@@ -727,7 +755,7 @@ mod should {
         ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true),
+                FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true, false),
             )])
             .unwrap();
     }
@@ -738,7 +766,7 @@ mod should {
         ValueListFromFiles::new(FakeBaseDir::default(), FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
-                FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true),
+                FilesGlobReferences::new(vec![files_attr("no_mater")], Default::default(), true, false),
             )])
             .unwrap();
     }
