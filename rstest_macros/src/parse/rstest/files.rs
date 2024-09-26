@@ -26,7 +26,11 @@ pub(crate) struct FilesGlobReferences {
 
 impl FilesGlobReferences {
     /// Replace environment variables in a string.
-    fn replace_env_vars(&self, attr: &LitStrAttr) -> Result<String, syn::Error> {
+    fn replace_env_vars(
+        &self,
+        attr: &LitStrAttr,
+        env: impl EnvironmentResolver,
+    ) -> Result<String, syn::Error> {
         let re = Regex::new(r"\$([a-zA-Z_][a-zA-Z0-9_]+)|\$\{([^}]+)}")
             .expect("Could not build the regex");
 
@@ -68,13 +72,13 @@ impl FilesGlobReferences {
                     })?
             };
 
-            let v = env::var(var_name);
+            let v = env.get(var_name);
             let replacement = match (v.as_ref().map(String::as_str), default) {
-                (Ok(""), Some(default)) => default.to_string(),
-                (Ok(val), _) => val.to_string(),
-                (Err(_), Some(default)) => default.to_string(),
-                (Err(_), _) if ignore_missing => String::new(),
-                (Err(_), _) => {
+                (Some(""), Some(default)) => default.to_string(),
+                (Some(val), _) => val.to_string(),
+                (None, Some(default)) => default.to_string(),
+                (None, _) if ignore_missing => String::new(),
+                (None, _) => {
                     return Err(attr.error(&format!(
                         "Could not find the environment variable {:?}",
                         var_name
@@ -99,7 +103,10 @@ impl FilesGlobReferences {
     fn base_dir(&self) -> Result<Option<PathBuf>, syn::Error> {
         self.base_dir
             .as_ref()
-            .map(|attr| self.replace_env_vars(attr).map(PathBuf::from))
+            .map(|attr| {
+                self.replace_env_vars(attr, StdEnvironmentResolver)
+                    .map(PathBuf::from)
+            })
             .transpose()
     }
 
@@ -108,7 +115,7 @@ impl FilesGlobReferences {
         self.glob
             .iter()
             .map(|attr| {
-                let path = self.replace_env_vars(attr)?;
+                let path = self.replace_env_vars(attr, StdEnvironmentResolver)?;
                 RelativePath::from_path(&path)
                     .map_err(|e| attr.error(&format!("Invalid glob path: {e}")))
                     .map(|p| p.to_logical_path(base_dir))
@@ -413,6 +420,18 @@ trait BaseDir {
 struct DefaultBaseDir;
 
 impl BaseDir for DefaultBaseDir {}
+
+trait EnvironmentResolver {
+    fn get(&self, var: &str) -> Option<String>;
+}
+
+struct StdEnvironmentResolver;
+
+impl EnvironmentResolver for StdEnvironmentResolver {
+    fn get(&self, var: &str) -> Option<String> {
+        env::var(var).ok()
+    }
+}
 
 trait GlobResolver {
     fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
@@ -963,5 +982,47 @@ mod should {
     #[should_panic(expected = "glob failed")]
     fn default_glob_resolver_raise_error_if_invalid_glob_path() {
         DefaultGlobResolver.glob("/invalid/path/***").unwrap();
+    }
+
+    struct MapEnvironmentResolver(HashMap<String, String>);
+
+    impl EnvironmentResolver for MapEnvironmentResolver {
+        fn get(&self, var: &str) -> Option<String> {
+            self.0.get(var).cloned()
+        }
+    }
+
+    #[rstest]
+    #[case::works(&[("VALUE", "VVV")], false, "some${VALUE}_glob", Ok("someVVV_glob"))]
+    #[case::works_simple(&[("VALUE", "VVV")], false, "some/$VALUE/glob", Ok("some/VVV/glob"))]
+    #[case::unknown_err(&[], false, "some${__UNKNOWN__}_glob", Err("__UNKNOWN__"))]
+    #[case::ignore_unknown(&[], true, "some${__UNKNOWN__}_glob", Ok("some_glob"))]
+    #[case::invalid(&[], false, "some${__%$!@__}_glob", Err("__%$!@__"))]
+    #[case::default_unknown(&[], false, "some${__UNKNOWN__:-VVV}_glob", Ok("someVVV_glob"))]
+    #[case::default_empty(&[("EMPTY", "")], false, "some${EMPTY:-EEE}_glob", Ok("someEEE_glob"))]
+    fn replace_env_vars(
+        #[case] env_vars: &[(&str, &str)],
+        #[case] ignore_missing_env_vars: bool,
+        #[case] glob: &str,
+        #[case] expected: Result<&str, &str>,
+    ) {
+        let resolver = MapEnvironmentResolver(
+            env_vars
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        );
+        let refs =
+            FilesGlobReferences::new(vec![], Default::default(), true, ignore_missing_env_vars);
+
+        let result = refs.replace_env_vars(&files_attr(glob), resolver);
+        match (&result, expected) {
+            (Ok(r), Ok(e)) => assert_eq!(r, e),
+            (Err(r), Err(e)) => assert_in!(format!("{:?}", r), e),
+            _ => panic!(
+                "Expected and result should be the same. Expected: {:?}, Result: {:?}",
+                expected, result
+            ),
+        }
     }
 }
