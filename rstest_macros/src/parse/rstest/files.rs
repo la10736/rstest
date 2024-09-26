@@ -742,6 +742,10 @@ mod should {
         r#"fn f(#[files("some")] #[base_dir = "/"] #[base_dir = "/"] a: PathBuf) {}"#,
         "more than once"
     )]
+    #[case::invalid_base_dir(
+        r#"fn f(#[files("some")] #[base_dir = 123] a: PathBuf) {}"#,
+        "base directory for the glob path"
+    )]
     fn raise_error(#[case] item_fn: &str, #[case] message: &str) {
         let mut item_fn: ItemFn = item_fn.ast();
 
