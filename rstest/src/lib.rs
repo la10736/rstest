@@ -728,7 +728,7 @@ pub use rstest_macros::fixture;
 ///
 /// ```
 /// use rstest::rstest;
-///  
+///
 /// fn sum(a: usize, b: usize) -> usize { a + b }
 ///
 /// #[rstest]
@@ -966,6 +966,7 @@ pub use rstest_macros::fixture;
 ///     assert!(check_file(&path))
 /// }
 /// ```
+///
 /// The default behavior is to ignore the files that start with `"."`, but you can
 /// modify this by use `#[include_dot_files]` attribute. The `files` attribute can be
 /// used more than once on the same variable, and you can also create some custom
@@ -978,6 +979,17 @@ pub use rstest_macros::fixture;
 /// where the parent folder components are replaced by `_UP`: for instance if you have a
 /// `valid_call.yaml` in the folder `../test_cases` (from your crate root) a test name could be
 /// `path_1__UP_test_cases_valid_call_yaml`.
+///
+/// Sometimes you want to change the base path for the test files. You can do that by using
+/// `#[base_dir = "..."]` attribute. The `base_dir` is resolved relative to the crate root
+/// (similar to the `files` attribute without `base_dir`). If you want to use an absolute
+/// path you can use `#[base_dir = "/path/to/your/files"]`.
+///
+/// Both `files` and `base_dir` attributes can use environment variables using the syntax
+/// `$VAR` or `${VAR}`. If the environment variable is not set, the attribute will cause
+/// an error. This can be ignored using the `#[ignore_missing_env_vars]` attribute. A
+/// default value can be provided for the environment variable using the syntax
+/// `${VAR:-default}` (similar to bash).
 ///
 /// ## Use Parametrize definition in more tests
 ///
@@ -1186,7 +1198,7 @@ pub use rstest_macros::fixture;
 ///
 /// #[fixture]
 /// fn bump() -> () {}
-///  
+///
 /// #[rstest]
 /// #[case(true, E::A(true))]
 /// fn it_works<'a>(#[by_ref] bump: &'a (), #[case] b: bool, #[case] expected: E<'a>) {

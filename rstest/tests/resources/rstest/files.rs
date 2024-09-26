@@ -40,7 +40,12 @@ fn ignore_missing_env_vars(
     #[exclude("exclude")]
     path: PathBuf,
 ) {
-    let _ = path;
+    let name = path.file_name().unwrap();
+    let mut f = File::open(&path).unwrap();
+    let mut contents = String::new();
+    f.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.starts_with(name.to_str().unwrap()))
 }
 
 #[rstest]
@@ -49,7 +54,41 @@ fn env_vars(
     #[exclude("exclude")]
     path: PathBuf,
 ) {
-    let _ = path;
+    let name = path.file_name().unwrap();
+    let mut f = File::open(&path).unwrap();
+    let mut contents = String::new();
+    f.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.starts_with(name.to_str().unwrap()))
+}
+
+#[rstest]
+fn env_vars_unknown(
+    #[files("${__UNKNOWN__:-files}/**/*.txt")]
+    #[exclude("exclude")]
+    path: PathBuf,
+) {
+    let name = path.file_name().unwrap();
+    let mut f = File::open(&path).unwrap();
+    let mut contents = String::new();
+    f.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.starts_with(name.to_str().unwrap()))
+}
+
+#[rstest]
+fn env_vars_base_dir(
+    #[files("**/*.txt")]
+    #[base_dir = "files"]
+    #[exclude("exclude")]
+    path: PathBuf,
+) {
+    let name = path.file_name().unwrap();
+    let mut f = File::open(&path).unwrap();
+    let mut contents = String::new();
+    f.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.starts_with(name.to_str().unwrap()))
 }
 
 mod module {

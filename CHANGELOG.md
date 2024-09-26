@@ -6,6 +6,9 @@
 
 ### Add
 
+- You can now use environment variables in `#[files]` with an optional default value (see [#277](https://github.com/la10736/rstest/pull/277)).
+- You can now set a base_dir for `#[files]` with the `$[base_dir = "..."]` attribute (see [#277](https://github.com/la10736/rstest/pull/277)).
+
 ### Fixed
 
 ## [0.22.0] 2024/8/4
@@ -27,25 +30,25 @@
 ### Changed
 
 - Add feature `crate-name` enabled by default to opt-in crate rename
-support. See [#258](https://github.com/la10736/rstest/issues/258)
+  support. See [#258](https://github.com/la10736/rstest/issues/258)
 
 ## [0.20.0] 2024/5/30
 
 ### Add
 
 - Implemented `#[by_ref]` attribute to take get a local lifetime for test arguments.
-See [#241](https://github.com/la10736/rstest/issues/241) for more details. Thanks to
-@narpfel for suggesting it and useful discussions.
+  See [#241](https://github.com/la10736/rstest/issues/241) for more details. Thanks to
+  @narpfel for suggesting it and useful discussions.
 - Support for import `rstest` with another name. See [#221](https://github.com/la10736/rstest/issues/221)
 
 ### Fixed
 
 - Don't remove Lifetimes from test function if any. See [#230](https://github.com/la10736/rstest/issues/230)
-[#241](https://github.com/la10736/rstest/issues/241) for more details.
+  [#241](https://github.com/la10736/rstest/issues/241) for more details.
 - [`PathBuf`](https://doc.rust-lang.org/std/path/struct.PathBuf.html) does no longer need to be
-in scope when using `#[files]` (see [#242](https://github.com/la10736/rstest/pull/242))
+  in scope when using `#[files]` (see [#242](https://github.com/la10736/rstest/pull/242))
 - `#[from(now::accept::also::path::for::fixture)]` See [#246](https://github.com/la10736/rstest/issues/246)
-for more details
+  for more details
 
 ## [0.19.0] 2024/4/9
 
@@ -56,9 +59,9 @@ for more details
 ### Fixed
 
 - `#[once]` fixtures now require the returned type to be
-[`Sync`](https://doc.rust-lang.org/std/marker/trait.Sync.html) to prevent UB
-when tests are executed in parallel. (see [#235](https://github.com/la10736/rstest/issues/235)
-for more details)
+  [`Sync`](https://doc.rust-lang.org/std/marker/trait.Sync.html) to prevent UB
+  when tests are executed in parallel. (see [#235](https://github.com/la10736/rstest/issues/235)
+  for more details)
 
 - `#[future(awt)]` and `#[awt]` now properly handle mutable (`mut`) parameters by treating futures as immutable and
   treating the awaited rebinding as mutable.
@@ -68,7 +71,7 @@ for more details)
 ### Changed
 
 - Now `#[files]` accept also parent folders (see [#205](https://github.com/la10736/rstest/issues/205)
-for more details).
+  for more details).
 
 ## [0.18.1] 2023/7/5
 
@@ -82,20 +85,20 @@ for more details).
 ### Add
 
 - Add support for `RSTEST_TIMEOUT` environment variable to define a max timeout
-for each function (see [#190](https://github.com/la10736/rstest/issues/190) for details).
-Thanks to @aviramha for idea and PR
-- `#[files("glob path")]` attribute to generate tests based on files that 
-satisfy the given glob path (see [#163](https://github.com/la10736/rstest/issues/163) for details).
+  for each function (see [#190](https://github.com/la10736/rstest/issues/190) for details).
+  Thanks to @aviramha for idea and PR
+- `#[files("glob path")]` attribute to generate tests based on files that
+  satisfy the given glob path (see [#163](https://github.com/la10736/rstest/issues/163) for details).
 
 ### Changed
 
-- Switch to `syn` 2.0 and edition 2021 : minimal Rust version now is 1.56.0 
-both for `rstest` and `rstest_reuse` (see [#187](https://github.com/la10736/rstest/issues/187))
+- Switch to `syn` 2.0 and edition 2021 : minimal Rust version now is 1.56.0
+  both for `rstest` and `rstest_reuse` (see [#187](https://github.com/la10736/rstest/issues/187))
 
 ### Fixed
 
 - Fixed wired behavior on extraction `#[awt]` function attrs (See
-[#189](https://github.com/la10736/rstest/issues/189))
+  [#189](https://github.com/la10736/rstest/issues/189))
 
 ## [0.17.0] 2023/3/19
 
@@ -108,10 +111,11 @@ both for `rstest` and `rstest_reuse` (see [#187](https://github.com/la10736/rste
 - Fixed wrong message when timeout tests panic before timeout expire (See #171)
 
 ## [0.16.0] 2022/11/27
+
 ### Changed
 
-- Show `TEST START` banner only when trace some argument: See #158 for details. 
-- Add values to test name: See #160 for details. 
+- Show `TEST START` banner only when trace some argument: See #158 for details.
+- Add values to test name: See #160 for details.
 
 ### Fixed
 
@@ -120,12 +124,14 @@ both for `rstest` and `rstest_reuse` (see [#187](https://github.com/la10736/rste
 ## [0.15.0] 2022/06/27
 
 ### Fixed
- - Timeout not compile if one of its test arguments il not a copy
-   type [see #154]
+
+- Timeout not compile if one of its test arguments il not a copy
+  type [see #154]
 
 ## [0.14.0] 2022/06/19
 
 ### Changed
+
 - Feature gated async timeout via `async-timeout` feature [see #148]
 
 ### Fixed
@@ -162,31 +168,31 @@ both for `rstest` and `rstest_reuse` (see [#187](https://github.com/la10736/rste
 
 ### Add
 
-- Rename fixture (See #107 and #108)  
+- Rename fixture (See #107 and #108)
 
 ### Fixed
 
 - Wired behaviour in `#[fixture]` with generics types that have transitive
-reference (See #116)  
+  reference (See #116)
 
 ## [0.9.0] 2021/05/2
 
 ### Add
 
-- `#[future]` arg attribute to remove `impl Future<>` boilerplate. (See #98) 
+- `#[future]` arg attribute to remove `impl Future<>` boilerplate. (See #98)
 
 ## [0.8.0] 2021/4/25
 
 ### Add
 
-- Magic Conversion: use literal string for define values where type implements 
-`FromStr` trait (See #111)
+- Magic Conversion: use literal string for define values where type implements
+  `FromStr` trait (See #111)
 
 ### Changed
 
-- `#[default]` arg attribute cannot use key = arbitrary rust expression syntax 
-(is unstable https://github.com/rust-lang/rust/issues/78835). So we switched
-to `#[default(expression)]` syntax. (See #117) 
+- `#[default]` arg attribute cannot use key = arbitrary rust expression syntax
+  (is unstable https://github.com/rust-lang/rust/issues/78835). So we switched
+  to `#[default(expression)]` syntax. (See #117)
 
 ### Fixed
 
@@ -194,67 +200,75 @@ to `#[default(expression)]` syntax. (See #117)
 
 ## [0.7.0] 2021/3/21
 
-This version intruduce the new more composable syntax. And async 
+This version intruduce the new more composable syntax. And async
 fixtures (thanks to @rubdos)
 
 ### Add
+
 - New syntax that leverage on function and argument attributes
-to implement all features (See #99, #100, #101, #103, #109 and #102)
+  to implement all features (See #99, #100, #101, #103, #109 and #102)
 - `async` fixtures (See #86, #96. Thanks to @rubdos).
 
 ### Changed
+
 - Moved integration tests resouces in `test` directory (See #97)
 
 ## [0.6.4] 2020/6/20
 
 ### Add
+
 - Implemented reusable test list with `rstest_reuse` external crate (See #80)
 
 ## [0.6.3] 2020/4/19
 
 ### Add
+
 - Define default values instead use trivial fixtures (See #72).
 
 ## [0.6.2] 2020/4/13
 
 ### Add
-- Injecting test attribute. You can choose your own test attribute (should be something like `*::test`) 
-for each test. This feature enable every async runtime (See #91).
+
+- Injecting test attribute. You can choose your own test attribute (should be something like `*::test`)
+  for each test. This feature enable every async runtime (See #91).
 
 ### Changed
-- Start to use `rstest` to test `rstest` (On going task #92) 
+
+- Start to use `rstest` to test `rstest` (On going task #92)
 
 ## [0.6.1] 2020/4/5
 
 ### Add
+
 - Introducing async tests support. Leverage on `async_std::test` to automatically switch to
-async test (both for single, cases and matrix) (See #73)
+  async test (both for single, cases and matrix) (See #73)
 
 ## [0.6.0] 2020/3/5
 
 ### Add
+
 - Hook argument name to fixture by remove starting `_` (See #70)
 - Every `case` can have a specific set of attributes (See #82)
 
 ### Changed
 
 - Removed useless `rstest_parametrize` and `rstest_matrix` (See #81). From 0.5.0 you
-can use just `rstest` to create cases and values list.
+  can use just `rstest` to create cases and values list.
 - Removed `cargo-edit` test dependecy (See #61)
 
 ## [0.5.3] 2020/1/23
 
 ### Fixed
 
-- Fixed  a false _unused mut_ warning regression introduced by
-partial fixtures (See [8a0ff08](https://github.com/la10736/rstest/commit/8a0ff0874dc8186edfaefb1ddef64d53666b94da))
+- Fixed a false _unused mut_ warning regression introduced by
+  partial fixtures (See [8a0ff08](https://github.com/la10736/rstest/commit/8a0ff0874dc8186edfaefb1ddef64d53666b94da))
 
 ## [0.5.2] 2019/12/29
 
 ### Fixed
 
 - Fixed _unused attribute_ warning when use `should_panic`
-attribute (See #79)
+  attribute (See #79)
 
 ## [0.5.1] 2019/12/14
 
@@ -269,14 +283,14 @@ attribute (See #79)
 
 - Use just `rstest` for implementing all kind of tests (See #42)
 - New matrix tests render: indicate argument name and nest groups
-in modules (See #68 for details)
+  in modules (See #68 for details)
 - CI (github actions) build and tests (See #46)
 
 ### Changed
 
 - Better `README.md` that introduce all features
 - (From rustc 1.40) Deprecated `rstest_parametrize` and `rstest_matrix`:
-`rstest` now cover all features
+  `rstest` now cover all features
 - Refactored
 
 ### Fixed
@@ -295,7 +309,7 @@ in modules (See #68 for details)
 
 - Injecting fixture with partial values in all tests (See #48)
 - Add new `rstest_matrix` macro to build tests by carthesian product of
-input arguments (See #38)
+  input arguments (See #38)
 
 ### Fixed
 
@@ -312,9 +326,9 @@ input arguments (See #38)
 ### Added
 
 - Introduced `fixture` macro: Now you must annotate your fixture by
-this tag. See #5
+  this tag. See #5
 - Support for arbitrary rust code without use `Unwrap(str_lit)` trick.
-See #19 and #20 (deprecate `Unwrap()`)
+  See #19 and #20 (deprecate `Unwrap()`)
 - Support for tests that return `Result()`, See #23
 - Support for dump test arguments
 - `rstest_parametrize` use module to group cases (See #13)

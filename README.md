@@ -37,12 +37,12 @@ pub fn fixture() -> u32 { 42 }
 
 #[rstest]
 fn should_success(fixture: u32) {
-    assert_eq!(fixture, 42);
+        assert_eq!(fixture, 42);
 }
 
 #[rstest]
 fn should_fail(fixture: u32) {
-    assert_ne!(fixture, 42);
+        assert_ne!(fixture, 42);
 }
 ```
 
@@ -201,7 +201,8 @@ async fn base() -> u32 { 42 }
 #[rstest]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
-async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
+async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future]
+#[case] div: u32) {
     assert_eq!(expected, base.await / div.await);
 }
 ```
@@ -219,13 +220,15 @@ use rstest::*;
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
 #[awt]
-async fn global(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
+async fn global(#[future] base: u32, #[case] expected: u32, #[future]
+#[case] div: u32) {
     assert_eq!(expected, base / div);
 }
 #[rstest]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
-async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[case] div: u32) {
+async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)]
+#[case] div: u32) {
     assert_eq!(expected, base.await / div);
 }
 ```
@@ -238,7 +241,8 @@ satisfy the given glob path.
 
 ```rust
 #[rstest]
-fn for_each_file(#[files("src/**/*.rs")] #[exclude("test")] path: PathBuf) {
+fn for_each_file(#[files("src/**/*.rs")]
+                 #[exclude("test")] path: PathBuf) {
     assert!(check_file(&path))
 }
 ```
@@ -248,6 +252,17 @@ modify this by use `#[include_dot_files]` attribute. The `files` attribute can b
 used more than once on the same variable, and you can also create some custom
 exclusion rules with the `#[exclude("regex")]` attributes that filter out all
 paths that verify the regular expression.
+
+You can pass in environment variables by using `${ENV_VAR_NAME}` in the glob
+path, e.g. `#[files("${SOME_ENV}/hello")]`. To set a default value for the
+environment variable, use `${ENV_VAR_NAME:-default_value}`.
+
+Files are resolved at compile time against your Cargo project root
+(the `CARGO_MANIFEST_DIR` environment variable). If you need to change this
+behavior, you can use the `#[base_dir = "..."]` attribute to specify a different
+base directory. That directory MUST exist, and will be used as the root for
+the files, as well as to resolve the relative path when creating the test name.
+Similar to the `files` attribute, you can use `${ENV_VAR_NAME}` in the `base_dir`.
 
 ### Default timeout
 
@@ -264,7 +279,7 @@ expression that should return a `std::time::Duration`. Follow a simple async exa
 use rstest::*;
 use std::time::Duration;
 
-async fn delayed_sum(a: u32, b: u32,delay: Duration) -> u32 {
+async fn delayed_sum(a: u32, b: u32, delay: Duration) -> u32 {
     async_std::task::sleep(delay).await;
     a + b
 }
@@ -319,7 +334,8 @@ use std::future::Future;
 #[case(2, async { 4 })]
 #[case(21, async { 42 })]
 #[actix_rt::test]
-async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
+async fn my_async_test(#[case] a: u32, #[case]
+#[future] result: u32) {
     assert_eq!(2 * a, result.await);
 }
 ```
@@ -363,7 +379,7 @@ fn make_e_from_bool<'a>(_bump: &'a (), b: bool) -> E<'a> {
 
 #[fixture]
 fn bump() -> () {}
- 
+
 #[rstest]
 #[case(true, E::A(true))]
 fn it_works<'a>(#[by_ref] bump: &'a (), #[case] b: bool, #[case] expected: E<'a>) {
@@ -399,7 +415,7 @@ fn alice() -> User {
 #[rstest]
 #[case::authorized_user(alice())] // We can use `fixture` also as standard function
 #[case::guest(User::Guest)]   // We can give a name to every case : `guest` in this case
-                              // and `authorized_user`
+// and `authorized_user`
 #[should_panic(expected = "Invalid query error")] // We would test a panic
 fn should_be_invalid_query_error(
     repository: impl Repository,
@@ -530,21 +546,31 @@ See [CHANGELOG.md](/CHANGELOG.md)
 Licensed under either of
 
 * Apache License, Version 2.0, ([LICENSE-APACHE](/LICENSE-APACHE) or
-[license-apache-link])
+  [license-apache-link])
 
 * MIT license [LICENSE-MIT](/LICENSE-MIT) or [license-MIT-link]
-at your option.
+  at your option.
 
 [//]: # (links)
 
 [crate-image]: https://img.shields.io/crates/v/rstest.svg
+
 [crate-link]: https://crates.io/crates/rstest
+
 [docs-image]: https://docs.rs/rstest/badge.svg
+
 [docs-link]: https://docs.rs/rstest/
+
 [test-action-image]: https://github.com/la10736/rstest/workflows/Test/badge.svg
+
 [test-action-link]: https://github.com/la10736/rstest/actions?query=workflow:Test
+
 [license-apache-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
+
 [license-mit-image]: https://img.shields.io/badge/license-MIT-blue.svg
+
 [license-apache-link]: http://www.apache.org/licenses/LICENSE-2.0
+
 [license-MIT-link]: http://opensource.org/licenses/MIT
+
 [reuse-crate-link]: https://crates.io/crates/rstest_reuse
