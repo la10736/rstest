@@ -15,7 +15,7 @@ lazy_static = "1.4.0"
 
 [dependencies.rstest]
 path = "../rstest"
-version = "*"
+version = "0.23.0-dev"
 
 [dependencies.rstest_reuse]
 path = "../rstest_reuse"
