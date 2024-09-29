@@ -86,9 +86,6 @@ impl FilesGlobReferences {
                 }
             };
 
-            // Make sure cargo would rerun if the value of this environment variable changes.
-            println!("cargo::rerun-if-env-changed={var_name}");
-
             result.push_str(&haystack[last_match..match_all.start()]);
             result.push_str(&replacement);
             last_match = match_all.end();

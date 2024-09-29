@@ -980,7 +980,7 @@ pub use rstest_macros::fixture;
 /// `valid_call.yaml` in the folder `../test_cases` (from your crate root) a test name could be
 /// `path_1__UP_test_cases_valid_call_yaml`.
 ///
-/// Sometimes you want to change the base path for the test files. You can do that by using
+/// If you want to change the base path for the test files. You can do that by using
 /// `#[base_dir = "..."]` attribute. The `base_dir` is resolved relative to the crate root
 /// (similar to the `files` attribute without `base_dir`). If you want to use an absolute
 /// path you can use `#[base_dir = "/path/to/your/files"]`.
@@ -989,7 +989,20 @@ pub use rstest_macros::fixture;
 /// `$VAR` or `${VAR}`. If the environment variable is not set, the attribute will cause
 /// an error. This can be ignored using the `#[ignore_missing_env_vars]` attribute. A
 /// default value can be provided for the environment variable using the syntax
-/// `${VAR:-default}` (similar to bash).
+/// `${VAR:-default}` (similar to bash). This can be really useful when you want to override
+/// the cargo root on some environments: use `#[base_dir = "BASE_TEST_DIR:-"]` do the trick.
+///
+/// Finally, often you would to recompile tests sources when file the folders or the
+/// environment variables changed. In this case you should provide a `build.rs` script file
+/// that tell to the compiler what to look in order to recompile the tests. For instance
+/// follow a simple example:
+///
+/// ```
+/// pub fn main() {
+///     println!("cargo::rerun-if-changed=tests/resources");
+///     println!("cargo::rerun-if-env-changed=BASE_TEST_DIR");
+/// }
+/// ```
 ///
 /// ## Use Parametrize definition in more tests
 ///
