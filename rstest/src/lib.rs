@@ -997,7 +997,7 @@ pub use rstest_macros::fixture;
 /// that tell to the compiler what to look in order to recompile the tests. For instance
 /// follow a simple example:
 ///
-/// ```
+/// ```ignore
 /// pub fn main() {
 ///     println!("cargo::rerun-if-changed=tests/resources");
 ///     println!("cargo::rerun-if-env-changed=BASE_TEST_DIR");

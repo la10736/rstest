@@ -73,7 +73,7 @@ impl FilesGlobReferences {
             };
 
             let v = env.get(var_name);
-            let replacement = match (v.as_ref().map(String::as_str), default) {
+            let replacement = match (v.as_deref(), default) {
                 (Some(""), Some(default)) => default.to_string(),
                 (Some(val), _) => val.to_string(),
                 (None, Some(default)) => default.to_string(),
