@@ -1,15 +1,11 @@
 # Changelog
 
-## Unreleased
-
-### Changed
+## [0.23.0] 2024/9/29
 
 ### Add
 
 - You can now use environment variables in `#[files]` with an optional default value (see [#277](https://github.com/la10736/rstest/pull/277)).
 - You can now set a base_dir for `#[files]` with the `$[base_dir = "..."]` attribute (see [#277](https://github.com/la10736/rstest/pull/277)).
-
-### Fixed
 
 ## [0.22.0] 2024/8/4
 

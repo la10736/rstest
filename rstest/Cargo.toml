@@ -13,7 +13,7 @@ name = "rstest"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
 rust-version = "1.67.1"
-version = "0.23.0-dev"
+version = "0.23.0"
 
 [features]
 async-timeout = [
@@ -27,21 +27,21 @@ default = ["async-timeout", "crate-name"]
 [lib]
 
 [dependencies]
-futures = { version = "0.3.21", optional = true }
-futures-timer = { version = "3.0.2", optional = true }
-rstest_macros = { version = "0.23.0-dev", path = "../rstest_macros", default-features = false }
+futures = { version = "0.3.30", optional = true }
+futures-timer = { version = "3.0.3", optional = true }
+rstest_macros = { version = "0.23.0", path = "../rstest_macros", default-features = false }
 
 [dev-dependencies]
-actix-rt = "2.7.0"
+actix-rt = "2.9.0"
 async-std = { version = "1.13.0", features = ["attributes"] }
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 mytest = { package = "rstest", version = "0.22.0", default-features = false }
-pretty_assertions = "1.2.1"
+pretty_assertions = "1.4.1"
 rstest_reuse = { path = "../rstest_reuse" }
 rstest_test = { path = "../rstest_test" }
 temp_testdir = "0.2.3"
-tokio = { version = "1.19.2", features = ["rt", "macros"] }
-unindent = "0.2.1"
+tokio = { version = "1.38.1", features = ["rt", "macros"] }
+unindent = "0.2.3"
 
 [build-dependencies]
-rustc_version = "0.4.0"
+rustc_version = "0.4.1"

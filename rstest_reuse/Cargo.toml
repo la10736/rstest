@@ -21,12 +21,12 @@ version = "0.7.0"
 proc-macro = true
 
 [dependencies]
-quote = "1.0.9"
+quote = "1.0.37"
 rand = "0.8.5"
-syn = { version = "2.0.2", features = ["full", "extra-traits"] }
+syn = { version = "2.0.79", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 rstest_test = { path = "../rstest_test" }
 temp_testdir = "0.2.3"
 # To compile doc tests
