@@ -14,7 +14,11 @@
 - [ ] **Commit**
 - [ ] Create tag (Use github release)
 - [ ] prepare deploy `cargo publish --dry-run`
-- [ ] deploy `cargo publish`
+- [ ] deploy:
+  - [ ]  `cargo publish -p rstest_macros --dry-run`
+  - [ ]  `cargo publish -p rstest_macros`
+  - [ ]  `cargo publish -p rstest --dry-run`
+  - [ ]  `cargo publish -p rstest`
 - [ ] Prepare next changelog
 - [ ] New `-dev` version
 - [ ] Update inner `rstest` reference
