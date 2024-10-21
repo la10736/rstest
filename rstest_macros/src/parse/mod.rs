@@ -28,6 +28,7 @@ pub(crate) mod macros;
 
 pub(crate) mod arguments;
 pub(crate) mod by_ref;
+pub(crate) mod context;
 pub(crate) mod expressions;
 pub(crate) mod fixture;
 pub(crate) mod future;
