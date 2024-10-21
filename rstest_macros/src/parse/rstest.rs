@@ -8,8 +8,9 @@ use self::files::{extract_files, ValueListFromFiles};
 use super::{
     arguments::ArgumentsInfo,
     by_ref::extract_by_ref,
-    check_timeout_attrs, extract_case_args, extract_cases, extract_excluded_trace,
-    extract_fixtures, extract_value_list,
+    check_timeout_attrs,
+    context::extract_context,
+    extract_case_args, extract_cases, extract_excluded_trace, extract_fixtures, extract_value_list,
     future::{extract_futures, extract_global_awt},
     ignore::extract_ignores,
     parse_vector_trailing_till_double_comma,
@@ -49,20 +50,24 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(_inner, excluded, _timeout, futures, global_awt, by_refs, ignores) = merge_errors!(
+        let composed_tuple!(
+            _inner, excluded, _timeout, futures, global_awt, by_refs, ignores, contexts
+        ) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
             check_timeout_attrs(item_fn),
             extract_futures(item_fn),
             extract_global_awt(item_fn),
             extract_by_ref(item_fn),
-            extract_ignores(item_fn)
+            extract_ignores(item_fn),
+            extract_context(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
         self.arguments.set_by_refs(by_refs.into_iter());
         self.arguments.set_ignores(ignores.into_iter());
+        self.arguments.set_contexts(contexts.into_iter());
         self.arguments
             .register_inner_destructored_idents_names(item_fn);
         Ok(())
@@ -379,6 +384,8 @@ mod test {
     }
 
     mod no_cases {
+        use std::collections::HashSet;
+
         use super::{assert_eq, *};
 
         #[test]
@@ -562,6 +569,25 @@ mod test {
             assert_eq!(item_fn, expected);
             assert!(info.arguments.is_future(&pat("a")));
             assert!(!info.arguments.is_future(&pat("b")));
+        }
+
+        #[rstest]
+        fn extract_context() {
+            let mut item_fn =
+                "fn f(#[context] c: Context, #[context] other: Context, more: u32) {}".ast();
+            let expected = "fn f(c: Context, other: Context, more: u32) {}".ast();
+
+            let mut info = RsTestInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(item_fn, expected);
+            assert_eq!(
+                info.arguments.contexts().cloned().collect::<HashSet<_>>(),
+                vec![pat("c"), pat("other")]
+                    .into_iter()
+                    .collect::<HashSet<_>>()
+            );
         }
     }
 

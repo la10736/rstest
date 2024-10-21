@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use quote::format_ident;
 use syn::{FnArg, Ident, Pat};
@@ -98,6 +98,7 @@ pub(crate) struct ArgumentsInfo {
     args: Args,
     is_global_await: bool,
     once: Option<syn::Attribute>,
+    contexts: HashSet<Pat>,
 }
 
 impl ArgumentsInfo {
@@ -234,6 +235,19 @@ impl ArgumentsInfo {
             }
             fn_arg
         })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn add_context(&mut self, pat: Pat) {
+        self.contexts.insert(pat);
+    }
+
+    pub(crate) fn set_contexts(&mut self, contexts: impl Iterator<Item = Pat>) {
+        contexts.for_each(|c| self.add_context(c))
+    }
+
+    pub(crate) fn contexts(&self) -> impl Iterator<Item = &Pat> + '_ {
+        self.contexts.iter()
     }
 }
 

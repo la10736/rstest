@@ -339,6 +339,7 @@ mod single_test_should {
     }
 }
 
+#[derive(Debug)]
 struct TestsGroup {
     requested_test: ItemFn,
     module: ItemMod,
@@ -1055,6 +1056,45 @@ mod cases_should {
         assert_not_in!(code, await_argument_code_string("a"));
         assert_in!(code, await_argument_code_string("b"));
         assert_not_in!(code, await_argument_code_string("c"));
+    }
+
+    #[test]
+    fn render_context() {
+        let (item_fn, mut info) =
+            TestCaseBuilder::from(r#"fn test_with_context(ctx: Context, a: u32) {}"#)
+                .push_case(TestCase {
+                    args: vec![expr("1")],
+                    attrs: Default::default(),
+                    description: Some(ident("my_description")),
+                })
+                .push_case(TestCase {
+                    args: vec![expr("2")],
+                    attrs: Default::default(),
+                    description: Some(ident("other_description")),
+                })
+                .take();
+        info.arguments.add_context(pat("ctx"));
+
+        let tokens = parametrize(item_fn, info);
+
+        let tests = TestsGroup::from(tokens);
+
+        fn code(tests: &TestsGroup, id: usize) -> String {
+            tests.module.get_all_tests()[id].block.display_code()
+        }
+
+        assert_in!(
+            code(&tests, 0),
+            r#"let ctx = Context::new("test_with_context", Some("my_description"), Some(0usize));"#
+                .ast::<Stmt>()
+                .display_code()
+        );
+        assert_in!(
+            code(&tests, 1),
+            r#"let ctx = Context::new("test_with_context", Some("other_description"), Some(1usize));"#
+                .ast::<Stmt>()
+                .display_code()
+        );
     }
 }
 
