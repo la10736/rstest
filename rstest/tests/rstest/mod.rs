@@ -1216,6 +1216,16 @@ fn no_std() {
         .assert(output);
 }
 
+#[test]
+fn context() {
+    let (output, _) = run_test("context.rs");
+
+    TestResults::new()
+        .ok("with_case::case_1_description")
+        .ok("without_case")
+        .assert(output);
+}
+
 mod async_timeout_feature {
     use super::*;
 

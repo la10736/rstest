@@ -1469,3 +1469,19 @@ pub use rstest_macros::fixture;
 /// ```
 ///
 pub use rstest_macros::rstest;
+
+pub struct Context {
+    pub name: &'static str,
+    pub description: Option<&'static str>,
+    pub case: Option<usize>,
+}
+
+impl Context {
+    pub fn new(name: &'static str, description: Option<&'static str>, case: Option<usize>) -> Self {
+        Self {
+            name,
+            description,
+            case,
+        }
+    }
+}
