@@ -286,7 +286,7 @@ impl<A: AsRef<str>> FromIterator<A> for TestCase {
 
 impl<'a> From<&'a str> for TestCase {
     fn from(argument: &'a str) -> Self {
-        std::iter::once(argument).collect()
+        core::iter::once(argument).collect()
     }
 }
 

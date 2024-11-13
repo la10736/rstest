@@ -1,5 +1,5 @@
+use core::net::SocketAddr;
 use rstest::*;
-use std::net::SocketAddr;
 
 #[rstest]
 #[case(true, "1.2.3.4:42")]

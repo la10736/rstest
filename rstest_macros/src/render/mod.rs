@@ -41,7 +41,7 @@ pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
-    let attrs = std::mem::take(&mut test.attrs);
+    let attrs = core::mem::take(&mut test.attrs);
     let asyncness = test.sig.asyncness;
 
     single_test_case(
@@ -208,7 +208,7 @@ fn render_test_call(
     let timeout = timeout.map(|x| quote! {#x}).or_else(|| {
         std::env::var("RSTEST_TIMEOUT")
             .ok()
-            .map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
+            .map(|to| quote! { core::time::Duration::from_secs( (#to).parse().unwrap()) })
     });
     let rstest_path = crate_name();
     match (timeout, is_async) {
@@ -411,7 +411,7 @@ trait DisplayLen {
     fn display_len(&self) -> usize;
 }
 
-impl<D: std::fmt::Display> DisplayLen for D {
+impl<D: core::fmt::Display> DisplayLen for D {
     fn display_len(&self) -> usize {
         format!("{self}").len()
     }

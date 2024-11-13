@@ -56,7 +56,7 @@ impl ExtendWithFunctionAttrs for FixtureInfo {
     fn extend_with_function_attrs(
         &mut self,
         item_fn: &mut ItemFn,
-    ) -> std::result::Result<(), ErrorsVec> {
+    ) -> core::result::Result<(), ErrorsVec> {
         let composed_tuple!(
             fixtures,
             defaults,
@@ -132,7 +132,7 @@ impl VisitMut for FixturesFunctionExtractor {
             Some(pt) => pt,
             None => return,
         };
-        let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
+        let (extracted, remain): (Vec<_>, Vec<_>) = core::mem::take(&mut arg.attrs)
             .into_iter()
             .partition(|attr| attr_in(attr, &["with", "from"]));
         arg.attrs = remain;

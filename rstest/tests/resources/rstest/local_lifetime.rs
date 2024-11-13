@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use core::cell::Cell;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum E<'a> {
