@@ -42,11 +42,11 @@ pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
 
 fn async_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
     match (test.sig.asyncness, info.arguments.get_once()) {
-        (Some(_asyncness), Some(once)) => Box::new(std::iter::once(syn::Error::new_spanned(
+        (Some(_asyncness), Some(once)) => Box::new(core::iter::once(syn::Error::new_spanned(
             once,
             "Cannot apply #[once] to async fixture.",
         ))),
-        _ => Box::new(std::iter::empty()),
+        _ => Box::new(core::iter::empty()),
     }
 }
 
@@ -79,11 +79,11 @@ fn has_some_generics(test: &ItemFn) -> bool {
 
 fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
     match (has_some_generics(test), info.arguments.get_once()) {
-        (true, Some(once)) => Box::new(std::iter::once(syn::Error::new_spanned(
+        (true, Some(once)) => Box::new(core::iter::once(syn::Error::new_spanned(
             once,
             "Cannot apply #[once] on generic fixture.",
         ))),
-        _ => Box::new(std::iter::empty()),
+        _ => Box::new(core::iter::empty()),
     }
 }
 
@@ -156,14 +156,14 @@ macro_rules! composed_tuple {
     };
 }
 
-impl std::ops::Deref for ErrorsVec {
+impl core::ops::Deref for ErrorsVec {
     type Target = Vec<syn::Error>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::DerefMut for ErrorsVec {
+impl core::ops::DerefMut for ErrorsVec {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -270,7 +270,7 @@ fn case_args_without_cases(params: &RsTestData) -> Errors {
                 .map(|a| syn::Error::new(a.span(), "No cases for this argument.")),
         );
     }
-    Box::new(std::iter::empty())
+    Box::new(core::iter::empty())
 }
 
 trait RenderType {

@@ -12,7 +12,7 @@ pub fn j() -> i32 {
 
 #[fixture(::default<impl Iterator<Item=(u32, i32)>>::partial_1<impl Iterator<Item=(I,i32)>>)]
 pub fn fx<I, J>(i: I, j: J) -> impl Iterator<Item=(I, J)> {
-    std::iter::once((i, j))
+    core::iter::once((i, j))
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn resolve_partial() {
 #[default(impl Iterator<Item=(u32, i32)>)]
 #[partial_1(impl Iterator<Item=(I,i32)>)]
 pub fn fx_attrs<I, J>(i: I, j: J) -> impl Iterator<Item=(I, J)> {
-    std::iter::once((i, j))
+    core::iter::once((i, j))
 }
 
 #[test]

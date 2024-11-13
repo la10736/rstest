@@ -310,7 +310,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 
     template.attrs = match rstest_index {
         Some(idx) => attributes.split_off(idx),
-        None => std::mem::take(&mut attributes),
+        None => core::mem::take(&mut attributes),
     };
 
     let (macro_attribute, visibility) = match get_export(&attributes) {

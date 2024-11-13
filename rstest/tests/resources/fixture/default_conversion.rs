@@ -1,5 +1,5 @@
 use rstest::{fixture, rstest};
-use std::net::{Ipv4Addr, SocketAddr};
+use core::net::{Ipv4Addr, SocketAddr};
 
 struct MyType(String);
 struct E;

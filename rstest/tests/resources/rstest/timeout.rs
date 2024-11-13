@@ -1,5 +1,5 @@
 use rstest::*;
-use std::time::Duration;
+use core::time::Duration;
 
 fn ms(ms: u32) -> Duration {
     Duration::from_millis(ms.into())

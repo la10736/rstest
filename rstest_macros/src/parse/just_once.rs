@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use quote::ToTokens;
 use syn::{visit_mut::VisitMut, Attribute, FnArg, ItemFn, Pat};
@@ -87,7 +87,7 @@ where
         };
         if let FnArg::Typed(ref mut arg) = node {
             // Extract interesting attributes
-            let attrs = std::mem::take(&mut arg.attrs);
+            let attrs = core::mem::take(&mut arg.attrs);
             let (extracted, remain): (Vec<_>, Vec<_>) =
                 attrs.into_iter().partition(|a| attr_is(a, self.name));
 
@@ -167,7 +167,7 @@ where
 {
     fn visit_item_fn_mut(&mut self, item_fn: &mut ItemFn) {
         // Extract interesting attributes
-        let attrs = std::mem::take(&mut item_fn.attrs);
+        let attrs = core::mem::take(&mut item_fn.attrs);
         let (extracted, remain): (Vec<_>, Vec<_>) =
             attrs.into_iter().partition(|a| attr_is(a, self.name));
 
