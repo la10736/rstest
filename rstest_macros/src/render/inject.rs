@@ -110,7 +110,7 @@ fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
     parse_quote! {
         {
             use #rstest_path::magic_conversion::*;
-            (&&&Magic::<#arg_type>(std::marker::PhantomData)).magic_conversion(#fixture)
+            (&&&Magic::<#arg_type>(core::marker::PhantomData)).magic_conversion(#fixture)
         }
     }
 }

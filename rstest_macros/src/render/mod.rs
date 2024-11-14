@@ -208,7 +208,7 @@ fn render_test_call(
     let timeout = timeout.map(|x| quote! {#x}).or_else(|| {
         std::env::var("RSTEST_TIMEOUT")
             .ok()
-            .map(|to| quote! { std::time::Duration::from_secs( (#to).parse().unwrap()) })
+            .map(|to| quote! { core::time::Duration::from_secs( (#to).parse().unwrap()) })
     });
     let rstest_path = crate_name();
     match (timeout, is_async) {
