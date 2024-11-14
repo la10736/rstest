@@ -54,7 +54,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
         .extract_default_type()
         .unwrap_or_else(|| fixture.sig.output.clone());
     let default_generics =
-        generics_clean_up(&fixture.sig.generics, core::iter::empty(), &default_output);
+        generics_clean_up(&fixture.sig.generics, std::iter::empty(), &default_output);
     let default_where_clause = &default_generics.where_clause;
     let where_clause = &fixture.sig.generics.where_clause;
     let mut output = fixture.sig.output.clone();
@@ -536,8 +536,8 @@ mod should {
         let expected = parse_str::<syn::ItemFn>(
             r#"
                     async fn get<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
-                        async_u32: impl core::future::Future<Output = u32>,
+                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl std::future::Future<Output = u32>, 
                         simple: u32
                     )
                     { }

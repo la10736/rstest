@@ -1,7 +1,7 @@
 use rstest::*;
 
 #[fixture]
-fn fx_base_impl_return() -> impl Iterator<Item=u32> { core::iter::once(42) }
+fn fx_base_impl_return() -> impl Iterator<Item=u32> { std::iter::once(42) }
 
 #[fixture]
 fn fx_base_impl_input(mut fx_base_impl_return: impl Iterator<Item=u32>) -> u32 {
@@ -19,7 +19,7 @@ fn base_impl_input(mut fx_base_impl_input: u32) {
 }
 
 #[fixture]
-fn fx_nested_impl_return() -> impl Iterator<Item=impl ToString> { core::iter::once(42) }
+fn fx_nested_impl_return() -> impl Iterator<Item=impl ToString> { std::iter::once(42) }
 
 #[fixture]
 fn fx_nested_impl_input(mut fx_nested_impl_return: impl Iterator<Item=impl ToString>) -> String {
@@ -38,7 +38,7 @@ fn nested_impl_input(mut fx_nested_impl_input: String) {
 
 #[fixture]
 fn fx_nested_multiple_impl_return() -> (impl Iterator<Item=impl ToString>, impl ToString) {
-    (core::iter::once(42), 42i32)
+    (std::iter::once(42), 42i32)
 }
 
 #[fixture]

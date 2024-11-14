@@ -1,8 +1,8 @@
 use rstest::*;
 
 #[fixture]
-fn dyn_box() -> Box<dyn Iterator<Item = i32>> {
-    Box::new(core::iter::once(42))
+fn dyn_box() -> Box<dyn Iterator<Item=i32>> {
+    Box::new(std::iter::once(42))
 }
 
 #[fixture]

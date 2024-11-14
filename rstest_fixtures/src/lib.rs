@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+use std::fmt::Debug;
 
 pub trait TearDown {
     fn tear_down(self);
@@ -42,7 +42,7 @@ impl<T, G: TearDown> Fixture<T, G> {
 }
 
 impl<T: Debug, G: TearDown> Debug for Fixture<T, G> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(f, "Fixture<{:?}>", self.inner)
     }
 }
@@ -76,7 +76,7 @@ impl<F: FnOnce()->()> From<F> for TearDownClosure<F> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use core::cell::RefCell;
+    use std::cell::RefCell;
     use std::rc::Rc;
 
     #[test]

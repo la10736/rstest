@@ -1,6 +1,6 @@
 use rstest::*;
 use actix_rt;
-use core::future::Future;
+use std::future::Future;
 
 #[rstest(
     first => [1, 2], 

@@ -1,6 +1,6 @@
-use actix_rt;
-use core::future::Future;
 use rstest::*;
+use actix_rt;
+use std::future::Future;
 
 #[rstest(expected, value,
     case::pass(42, 42),

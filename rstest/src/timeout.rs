@@ -1,5 +1,4 @@
-use core::time::Duration;
-use std::{sync::mpsc, thread};
+use std::{sync::mpsc, thread, time::Duration};
 
 #[cfg(feature = "async-timeout")]
 use futures::{select, Future, FutureExt};
@@ -52,7 +51,7 @@ mod tests {
     mod async_version {
 
         use super::*;
-        use core::time::Duration;
+        use std::time::Duration;
 
         async fn delayed_sum(a: u32, b: u32, delay: Duration) -> u32 {
             async_std::task::sleep(delay).await;
