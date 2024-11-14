@@ -536,8 +536,8 @@ mod should {
         let expected = parse_str::<syn::ItemFn>(
             r#"
                     async fn get<'_async_ref_u32>(
-                        async_ref_u32: impl std::future::Future<Output = &'_async_ref_u32 u32>, 
-                        async_u32: impl std::future::Future<Output = u32>, 
+                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>, 
+                        async_u32: impl core::future::Future<Output = u32>, 
                         simple: u32
                     )
                     { }

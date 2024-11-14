@@ -166,30 +166,30 @@ mod should {
     #[case::simple(
         "fn f(a: u32) {}",
         &["a"],
-        "fn f(a: impl std::future::Future<Output = u32>) {}"
+        "fn f(a: impl core::future::Future<Output = u32>) {}"
     )]
     #[case::more_than_one(
         "fn f(a: u32, b: String, c: std::collection::HashMap<usize, String>) {}",
         &["a", "b", "c"],
-        r#"fn f(a: impl std::future::Future<Output = u32>, 
-                b: impl std::future::Future<Output = String>, 
-                c: impl std::future::Future<Output = std::collection::HashMap<usize, String>>) {}"#,
+        r#"fn f(a: impl core::future::Future<Output = u32>, 
+                b: impl core::future::Future<Output = String>, 
+                c: impl core::future::Future<Output = std::collection::HashMap<usize, String>>) {}"#,
     )]
     #[case::just_one(
         "fn f(a: u32, b: String) {}",
         &["b"],
         r#"fn f(a: u32, 
-                b: impl std::future::Future<Output = String>) {}"#
+                b: impl core::future::Future<Output = String>) {}"#
     )]
     #[case::generics(
         "fn f<S: AsRef<str>>(a: S) {}",
         &["a"],
-        "fn f<S: AsRef<str>>(a: impl std::future::Future<Output = S>) {}"
+        "fn f<S: AsRef<str>>(a: impl core::future::Future<Output = S>) {}"
     )]
     #[case::remove_mut(
         "fn f(mut a: u32) {}",
         &["a"],
-        r#"fn f(a: impl std::future::Future<Output = u32>) {}"#
+        r#"fn f(a: impl core::future::Future<Output = u32>) {}"#
     )]
     fn replace_future_basic_type(
         #[case] item_fn: &str,
@@ -213,17 +213,17 @@ mod should {
     #[case::base(
         "fn f(ident_name: &u32) {}",
         &["ident_name"],
-        "fn f<'_ident_name>(ident_name: impl std::future::Future<Output = &'_ident_name u32>) {}"
+        "fn f<'_ident_name>(ident_name: impl core::future::Future<Output = &'_ident_name u32>) {}"
     )]
     #[case::lifetime_already_exists(
         "fn f<'b>(a: &'b u32) {}",
         &["a"],
-        "fn f<'b>(a: impl std::future::Future<Output = &'b u32>) {}"
+        "fn f<'b>(a: impl core::future::Future<Output = &'b u32>) {}"
     )]
     #[case::some_other_generics(
         "fn f<'b, IT: Iterator<Item=String + 'b>>(a: &u32, it: IT) {}",
         &["a"],
-        "fn f<'_a, 'b, IT: Iterator<Item=String + 'b>>(a: impl std::future::Future<Output = &'_a u32>, it: IT) {}"
+        "fn f<'_a, 'b, IT: Iterator<Item=String + 'b>>(a: impl core::future::Future<Output = &'_a u32>, it: IT) {}"
     )]
     fn replace_reference_type(
         #[case] item_fn: &str,
