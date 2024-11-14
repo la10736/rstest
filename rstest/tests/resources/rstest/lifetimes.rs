@@ -2,7 +2,7 @@ use rstest::*;
 
 enum E<'a> {
     A(bool),
-    B(&'a core::cell::Cell<E<'a>>),
+    B(&'a std::cell::Cell<E<'a>>),
 }
 
 #[rstest]

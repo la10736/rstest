@@ -41,7 +41,7 @@ pub(crate) trait ExtendWithFunctionAttrs {
     fn extend_with_function_attrs(
         &mut self,
         item_fn: &mut ItemFn,
-    ) -> core::result::Result<(), ErrorsVec>;
+    ) -> std::result::Result<(), ErrorsVec>;
 }
 
 #[derive(Default, Debug, PartialEq, Clone)]
@@ -260,19 +260,19 @@ pub(crate) fn extract_once(item_fn: &mut ItemFn) -> Result<Option<syn::Attribute
     extractor.take()
 }
 
-pub(crate) fn extract_argument_attrs<'a, B: 'a + core::fmt::Debug>(
+pub(crate) fn extract_argument_attrs<'a, B: 'a + std::fmt::Debug>(
     node: &mut FnArg,
     is_valid_attr: fn(&syn::Attribute) -> bool,
     build: impl Fn(syn::Attribute) -> syn::Result<B> + 'a,
 ) -> Box<dyn Iterator<Item = syn::Result<B>> + 'a> {
     let name = node.maybe_ident().cloned();
     if name.is_none() {
-        return Box::new(core::iter::empty());
+        return Box::new(std::iter::empty());
     }
 
     if let FnArg::Typed(ref mut arg) = node {
         // Extract interesting attributes
-        let attrs = core::mem::take(&mut arg.attrs);
+        let attrs = std::mem::take(&mut arg.attrs);
         let (extracted, remain): (Vec<_>, Vec<_>) = attrs.into_iter().partition(is_valid_attr);
 
         arg.attrs = remain;
@@ -280,7 +280,7 @@ pub(crate) fn extract_argument_attrs<'a, B: 'a + core::fmt::Debug>(
         // Parse attrs
         Box::new(extracted.into_iter().map(build))
     } else {
-        Box::new(core::iter::empty())
+        Box::new(std::iter::empty())
     }
 }
 
@@ -302,7 +302,7 @@ impl Default for PartialsTypeFunctionExtractor {
 
 impl VisitMut for PartialsTypeFunctionExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = core::mem::take(&mut node.attrs);
+        let attrs = std::mem::take(&mut node.attrs);
         let (partials, remain): (Vec<_>, Vec<_>) =
             attrs
                 .into_iter()
@@ -355,7 +355,7 @@ struct CasesFunctionExtractor(Vec<TestCase>, Vec<syn::Error>);
 
 impl VisitMut for CasesFunctionExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
-        let attrs = core::mem::take(&mut node.attrs);
+        let attrs = std::mem::take(&mut node.attrs);
         let mut attrs_buffer = Default::default();
         let case: syn::PathSegment = parse_quote! { case };
         for attr in attrs.into_iter() {
@@ -366,7 +366,7 @@ impl VisitMut for CasesFunctionExtractor {
                             attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
                         self.0.push(TestCase {
                             args: expressions.into(),
-                            attrs: core::mem::take(&mut attrs_buffer),
+                            attrs: std::mem::take(&mut attrs_buffer),
                             description,
                         });
                     }
@@ -376,7 +376,7 @@ impl VisitMut for CasesFunctionExtractor {
                 attrs_buffer.push(attr)
             }
         }
-        node.attrs = core::mem::take(&mut attrs_buffer);
+        node.attrs = std::mem::take(&mut attrs_buffer);
     }
 }
 
@@ -585,14 +585,14 @@ mod should {
         fn integrated() {
             let attributes = parse_attributes(
                 r#"
-            simple :: tagged(first, second) :: type_tag<(u32, T, (core::string::String, i32))> :: more_tagged(a,b)"#,
+            simple :: tagged(first, second) :: type_tag<(u32, T, (std::string::String, i32))> :: more_tagged(a,b)"#,
             );
 
             let expected = Attributes {
                 attributes: vec![
                     Attribute::attr("simple"),
                     Attribute::tagged("tagged", vec!["first", "second"]),
-                    Attribute::typed("type_tag", "(u32, T, (core::string::String, i32))"),
+                    Attribute::typed("type_tag", "(u32, T, (std::string::String, i32))"),
                     Attribute::tagged("more_tagged", vec!["a", "b"]),
                 ],
             };
