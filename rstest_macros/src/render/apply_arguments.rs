@@ -118,7 +118,7 @@ impl ImplFutureArg for FnArg {
             Some(ty) => {
                 let lifetime = update_type_with_lifetime(ty, lifetime_id);
                 *ty = parse_quote! {
-                    impl std::future::Future<Output = #ty>
+                    impl core::future::Future<Output = #ty>
                 };
                 self.remove_mutability();
                 lifetime
