@@ -4,9 +4,15 @@
 
 ### Changed
 
+- MSRV to 1.70.0 (see [#284](https://github.com/la10736/rstest/issues/284) thanks to @rnbguy)
+
 ### Add
 
+- `#![no_std]` support: now you can use `rstest` also in `no_std` lib 
+(see [#282](https://github.com/la10736/rstest/issues/282) thanks to @rnbguy) 
+
 ### Fixed
+
 
 ## [0.23.0] 2024/9/29
 

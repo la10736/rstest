@@ -4,9 +4,9 @@ use syn::{parse_quote, FnArg, Generics, Ident, ItemFn, ReturnType};
 
 use quote::quote;
 
-use super::apply_arguments::ApplyArguments;
 use super::{inject, render_exec_call};
 use crate::refident::MaybeIdent;
+use crate::render::{apply_arguments::ApplyArguments, crate_resolver::std_path};
 use crate::resolver::{self, Resolver};
 use crate::{parse::fixture::FixtureInfo, utils::generics_clean_up};
 
@@ -20,14 +20,15 @@ fn wrap_return_type_as_static_ref(rt: ReturnType) -> ReturnType {
 }
 
 fn wrap_call_impl_with_call_once_impl(call_impl: TokenStream, rt: &ReturnType) -> TokenStream {
+    let std = std_path();
     match rt {
         syn::ReturnType::Type(_, t) => parse_quote! {
-            static CELL: std::sync::OnceLock<#t> =
-                std::sync::OnceLock::new();
+            static CELL: #std::sync::OnceLock<#t> =
+            #std::sync::OnceLock::new();
             CELL.get_or_init(|| #call_impl )
         },
         _ => parse_quote! {
-            static CELL: std::sync::Once = std::sync::Once::new();
+            static CELL: #std::sync::Once = #std::sync::Once::new();
             CELL.call_once(|| #call_impl );
         },
     }
