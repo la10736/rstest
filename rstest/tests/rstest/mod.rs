@@ -1190,7 +1190,7 @@ fn local_lifetime() {
 #[test]
 fn by_ref() {
     let prj = prj("by_ref.rs");
-    let files_path = prj.path().join("files");
+    let files_path: std::path::PathBuf = prj.path().join("files");
     std::fs::create_dir(&files_path).unwrap();
     let name = "my_name.txt";
     let mut out = File::create(files_path.join(name)).unwrap();
@@ -1201,6 +1201,18 @@ fn by_ref() {
         .ok("test::case_1::v_1_42")
         .ok("test::case_1::v_2_142")
         .ok("start_with_name::path_1_files_my_name_txt")
+        .assert(output);
+}
+
+#[test]
+fn no_std() {
+    let prj = prj("no_std.rs");
+    prj.add_dependency("async-std", r#"{version="*", features=["attributes"]}"#);
+    let output = prj.run_tests().unwrap();
+
+    TestResults::new()
+        .ok("it_works::case_1")
+        .ok("async_works")
         .assert(output);
 }
 

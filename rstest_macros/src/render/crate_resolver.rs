@@ -19,3 +19,8 @@ pub fn crate_name() -> syn::Path {
     }
     }
 }
+
+pub fn std_path() -> syn::Path {
+    let rstest = crate_name();
+    parse_quote! { #rstest::__std }
+}

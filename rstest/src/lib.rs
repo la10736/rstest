@@ -250,6 +250,13 @@ pub mod magic_conversion;
 #[doc(hidden)]
 pub mod timeout;
 
+#[doc(hidden)]
+pub mod __std {
+    pub mod sync {
+        pub use std::sync::{Once, OnceLock};
+    }
+}
+
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `#[fixture]` and then use it as a test's argument. Fixture functions can also
 /// use other fixtures.
