@@ -1,9 +1,9 @@
 use std::{sync::mpsc, thread, time::Duration};
 
 #[cfg(feature = "async-timeout")]
-use futures::{select, Future, FutureExt};
-#[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
+#[cfg(feature = "async-timeout")]
+use futures_util::{select, Future, FutureExt};
 
 pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 'static>(
     code: F,
