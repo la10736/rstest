@@ -17,8 +17,8 @@ version = "0.24.0-dev"
 
 [features]
 async-timeout = [
-    "dep:futures",
     "dep:futures-timer",
+    "dep:futures-util",
     "rstest_macros/async-timeout",
 ]
 crate-name = ["rstest_macros/crate-name"]
@@ -27,8 +27,8 @@ default = ["async-timeout", "crate-name"]
 [lib]
 
 [dependencies]
-futures = { version = "0.3.30", optional = true }
 futures-timer = { version = "3.0.3", optional = true }
+futures-util = { version = "0.3.30", optional = true }
 rstest_macros = { version = "0.24.0-dev", path = "../rstest_macros", default-features = false }
 
 [dev-dependencies]
