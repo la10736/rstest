@@ -19,7 +19,17 @@ pub enum Channel {
     Custom(String),
 }
 
-pub static CHANNEL_DEFAULT: Channel = Channel::Stable;
+impl ToString for Channel {
+    fn to_string(&self) -> String {
+        match self {
+            Channel::Stable => "+stable".into(),
+            Channel::Beta => "+beta".into(),
+            Channel::Nightly => "+nightly".into(),
+            Channel::Custom(name) => format!("+{name}"),
+        }
+    }
+}
+
 pub static ENV_CHANNEL: &str = "RSTEST_TEST_CHANNEL";
 
 impl From<String> for Channel {
@@ -33,19 +43,14 @@ impl From<String> for Channel {
     }
 }
 
-impl Default for Channel {
-    fn default() -> Self {
-        std::env::var(ENV_CHANNEL)
-            .ok()
-            .map(Channel::from)
-            .unwrap_or_else(|| CHANNEL_DEFAULT.clone())
-    }
+fn read_channel_env() -> Option<Channel> {
+    std::env::var(ENV_CHANNEL).ok().map(Channel::from)
 }
 
 pub struct Project {
     pub name: OsString,
     root: PathBuf,
-    channel: Channel,
+    channel: Option<Channel>,
     nocapture: bool,
     ws: Arc<std::sync::RwLock<()>>,
     default_timeout: Option<u64>,
@@ -58,7 +63,7 @@ impl Project {
         Self {
             root: root.as_ref().to_owned(),
             name: "project".into(),
-            channel: Default::default(),
+            channel: read_channel_env(),
             nocapture: false,
             ws: Arc::new(std::sync::RwLock::new(())),
             default_timeout: Default::default(),
@@ -103,15 +108,13 @@ impl Project {
         if !self.has_test_global_attribute(self.code_path()) {
             self.add_test_global_attribute(self.code_path())
         }
-        let mut cmd = Command::new("cargo");
+        let mut cmd = self.cargo_cmd();
 
         if let Some(timeout) = self.default_timeout {
             cmd.env("RSTEST_TIMEOUT", timeout.to_string());
         }
 
-        cmd.current_dir(self.path())
-            .arg(self.cargo_channel_arg())
-            .arg("test");
+        cmd.arg("test");
 
         if self.nocapture {
             cmd.args(["--", "--nocapture"]);
@@ -122,11 +125,7 @@ impl Project {
 
     pub fn compile(&self) -> Result<std::process::Output, std::io::Error> {
         let _guard = self.ws.read().expect("Cannot lock workspace resource");
-        Command::new("cargo")
-            .current_dir(self.path())
-            .arg("build")
-            .arg("--tests")
-            .output()
+        self.cargo_cmd().arg("build").arg("--tests").output()
     }
 
     fn create(self) -> Self {
@@ -207,6 +206,15 @@ impl Project {
             .to_owned()
     }
 
+    fn cargo_cmd(&self) -> Command {
+        let mut cmd = Command::new("cargo");
+        if let Some(channel) = &self.cargo_channel_arg() {
+            cmd.arg(channel);
+        }
+        cmd.current_dir(self.path());
+        cmd
+    }
+
     fn workspace_add(&self, prj: &str) {
         let mut doc = self.read_cargo_toml();
 
@@ -249,13 +257,8 @@ impl Project {
             .expect("cannot write Cargo.toml");
     }
 
-    fn cargo_channel_arg(&self) -> String {
-        match &self.channel {
-            Channel::Stable => "+stable".into(),
-            Channel::Beta => "+beta".into(),
-            Channel::Nightly => "+nightly".into(),
-            Channel::Custom(name) => format!("+{name}"),
-        }
+    fn cargo_channel_arg(&self) -> Option<String> {
+        self.channel.as_ref().map(ToString::to_string)
     }
 
     // in seconds

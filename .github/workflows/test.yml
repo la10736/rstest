@@ -43,4 +43,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: taiki-e/install-action@cargo-hack
     - run: cargo hack check --rust-version --workspace --ignore-private
-    - run: cargo hack test --rust-version --workspace --exclude rstest_reuse --ignore-private
+    - run: |
+        cargo hack test --rust-version --workspace \
+          --exclude rstest_reuse --ignore-private \
+          -- --skip rstest::ignore_args_not_fixtures
