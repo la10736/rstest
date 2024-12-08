@@ -1,6 +1,8 @@
 name: Update Head Docs
 
-on: [repository_dispatch, workflow_dispatch]
+on: 
+  repository_dispatch:
+  workflow_dispatch:
 
 jobs:
   build:
