@@ -257,6 +257,9 @@ pub mod __std {
     }
 }
 
+mod context;
+pub use crate::context::Context;
+
 /// Define a fixture that you can use in all `rstest`'s test arguments. You should just mark your
 /// function as `#[fixture]` and then use it as a test's argument. Fixture functions can also
 /// use other fixtures.
@@ -1469,19 +1472,3 @@ pub use rstest_macros::fixture;
 /// ```
 ///
 pub use rstest_macros::rstest;
-
-pub struct Context {
-    pub name: &'static str,
-    pub description: Option<&'static str>,
-    pub case: Option<usize>,
-}
-
-impl Context {
-    pub fn new(name: &'static str, description: Option<&'static str>, case: Option<usize>) -> Self {
-        Self {
-            name,
-            description,
-            case,
-        }
-    }
-}

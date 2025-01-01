@@ -1085,13 +1085,13 @@ mod cases_should {
 
         assert_in!(
             code(&tests, 0),
-            r#"let ctx = Context::new("test_with_context", Some("my_description"), Some(0usize));"#
+            r#"let ctx = Context::new(module_path!(), "test_with_context", Some("my_description"), Some(0usize));"#
                 .ast::<Stmt>()
                 .display_code()
         );
         assert_in!(
             code(&tests, 1),
-            r#"let ctx = Context::new("test_with_context", Some("other_description"), Some(1usize));"#
+            r#"let ctx = Context::new(module_path!(), "test_with_context", Some("other_description"), Some(1usize));"#
                 .ast::<Stmt>()
                 .display_code()
         );
@@ -1773,6 +1773,40 @@ mod matrix_cases_should {
 
         assert_in!(functions[0], "third_1");
         assert_in!(functions[1], "third_2");
+    }
+
+    #[test]
+    fn render_context() {
+        let item_fn: ItemFn =
+            r#"fn matrix_with_context(ctx: Context, first: u32, second: u32) { println!("user code") }"#.ast();
+        let values = vec!["1".to_string(), "2".to_string()];
+        let mut info = RsTestInfo {
+            data: RsTestData {
+                items: vec![
+                    values_list("first", values.as_ref()).into(),
+                    values_list("second", values.as_ref()).into(),
+                ],
+            },
+            ..Default::default()
+        };
+        info.arguments.add_context(pat("ctx"));
+
+        let tokens = matrix(item_fn.clone(), info);
+
+        let tests = TestsGroup::from(tokens);
+
+        fn code(tests: &TestsGroup, id: usize) -> String {
+            tests.module.get_all_tests()[id].block.display_code()
+        }
+
+        for t in 0..tests.module.get_all_tests().len() {
+            assert_in!(
+                code(&tests, t),
+                r#"let ctx = Context::new(module_path!(), "matrix_with_context", None, None);"#
+                    .ast::<Stmt>()
+                    .display_code()
+            );
+        }
     }
 }
 
