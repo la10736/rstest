@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.24.0] 2025/1/1
 
 ### Changed
 
@@ -12,9 +12,6 @@
   (see [#282](https://github.com/la10736/rstest/issues/282) thanks to @rnbguy)
 - `#[context]` to have test function name and other useful thighs on
   the tip of your fingers (see [#177](https://github.com/la10736/rstest/issues/177))
-
-### Fixed
-
 
 ## [0.23.0] 2024/9/29
 

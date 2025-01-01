@@ -23,9 +23,9 @@ pub enum Channel {
 impl Display for Channel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Channel::Stable => write!(f, "stable"),
-            Channel::Beta => write!(f, "beta"),
-            Channel::Nightly => write!(f, "nightly"),
+            Channel::Stable => write!(f, "+stable"),
+            Channel::Beta => write!(f, "+beta"),
+            Channel::Nightly => write!(f, "+nightly"),
             Channel::Custom(name) => write!(f, "+{name}"),
         }
     }
