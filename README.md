@@ -133,7 +133,6 @@ use rstest::rstest;
 #[rstest]
 #[case(2, 2)]
 #[cfg_attr(feature = "frac", case(4/2, 2))]
-#[case(4/2, 2)]
 fn it_works(#[case] a: u32, #[case] b: u32) {
     assert!(a == b);
 }
@@ -264,10 +263,24 @@ base directory. That directory MUST exist, and will be used as the root for
 the files, as well as to resolve the relative path when creating the test name.
 Similar to the `files` attribute, you can use `${ENV_VAR_NAME}` in the `base_dir`.
 
-### Default timeout
+### Use `#[once]` Fixture
 
-You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
-The value is in seconds and is evaluated on test compile time.
+If you need to a fixture that should be initialized just once for all tests
+you can use `#[once]` attribute. `rstest` call your fixture function just once and
+return a reference to your function result to all your tests:
+
+```rust
+#[fixture]
+#[once]
+fn once_fixture() -> i32 { 42 }
+
+#[rstest]
+fn single(once_fixture: &i32) {
+    // All tests that use once_fixture will share the same reference to once_fixture() 
+    // function result.
+    assert_eq!(&42, once_fixture)
+}
+```
 
 ### Test `#[timeout()]`
 
@@ -319,6 +332,11 @@ async fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u
 If you want to use `timeout` for `async` test you need to use `async-timeout`
 feature (enabled by default).
 
+### Default timeout
+
+You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
+The value is in seconds and is evaluated on test compile time.
+
 ### Inject Test Attribute
 
 If you would like to use another `test` attribute for your test you can simply
@@ -342,22 +360,23 @@ async fn my_async_test(#[case] a: u32, #[case]
 
 Just the attributes that ends with `test` (last path segment) can be injected.
 
-### Use `#[once]` Fixture
+## Test `Context` object
 
-If you need to a fixture that should be initialized just once for all tests
-you can use `#[once]` attribute. `rstest` call your fixture function just once and
-return a reference to your function result to all your tests:
+You can have a [`Context`] object for your test just by annotate an argument by `#[context]` attribute.
+This object contains some useful information both to implement simple logics and debugging stuff.  
 
 ```rust
-#[fixture]
-#[once]
-fn once_fixture() -> i32 { 42 }
+use rstest::{rstest, Context};
 
 #[rstest]
-fn single(once_fixture: &i32) {
-    // All tests that use once_fixture will share the same reference to once_fixture() 
-    // function result.
-    assert_eq!(&42, once_fixture)
+#[case::a_description(42)]
+fn my_test(#[context] ctx: Context, #[case] _c: u32) {
+    assert_eq!("my_test", ctx.name);
+    assert_eq!(Some("a_description"), ctx.description);
+    assert_eq!(Some(0), ctx.case);
+
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert!(ctx.start.elapsed() >= std::time::Duration::from_millis(100));
 }
 ```
 
