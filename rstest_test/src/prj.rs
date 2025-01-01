@@ -1,5 +1,6 @@
 use std::{
     ffi::{OsStr, OsString},
+    fmt::Display,
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -19,13 +20,13 @@ pub enum Channel {
     Custom(String),
 }
 
-impl ToString for Channel {
-    fn to_string(&self) -> String {
+impl Display for Channel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Channel::Stable => "+stable".into(),
-            Channel::Beta => "+beta".into(),
-            Channel::Nightly => "+nightly".into(),
-            Channel::Custom(name) => format!("+{name}"),
+            Channel::Stable => write!(f, "stable"),
+            Channel::Beta => write!(f, "beta"),
+            Channel::Nightly => write!(f, "nightly"),
+            Channel::Custom(name) => write!(f, "+{name}"),
         }
     }
 }

@@ -80,6 +80,8 @@ pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
+type ArgumentDataResolver<'a> = Box<(&'a dyn Resolver, (Pat, Expr))>;
+
 impl ValueList {
     fn render(
         &self,
@@ -104,7 +106,7 @@ impl ValueList {
         &'a self,
         resolver: &'a dyn Resolver,
         info: &'a RsTestInfo,
-    ) -> impl Iterator<Item = (String, Box<(&'a dyn Resolver, (Pat, Expr))>)> + 'a {
+    ) -> impl Iterator<Item = (String, ArgumentDataResolver<'a>)> + 'a {
         let max_len = self.values.len();
         self.values.iter().enumerate().map(move |(index, value)| {
             let description = sanitize_ident(&value.description());
@@ -407,7 +409,7 @@ fn trace_arguments<'a>(
     }
 }
 
-impl<'a> CaseDataValues<'a> {
+impl CaseDataValues<'_> {
     fn render(self, testfn: &ItemFn, info: &RsTestInfo) -> TokenStream {
         let args = testfn.sig.inputs.iter().cloned().collect::<Vec<_>>();
         let mut attrs = testfn.attrs.clone();

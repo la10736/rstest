@@ -1,7 +1,6 @@
 # TODO list
 
 - [ ] Update rustup
-- [ ] Update dependency `cargo upgrade`
 - [ ] Run `cargo clippy`
 - [ ] Check msrv: `cargo hack check --rust-version --workspace --ignore-private`
 - [ ] Update Release

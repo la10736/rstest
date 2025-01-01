@@ -618,7 +618,7 @@ pub use rstest_macros::fixture;
 ///   - [`#[case]`](#test-parametrized-cases) define an argument parametrized by test cases
 ///   - [`#[values(...)]`](#values-lists) define an argument that can be a list of values
 ///   - [`#[files(...)]`-`#[exclude(...)]`-`#[base_dir = ... ]`](#files-path-as-input-arguments)
-///   define an argument that can be a list of path based on a glob pattern
+///     define an argument that can be a list of path based on a glob pattern
 ///   - [`#[from(...)]`-`#[with(...)]`](#injecting-fixtures) handling injected fixture
 ///   - [`#[future]`](#async) implement future boilerplate argument
 ///   - [`#[context]`](#test-context-object) Some metadata test information

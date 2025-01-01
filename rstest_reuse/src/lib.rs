@@ -416,8 +416,6 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 ///     assert!([4, 5].contains(other));
 /// }
 /// ```
-///
-
 #[proc_macro_attribute]
 pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> TokenStream {
     let template: Path = parse(args).unwrap();
