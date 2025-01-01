@@ -316,7 +316,7 @@ fn single_test_case(
         .map(|p| {
             (p.clone(), {
                 let e: Expr = parse_quote! {
-                    Context::new(#test_fn_name_str, #description, #pos)
+                    Context::new(module_path!(), #test_fn_name_str, #description, #pos)
                 };
                 e
             })

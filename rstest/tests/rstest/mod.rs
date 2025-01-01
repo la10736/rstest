@@ -1223,6 +1223,8 @@ fn context() {
     TestResults::new()
         .ok("with_case::case_1_description")
         .ok("without_case")
+        .ok("first::inner::test")
+        .ok("measure_time")
         .assert(output);
 }
 
