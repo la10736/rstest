@@ -458,7 +458,7 @@ pub(crate) struct ValueListFromFiles<'a> {
     g_resolver: Box<dyn GlobResolver + 'a>,
 }
 
-impl<'a> Default for ValueListFromFiles<'a> {
+impl Default for ValueListFromFiles<'_> {
     fn default() -> Self {
         Self {
             g_resolver: Box::new(DefaultGlobResolver),
@@ -467,7 +467,7 @@ impl<'a> Default for ValueListFromFiles<'a> {
     }
 }
 
-impl<'a> ValueListFromFiles<'a> {
+impl ValueListFromFiles<'_> {
     pub fn to_value_list(
         &self,
         files: Vec<(Ident, FilesGlobReferences)>,

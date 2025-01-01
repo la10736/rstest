@@ -135,7 +135,7 @@ pub(crate) trait Resolver {
     fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>>;
 }
 
-impl<'a> Resolver for HashMap<Pat, &'a Expr> {
+impl Resolver for HashMap<Pat, &'_ Expr> {
     fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
         self.get(arg)
             .or_else(|| self.get(&pat_invert_mutability(arg)))

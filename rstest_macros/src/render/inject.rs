@@ -31,7 +31,7 @@ where
     magic_conversion: &'f dyn Fn(Cow<Expr>, &Type) -> Expr,
 }
 
-impl<'resolver, 'idents, 'f, R> ArgumentResolver<'resolver, 'idents, 'f, R>
+impl<'resolver, 'idents, R> ArgumentResolver<'resolver, 'idents, '_, R>
 where
     R: Resolver + 'resolver,
 {
