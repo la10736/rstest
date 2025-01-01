@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+### Add
+
+### Fix
+
 ## [0.24.0] 2025/1/1
 
 ### Changed
