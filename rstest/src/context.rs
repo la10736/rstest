@@ -3,17 +3,18 @@
 pub struct Context {
     /// The complete module test path  
     pub module: &'static str,
-    /// The complete test name  
+    /// The test function name  
     pub name: &'static str,
-    /// The optional test description
+    /// The test description if present
     pub description: Option<&'static str>,
-    /// The optional case number
+    /// The cardinal case number if it's a test case
     pub case: Option<usize>,
     /// Start time
     pub start: std::time::Instant,
 }
 
 impl Context {
+    /// Create a new test context. This function set also the start time to the current time.
     pub fn new(
         module: &'static str,
         name: &'static str,

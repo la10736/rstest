@@ -607,6 +607,25 @@ pub use rstest_macros::fixture;
 /// - Generate [parametrized test cases](#test-parametrized-cases)
 /// - Generate tests for each combination of [value lists](#values-lists)
 ///
+/// Additional Attributes:
+///
+/// - Function Attributes:
+///   - [`#[case]`](#test-parametrized-cases) define a parametrized test case
+///   - [`#[awt]`](#async) await all your future test function's inputs
+///   - [`#[timeout(...)]`](#test-timeout) define a test timeout
+///   - [`#[trace]`](#trace-input-arguments) tracing input arguments
+/// - Arguments Attributes:
+///   - [`#[case]`](#test-parametrized-cases) define an argument parametrized by test cases
+///   - [`#[values(...)]`](#values-lists) define an argument that can be a list of values
+///   - [`#[files(...)]`-`#[exclude(...)]`-`#[base_dir = ... ]`](#files-path-as-input-arguments)
+///   define an argument that can be a list of path based on a glob pattern
+///   - [`#[from(...)]`-`#[with(...)]`](#injecting-fixtures) handling injected fixture
+///   - [`#[future]`](#async) implement future boilerplate argument
+///   - [`#[context]`](#test-context-object) Some metadata test information
+///   - [`#[by_ref]`](#local-lifetime-and-by_ref-attribute) define a local lifetime
+///   - [`#[ignore]`](#ignoring-arguments) ignore an argument used by a custom test function
+///   - [`#[notrace]`](#trace-input-arguments) disable trace
+///
 /// ## Injecting Fixtures
 ///
 /// The simplest case is write a test that can be injected with
@@ -760,7 +779,6 @@ pub use rstest_macros::fixture;
 /// #[rstest]
 /// #[case(2, 2)]
 /// #[cfg_attr(feature = "frac", case(4/2, 2))]
-/// #[case(4/2, 2)]
 /// fn it_works(#[case] a: u32, #[case] b: u32) {
 ///     assert!(a == b);
 /// }
@@ -942,7 +960,7 @@ pub use rstest_macros::fixture;
 ///
 /// ## Destructuring inputs
 ///
-/// Both paramtrized case and values can be destructured:
+/// Both parametrized case and values can be destructured:
 ///
 /// ```
 /// # use rstest::*;
@@ -1112,11 +1130,6 @@ pub use rstest_macros::fixture;
 /// }
 /// ```
 ///
-/// ### Default timeout
-///
-/// You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
-/// The value is in seconds and is evaluated on test compile time.///
-///
 /// ### Test `#[timeout()]`
 ///
 /// You can define an execution timeout for your tests with `#[timeout(<duration>)]` attribute. Timeout
@@ -1173,6 +1186,11 @@ pub use rstest_macros::fixture;
 /// If you want to use `timeout` for `async` test you need to use `async-timeout`
 /// feature (enabled by default).
 ///
+/// ### Default timeout
+///
+/// You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
+/// The value is in seconds and is evaluated on test compile time.
+///
 /// ## Inject Test Attribute
 ///
 /// If you would like to use another `test` attribute for your test you can simply
@@ -1199,6 +1217,27 @@ pub use rstest_macros::fixture;
 /// Some test attributes allow to inject arguments into the test function, in a similar way to rstest.
 /// This can lead to compile errors when rstest is not able to resolve the additional arguments.
 /// To avoid this, see [Ignoring Arguments](attr.rstest.html#ignoring-arguments).
+///
+/// ## Test `Context` object
+///
+/// You can have a [`Context`] object for your test just by annotate an argument by `#[context]` attribute.
+/// This object contains some useful information both to implement simple logics and debugging stuff.  
+///
+/// ```
+/// use rstest::{rstest, Context};
+///
+/// #[rstest]
+/// #[case::a_description(42)]
+/// fn my_test(#[context] ctx: Context, #[case] _c: u32) {
+///     assert_eq!("my_test", ctx.name);
+///     assert_eq!(Some("a_description"), ctx.description);
+///     assert_eq!(Some(0), ctx.case);
+///
+///     std::thread::sleep(std::time::Duration::from_millis(100));
+///     assert!(ctx.start.elapsed() >= std::time::Duration::from_millis(100));
+/// }
+///
+/// ```
 ///
 /// ## Local lifetime and `#[by_ref]` attribute
 ///

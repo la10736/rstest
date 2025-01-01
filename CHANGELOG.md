@@ -9,7 +9,9 @@
 ### Add
 
 - `#![no_std]` support: now you can use `rstest` also in `no_std` lib 
-(see [#282](https://github.com/la10736/rstest/issues/282) thanks to @rnbguy) 
+  (see [#282](https://github.com/la10736/rstest/issues/282) thanks to @rnbguy)
+- `#[context]` to have test function name and other useful thighs on
+  the tip of your fingers (see [#177](https://github.com/la10736/rstest/issues/177))
 
 ### Fixed
 
