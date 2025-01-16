@@ -374,8 +374,8 @@ fn single_test_case(
     let lifetimes = generics.lifetimes();
 
     quote! {
-        #test_attr
         #(#attrs)*
+        #test_attr
         #asyncness fn #name<#(#lifetimes,)*>(#(#ignored_args,)*) #output {
             #test_impl
             #inject
