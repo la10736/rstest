@@ -287,8 +287,9 @@ mod single_test_should {
 
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
-        assert_eq!(result.attrs[0], test_attribute);
-        assert_eq!(&result.attrs[1..], attributes.as_slice());
+        let (generated_attribute, old_attributes) = result.attrs.split_last().unwrap();
+        assert_eq!(old_attributes, attributes.as_slice());
+        assert_eq!(generated_attribute, &test_attribute);
     }
 
     #[rstest]
@@ -648,7 +649,7 @@ mod cases_should {
         assert!(tests.len() > 0);
 
         for t in tests {
-            assert_eq!(item_fn.attrs, &t.attrs[1..]);
+            assert_eq!(item_fn.attrs, &t.attrs[..t.attrs.len() - 1]);
         }
     }
 
@@ -669,7 +670,8 @@ mod cases_should {
 
         let tokens = parametrize(item_fn, info);
 
-        let test_attrs = &TestsGroup::from(tokens).get_all_tests()[0].attrs[1..];
+        let tests = TestsGroup::from(tokens).get_all_tests();
+        let test_attrs = tests[0].attrs.split_last().unwrap().1;
 
         let l = given_attrs.len();
 
@@ -886,9 +888,10 @@ mod cases_should {
         let tokens = parametrize(item_fn, info);
 
         let tests = TestsGroup::from(tokens).get_all_tests();
+        let (generated_attribute, old_attributes) = tests[0].attrs.split_last().unwrap();
 
-        assert_eq!(tests[0].attrs[0], test_attribute);
-        assert_eq!(&tests[0].attrs[1..], attributes.as_slice());
+        assert_eq!(old_attributes, attributes.as_slice());
+        assert_eq!(generated_attribute, &test_attribute);
     }
 
     #[test]
@@ -1213,8 +1216,8 @@ mod matrix_cases_should {
         assert!(tests.len() > 0);
 
         for t in tests {
-            let end = t.attrs.len() - 1;
-            assert_eq!(item_fn.attrs, &t.attrs[1..end]);
+            let end = t.attrs.len() - 2;
+            assert_eq!(item_fn.attrs, &t.attrs[0..end]);
         }
     }
 
@@ -1370,8 +1373,8 @@ mod matrix_cases_should {
         assert!(tests.len() > 0);
 
         for test in tests {
-            assert_eq!(test.attrs[0], test_attribute);
-            assert_eq!(&test.attrs[1..test.attrs.len() - 1], attributes.as_slice());
+            assert_eq!(&test.attrs[..test.attrs.len() - 2], attributes.as_slice());
+            assert_eq!(test.attrs[test.attrs.len() - 1], test_attribute);
         }
     }
 
@@ -1434,8 +1437,8 @@ mod matrix_cases_should {
         assert!(tests.len() > 0);
 
         for test in tests {
-            assert_eq!(test.attrs.last().unwrap(), non_snake_case);
-            assert_eq!(&test.attrs[1..test.attrs.len() - 1], attributes.as_slice());
+            assert_eq!(&test.attrs[test.attrs.len() - 2], non_snake_case);
+            assert_eq!(&test.attrs[..test.attrs.len() - 2], attributes.as_slice());
         }
     }
 
@@ -1926,11 +1929,11 @@ mod complete_should {
         let attrs = attrs("#[first]#[second(arg)]");
 
         for f in modules[0].get_all_tests() {
-            let end = f.attrs.len() - 1;
-            assert_eq!(attrs, &f.attrs[1..end]);
+            let end = f.attrs.len() - 2;
+            assert_eq!(attrs, &f.attrs[..end]);
         }
         for f in modules[1].get_all_tests() {
-            assert_eq!(attrs, &f.attrs[1..3]);
+            assert_eq!(attrs, &f.attrs[..2]);
         }
     }
     #[test]
@@ -1939,7 +1942,7 @@ mod complete_should {
         let attrs = attrs("#[third]#[forth(other)]");
 
         for f in modules[1].get_all_tests() {
-            assert_eq!(attrs, &f.attrs[3..5]);
+            assert_eq!(attrs, &f.attrs[2..4]);
         }
     }
 }

@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Append generated test macro so next test macros are aware of it (see [#291](https://github.com/la10736/rstest/pull/291)).
+
 ### Add
 
 ### Fix
