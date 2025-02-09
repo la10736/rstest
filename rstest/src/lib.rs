@@ -617,7 +617,7 @@ pub use rstest_macros::fixture;
 /// - Arguments Attributes:
 ///   - [`#[case]`](#test-parametrized-cases) define an argument parametrized by test cases
 ///   - [`#[values(...)]`](#values-lists) define an argument that can be a list of values
-///   - [`#[files(...)]`-`#[exclude(...)]`-`#[base_dir = ... ]`](#files-path-as-input-arguments)
+///   - [`#[files(...)]`-`#[exclude(...)]`-`#[base_dir = ... ]`-`#[mode = ...]`](#files-path-as-input-arguments)
 ///     define an argument that can be a list of path based on a glob pattern
 ///   - [`#[from(...)]`-`#[with(...)]`](#injecting-fixtures) handling injected fixture
 ///   - [`#[future]`](#async) implement future boilerplate argument
@@ -1029,6 +1029,43 @@ pub use rstest_macros::fixture;
 /// pub fn main() {
 ///     println!("cargo::rerun-if-changed=tests/resources");
 ///     println!("cargo::rerun-if-env-changed=BASE_TEST_DIR");
+/// }
+/// ```
+///
+/// ### `#[mode = ...]`
+///
+/// Using the `#[mode = ...]` attribute on an argument tagged with
+/// `#[files(...)]` and friends will set the way the file is passed as an argument.
+/// It accepts the following arguments with the following behaviour:
+///
+/// - `path`: the default behaviour, passes each file path as a [PathBuf][std::path::PathBuf].
+/// - `str`: passes the contents of each file as a [&str][str] using [include_str].
+/// - `bytes`: passes the contents of each files as a `&[u8]` using [include_bytes].
+/// 
+/// Trying to pass directories as arguments will cause a compile error when using `str` and
+/// `bytes`.
+///
+/// ```
+/// # use rstest::rstest;
+/// #[rstest]
+/// fn for_each_path(
+///     #[files("src/**/*.rs")] #[exclude("test")] #[mode = path] path: PathBuf
+/// ) {
+///     assert!(contents.len() >= 0)
+/// }
+///
+/// #[rstest]
+/// fn for_each_txt_file(
+///     #[files("src/**/*.rs")] #[exclude("test")] #[mode = str] contents: &str
+/// ) {
+///     assert!(contents.len() >= 0)
+/// }
+///
+/// #[rstest]
+/// fn for_each_bin_file(
+///     #[files("src/**/*.rs")] #[exclude("test")] #[mode = bytes] contents: &[u8]
+/// ) {
+///     assert!(contents.len() >= 0)
 /// }
 /// ```
 ///
