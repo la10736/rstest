@@ -19,6 +19,22 @@ fn start_with_name(
 }
 
 #[rstest]
+fn start_with_name_file_mode(
+    #[files("files/**/*.txt")]
+    #[exclude("exclude")]
+    #[files("../files_test_sub_folder/**/*.txt")]
+    #[mode = path]
+    path: PathBuf,
+) {
+    let name = path.file_name().unwrap();
+    let mut f = File::open(&path).unwrap();
+    let mut contents = String::new();
+    f.read_to_string(&mut contents).unwrap();
+
+    assert!(contents.starts_with(name.to_str().unwrap()))
+}
+
+#[rstest]
 fn start_with_name_with_include(
     #[files("files/**/*.txt")]
     #[exclude("exclude")]
@@ -89,6 +105,28 @@ fn env_vars_base_dir(
     f.read_to_string(&mut contents).unwrap();
 
     assert!(contents.starts_with(name.to_str().unwrap()))
+}
+
+#[rstest]
+fn include_str(
+    #[files("files/**/*.txt")]
+    #[exclude("exclude")]
+    #[files("../files_test_sub_folder/**/*.txt")]
+    #[mode = str]
+    contents: &str,
+) {
+    assert!(contents.len() != 0)
+}
+
+#[rstest]
+fn include_bytes(
+    #[files("files/**/*.txt")]
+    #[exclude("exclude")]
+    #[files("../files_test_sub_folder/**/*.txt")]
+    #[mode = bytes]
+    contents: &[u8],
+) {
+    assert!(contents.len() != 0)
 }
 
 mod module {

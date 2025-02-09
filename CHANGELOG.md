@@ -8,6 +8,10 @@
 
 ### Add
 
+- Added a `#[mode = ...]` attribute to be used with the `#[files(...)]` attribute to change the way
+  the files get passed to the test.
+  (see [#295](https://github.com/la10736/rstest/issues/295))
+
 ### Fix
 
 ## [0.24.0] 2025/1/1
