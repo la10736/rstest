@@ -6,6 +6,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+use rand::Rng;
 use std::borrow::Cow;
 use std::fs::{read_to_string, File};
 use std::io::Read;
@@ -252,10 +253,20 @@ impl Project {
     }
 
     fn save_cargo_toml(&self, doc: &Document) {
-        File::create(self.cargo_toml_path())
-            .expect("cannot update Cargo.toml")
+        // Avoid to have concurrent access to cargo workspace manifest:
+        // leverage on atomic file operations to avoid race conditions.
+        let path = self.cargo_toml_path();
+        let mut temp_path = path.clone();
+        let rand_name_part: u64 = rand::rng().random();
+        temp_path.set_file_name(format!("Cargo_{rand_name_part:021}.toml"));
+        File::create(&temp_path)
+            .expect(&format!("cannot create {}", temp_path.display()))
             .write_all(doc.to_string().as_bytes())
-            .expect("cannot write Cargo.toml");
+            .expect(&format!("cannot write {}", temp_path.display()));
+        std::fs::rename(&temp_path, path).expect(&format!(
+            "cannot rename {} -> Cargo.toml",
+            temp_path.display()
+        ));
     }
 
     fn cargo_channel_arg(&self) -> Option<String> {
