@@ -1,18 +1,17 @@
 # Changelog
 
-## Unreleased
+## [0.25.0] 2025/3/2
 
 ### Changed
 
-- Append generated test macro so next test macros are aware of it (see [#291](https://github.com/la10736/rstest/pull/291)).
+- Append generated test macro so next test macros are aware of it 
+  (see [#291](https://github.com/la10736/rstest/pull/291) thanks to @kezhuw).
 
 ### Add
 
 - Added a `#[mode = ...]` attribute to be used with the `#[files(...)]` attribute to change the way
   the files get passed to the test.
-  (see [#295](https://github.com/la10736/rstest/issues/295))
-
-### Fix
+  (see [#295](https://github.com/la10736/rstest/issues/295) thanks to @lucascool12)
 
 ## [0.24.0] 2025/1/1
 

@@ -14,7 +14,6 @@
 - [ ] Check README
 - [ ] **Commit**
 - [ ] Create tag (Use github release)
-- [ ] prepare deploy `cargo publish --dry-run`
 - [ ] deploy:
   - [ ]  `cargo publish -p rstest_macros --dry-run`
   - [ ]  `cargo publish -p rstest_macros`
