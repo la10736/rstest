@@ -260,13 +260,11 @@ impl Project {
         let rand_name_part: u64 = rand::rng().random();
         temp_path.set_file_name(format!("Cargo_{rand_name_part:021}.toml"));
         File::create(&temp_path)
-            .expect(&format!("cannot create {}", temp_path.display()))
+            .unwrap_or_else(|_| panic!("cannot create {}", temp_path.display()))
             .write_all(doc.to_string().as_bytes())
-            .expect(&format!("cannot write {}", temp_path.display()));
-        std::fs::rename(&temp_path, path).expect(&format!(
-            "cannot rename {} -> Cargo.toml",
-            temp_path.display()
-        ));
+            .unwrap_or_else(|_| panic!("cannot write {}", temp_path.display()));
+        std::fs::rename(&temp_path, path)
+            .unwrap_or_else(|_| panic!("cannot rename {} -> Cargo.toml", temp_path.display()));
     }
 
     fn cargo_channel_arg(&self) -> Option<String> {

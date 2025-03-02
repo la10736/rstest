@@ -142,11 +142,11 @@ pub(crate) mod files_mode_keywords {
 
 impl Parse for FilesMode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if let Some(_) = Option::<files_mode_keywords::path>::parse(input)? {
+        if Option::<files_mode_keywords::path>::parse(input)?.is_some() {
             Ok(Self::Path)
-        } else if let Some(_) = Option::<files_mode_keywords::str>::parse(input)? {
+        } else if Option::<files_mode_keywords::str>::parse(input)?.is_some() {
             Ok(Self::IncludeStr)
-        } else if let Some(_) = Option::<files_mode_keywords::bytes>::parse(input)? {
+        } else if Option::<files_mode_keywords::bytes>::parse(input)?.is_some() {
             Ok(Self::IncludeBytes)
         } else {
             Err(input.error("Expected one of the following keywords: path, str or bytes"))
@@ -377,15 +377,15 @@ impl ValueFilesExtractor {
             node,
             |a| attr_is(a, "mode"),
             |attr| {
-                attr.meta.require_name_value() .map_err(|_| {
-                    attr.error(
-                        "Use #[mode = ...] to define the argument of the file input",
-                    )
-                }).and_then(|attr| {
-                    syn::parse2(
-                        attr.value.to_token_stream()
-                    ).map(|file_mode| (attr.clone(), file_mode))
-                })
+                attr.meta
+                    .require_name_value()
+                    .map_err(|_| {
+                        attr.error("Use #[mode = ...] to define the argument of the file input")
+                    })
+                    .and_then(|attr| {
+                        syn::parse2(attr.value.to_token_stream())
+                            .map(|file_mode| (attr.clone(), file_mode))
+                    })
             },
         )
     }
@@ -424,11 +424,10 @@ impl VisitMut for ValueFilesExtractor {
         let mode_attr = self.extract_mode(node);
         let mode = if let Some(value) = mode_attr.first() {
             mode_attr.iter().skip(1).for_each(|attr| {
-                self.errors
-                    .push(syn::Error::new_spanned(
-                            &attr.0,
-                            r#"Cannot use #[mode = ...] more than once"#
-                        ))
+                self.errors.push(syn::Error::new_spanned(
+                    &attr.0,
+                    r#"Cannot use #[mode = ...] more than once"#,
+                ))
             });
             value.1
         } else {
@@ -600,10 +599,7 @@ impl ValueListFromFiles<'_> {
                     include_bytes!(#path_str)
                 },
             };
-            values.push((
-                value,
-                render_file_description(&relative_path),
-            ));
+            values.push((value, render_file_description(&relative_path)));
         }
 
         if values.is_empty() {
@@ -989,7 +985,7 @@ mod should {
                     exclude,
                     ignore_dot_files,
                     false,
-                    Default::default()
+                    Default::default(),
                 ),
             )])
             .unwrap();
@@ -1109,14 +1105,13 @@ mod should {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
         );
-        let refs =
-            FilesGlobReferences::new(
-                vec![],
-                Default::default(),
-                true,
-                ignore_missing_env_vars,
-                Default::default()
-            );
+        let refs = FilesGlobReferences::new(
+            vec![],
+            Default::default(),
+            true,
+            ignore_missing_env_vars,
+            Default::default(),
+        );
 
         let result = refs.replace_env_vars(&files_attr(glob), resolver);
         match (&result, expected) {
