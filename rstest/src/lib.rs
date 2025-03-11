@@ -1047,10 +1047,13 @@ pub use rstest_macros::fixture;
 ///
 /// ```
 /// # use rstest::rstest;
+/// # use std::path::PathBuf;
+/// # use std::fs::read_to_string;
 /// #[rstest]
 /// fn for_each_path(
 ///     #[files("src/**/*.rs")] #[exclude("test")] #[mode = path] path: PathBuf
 /// ) {
+///     let contents = read_to_string(path).unwrap();
 ///     assert!(contents.len() >= 0)
 /// }
 ///
