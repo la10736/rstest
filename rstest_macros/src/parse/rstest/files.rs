@@ -1,5 +1,5 @@
 use std::{env, path::PathBuf};
-
+use std::path::absolute;
 use crate::{
     error::ErrorsVec,
     parse::{
@@ -504,8 +504,13 @@ trait GlobResolver {
             .map(|p| p.map_err(|e| format!("glob failed for file due {e}")))
             .map(|r| {
                 r.and_then(|p| {
-                    p.canonicalize()
-                        .map_err(|e| format!("failed to canonicalize {} due {e}", p.display()))
+                    if cfg!(windows) {
+                        absolute(&p)
+                            .map_err(|e| format!("failed to make {} absolute due to {}", p.display(), e))
+                    } else {
+                        p.canonicalize()
+                            .map_err(|e| format!("failed to canonicalize {} due to {}", p.display(), e))
+                    }
                 })
             })
             .collect()
@@ -570,7 +575,8 @@ impl ValueListFromFiles<'_> {
         let base_dir = base_dir
             .into_os_string()
             .into_string()
-            .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?;
+            .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?
+            .replace('\\', "/");
 
         let mut values: Vec<(Expr, String)> = vec![];
         for (attr, abs_path) in self.all_files_path(resolved_paths)? {
@@ -578,7 +584,10 @@ impl ValueListFromFiles<'_> {
                 .clone()
                 .into_os_string()
                 .into_string()
-                .map(|inner| RelativePath::new(base_dir.as_str()).relative(inner))
+                .map(|inner| {
+                    RelativePath::new(base_dir.as_str())
+                        .relative(inner.replace('\\', "/"))
+                })
                 .map_err(|e| {
                     attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
                 })?;
@@ -998,7 +1007,7 @@ mod should {
                 .map(|r| r.to_logical_path(bdir))
                 .map(|p| {
                     format!(
-                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
+                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str({:?}).unwrap()"#,
                         p.as_os_str().to_str().unwrap()
                     )
                 })
