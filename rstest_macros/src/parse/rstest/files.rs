@@ -583,7 +583,7 @@ impl ValueListFromFiles<'_> {
                     attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
                 })?;
 
-            if !refs.is_valid(&relative_path) {
+            if abs_path.is_dir() || !refs.is_valid(&relative_path) {
                 continue;
             }
 
