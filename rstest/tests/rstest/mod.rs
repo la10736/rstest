@@ -137,6 +137,11 @@ fn files() {
         .ok("start_with_name_with_include::path_6_files_sub_sub_dir_file_txt")
         .ok("ignore_directories::path_1_folders_sub_file_txt")
         .ok("ignore_directories_wildcard::path_1_folders_sub_file_txt")
+        .ok("include_directories::path_1_folders_folder_but_txt")
+        .ok("include_directories::path_2_folders_sub_file_txt")
+        .ok("include_directories_wildcard::path_1_folders_folder_but_txt")
+        .ok("include_directories_wildcard::path_2_folders_sub")
+        .ok("include_directories_wildcard::path_3_folders_sub_file_txt")
         .assert(output);
 }
 

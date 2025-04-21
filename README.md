@@ -263,6 +263,10 @@ base directory. That directory MUST exist, and will be used as the root for
 the files, as well as to resolve the relative path when creating the test name.
 Similar to the `files` attribute, you can use `${ENV_VAR_NAME}` in the `base_dir`.
 
+The `#[files(...)]` attribute ignores matched directory paths by default,
+returning only file paths. If you need the test cases to include directories
+found by the glob pattern, use the `#[dirs]` attribute in conjunction with `#[files(...)]`.
+
 ### Use `#[once]` Fixture
 
 If you need to a fixture that should be initialized just once for all tests
