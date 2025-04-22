@@ -3,7 +3,11 @@
 
 ### Changed
 
+- The `#[files(...)]` attribute now ignores matched directory paths by default.
+
 ### Add
+
+- Introduced the `#[dirs]` attribute, which can be used with `#[files(...)]` to explicitly include directory paths.
 
 ### Fixed
 

@@ -1,5 +1,4 @@
 use std::{fs::File, io::Write, path::Path};
-
 use mytest::*;
 use rstest_test::*;
 use unindent::Unindent;
@@ -21,6 +20,20 @@ fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
     )
 }
 
+fn prepare_folders_tests(project_path: std::path::PathBuf) {
+    let folders_path = project_path.join("folders");
+
+    let folder_with_txt_extension_path = folders_path.join("folder_but.txt");
+    let sub_folder_path = folders_path.join("sub");
+
+    std::fs::create_dir(&folders_path).unwrap();
+    std::fs::create_dir(&folder_with_txt_extension_path).unwrap();
+    std::fs::create_dir(&sub_folder_path).unwrap();
+
+    let text_file_path = sub_folder_path.join("file.txt");
+    File::create(text_file_path).unwrap();
+}
+
 #[test]
 fn files() {
     std::env::set_var("FILES_ENV_VAR", "files");
@@ -32,6 +45,8 @@ fn files() {
     std::fs::create_dir(&files_path).unwrap();
     std::fs::create_dir(&sub_folder).unwrap();
     std::fs::create_dir(&up_sub_folder).unwrap();
+
+    prepare_folders_tests(prj.path());
 
     for n in 0..4 {
         let name = format!("element_{}.txt", n);
@@ -120,6 +135,13 @@ fn files() {
         .ok("start_with_name_with_include::path_4_files_element_2_txt")
         .ok("start_with_name_with_include::path_5_files_element_3_txt")
         .ok("start_with_name_with_include::path_6_files_sub_sub_dir_file_txt")
+        .ok("ignore_directories::path_1_folders_sub_file_txt")
+        .ok("ignore_directories_wildcard::path_1_folders_sub_file_txt")
+        .ok("include_directories::path_1_folders_folder_but_txt")
+        .ok("include_directories::path_2_folders_sub_file_txt")
+        .ok("include_directories_wildcard::path_1_folders_folder_but_txt")
+        .ok("include_directories_wildcard::path_2_folders_sub")
+        .ok("include_directories_wildcard::path_3_folders_sub_file_txt")
         .assert(output);
 }
 

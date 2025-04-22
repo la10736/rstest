@@ -50,6 +50,40 @@ fn start_with_name_with_include(
 }
 
 #[rstest]
+fn ignore_directories_wildcard(
+    #[files("folders/**/*")]
+    path: PathBuf,
+) {
+    assert!(!path.is_dir())
+}
+
+#[rstest]
+fn ignore_directories(
+    #[files("folders/**/*.txt")]
+    path: PathBuf,
+) {
+    assert!(!path.is_dir())
+}
+
+#[rstest]
+fn include_directories_wildcard(
+    #[files("folders/**/*")]
+    #[dirs]
+    path: PathBuf,
+) {
+    // Should be generated when the glob matches folders as well.
+}
+
+#[rstest]
+fn include_directories(
+    #[files("folders/**/*.txt")]
+    #[dirs]
+    path: PathBuf,
+) {
+    // Should be generated when the glob matches folders as well.
+}
+
+#[rstest]
 fn ignore_missing_env_vars(
     #[ignore_missing_env_vars]
     #[files("files/**/${__SHOULD_NOT_BE_DECLARED__}*.txt")]

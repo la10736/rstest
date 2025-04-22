@@ -1020,6 +1020,10 @@ pub use rstest_macros::fixture;
 /// `${VAR:-default}` (similar to bash). This can be really useful when you want to override
 /// the cargo root on some environments: use `#[base_dir = "BASE_TEST_DIR:-"]` do the trick.
 ///
+/// The `#[files(...)]` attribute ignores matched directory paths by default,
+/// returning only file paths. If you need the test cases to include directories
+/// found by the glob pattern, use the `#[dirs]` attribute in conjunction with `#[files(...)]`.
+///
 /// Finally, often you would to recompile tests sources when file the folders or the
 /// environment variables changed. In this case you should provide a `build.rs` script file
 /// that tell to the compiler what to look in order to recompile the tests. For instance
