@@ -97,16 +97,19 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     }
 
     quote! {
+        #[doc(hidden)]
         #[allow(non_camel_case_types)]
         #visibility struct #name {}
 
         impl #name {
             #(#orig_attrs)*
+            #[doc(hidden)]
             #[allow(unused_mut)]
             pub #asyncness fn get #generics (#(#inner_args),*) #output #where_clause {
                 #call_impl
             }
 
+            #[doc(hidden)]
             pub #asyncness fn default #default_generics () #default_output #default_where_clause {
                 #inject
                 #call_get
