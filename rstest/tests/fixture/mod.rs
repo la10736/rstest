@@ -379,6 +379,15 @@ mod should {
         }
 
         #[rstest]
+        fn deny_docs() {
+            let (output, _) = run_test("deny_docs.rs");
+
+            assert_not_in!(output.stdout.str(), "missing_docs");
+
+            TestResults::new().ok("success").fail("fail").assert(output);
+        }
+
+        #[rstest]
         fn once_async(errors_once_rs: &(Output, String)) {
             let (output, name) = errors_once_rs.clone();
             assert_in!(
