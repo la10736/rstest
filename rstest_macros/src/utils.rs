@@ -36,7 +36,7 @@ pub(crate) fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item = &FnArg> {
 }
 
 pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
-    attr.path().segments.iter().last() == Some(segment)
+    attr.path().segments.iter().next_back() == Some(segment)
 }
 
 pub(crate) fn attr_starts_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
@@ -327,8 +327,8 @@ mod test {
     #[case::transitive_const("fn foo<const A: usize, B, C>(b: B) where B: Some<A> {}", &["A", "B"])]
     #[case::transitive_lifetime("fn foo<'a, A, B, C>(a: A, b: B) where B: Iterator<Item=A> + 'a {}", &["a", "A", "B"])]
     #[case::transitive_lifetime(r#"fn foo<'a, 'b, 'c, 'd, A, B, C>
-        (a: A, b: B) 
-        where B: Iterator<Item=A> + 'c, 
+        (a: A, b: B)
+        where B: Iterator<Item=A> + 'c,
         'c: 'a + 'b {}"#, &["a", "b", "c", "A", "B"])]
     fn references_ident_types_should(#[case] f: &str, #[case] expected: &[&str]) {
         let f: ItemFn = f.ast();
@@ -364,11 +364,11 @@ mod test {
                 {}"#
     )]
     #[case::dont_remove_transitive(
-        r#"fn test<A, B, C, D, const F: usize, O>(a: A) where 
+        r#"fn test<A, B, C, D, const F: usize, O>(a: A) where
             B: AsRef<C>,
             A: Iterator<Item=[B; F]>,
             D: ArsRef<O> {}"#,
-        r#"fn test<A, B, C, const F: usize>(a: A) where 
+        r#"fn test<A, B, C, const F: usize>(a: A) where
             B: AsRef<C>,
             A: Iterator<Item=[B; F]> {}"#
     )]
@@ -378,12 +378,12 @@ mod test {
     )]
     #[case::remove_unused_const(
         r#"fn test<const A: usize, const B: usize, const C: usize, const D: usize, T, O>
-            (a: [u32; A], b: SomeType<B>, c: T) where 
+            (a: [u32; A], b: SomeType<B>, c: T) where
             T: Iterator<Item=[i32; C]>,
-            O: AsRef<D> 
+            O: AsRef<D>
             {}"#,
         r#"fn test<const A: usize, const B: usize, const C: usize, T>
-            (a: [u32; A], b: SomeType<B>, c: T) where 
+            (a: [u32; A], b: SomeType<B>, c: T) where
             T: Iterator<Item=[i32; C]>
             {}"#
     )]
@@ -408,7 +408,7 @@ mod test {
     #[case(r#"Some::SomeElse"#, "Some__SomeElse")]
     #[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
     #[case(
-        r#"vec![1 ,   2, 
+        r#"vec![1 ,   2,
     3]"#,
         "vec__1_2_3_"
     )]
