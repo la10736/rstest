@@ -64,15 +64,19 @@ pub fn rstest(
     }
 
     if errors.is_empty() {
-        if info.data.has_list_values() {
-            render::matrix(test, info)
-        } else if info.data.has_cases() {
-            render::parametrize(test, info)
-        } else {
-            render::single(test, info)
-        }
+        render(test, info).unwrap_or_else(syn::Error::into_compile_error)
     } else {
         errors
     }
     .into()
+}
+
+fn render(test: ItemFn, info: RsTestInfo) -> syn::Result<proc_macro2::TokenStream> {
+    if info.data.has_list_values() {
+        render::matrix(test, info)
+    } else if info.data.has_cases() {
+        render::parametrize(test, info)
+    } else {
+        render::single(test, info)
+    }
 }
