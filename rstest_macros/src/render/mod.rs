@@ -208,11 +208,25 @@ pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
-fn resolve_default_test_attr(is_async: bool) -> TokenStream {
-    if is_async {
-        quote! { #[async_std::test] }
+fn resolve_test_attr(
+    is_async: bool,
+    explicit_test_attr: Option<TokenStream>,
+    attributes: &[Attribute],
+) -> Option<TokenStream> {
+    if let Some(explicit_attr) = explicit_test_attr {
+        Some(explicit_attr)
+    } else if attributes
+        .iter()
+        .any(|attr| attr_ends_with(attr, &parse_quote! {test}))
+    {
+        // test attr is already in the attributes; we don't need to re-inject it
+        None
+    } else if !is_async {
+        Some(quote! { #[test] })
     } else {
-        quote! { #[test] }
+        Some(
+            quote! { compile_error!("async tests require either an explicit `test_attr` or an attribute whose path ends with `test`") },
+        )
     }
 }
 
@@ -347,15 +361,10 @@ fn single_test_case(
         .last()
         .map(|attribute| attribute.parse_args::<Expr>().unwrap());
 
-    // If no injected attribute provided use the default one
-    let test_attr = if attrs
-        .iter()
-        .any(|a| attr_ends_with(a, &parse_quote! {test}))
-    {
-        None
-    } else {
-        Some(resolve_default_test_attr(is_async))
-    };
+    let test_attr = resolve_test_attr(
+        is_async, None, // TODO: detect and pass an explicit test attribute
+        &attrs,
+    );
 
     let args = args
         .iter()
