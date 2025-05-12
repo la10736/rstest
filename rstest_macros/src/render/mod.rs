@@ -361,10 +361,19 @@ fn single_test_case(
         .last()
         .map(|attribute| attribute.parse_args::<Expr>().unwrap());
 
-    let test_attr = resolve_test_attr(
-        is_async, None, // TODO: detect and pass an explicit test attribute
-        &attrs,
-    );
+    let explicit_test_attr = attrs.iter().find_map(|attr| {
+        if !attr_is(attr, "test_attr") {
+            return None;
+        }
+        match &attr.meta {
+            syn::Meta::List(meta_list) => {
+                let tokens = &meta_list.tokens;
+                Some(quote! { #[#tokens] })
+            },
+            syn::Meta::Path(_) | syn::Meta::NameValue(_) => Some( quote! { compile_error!("invalid `test_attr` syntax; should be `#[test_attr(<test attribute>)]`")}),
+        }
+    });
+    let test_attr = resolve_test_attr(is_async, explicit_test_attr, &attrs);
 
     let args = args
         .iter()
