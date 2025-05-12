@@ -160,34 +160,12 @@ You can use this feature also in value list and in fixture default value.
 
 ### Async
 
-`rstest` provides out of the box `async` support. Just mark your
-test function as `async`, and it'll use `#[async-std::test]` to
-annotate it. This feature can be really useful to build async
-parametric tests using a tidy syntax:
+`rstest` supports async tests, but makes no assumptions about what
+async runtime you are using. Async tests require either an
+[explicit test attribute](#explicit-test-attribute) or an
+[implicit test attribute](#implicit-test-attribute).
 
-```rust
-use rstest::*;
-
-#[rstest]
-#[case(5, 2, 3)]
-#[should_panic]
-#[case(42, 40, 1)]
-async fn my_async_test(#[case] expected: u32, #[case] a: u32, #[case] b: u32) {
-    assert_eq!(expected, async_sum(a, b).await);
-}
-```
-
-Currently, only `async-std` is supported out of the box. But if you need to use
-another runtime that provide its own test attribute (i.e. `tokio::test` or
-`actix_rt::test`) you can use it in your `async` test like described in
-[Inject Test Attribute](#inject-test-attribute).
-
-To use this feature, you need to enable `attributes` in the `async-std`
-features list in your `Cargo.toml`:
-
-```toml
-async-std = { version = "1.13", features = ["attributes"] }
-```
+You are responsible for providing any appropriate peer dependencies to run your async tests.
 
 If your test input is an async value (fixture or test parameter) you can use `#[future]`
 attribute to remove `impl Future<Output = T>` boilerplate and just use `T`:
@@ -198,6 +176,7 @@ use rstest::*;
 async fn base() -> u32 { 42 }
 
 #[rstest]
+#[tokio::test]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
 async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future]
@@ -209,13 +188,14 @@ async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future]
 As you noted you should `.await` all _future_ values and this sometimes can be really boring.
 In this case you can use `#[future(awt)]` to _awaiting_ an input or annotating your function
 with `#[awt]` attributes to globally `.await` all your _future_ inputs. Previous code can be
-simplified like follow:
+simplified as follows:
 
 ```rust
 use rstest::*;
 # #[fixture]
 # async fn base() -> u32 { 42 }
 #[rstest]
+#[tokio::test]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
 #[awt]
@@ -223,7 +203,9 @@ async fn global(#[future] base: u32, #[case] expected: u32, #[future]
 #[case] div: u32) {
     assert_eq!(expected, base / div);
 }
+
 #[rstest]
+#[tokio::test]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
 async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)]
@@ -280,7 +262,7 @@ fn once_fixture() -> i32 { 42 }
 
 #[rstest]
 fn single(once_fixture: &i32) {
-    // All tests that use once_fixture will share the same reference to once_fixture() 
+    // All tests that use once_fixture will share the same reference to once_fixture()
     // function result.
     assert_eq!(&42, once_fixture)
 }
@@ -302,6 +284,7 @@ async fn delayed_sum(a: u32, b: u32, delay: Duration) -> u32 {
 }
 
 #[rstest]
+#[async_std::test]
 #[timeout(Duration::from_millis(80))]
 async fn single_pass() {
     assert_eq!(4, delayed_sum(2, 2, ms(10)).await);
@@ -341,11 +324,37 @@ feature (enabled by default).
 You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
 The value is in seconds and is evaluated on test compile time.
 
-### Inject Test Attribute
+### Explicit Test Attribute
 
-If you would like to use another `test` attribute for your test you can simply
-indicate it in your test function's attributes. For instance if you want
-to test some async function with use `actix_rt::test` attribute you can just write:
+If your test contains an attribute `#[test_attr(...)]`, this is an explicit test attribute declaration.
+The contents of the parentheses will be inserted as an attribute of your test. This allows for arbitrary
+test attribute syntax.
+
+For instance, if you want to test an async function with [`smol_macros::test`](https://docs.rs/smol-macros/0.1.1/smol_macros/macro.test.html),
+you can write
+
+```rust
+use rstest::*;
+use macro_rules_attribute::apply;
+use smol_macros::test;
+use std::future::Future;
+
+#[rstest]
+#[test_attr(apply(test!))]
+#[case(2, async { 4 })]
+#[case(21, async { 42 })]
+async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
+    assert_eq!(2 * a, result.await);
+}
+```
+
+### Implicit Test Attribute
+
+If your test contains an attribute whose path ends in `test`, this is treated
+as an implicit test attribute, and replaces the default `#[test]` attribute.
+Simply including the attribute in your test's attribute list is all that is required.
+
+For instance, if you want to test an async function with the `actix_rt::test` attribute, you can just write:
 
 ```rust
 use rstest::*;
@@ -353,21 +362,28 @@ use actix_rt;
 use std::future::Future;
 
 #[rstest]
+#[actix_rt::test]
 #[case(2, async { 4 })]
 #[case(21, async { 42 })]
-#[actix_rt::test]
-async fn my_async_test(#[case] a: u32, #[case]
-#[future] result: u32) {
+async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
     assert_eq!(2 * a, result.await);
 }
 ```
 
-Just the attributes that ends with `test` (last path segment) can be injected.
+Implicit test attributes have a lower priority than [`explicit test attributes`](#explicit-test-attribute).
+If you have an unrelated attribute whose path ends in `test`, you should declare an explicit test attribute
+for deconfliction.
+
+### Default Test Attribute
+
+Synchronous tests use `#[test]` as the default test attribute if nothing else is supplied explicitly or implicitly.
+
+Asynchronous tests will fail to compile if no test attribute is specified explicitly or implicitly.
 
 ## Test `Context` object
 
 You can have a [`Context`] object for your test just by annotate an argument by `#[context]` attribute.
-This object contains some useful information both to implement simple logics and debugging stuff.  
+This object contains some useful information both to implement simple logics and debugging stuff.
 
 ```rust
 use rstest::{rstest, Context};
