@@ -2,14 +2,15 @@
 use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
+use syn::{parse_quote, visit, ItemFn, Pat};
 use syn::{spanned::Spanned, visit::Visit};
-use syn::{visit, ItemFn, Pat};
 
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestData, RsTestInfo},
 };
 use crate::refident::{MaybeIdent, MaybePat};
+use crate::utils::{attr_ends_with, attr_is};
 
 use super::utils::fn_args_has_pat;
 
@@ -26,6 +27,7 @@ pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
         .chain(invalid_cases(&info.data))
         .chain(case_args_without_cases(&info.data))
         .chain(destruct_fixture_without_from(test, info))
+        .chain(async_test_without_test_attribute(test))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -283,6 +285,21 @@ impl RenderType for syn::Pat {
             syn::Pat::Ident(ref i) => i.ident.to_string(),
             other => format!("{other:?}"),
         }
+    }
+}
+
+fn async_test_without_test_attribute(test: &ItemFn) -> Errors {
+    let is_async = test.sig.asyncness.is_some();
+    let has_explicit_test_attr = test.attrs.iter().any(|attr| attr_is(attr, "test_attr"));
+    let has_implicit_test_attr = test
+        .attrs
+        .iter()
+        .any(|attr| attr_ends_with(attr, &parse_quote!(test)));
+    if is_async && !(has_explicit_test_attr || has_implicit_test_attr) {
+        let span = test.sig.ident.span();
+        Box::new(std::iter::once(syn::Error::new(span, "async test requires either explicit `test_attr` or implicit (attribute path ends with `test`)")))
+    } else {
+        Box::new(std::iter::empty())
     }
 }
 
