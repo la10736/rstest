@@ -338,6 +338,7 @@ pub use crate::context::Context;
 ///
 ///
 /// #[rstest]
+/// #[tokio::test]
 /// async fn the_test(#[future] async_fixture: i32) {
 ///     assert_eq!(42, async_fixture.await)
 /// }
@@ -351,6 +352,7 @@ pub use crate::context::Context;
 /// # #[fixture]
 /// # async fn async_fixture() -> i32 { 42 }
 /// #[rstest]
+/// #[tokio::test]
 /// async fn the_test(async_fixture: impl std::future::Future<Output = i32>) {
 ///     assert_eq!(42, async_fixture.await)
 /// }
@@ -597,13 +599,13 @@ pub use rstest_macros::fixture;
 /// In the function signature, where you define your tests inputs, you can also destructuring
 /// the values like any other rust function.
 ///
-/// If the test function is an [`async` function](#async) `rstest` will run all tests as `async`
-/// tests. You can use it just with `async-std` and you should include `attributes` in
-/// `async-std`'s features.
+/// If the test function is an [`async` function](#async) `rstest` will run all cases as `async`
+/// tests. However, async tests must supply either an [explicit test attribute](#explicit-test-attributes)
+/// or an [implicit test attribute](#implicit-test-attributes).
 ///
 /// In your test function you can:
 ///
-/// - [injecting fixtures](#injecting-fixtures)
+/// - [inject fixtures](#injecting-fixtures)
 /// - Generate [parametrized test cases](#test-parametrized-cases)
 /// - Generate tests for each combination of [value lists](#values-lists)
 ///
@@ -614,6 +616,7 @@ pub use rstest_macros::fixture;
 ///   - [`#[awt]`](#async) await all your future test function's inputs
 ///   - [`#[timeout(...)]`](#test-timeout) define a test timeout
 ///   - [`#[trace]`](#trace-input-arguments) tracing input arguments
+///   - [`#[test_attr(...)]`](#explicit-test-attr) define an explicit test attribute
 /// - Arguments Attributes:
 ///   - [`#[case]`](#test-parametrized-cases) define an argument parametrized by test cases
 ///   - [`#[values(...)]`](#values-lists) define an argument that can be a list of values
@@ -1045,7 +1048,7 @@ pub use rstest_macros::fixture;
 /// - `path`: the default behaviour, passes each file path as a [PathBuf][std::path::PathBuf].
 /// - `str`: passes the contents of each file as a [&str][str] using [include_str].
 /// - `bytes`: passes the contents of each files as a `&[u8]` using [include_bytes].
-/// 
+///
 /// Trying to pass directories as arguments will cause a compile error when using `str` and
 /// `bytes`.
 ///
@@ -1102,35 +1105,12 @@ pub use rstest_macros::fixture;
 ///
 /// ## Async
 ///
-/// `rstest` provides out of the box `async` support. Just mark your
-/// test function as `async` and it'll use `#[async-std::test]` to
-/// annotate it. This feature can be really useful to build async
-/// parametric tests using a tidy syntax:
+/// `rstest` supports async tests, but makes no assumptions about what
+/// async runtime you are using. Async tests require either an
+/// [explicit test attribute](#explicit-test-attributes) or an
+/// [implicit test attribute](#implicit-test-attributes).
 ///
-/// ```
-/// use rstest::*;
-/// # async fn async_sum(a: u32, b: u32) -> u32 { a + b }
-///
-/// #[rstest]
-/// #[case(5, 2, 3)]
-/// #[should_panic]
-/// #[case(42, 40, 1)]
-/// async fn my_async_test(#[case] expected: u32, #[case] a: u32, #[case] b: u32) {
-///     assert_eq!(expected, async_sum(a, b).await);
-/// }
-/// ```
-///
-/// Currently only `async-std` is supported out of the box. But if you need to use
-/// another runtime that provide it's own test attribute (i.e. `tokio::test` or
-/// `actix_rt::test`) you can use it in your `async` test like described in
-/// [Inject Test Attribute](attr.rstest.html#inject-test-attribute).
-///
-/// To use this feature, you need to enable `attributes` in the `async-std`
-/// features list in your `Cargo.toml`:
-///
-/// ```toml
-/// async-std = { version = "1.13", features = ["attributes"] }
-/// ```
+/// You are responsible for providing any appropriate peer dependencies to run your async tests.
 ///
 /// If your test input is an async value (fixture or test parameter) you can use `#[future]`
 /// attribute to remove `impl Future<Output = T>` boilerplate and just use `T`:
@@ -1141,6 +1121,7 @@ pub use rstest_macros::fixture;
 /// async fn base() -> u32 { 42 }
 ///
 /// #[rstest]
+/// #[tokio::test]
 /// #[case(21, async { 2 })]
 /// #[case(6, async { 7 })]
 /// async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
@@ -1159,6 +1140,7 @@ pub use rstest_macros::fixture;
 /// # async fn base() -> u32 { 42 }
 ///
 /// #[rstest]
+/// #[tokio::test]
 /// #[case(21, async { 2 })]
 /// #[case(6, async { 7 })]
 /// #[awt]
@@ -1167,6 +1149,7 @@ pub use rstest_macros::fixture;
 /// }
 ///
 /// #[rstest]
+/// #[tokio::test]
 /// #[case(21, async { 2 })]
 /// #[case(6, async { 7 })]
 /// async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[case] div: u32) {
@@ -1190,6 +1173,7 @@ pub use rstest_macros::fixture;
 /// }
 ///
 /// #[rstest]
+/// #[async_std::test]
 /// #[timeout(Duration::from_millis(80))]
 /// async fn single_pass() {
 ///     assert_eq!(4, delayed_sum(2, 2, ms(10)).await);
@@ -1217,6 +1201,7 @@ pub use rstest_macros::fixture;
 /// }
 ///
 /// #[rstest]
+/// #[async_std::test]
 /// #[case::pass(ms(1), 4)]
 /// #[timeout(ms(10))]
 /// #[case::fail_timeout(ms(60), 4)]
@@ -1235,37 +1220,68 @@ pub use rstest_macros::fixture;
 /// You can set a default timeout for test using the `RSTEST_TIMEOUT` environment variable.
 /// The value is in seconds and is evaluated on test compile time.
 ///
-/// ## Inject Test Attribute
+/// ## Test Attributes
 ///
-/// If you would like to use another `test` attribute for your test you can simply
-/// indicate it in your test function's attributes. For instance if you want
-/// to test some async function with use `actix_rt::test` attribute you can just write:
+/// ### Explicit Test Attributes
 ///
+/// If your test contains an attribute `#[test_attr(...)]`, this is an explicit test attribute declaration.
+/// The contents of the parentheses will be inserted as an attribute of your test. This allows for arbitrary
+/// test attribute syntax.
+///
+/// For instance, if you want to test an async function with [`smol_macros::test`](https://docs.rs/smol-macros/0.1.1/smol_macros/macro.test.html),
+/// you can write
+///
+/// ```rust
+/// use rstest::*;
+/// use macro_rules_attribute::apply;
+/// use smol_macros::test;
+/// use std::future::Future;
+///
+/// #[rstest]
+/// #[test_attr(apply(test!))]
+/// #[case(2, async { 4 })]
+/// #[case(21, async { 42 })]
+/// async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
+///     assert_eq!(2 * a, result.await);
+/// }
 /// ```
+///
+/// ### Implicit Test Attributes
+///
+/// If your test contains an attribute whose path ends in `test`, this is treated
+/// as an implicit test attribute, and replaces the default `#[test]` attribute.
+/// Simply including the attribute in your test's attribute list is all that is required.
+///
+/// For instance, if you want to test an async function with the `actix_rt::test` attribute, you can just write:
+///
+/// ```rust
 /// use rstest::*;
 /// use actix_rt;
 /// use std::future::Future;
 ///
 /// #[rstest]
+/// #[actix_rt::test]
 /// #[case(2, async { 4 })]
 /// #[case(21, async { 42 })]
-/// #[actix_rt::test]
 /// async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
 ///     assert_eq!(2 * a, result.await);
 /// }
 /// ```
-/// Just the attributes that ends with `test` (last path segment) can be injected:
-/// in this case the `#[actix_rt::test]` attribute will replace the standard `#[test]`
-/// attribute.
 ///
-/// Some test attributes allow to inject arguments into the test function, in a similar way to rstest.
-/// This can lead to compile errors when rstest is not able to resolve the additional arguments.
-/// To avoid this, see [Ignoring Arguments](attr.rstest.html#ignoring-arguments).
+/// Implicit test attributes have a lower priority than [`explicit test attributes`](#explicit-test-attribute).
+/// If you have an unrelated attribute whose path ends in `test`, you should declare an explicit test attribute
+/// for deconfliction.
+///
+/// ### Default Test Attributes
+///
+/// Synchronous tests use `#[test]` as the default test attribute if nothing else is supplied explicitly or implicitly.
+///
+/// Asynchronous tests will fail to compile if no test attribute is specified explicitly or implicitly.
 ///
 /// ## Test `Context` object
 ///
 /// You can have a [`Context`] object for your test just by annotate an argument by `#[context]` attribute.
-/// This object contains some useful information both to implement simple logics and debugging stuff.  
+/// This object contains some useful information both to implement simple logics and debugging stuff.
 ///
 /// ```
 /// use rstest::{rstest, Context};
