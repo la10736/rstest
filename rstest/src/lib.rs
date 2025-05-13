@@ -1238,7 +1238,7 @@ pub use rstest_macros::fixture;
 /// use std::future::Future;
 ///
 /// #[rstest]
-/// #[test_attr(apply(test!))]
+/// #[test_attr(apply(test))]
 /// #[case(2, async { 4 })]
 /// #[case(21, async { 42 })]
 /// async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {

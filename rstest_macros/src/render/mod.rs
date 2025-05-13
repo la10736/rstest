@@ -225,7 +225,7 @@ fn resolve_test_attr(
         Some(quote! { #[test] })
     } else {
         Some(
-            quote! { compile_error!("async tests require either an explicit `test_attr` or an attribute whose path ends with `test`") },
+            quote! { compile_error!{"async tests require either an explicit `test_attr` or an attribute whose path ends with `test`"} },
         )
     }
 }
@@ -370,7 +370,7 @@ fn single_test_case(
                 let tokens = &meta_list.tokens;
                 Some(quote! { #[#tokens] })
             },
-            syn::Meta::Path(_) | syn::Meta::NameValue(_) => Some( quote! { compile_error!("invalid `test_attr` syntax; should be `#[test_attr(<test attribute>)]`")}),
+            syn::Meta::Path(_) | syn::Meta::NameValue(_) => Some( quote! { compile_error!{"invalid `test_attr` syntax; should be `#[test_attr(<test attribute>)]`"}}),
         }
     });
     let test_attr = resolve_test_attr(is_async, explicit_test_attr, &attrs);
