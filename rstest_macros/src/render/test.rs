@@ -327,8 +327,8 @@ mod single_test_should {
 
         let expected = parse_str::<syn::ItemFn>(
             r#"async fn test<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>, 
-                        async_u32: impl core::future::Future<Output = u32>, 
+                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }
@@ -912,8 +912,8 @@ mod cases_should {
 
         let expected = parse_str::<syn::ItemFn>(
             r#"async fn test<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>, 
-                        async_u32: impl core::future::Future<Output = u32>, 
+                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }
@@ -1397,8 +1397,8 @@ mod matrix_cases_should {
 
         let expected = parse_str::<syn::ItemFn>(
             r#"async fn test<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>, 
-                        async_u32: impl core::future::Future<Output = u32>, 
+                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }
@@ -1944,5 +1944,146 @@ mod complete_should {
         for f in modules[1].get_all_tests() {
             assert_eq!(attrs, &f.attrs[2..4]);
         }
+    }
+}
+
+mod test_attribute_should {
+    use super::*;
+    use crate::test::assert_eq;
+
+    enum TestAttrStyle {
+        Explicit,
+        Implicit,
+        Omitted,
+        Custom(String),
+    }
+
+    fn make_test_fn(is_async: bool, attr_style: TestAttrStyle) -> ItemFn {
+        use std::fmt::Write as _;
+
+        let mut out = String::from("#[rstest]\n");
+        match attr_style {
+            TestAttrStyle::Explicit => {
+                writeln!(&mut out, "#[test_attr(my_explicit_test_attr)]").unwrap();
+            }
+            TestAttrStyle::Implicit => {
+                writeln!(&mut out, "#[implicit::test::runner::test]").unwrap();
+            }
+            TestAttrStyle::Omitted => {}
+            TestAttrStyle::Custom(custom) => {
+                writeln!(&mut out, "{custom}").unwrap();
+            }
+        };
+        if is_async {
+            out.push_str("async ");
+        }
+        out.push_str("fn test_attr_test() {}");
+
+        out.ast()
+    }
+
+    /// Check if itemfns are equivalent:
+    ///
+    /// - attributes don't have to match
+    /// - generic tokens are not checked, but generic params must match
+    /// - blocks are not checked (they have been munged)
+    fn itemfn_near_match(expect: &ItemFn, result: &ItemFn) {
+        assert_eq!(expect.vis, result.vis);
+        assert_eq!(expect.sig.constness, result.sig.constness);
+        assert_eq!(expect.sig.asyncness, result.sig.asyncness);
+        assert_eq!(expect.sig.unsafety, result.sig.unsafety);
+        assert_eq!(expect.sig.abi, result.sig.abi);
+        assert_eq!(expect.sig.fn_token, result.sig.fn_token);
+        assert_eq!(expect.sig.ident, result.sig.ident);
+        assert_eq!(expect.sig.generics.params, result.sig.generics.params);
+        assert_eq!(
+            expect.sig.generics.where_clause,
+            result.sig.generics.where_clause
+        );
+        assert_eq!(expect.sig.paren_token, result.sig.paren_token);
+        assert_eq!(expect.sig.inputs, result.sig.inputs);
+        assert_eq!(expect.sig.variadic, result.sig.variadic);
+        assert_eq!(expect.sig.output, result.sig.output);
+    }
+
+    #[test]
+    fn use_explicit_test_attr_when_sync() {
+        let input = make_test_fn(false, TestAttrStyle::Explicit);
+        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+
+        assert!(result
+            .attrs
+            .iter()
+            .any(|attr| attr_is(attr, "my_explicit_test_attr")));
+        itemfn_near_match(&input, &result);
+    }
+
+    #[test]
+    fn use_implicit_test_attr_when_sync() {
+        let input = make_test_fn(false, TestAttrStyle::Implicit);
+        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+
+        assert_eq!(
+            result
+                .attrs
+                .iter()
+                .find(|attr| attr_starts_with(attr, &parse_quote!(implicit))),
+            Some(&parse_quote!(#[implicit::test::runner::test]))
+        );
+        itemfn_near_match(&input, &result);
+    }
+
+    #[test]
+    fn use_explicit_test_attr_when_async() {
+        let input = make_test_fn(true, TestAttrStyle::Explicit);
+        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+
+        assert!(result
+            .attrs
+            .iter()
+            .any(|attr| attr_is(attr, "my_explicit_test_attr")));
+        itemfn_near_match(&input, &result);
+    }
+
+    #[test]
+    fn use_implicit_test_attr_when_async() {
+        let input = make_test_fn(true, TestAttrStyle::Implicit);
+        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+
+        assert_eq!(
+            result
+                .attrs
+                .iter()
+                .find(|attr| attr_starts_with(attr, &parse_quote!(implicit))),
+            Some(&parse_quote!(#[implicit::test::runner::test]))
+        );
+        itemfn_near_match(&input, &result);
+    }
+
+    #[test]
+    fn fallback_for_synchronous_test_when_missing() {
+        let input = make_test_fn(false, TestAttrStyle::Omitted);
+        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+
+        assert!(result.attrs.iter().any(|attr| attr_is(attr, "test")));
+        itemfn_near_match(&input, &result);
+    }
+
+    #[test]
+    fn compile_error_for_async_test_when_missing() {
+        let input = make_test_fn(true, TestAttrStyle::Omitted);
+        let result = single(input.clone(), Default::default()).to_string();
+
+        assert!(result.contains("compile_error!") || result.contains("compile_error !"));
+        assert!(result.contains("async tests require either")); // no point copying the full error msg though
+    }
+
+    #[test]
+    fn compile_error_for_malformed_explicit_test_attr() {
+        let input = make_test_fn(false, TestAttrStyle::Custom("#[test_attr]".into()));
+        let result = single(input.clone(), Default::default()).to_string();
+
+        assert!(result.contains("compile_error!") || result.contains("compile_error !"));
+        assert!(result.contains("invalid `test_attr` syntax")); // no point copying the full error msg though
     }
 }
