@@ -27,7 +27,7 @@ pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
         .chain(invalid_cases(&info.data))
         .chain(case_args_without_cases(&info.data))
         .chain(destruct_fixture_without_from(test, info))
-        .chain(async_test_without_test_attribute(test))
+        .chain(test_attributes(test))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -288,6 +288,10 @@ impl RenderType for syn::Pat {
     }
 }
 
+fn test_attributes(test: &ItemFn) -> Errors {
+    Box::new(async_test_without_test_attribute(test).chain(malformed_explicit_test_attr(test)))
+}
+
 fn async_test_without_test_attribute(test: &ItemFn) -> Errors {
     let is_async = test.sig.asyncness.is_some();
     let has_explicit_test_attr = test.attrs.iter().any(|attr| attr_is(attr, "test_attr"));
@@ -300,6 +304,21 @@ fn async_test_without_test_attribute(test: &ItemFn) -> Errors {
         Box::new(std::iter::once(syn::Error::new(span, "async test requires either explicit `test_attr` or implicit (attribute path ends with `test`)")))
     } else {
         Box::new(std::iter::empty())
+    }
+}
+
+fn malformed_explicit_test_attr(test: &ItemFn) -> Errors {
+    let Some(explicit_test_attr) = test.attrs.iter().find(|attr| attr_is(attr, "test_attr")) else {
+        return Box::new(std::iter::empty());
+    };
+    match explicit_test_attr.meta {
+        syn::Meta::List(_) => Box::new(std::iter::empty()),
+        syn::Meta::Path(_) | syn::Meta::NameValue(_) => {
+            Box::new(std::iter::once(syn::Error::new_spanned(
+                explicit_test_attr.path(),
+                "invalid `test_attr` syntax; should be `#[test_attr(<test attribute>)]`",
+            )))
+        }
     }
 }
 
