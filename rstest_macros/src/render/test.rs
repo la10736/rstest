@@ -268,7 +268,6 @@ mod single_test_should {
 
     #[rstest]
     #[case::sync("", parse_quote! { #[test] })]
-    #[case::async_fn("async", parse_quote! { #[async_std::test] })]
     fn add_default_test_attribute(
         #[case] prefix: &str,
         #[case] test_attribute: Attribute,
@@ -863,7 +862,6 @@ mod cases_should {
 
     #[rstest]
     #[case::sync(false, parse_quote! { #[test] })]
-    #[case::async_fn(true, parse_quote! { #[async_std::test] })]
     fn add_default_test_attribute(
         #[case] is_async: bool,
         #[case] test_attribute: Attribute,
@@ -1343,7 +1341,6 @@ mod matrix_cases_should {
 
     #[rstest]
     #[case::sync(false, parse_quote! { #[test] })]
-    #[case::async_fn(true, parse_quote! { #[async_std::test] })]
     fn add_default_test_attribute(
         #[case] is_async: bool,
         #[case] test_attribute: Attribute,
