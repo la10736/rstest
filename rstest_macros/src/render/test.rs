@@ -297,6 +297,9 @@ mod single_test_should {
     fn use_await_for_no_async_test_function(#[case] is_async: bool, #[case] use_await: bool) {
         let mut input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
         input_fn.set_async(is_async);
+        if is_async {
+            input_fn.attrs.push(parse_quote!(#[async_std::test]));
+        }
 
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
@@ -307,6 +310,7 @@ mod single_test_should {
     #[test]
     fn add_future_boilerplate_if_requested() {
         let item_fn: ItemFn = r#"
+                    #[async_std::test]
                     async fn test(async_ref_u32: &u32, async_u32: u32,simple: u32)
                     { }
                      "#
@@ -1454,6 +1458,9 @@ mod matrix_cases_should {
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
         item_fn.set_async(is_async);
+        if is_async {
+            item_fn.attrs.push(parse_quote!(#[async_std::test]));
+        }
 
         let tokens = matrix(item_fn, data.into());
 
