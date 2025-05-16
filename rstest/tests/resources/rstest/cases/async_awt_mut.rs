@@ -1,6 +1,7 @@
 use rstest::*;
 
 #[rstest]
+#[async_std::test]
 #[case::pass(async { 3 })]
 #[awt]
 async fn my_mut_test_global_awt(
@@ -13,6 +14,7 @@ async fn my_mut_test_global_awt(
 }
 
 #[rstest]
+#[async_std::test]
 #[case::pass(async { 3 })]
 async fn my_mut_test_local_awt(
     #[future(awt)]
