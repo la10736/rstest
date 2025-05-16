@@ -1,13 +1,13 @@
 use rstest::*;
 
 #[rstest]
-#[async_std::test]
 #[case::pass(42, async { 42 })]
 #[case::fail(42, async { 41 })]
 #[should_panic]
 #[case::pass_panic(42, async { 41 })]
 #[should_panic]
 #[case::fail_panic(42, async { 42 })]
+#[async_std::test]
 async fn my_async_test(
     #[case] expected: u32,
     #[case]
@@ -18,8 +18,8 @@ async fn my_async_test(
 }
 
 #[rstest]
-#[async_std::test]
 #[case::pass(42, async { 42 })]
+#[async_std::test]
 async fn my_async_test_revert(
     #[case] expected: u32,
     #[future]

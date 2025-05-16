@@ -1173,8 +1173,8 @@ pub use rstest_macros::fixture;
 /// }
 ///
 /// #[rstest]
-/// #[async_std::test]
 /// #[timeout(Duration::from_millis(80))]
+/// #[async_std::test]
 /// async fn single_pass() {
 ///     assert_eq!(4, delayed_sum(2, 2, ms(10)).await);
 /// }
@@ -1201,12 +1201,12 @@ pub use rstest_macros::fixture;
 /// }
 ///
 /// #[rstest]
-/// #[async_std::test]
 /// #[case::pass(ms(1), 4)]
 /// #[timeout(ms(10))]
 /// #[case::fail_timeout(ms(60), 4)]
 /// #[case::fail_value(ms(1), 5)]
 /// #[timeout(ms(100))]
+/// #[async_std::test]
 /// async fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u32) {
 ///     assert_eq!(expected, delayed_sum(2, 2, delay).await);
 /// }
@@ -1238,13 +1238,16 @@ pub use rstest_macros::fixture;
 /// use std::future::Future;
 ///
 /// #[rstest]
-/// #[test_attr(apply(test))]
 /// #[case(2, async { 4 })]
 /// #[case(21, async { 42 })]
+/// #[test_attr(apply(test))]
 /// async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
 ///     assert_eq!(2 * a, result.await);
 /// }
 /// ```
+///
+/// When using an explicit test attribute, ensure it appears after any `#[case()]` attributes so that the attribute binds
+/// to the test function and not the case.
 ///
 /// ### Implicit Test Attributes
 ///
@@ -1260,9 +1263,9 @@ pub use rstest_macros::fixture;
 /// use std::future::Future;
 ///
 /// #[rstest]
-/// #[actix_rt::test]
 /// #[case(2, async { 4 })]
 /// #[case(21, async { 42 })]
+/// #[actix_rt::test]
 /// async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
 ///     assert_eq!(2 * a, result.await);
 /// }
@@ -1271,6 +1274,9 @@ pub use rstest_macros::fixture;
 /// Implicit test attributes have a lower priority than [`explicit test attributes`](#explicit-test-attribute).
 /// If you have an unrelated attribute whose path ends in `test`, you should declare an explicit test attribute
 /// for deconfliction.
+///
+/// When using an implicit test attribute, ensure it appears after any `#[case()]` attributes so that the attribute binds to the
+/// test function and not the case.
 ///
 /// ### Default Test Attributes
 ///
