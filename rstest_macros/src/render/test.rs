@@ -555,6 +555,11 @@ mod cases_should {
 
         fn set_async(mut self, is_async: bool) -> Self {
             self.item_fn.set_async(is_async);
+            // when building an async test case, let's set an implicit test attribute
+            // so we can use the proper async runtime.
+            if is_async {
+                self.item_fn.attrs.push(parse_quote!(#[async_std::test]));
+            }
             self
         }
 
