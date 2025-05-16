@@ -103,18 +103,21 @@ pub(crate) trait ToAst {
 }
 
 impl ToAst for &str {
+    #[track_caller]
     fn ast<T: Parse>(self) -> T {
         parse_str(self).unwrap()
     }
 }
 
 impl ToAst for String {
+    #[track_caller]
     fn ast<T: Parse>(self) -> T {
         parse_str(&self).unwrap()
     }
 }
 
 impl ToAst for proc_macro2::TokenStream {
+    #[track_caller]
     fn ast<T: Parse>(self) -> T {
         parse2(self).unwrap()
     }
@@ -165,7 +168,7 @@ pub(crate) fn attr(s: impl AsRef<str>) -> syn::Attribute {
 pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
     parse_str::<ItemFn>(&format!(
         r#"{}
-           fn _no_name_() {{}}   
+           fn _no_name_() {{}}
         "#,
         s.as_ref()
     ))

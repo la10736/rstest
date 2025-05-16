@@ -24,17 +24,20 @@ async fn nest_fixture_with_default(
 }
 
 #[rstest]
+#[async_std::test]
 async fn default_is_async() {
     assert_eq!(42, async_u32::default().await);
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_async_nest_fixture_default(#[future] nest_fixture: u32) {
     assert_eq!(42, nest_fixture);
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_async_nest_fixture_injected(
     #[future]
@@ -45,12 +48,14 @@ async fn use_async_nest_fixture_injected(
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_async_nest_fixture_with_default(#[future] nest_fixture_with_default: u32) {
     assert_eq!(42, nest_fixture_with_default);
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_async_fixture(#[future] async_u32: u32) {
     assert_eq!(42, async_u32);
@@ -62,6 +67,7 @@ async fn async_impl_output() -> impl Read {
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_async_impl_output<T: Read>(#[future] async_impl_output: T) {
     let reader = async_impl_output;
@@ -79,12 +85,14 @@ async fn two_args_mix_fixture(
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_two_args_mix_fixture(#[future] two_args_mix_fixture: u32) {
     assert_eq!(42, two_args_mix_fixture);
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_two_args_mix_fixture_inject_first(
     #[future]
@@ -95,6 +103,7 @@ async fn use_two_args_mix_fixture_inject_first(
 }
 
 #[rstest]
+#[async_std::test]
 #[awt]
 async fn use_two_args_mix_fixture_inject_both(
     #[future]
