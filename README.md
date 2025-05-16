@@ -340,13 +340,16 @@ use smol_macros::test;
 use std::future::Future;
 
 #[rstest]
-#[test_attr(apply(test))]
 #[case(2, async { 4 })]
 #[case(21, async { 42 })]
+#[test_attr(apply(test))]
 async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
     assert_eq!(2 * a, result.await);
 }
 ```
+
+When using an explicit test attribute, ensure it appears after any `#[case()]` attributes so that the attribute binds
+to the test function and not the case.
 
 ### Implicit Test Attribute
 
@@ -362,9 +365,9 @@ use actix_rt;
 use std::future::Future;
 
 #[rstest]
-#[actix_rt::test]
 #[case(2, async { 4 })]
 #[case(21, async { 42 })]
+#[actix_rt::test]
 async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
     assert_eq!(2 * a, result.await);
 }
@@ -373,6 +376,9 @@ async fn my_async_test(#[case] a: u32, #[case] #[future] result: u32) {
 Implicit test attributes have a lower priority than [`explicit test attributes`](#explicit-test-attribute).
 If you have an unrelated attribute whose path ends in `test`, you should declare an explicit test attribute
 for deconfliction.
+
+When using an implicit test attribute, ensure it appears after any `#[case()]` attributes so that the attribute binds to the
+test function and not the case.
 
 ### Default Test Attribute
 
