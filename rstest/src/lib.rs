@@ -1121,9 +1121,9 @@ pub use rstest_macros::fixture;
 /// async fn base() -> u32 { 42 }
 ///
 /// #[rstest]
-/// #[tokio::test]
 /// #[case(21, async { 2 })]
 /// #[case(6, async { 7 })]
+/// #[tokio::test]
 /// async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
 ///     assert_eq!(expected, base.await / div.await);
 /// }
@@ -1140,18 +1140,18 @@ pub use rstest_macros::fixture;
 /// # async fn base() -> u32 { 42 }
 ///
 /// #[rstest]
-/// #[tokio::test]
 /// #[case(21, async { 2 })]
 /// #[case(6, async { 7 })]
+/// #[tokio::test]
 /// #[awt]
 /// async fn global(#[future] base: u32, #[case] expected: u32, #[future] #[case] div: u32) {
 ///     assert_eq!(expected, base / div);
 /// }
 ///
 /// #[rstest]
-/// #[tokio::test]
 /// #[case(21, async { 2 })]
 /// #[case(6, async { 7 })]
+/// #[tokio::test]
 /// async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)] #[case] div: u32) {
 ///     assert_eq!(expected, base.await / div);
 /// }
