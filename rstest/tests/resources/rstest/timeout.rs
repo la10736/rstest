@@ -24,7 +24,7 @@ mod thread {
     fn single_fail_value() {
         assert_eq!(5, delayed_sum(2, 2, ms(1)));
     }
-    
+
     #[rstest]
     #[timeout(ms(1000))]
     #[should_panic = "user message"]
@@ -122,24 +122,28 @@ mod async_std_cases {
     }
 
     #[rstest]
+    #[async_std::test]
     #[timeout(ms(80))]
     async fn single_pass() {
         assert_eq!(4, delayed_sum(2, 2, ms(10)).await);
     }
 
     #[rstest]
+    #[async_std::test]
     #[timeout(ms(10))]
     async fn single_fail_timeout() {
         assert_eq!(4, delayed_sum(2, 2, ms(80)).await);
     }
 
     #[rstest]
+    #[async_std::test]
     #[timeout(ms(100))]
     async fn single_fail_value() {
         assert_eq!(5, delayed_sum(2, 2, ms(1)).await);
     }
 
     #[rstest]
+    #[async_std::test]
     #[timeout(ms(1000))]
     #[should_panic = "user message"]
     async fn fail_with_user_message() {
@@ -149,6 +153,7 @@ mod async_std_cases {
     #[rstest]
     #[timeout(ms(80))]
     #[case(ms(10))]
+    #[async_std::test]
     async fn one_pass(#[case] delay: Duration) {
         assert_eq!(4, delayed_sum(2, 2, delay).await);
     }
@@ -156,6 +161,7 @@ mod async_std_cases {
     #[rstest]
     #[timeout(ms(10))]
     #[case(ms(80))]
+    #[async_std::test]
     async fn one_fail_timeout(#[case] delay: Duration) {
         assert_eq!(4, delayed_sum(2, 2, delay).await);
     }
@@ -163,6 +169,7 @@ mod async_std_cases {
     #[rstest]
     #[timeout(ms(100))]
     #[case(ms(1))]
+    #[async_std::test]
     async fn one_fail_value(#[case] delay: Duration) {
         assert_eq!(5, delayed_sum(2, 2, delay).await);
     }
@@ -172,6 +179,7 @@ mod async_std_cases {
     #[case::fail_timeout(ms(80), 4)]
     #[case::fail_value(ms(1), 5)]
     #[timeout(ms(40))]
+    #[async_std::test]
     async fn group_same_timeout(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay).await);
     }
@@ -183,6 +191,7 @@ mod async_std_cases {
     #[case::fail_timeout(ms(70), 4)]
     #[timeout(ms(100))]
     #[case::fail_value(ms(1), 5)]
+    #[async_std::test]
     async fn group_single_timeout(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay).await);
     }
@@ -193,6 +202,7 @@ mod async_std_cases {
     #[case::fail_timeout(ms(60), 4)]
     #[case::fail_value(ms(1), 5)]
     #[timeout(ms(100))]
+    #[async_std::test]
     async fn group_one_timeout_override(#[case] delay: Duration, #[case] expected: u32) {
         assert_eq!(expected, delayed_sum(2, 2, delay).await);
     }
@@ -201,6 +211,7 @@ mod async_std_cases {
 
     #[rstest]
     #[case(S{})]
+    #[async_std::test]
     async fn compile_with_no_copy_arg(#[case] _s: S) {
         assert!(true);
     }
@@ -226,6 +237,7 @@ mod async_std_cases {
     }
 
     #[rstest]
+    #[async_std::test]
     async fn compile_with_async_awt_fixture(#[future(awt)] a_fix: S) {
         assert!(true);
     }

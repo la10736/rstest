@@ -28,6 +28,7 @@ fn it_works(#[case] left: u64, #[case] right: u64, #[case] expected: u64) {
 }
 
 #[rstest]
+#[async_std::test]
 async fn async_works(#[future] async_fixture: u64) {
     assert_eq!(42, async_fixture.await);
 }

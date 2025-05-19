@@ -122,7 +122,7 @@ mod tests {
                 .await
             }
 
-            #[async_std::test]
+            #[tokio::test]
             #[should_panic = "inner message"]
             async fn should_fail_for_panic_with_right_panic_message() {
                 execute_with_timeout_async(
