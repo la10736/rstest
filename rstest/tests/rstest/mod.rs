@@ -1088,8 +1088,8 @@ fn ignore_underscore_args() {
 }
 
 #[test]
-fn ignore_args_not_fixtures() {
-    let prj = prj("ignore_not_fixture_arg.rs");
+fn ignore_attributes_args_if_any() {
+    let prj = prj("ignore_attributes_args_if_any.rs");
     prj.add_dependency(
         "sqlx",
         r#"{version="*", features=["sqlite","macros","runtime-tokio"]}"#,
@@ -1099,7 +1099,10 @@ fn ignore_args_not_fixtures() {
 
     TestResults::new()
         .with_contains(true)
-        .ok("test_db")
+        .ok("test_sum::case_1::c_1_1")
+        .ok("test_sum::case_1::c_2_2")
+        .ok("test_sum::case_2::c_1_1")
+        .ok("test_sum::case_2::c_2_2")
         .assert(output);
 }
 
