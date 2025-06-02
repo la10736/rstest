@@ -136,10 +136,12 @@ mod single_test_should {
     ) {
         let attributes = attrs(attributes);
         let mut input_fn: ItemFn = r#"fn test(_s: String) {} "#.ast();
+        let mut info = RsTestInfo::default();
         input_fn.set_async(is_async);
         input_fn.attrs = attributes.clone();
+        info.arguments.set_test_attr(Some(TestAttr::InAttrs));
 
-        let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
+        let result: ItemFn = single(input_fn.clone(), info).ast();
 
         assert_eq!(result.attrs, attributes);
     }
@@ -855,10 +857,11 @@ mod cases_should {
         attributes: &str,
     ) {
         let attributes = attrs(attributes);
-        let (mut item_fn, info) = TestCaseBuilder::from(r#"fn test(s: String){}"#)
+        let (mut item_fn, mut info) = TestCaseBuilder::from(r#"fn test(s: String){}"#)
             .push_case(r#"String::from("3")"#)
             .set_async(is_async)
             .take();
+        info.arguments.set_test_attr(Some(TestAttr::InAttrs));
         item_fn.attrs = attributes.clone();
         item_fn.set_async(is_async);
 
@@ -1330,8 +1333,10 @@ mod matrix_cases_should {
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
         item_fn.set_async(is_async);
         item_fn.attrs = attributes.clone();
+        let mut info : RsTestInfo = data.into();
+        info.arguments.set_test_attr(Some(TestAttr::InAttrs));        
 
-        let tokens = matrix(item_fn, data.into());
+        let tokens = matrix(item_fn, info);
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
@@ -1964,23 +1969,23 @@ mod test_attribute_should {
         Explicit,
         Implicit,
         Omitted,
-        Custom(String),
     }
 
-    fn make_test_fn(is_async: bool, attr_style: TestAttrStyle) -> ItemFn {
+    fn make_test_fn(is_async: bool, attr_style: TestAttrStyle) -> (ItemFn, RsTestInfo) {
         use std::fmt::Write as _;
+        let mut info = RsTestInfo::default();
 
         let mut out = String::from("#[rstest]\n");
         match attr_style {
             TestAttrStyle::Explicit => {
-                writeln!(&mut out, "#[test_attr(my_explicit_test_attr)]").unwrap();
+                info.arguments.set_test_attr(Some(TestAttr::Explicit(attr("#[my_explicit_test_attr]"))));
             }
             TestAttrStyle::Implicit => {
+                info.arguments.set_test_attr(Some(TestAttr::InAttrs));
                 writeln!(&mut out, "#[implicit::test::runner::test]").unwrap();
             }
-            TestAttrStyle::Omitted => {}
-            TestAttrStyle::Custom(custom) => {
-                writeln!(&mut out, "{custom}").unwrap();
+            TestAttrStyle::Omitted => {
+                info.arguments.set_test_attr(None);
             }
         };
         if is_async {
@@ -1988,7 +1993,7 @@ mod test_attribute_should {
         }
         out.push_str("fn test_attr_test() {}");
 
-        out.ast()
+        (out.ast(), info)
     }
 
     /// Check if itemfns are equivalent:
@@ -2017,8 +2022,8 @@ mod test_attribute_should {
 
     #[test]
     fn use_explicit_test_attr_when_sync() {
-        let input = make_test_fn(false, TestAttrStyle::Explicit);
-        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+        let (input, info) = make_test_fn(false, TestAttrStyle::Explicit);
+        let result = single(input.clone(), info).ast::<ItemFn>();
 
         assert!(result
             .attrs
@@ -2029,8 +2034,8 @@ mod test_attribute_should {
 
     #[test]
     fn use_implicit_test_attr_when_sync() {
-        let input = make_test_fn(false, TestAttrStyle::Implicit);
-        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+        let (input, info) = make_test_fn(false, TestAttrStyle::Implicit);
+        let result = single(input.clone(), info).ast::<ItemFn>();
 
         assert_eq!(
             result
@@ -2044,8 +2049,8 @@ mod test_attribute_should {
 
     #[test]
     fn use_explicit_test_attr_when_async() {
-        let input = make_test_fn(true, TestAttrStyle::Explicit);
-        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+        let (input, info) = make_test_fn(true, TestAttrStyle::Explicit);
+        let result = single(input.clone(), info).ast::<ItemFn>();
 
         assert!(result
             .attrs
@@ -2056,8 +2061,8 @@ mod test_attribute_should {
 
     #[test]
     fn use_implicit_test_attr_when_async() {
-        let input = make_test_fn(true, TestAttrStyle::Implicit);
-        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+        let (input, info) = make_test_fn(true, TestAttrStyle::Implicit);
+        let result = single(input.clone(), info).ast::<ItemFn>();
 
         assert_eq!(
             result
@@ -2071,28 +2076,10 @@ mod test_attribute_should {
 
     #[test]
     fn fallback_for_synchronous_test_when_missing() {
-        let input = make_test_fn(false, TestAttrStyle::Omitted);
-        let result = single(input.clone(), Default::default()).ast::<ItemFn>();
+        let (input, info) = make_test_fn(false, TestAttrStyle::Omitted);
+        let result = single(input.clone(), info).ast::<ItemFn>();
 
         assert!(result.attrs.iter().any(|attr| attr_is(attr, "test")));
         itemfn_near_match(&input, &result);
-    }
-
-    #[test]
-    fn compile_error_for_async_test_when_missing() {
-        let input = make_test_fn(true, TestAttrStyle::Omitted);
-        let result = single(input.clone(), Default::default()).to_string();
-
-        assert!(result.contains("compile_error!") || result.contains("compile_error !"));
-        assert!(result.contains("async tests require either")); // no point copying the full error msg though
-    }
-
-    #[test]
-    fn compile_error_for_malformed_explicit_test_attr() {
-        let input = make_test_fn(false, TestAttrStyle::Custom("#[test_attr]".into()));
-        let result = single(input.clone(), Default::default()).to_string();
-
-        assert!(result.contains("compile_error!") || result.contains("compile_error !"));
-        assert!(result.contains("invalid `test_attr` syntax")); // no point copying the full error msg though
     }
 }
