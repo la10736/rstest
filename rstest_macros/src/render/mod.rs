@@ -13,7 +13,7 @@ use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Pat, Path, ReturnT
 use quote::{format_ident, quote};
 
 use crate::refident::MaybePat;
-use crate::utils::{attr_ends_with, sanitize_ident};
+use crate::utils::sanitize_ident;
 use crate::{
     parse::{
         rstest::{RsTestAttributes, RsTestInfo},
@@ -29,7 +29,7 @@ use crate::{
 use wrapper::WrapByModule;
 
 pub(crate) use fixture::render as fixture;
-
+use crate::parse::arguments::TestAttr;
 use self::apply_arguments::ApplyArguments;
 use self::crate_resolver::crate_name;
 pub(crate) mod apply_arguments;
@@ -209,24 +209,19 @@ pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
 }
 
 fn resolve_test_attr(
-    is_async: bool,
-    explicit_test_attr: Option<TokenStream>,
-    attributes: &[Attribute],
+    test_attr: Option<&TestAttr>,
 ) -> Option<TokenStream> {
-    if let Some(explicit_attr) = explicit_test_attr {
-        Some(explicit_attr)
-    } else if attributes
-        .iter()
-        .any(|attr| attr_ends_with(attr, &parse_quote! {test}))
-    {
-        // test attr is already in the attributes; we don't need to re-inject it
-        None
-    } else if !is_async {
-        Some(quote! { #[test] })
-    } else {
-        Some(
-            quote! { compile_error!{"async tests require either an explicit `test_attr` or an attribute whose path ends with `test`"} },
-        )
+    match test_attr {
+        Some(TestAttr::Explicit(attr)) => {
+            Some(quote! { #attr })
+        }
+        Some(TestAttr::InAttrs) => {
+            // test attr is already in the attributes; we don't need to re-inject it
+            None
+        }
+        None => {
+            Some(quote! { #[test] })
+        }
     }
 }
 
@@ -361,19 +356,7 @@ fn single_test_case(
         .last()
         .map(|attribute| attribute.parse_args::<Expr>().unwrap());
 
-    let explicit_test_attr = attrs.iter().find_map(|attr| {
-        if !attr_is(attr, "test_attr") {
-            return None;
-        }
-        match &attr.meta {
-            syn::Meta::List(meta_list) => {
-                let tokens = &meta_list.tokens;
-                Some(quote! { #[#tokens] })
-            },
-            syn::Meta::Path(_) | syn::Meta::NameValue(_) => Some( quote! { compile_error!{"invalid `test_attr` syntax; should be `#[test_attr(<test attribute>)]`"}}),
-        }
-    });
-    let test_attr = resolve_test_attr(is_async, explicit_test_attr, &attrs);
+    let test_attr = resolve_test_attr(info.arguments.test_attr());
 
     let args = args
         .iter()
