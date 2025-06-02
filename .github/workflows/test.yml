@@ -47,4 +47,4 @@ jobs:
     - run: |
         cargo hack test --rust-version --workspace \
           --exclude rstest_reuse --ignore-private \
-          -- --skip rstest::ignore_args_not_fixtures
+          -- --skip rstest::ignore_attributes_args_if_any
