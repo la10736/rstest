@@ -2,15 +2,16 @@
 use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
-use syn::{parse_quote, visit, ItemFn, Pat};
+use syn::{visit, ItemFn, Pat};
 use syn::{spanned::Spanned, visit::Visit};
 
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestData, RsTestInfo},
 };
+use crate::parse::arguments::ArgumentsInfo;
 use crate::refident::{MaybeIdent, MaybePat};
-use crate::utils::{attr_ends_with, attr_is};
+use crate::utils::attr_is;
 
 use super::utils::fn_args_has_pat;
 
@@ -27,7 +28,7 @@ pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
         .chain(invalid_cases(&info.data))
         .chain(case_args_without_cases(&info.data))
         .chain(destruct_fixture_without_from(test, info))
-        .chain(test_attributes(test))
+        .chain(test_attributes(test, &info.arguments))
         .map(|e| e.to_compile_error())
         .collect()
 }
@@ -288,18 +289,12 @@ impl RenderType for syn::Pat {
     }
 }
 
-fn test_attributes(test: &ItemFn) -> Errors<'_> {
-    Box::new(async_test_without_test_attribute(test).chain(malformed_explicit_test_attr(test)))
+fn test_attributes<'a>(test: &'a ItemFn, arguments: &'a ArgumentsInfo) -> Errors<'a> {
+    Box::new(async_test_without_test_attribute(test, arguments).chain(malformed_explicit_test_attr(test)))
 }
 
-fn async_test_without_test_attribute(test: &ItemFn) -> Errors<'_> {
-    let is_async = test.sig.asyncness.is_some();
-    let has_explicit_test_attr = test.attrs.iter().any(|attr| attr_is(attr, "test_attr"));
-    let has_implicit_test_attr = test
-        .attrs
-        .iter()
-        .any(|attr| attr_ends_with(attr, &parse_quote!(test)));
-    if is_async && !(has_explicit_test_attr || has_implicit_test_attr) {
+fn async_test_without_test_attribute<'a>(test: &'a ItemFn, arguments: &'a ArgumentsInfo) -> Errors<'a> {
+    if test.sig.asyncness.is_some() && arguments.test_attr().is_none() {
         let span = test.sig.ident.span();
         Box::new(std::iter::once(syn::Error::new(span, "async test requires either explicit `test_attr` or implicit (attribute path ends with `test`)")))
     } else {

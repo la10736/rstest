@@ -1,7 +1,4 @@
-use syn::{
-    parse::{Parse, ParseStream},
-    Ident, ItemFn, Pat, Token,
-};
+use syn::{parse::{Parse, ParseStream}, Ident, ItemFn, Pat, Token};
 
 use self::files::{extract_files, ValueListFromFiles};
 
@@ -21,8 +18,10 @@ use crate::{error::ErrorsVec, refident::IntoPat};
 use crate::{parse::vlist::ValueList, refident::MaybePat};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
+use crate::parse::rstest::test_attr::extract_test_attr;
 
 pub(crate) mod files;
+mod test_attr;
 
 #[derive(PartialEq, Debug, Default)]
 pub(crate) struct RsTestInfo {
@@ -51,7 +50,7 @@ impl Parse for RsTestInfo {
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
         let composed_tuple!(
-            _inner, excluded, _timeout, futures, global_awt, by_refs, ignores, contexts
+            _inner, excluded, _timeout, futures, global_awt, by_refs, ignores, contexts, test_attr
         ) = merge_errors!(
             self.data.extend_with_function_attrs(item_fn),
             extract_excluded_trace(item_fn),
@@ -60,7 +59,8 @@ impl ExtendWithFunctionAttrs for RsTestInfo {
             extract_global_awt(item_fn),
             extract_by_ref(item_fn),
             extract_ignores(item_fn),
-            extract_context(item_fn)
+            extract_context(item_fn),
+            extract_test_attr(item_fn)
         )?;
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
@@ -68,6 +68,7 @@ impl ExtendWithFunctionAttrs for RsTestInfo {
         self.arguments.set_by_refs(by_refs.into_iter());
         self.arguments.set_ignores(ignores.into_iter());
         self.arguments.set_contexts(contexts.into_iter());
+        self.arguments.set_test_attr(test_attr);
         self.arguments
             .register_inner_destructored_idents_names(item_fn);
         Ok(())
@@ -385,7 +386,6 @@ mod test {
 
     mod no_cases {
         use std::collections::HashSet;
-
         use super::{assert_eq, *};
 
         #[test]
@@ -587,6 +587,23 @@ mod test {
                 vec![pat("c"), pat("other")]
                     .into_iter()
                     .collect::<HashSet<_>>()
+            );
+        }
+
+        #[test]
+        fn extract_test_attr() {
+            let mut item_fn =
+                "#[test_attr(some_valid_data)] fn f() {}".ast();
+            let expected = "fn f() {}".ast();
+
+            let mut info = RsTestInfo::default();
+
+            info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+            assert_eq!(item_fn, expected);
+            assert_eq!(
+                info.arguments.test_attr().cloned(),
+                Some(attr("#[some_valid_data]").into()),
             );
         }
     }
