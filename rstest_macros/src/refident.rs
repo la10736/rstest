@@ -1,7 +1,7 @@
 /// Provide `RefIdent` and `MaybeIdent` traits that give a shortcut to extract identity reference
 /// (`syn::Ident` struct).
 use proc_macro2::Ident;
-use syn::{FnArg, Pat, PatIdent, PatType, Type};
+use syn::{FnArg, Pat, PatType, Type};
 
 pub trait RefIdent {
     /// Return the reference to ident if any
@@ -95,25 +95,6 @@ impl MaybeIdent for crate::parse::Attribute {
         use crate::parse::Attribute::*;
         match self {
             Attr(ident) | Tagged(ident, _) | Type(ident, _) => Some(ident),
-        }
-    }
-}
-
-pub trait MaybeIntoPath {
-    fn maybe_into_path(self) -> Option<syn::Path>;
-}
-
-impl MaybeIntoPath for PatIdent {
-    fn maybe_into_path(self) -> Option<syn::Path> {
-        Some(self.ident.into())
-    }
-}
-
-impl MaybeIntoPath for Pat {
-    fn maybe_into_path(self) -> Option<syn::Path> {
-        match self {
-            Pat::Ident(pi) => pi.maybe_into_path(),
-            _ => None,
         }
     }
 }

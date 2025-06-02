@@ -4,12 +4,18 @@
 ### Changed
 
 - The `#[files(...)]` attribute now ignores matched directory paths by default.
+  See [#306](https://github.com/la10736/rstest/pull/306) thanks to @Obito-git.
 
 ### Add
 
 - Introduced the `#[dirs]` attribute, which can be used with `#[files(...)]` to explicitly include directory paths.
+  See [#306](https://github.com/la10736/rstest/pull/306) thanks to @Obito-git.
 
 ### Fixed
+
+- Removed unsued trait and impl spotted out on `1.89.0-nightly`
+- Add missed tests about ignore attribute's args in `rstest` expansion.
+  See [#313](https://github.com/la10736/rstest/pull/313)
 
 ## [0.25.0] 2025/3/2
 
