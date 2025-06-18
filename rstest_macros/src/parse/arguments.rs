@@ -88,7 +88,7 @@ impl Args {
             .or_else(|| self.args.get(&pat_invert_mutability(pat)))
     }
 
-    fn entry(&mut self, pat: Pat) -> std::collections::hash_map::Entry<Pat, ArgumentInfo> {
+    fn entry(&mut self, pat: Pat) -> std::collections::hash_map::Entry<'_, Pat, ArgumentInfo> {
         self.args.entry(pat)
     }
 }

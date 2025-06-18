@@ -73,7 +73,7 @@ impl Project {
         .create()
     }
 
-    pub fn get_name(&self) -> Cow<str> {
+    pub fn get_name(&self) -> Cow<'_, str> {
         self.name.to_string_lossy()
     }
 

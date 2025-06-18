@@ -249,7 +249,7 @@ fn duplicate_arguments<'a, I: MaybePat + Spanned + 'a>(
     )
 }
 
-fn invalid_cases(params: &RsTestData) -> Errors {
+fn invalid_cases(params: &RsTestData) -> Errors<'_> {
     let n_args = params.case_args().count();
     Box::new(
         params
@@ -264,7 +264,7 @@ fn invalid_cases(params: &RsTestData) -> Errors {
     )
 }
 
-fn case_args_without_cases(params: &RsTestData) -> Errors {
+fn case_args_without_cases(params: &RsTestData) -> Errors<'_> {
     if !params.has_cases() {
         return Box::new(
             params
@@ -288,11 +288,11 @@ impl RenderType for syn::Pat {
     }
 }
 
-fn test_attributes(test: &ItemFn) -> Errors {
+fn test_attributes(test: &ItemFn) -> Errors<'_> {
     Box::new(async_test_without_test_attribute(test).chain(malformed_explicit_test_attr(test)))
 }
 
-fn async_test_without_test_attribute(test: &ItemFn) -> Errors {
+fn async_test_without_test_attribute(test: &ItemFn) -> Errors<'_> {
     let is_async = test.sig.asyncness.is_some();
     let has_explicit_test_attr = test.attrs.iter().any(|attr| attr_is(attr, "test_attr"));
     let has_implicit_test_attr = test
@@ -307,7 +307,7 @@ fn async_test_without_test_attribute(test: &ItemFn) -> Errors {
     }
 }
 
-fn malformed_explicit_test_attr(test: &ItemFn) -> Errors {
+fn malformed_explicit_test_attr(test: &ItemFn) -> Errors<'_> {
     let Some(explicit_test_attr) = test.attrs.iter().find(|attr| attr_is(attr, "test_attr")) else {
         return Box::new(std::iter::empty());
     };

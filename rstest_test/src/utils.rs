@@ -337,11 +337,11 @@ where
 }
 
 pub trait Stringable {
-    fn str(&self) -> Cow<str>;
+    fn str(&self) -> Cow<'_, str>;
 }
 
 impl<B: AsRef<[u8]>> Stringable for B {
-    fn str(&self) -> Cow<str> {
+    fn str(&self) -> Cow<'_, str> {
         String::from_utf8_lossy(self.as_ref())
     }
 }

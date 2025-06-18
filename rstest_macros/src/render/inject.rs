@@ -101,7 +101,7 @@ where
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
+fn default_fixture_resolve(ident: &Ident) -> Cow<'_, Expr> {
     Cow::Owned(parse_quote! { #ident::default() })
 }
 

@@ -132,11 +132,11 @@ pub(crate) mod values {
 
 /// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>>;
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>>;
 }
 
 impl Resolver for HashMap<Pat, &'_ Expr> {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
         self.get(arg)
             .or_else(|| self.get(&pat_invert_mutability(arg)))
             .map(|&c| Cow::Borrowed(c))
@@ -144,31 +144,31 @@ impl Resolver for HashMap<Pat, &'_ Expr> {
 }
 
 impl Resolver for HashMap<Pat, Expr> {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
         self.get(arg).map(Cow::Borrowed)
     }
 }
 
 impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
         self.0.resolve(arg).or_else(|| self.1.resolve(arg))
     }
 }
 
 impl<R: Resolver + ?Sized> Resolver for &R {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
         (*self).resolve(arg)
     }
 }
 
 impl<R: Resolver + ?Sized> Resolver for Box<R> {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
         (**self).resolve(arg)
     }
 }
 
 impl Resolver for (Pat, Expr) {
-    fn resolve(&self, arg: &Pat) -> Option<Cow<Expr>> {
+    fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
         if arg == &self.0 {
             Some(Cow::Borrowed(&self.1))
         } else {
