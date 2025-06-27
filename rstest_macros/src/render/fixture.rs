@@ -99,6 +99,7 @@ pub(crate) fn render(mut fixture: ItemFn, info: FixtureInfo) -> TokenStream {
     quote! {
         #[doc(hidden)]
         #[allow(non_camel_case_types)]
+        #[allow(clippy::empty_structs_with_brackets)]
         #visibility struct #name {}
 
         impl #name {
