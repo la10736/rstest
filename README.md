@@ -37,12 +37,12 @@ pub fn fixture() -> u32 { 42 }
 
 #[rstest]
 fn should_success(fixture: u32) {
-        assert_eq!(fixture, 42);
+    assert_eq!(fixture, 42);
 }
 
 #[rstest]
 fn should_fail(fixture: u32) {
-        assert_ne!(fixture, 42);
+    assert_ne!(fixture, 42);
 }
 ```
 
@@ -179,8 +179,11 @@ async fn base() -> u32 { 42 }
 #[tokio::test]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
-async fn my_async_test(#[future] base: u32, #[case] expected: u32, #[future]
-#[case] div: u32) {
+async fn my_async_test(
+    #[future] base: u32,
+    #[case] expected: u32,
+    #[future] #[case] div: u32
+) {
     assert_eq!(expected, base.await / div.await);
 }
 ```
@@ -199,8 +202,11 @@ use rstest::*;
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
 #[awt]
-async fn global(#[future] base: u32, #[case] expected: u32, #[future]
-#[case] div: u32) {
+async fn global(
+    #[future] base: u32,
+    #[case] expected: u32,
+    #[future] #[case] div: u32
+) {
     assert_eq!(expected, base / div);
 }
 
@@ -208,8 +214,11 @@ async fn global(#[future] base: u32, #[case] expected: u32, #[future]
 #[tokio::test]
 #[case(21, async { 2 })]
 #[case(6, async { 7 })]
-async fn single(#[future] base: u32, #[case] expected: u32, #[future(awt)]
-#[case] div: u32) {
+async fn single(
+    #[future] base: u32,
+    #[case] expected: u32,
+    #[future(awt)] #[case] div: u32
+) {
     assert_eq!(expected, base.await / div);
 }
 ```
@@ -222,8 +231,10 @@ satisfy the given glob path.
 
 ```rust
 #[rstest]
-fn for_each_file(#[files("src/**/*.rs")]
-                 #[exclude("test")] path: PathBuf) {
+fn for_each_file(
+    #[files("src/**/*.rs")]
+    #[exclude("test")] path: PathBuf
+) {
     assert!(check_file(&path))
 }
 ```
