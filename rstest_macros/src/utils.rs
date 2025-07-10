@@ -281,13 +281,19 @@ pub(crate) fn fn_arg_mutability(arg: &FnArg) -> Option<syn::token::Mut> {
     }
 }
 
-pub(crate) fn sanitize_ident(name: &str) -> String {
+pub(crate) fn sanitize_ident(name: &str, filter_whitespace: bool) -> String {
     name.chars()
-        .filter(|c| !c.is_whitespace())
+        .filter(|c| {
+            if filter_whitespace {
+                !c.is_whitespace()
+            } else {
+                true
+            }
+        })
         .map(|c| match c {
             '"' | '\'' => "__".to_owned(),
             ':' | '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '*' | '+' | '/' | '-' | '%'
-            | '^' | '!' | '&' | '|' => "_".to_owned(),
+            | '^' | '!' | '&' | '|' | ' ' => "_".to_owned(),
             _ => c.to_string(),
         })
         .collect::<String>()
@@ -403,22 +409,33 @@ mod test {
     }
 
     #[rstest]
-    #[case("1", "1")]
-    #[case(r#""1""#, "__1__")]
-    #[case(r#"Some::SomeElse"#, "Some__SomeElse")]
-    #[case(r#""minnie".to_owned()"#, "__minnie___to_owned__")]
+    #[case("1", "1", true)]
+    #[case(r#""1""#, "__1__", true)]
+    #[case(r#"Some::SomeElse"#, "Some__SomeElse", true)]
+    #[case(r#""minnie".to_owned()"#, "__minnie___to_owned__", true)]
     #[case(
         r#"vec![1 ,   2, 
     3]"#,
-        "vec__1_2_3_"
+        "vec__1_2_3_",
+        true
     )]
     #[case(
         r#"some_macro!("first", {second}, [third])"#,
-        "some_macro____first____second___third__"
+        "some_macro____first____second___third__",
+        true
     )]
-    #[case(r#"'x'"#, "__x__")]
-    #[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g")]
-    fn sanitaze_ident_name(#[case] expression: impl AsRef<str>, #[case] expected: impl AsRef<str>) {
-        assert_eq!(expected.as_ref(), sanitize_ident(expression.as_ref()));
+    #[case(r#"'x'"#, "__x__", true)]
+    #[case::ops(r#"a*b+c/d-e%f^g"#, "a_b_c_d_e_f_g", true)]
+    #[case(r#"filter whitespace"#, "filterwhitespace", true)]
+    #[case(r#"do not filter whitespace"#, "do_not_filter_whitespace", false)]
+    fn sanitaze_ident_name(
+        #[case] expression: impl AsRef<str>,
+        #[case] expected: impl AsRef<str>,
+        #[case] filter_whitespace: bool,
+    ) {
+        assert_eq!(
+            expected.as_ref(),
+            sanitize_ident(expression.as_ref(), filter_whitespace)
+        );
     }
 }

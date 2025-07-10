@@ -109,7 +109,7 @@ impl ValueList {
     ) -> impl Iterator<Item = (String, ArgumentDataResolver<'a>)> + 'a {
         let max_len = self.values.len();
         self.values.iter().enumerate().map(move |(index, value)| {
-            let description = sanitize_ident(&value.description());
+            let description = sanitize_ident(&value.description(), true);
             let arg = info.arguments.inner_pat(&self.arg);
 
             let arg_name = arg
