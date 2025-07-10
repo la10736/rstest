@@ -1057,6 +1057,44 @@ mod test {
                     &pat("__destruct_2")
                 );
             }
+
+            #[test]
+            fn doc_comment_in_values_attribute_used_as_description() {
+                let mut item_fn = r#"
+                    fn test_fn(
+                        #[values(
+                            /// the answer
+                            42,
+                            /// bigger entry
+                            100,
+                            2
+                        )]
+                        arg: u32
+                    ) {
+                    }
+                "#
+                .ast();
+
+                let mut info = RsTestInfo::default();
+
+                info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+                let list_values = info.data.list_values().cloned().collect::<Vec<_>>();
+
+                assert_eq!(1, list_values.len());
+                let values = &list_values[0].values;
+
+                assert_eq!(3, values.len());
+
+                assert_eq!("the_answer", values[0].description());
+                assert_eq!("42", values[0].expr.to_token_stream().to_string());
+
+                assert_eq!("bigger_entry", values[1].description());
+                assert_eq!("100", values[1].expr.to_token_stream().to_string());
+
+                assert_eq!("2", values[2].description());
+                assert_eq!("2", values[2].expr.to_token_stream().to_string());
+            }
         }
 
         #[test]

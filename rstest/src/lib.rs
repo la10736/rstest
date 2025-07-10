@@ -938,6 +938,28 @@ pub use rstest_macros::fixture;
 /// Note that the test names contains the given expression sanitized into
 /// a valid Rust identifier name. This should help to identify which case fails.
 ///
+/// If you prefer to provide an explicit name you can use doc comments before
+/// each value inside the `#[values(...)]` attribute:
+///
+/// ```
+/// # use rstest::rstest;
+/// #[rstest]
+/// fn describe_values(
+///     #[values(
+///         /// short_value
+///         42,
+///         /// long_value
+///         100,
+///     )]
+///     value: u32,
+/// ) {
+///     assert!(value > 0);
+/// }
+/// ```
+///
+/// The generated tests will be named `value_1_short_value` and
+/// `value_2_long_value` instead of using the raw expression text.
+///
 ///
 /// Also value list implements the magic conversion feature: every time the value type
 /// implements `FromStr` trait you can use a literal string to define it.
