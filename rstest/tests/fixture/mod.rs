@@ -5,6 +5,14 @@ use super::resources;
 use mytest::*;
 use rstest_test::{assert_in, assert_not_in, Project, Stringable, TestResults};
 
+const SRC_LIB_RS: &str = {
+    const SEP: u8 = std::path::MAIN_SEPARATOR as u8;
+    const SRC_LIB_RS: [u8; 11] = [
+        SEP, b's', b'r', b'c', SEP, b'l', b'i', b'b', b'.', b'r', b's',
+    ];
+    unsafe { std::str::from_utf8_unchecked(&SRC_LIB_RS) }
+};
+
 fn prj(res: &str) -> Project {
     let path = Path::new("fixture").join(res);
     crate::prj().set_code_file(resources(path))
@@ -242,7 +250,7 @@ mod should {
                 output.stderr.str(),
                 format!(
                     r#"
-                      --> {name}/src/lib.rs:14:33
+                      --> {name}{SRC_LIB_RS}:14:33
                        |
                     14 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#
                 )
@@ -259,7 +267,7 @@ mod should {
                 format!(
                     r#"
                     error[E0308]: mismatched types
-                      --> {name}/src/lib.rs:10:18
+                      --> {name}{SRC_LIB_RS}:10:18
                        |
                     10 |     let a: u32 = "";
                     "#
@@ -277,7 +285,7 @@ mod should {
                 format!(
                     r#"
                     error[E0308]: mismatched types
-                      --> {name}/src/lib.rs:17:29
+                      --> {name}{SRC_LIB_RS}:17:29
                     "#
                 )
                 .unindent()
@@ -301,7 +309,7 @@ mod should {
                 format!(
                     "
                     error: Missed argument: 'not_a_fixture' should be a test function argument.
-                      --> {name}/src/lib.rs:19:11
+                      --> {name}{SRC_LIB_RS}:19:11
                        |
                     19 | #[fixture(not_a_fixture(24))]
                        |           ^^^^^^^^^^^^^
@@ -320,7 +328,7 @@ mod should {
                 format!(
                     r#"
                     error: Duplicate argument: 'f' is already defined.
-                      --> {name}/src/lib.rs:32:23
+                      --> {name}{SRC_LIB_RS}:32:23
                        |
                     32 | #[fixture(f("first"), f("second"))]
                        |                       ^
@@ -339,7 +347,7 @@ mod should {
                 format!(
                     r#"
                     error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
-                      --> {name}/src/lib.rs:48:35
+                      --> {name}{SRC_LIB_RS}:48:35
                        |
                     48 | fn error_destruct_without_resolve(T(a): T) {{}}
                        |                                   ^^^^^^^
@@ -358,7 +366,7 @@ mod should {
                 format!(
                     r#"
                     error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
-                      --> {name}/src/lib.rs:51:57
+                      --> {name}{SRC_LIB_RS}:51:57
                        |
                     51 | fn error_destruct_without_resolve_also_with(#[with(21)] T(a): T) {{}}
                        |                                                         ^^^^^^^
@@ -395,11 +403,10 @@ mod should {
                 format!(
                     r#"
                     error: Cannot apply #[once] to async fixture.
-                     --> {}/src/lib.rs:4:1
+                     --> {name}{SRC_LIB_RS}:4:1
                       |
                     4 | #[once]
-                    "#,
-                    name
+                    "#
                 )
                 .unindent()
             );
@@ -414,11 +421,10 @@ mod should {
                 format!(
                     r#"
                     error: Cannot apply #[once] on generic fixture.
-                     --> {}/src/lib.rs:9:1
+                     --> {name}{SRC_LIB_RS}:9:1
                       |
                     9 | #[once]
-                    "#,
-                    name
+                    "#
                 )
                 .unindent()
             );
@@ -432,11 +438,10 @@ mod should {
                 format!(
                     r#"
                 error: Cannot apply #[once] on generic fixture.
-                  --> {}/src/lib.rs:15:1
+                  --> {name}{SRC_LIB_RS}:15:1
                    |
                 15 | #[once]
-                "#,
-                    name
+                "#
                 )
                 .unindent()
             );
@@ -450,12 +455,11 @@ mod should {
                 format!(
                     r#"
                     error[E0277]: `Cell<u32>` cannot be shared between threads safely
-                      --> {}/src/lib.rs:20:1
+                      --> {name}{SRC_LIB_RS}:20:1
                        |
                     20 | #[fixture]
                        | ^^^^^^^^^^ `Cell<u32>` cannot be shared between threads safely
-                    "#,
-                    name,
+                    "#
                 )
                 .unindent(),
             );
