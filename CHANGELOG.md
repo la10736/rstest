@@ -16,6 +16,7 @@
 - Removed unsued trait and impl spotted out on `1.89.0-nightly`
 - Add missed tests about ignore attribute's args in `rstest` expansion.
   See [#313](https://github.com/la10736/rstest/pull/313)
+- The `#[files(...)]` attribute now works reliably on Windows.
 
 ## [0.25.0] 2025/3/2
 

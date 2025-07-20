@@ -192,7 +192,8 @@ impl Project {
     }
 
     pub fn add_path_dependency(&self, name: &str, path: &str) {
-        self.add_dependency(name, format!(r#"{{path="{path}"}}"#).as_str());
+        let path = crate::to_toml_string(path.to_string());
+        self.add_dependency(name, format!(r#"{{path={path}}}"#).as_str());
     }
 
     pub fn add_local_dependency(&self, name: &str) {

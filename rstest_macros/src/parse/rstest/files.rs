@@ -12,7 +12,7 @@ use crate::{
 use glob::glob;
 use quote::ToTokens;
 use regex::Regex;
-use relative_path::RelativePath;
+use relative_path::{PathExt, RelativePath};
 use syn::{
     parse::Parse, parse_quote, visit_mut::VisitMut, Attribute, Expr, FnArg, Ident, ItemFn, LitStr,
     MetaNameValue,
@@ -587,33 +587,31 @@ impl ValueListFromFiles<'_> {
             .map_err(|msg| refs.glob[0].error(&msg))?;
 
         let base_dir = match refs.base_dir()? {
-            Some(mut p) => {
-                if p.is_relative() {
-                    p = default_base_dir.join(p);
-                }
-                p.canonicalize().map_err(|e| {
-                    refs.glob[0].error(&format!("Cannot canonicalize base dir due {e}"))
-                })?
-            }
+            Some(p) if p.is_relative() => default_base_dir.join(p),
+            Some(p) => p,
             None => default_base_dir,
         };
 
+        let base_dir = match base_dir.canonicalize() {
+            Ok(base_dir) => base_dir,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => base_dir,
+            Err(e) => {
+                let msg = format!("Cannot canonicalize base dir {base_dir:?}: {e}");
+                return Err(refs.glob[0].error(&msg));
+            }
+        };
+
         let resolved_paths = refs.paths(&base_dir)?;
-        let base_dir = base_dir
-            .into_os_string()
-            .into_string()
-            .map_err(|p| refs.glob[0].error(&format!("Cannot get a valid string from {p:?}")))?;
 
         let mut values: Vec<(Expr, String)> = vec![];
         for (attr, abs_path) in self.all_files_path(resolved_paths)? {
-            let relative_path = abs_path
-                .clone()
-                .into_os_string()
-                .into_string()
-                .map(|inner| RelativePath::new(base_dir.as_str()).relative(inner))
-                .map_err(|e| {
-                    attr.error(&format!("Invalid absolute path {}", e.to_string_lossy()))
-                })?;
+            let relative_path = abs_path.relative_to(&base_dir).map_err(|e| {
+                attr.error(&format!(
+                    "Cannot make {} relative to {}: {e}",
+                    abs_path.display(),
+                    base_dir.display()
+                ))
+            })?;
 
             if (refs.ignore_directories && abs_path.is_dir()) || !refs.is_valid(&relative_path) {
                 continue;
@@ -972,7 +970,9 @@ mod should {
 
     impl GlobResolver for FakeMapResolver {
         fn glob(&self, pattern: &str) -> Result<Vec<PathBuf>, String> {
-            let pattern = pattern.strip_prefix(&format!("{}/", self.0)).unwrap();
+            let pattern = pattern
+                .strip_prefix(&format!("{}{}", self.0, std::path::MAIN_SEPARATOR))
+                .unwrap();
             Ok(self.1.get(pattern).cloned().unwrap_or_default())
         }
     }
@@ -1041,9 +1041,11 @@ mod should {
                 .map(|&p| RelativePath::from_path(p).unwrap())
                 .map(|r| r.to_logical_path(bdir))
                 .map(|p| {
+                    let p = p.as_os_str().to_str().unwrap();
+                    #[cfg(windows)]
+                    let p = p.replace('\\', "/");
                     format!(
-                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str("{}").unwrap()"#,
-                        p.as_os_str().to_str().unwrap()
+                        r#"<::std::path::PathBuf as std::str::FromStr>::from_str("{p}").unwrap()"#,
                     )
                 })
                 .collect::<Vec<_>>(),

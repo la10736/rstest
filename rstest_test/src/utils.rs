@@ -376,6 +376,10 @@ where
     }
 }
 
+pub fn to_toml_string(str: String) -> String {
+    toml_edit::value(str).to_string()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

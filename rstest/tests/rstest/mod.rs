@@ -1,7 +1,15 @@
-use std::{fs::File, io::Write, path::Path};
 use mytest::*;
 use rstest_test::*;
+use std::{fs::File, io::Write, path::Path};
 use unindent::Unindent;
+
+const SRC_LIB_RS: &str = {
+    const SEP: u8 = std::path::MAIN_SEPARATOR as u8;
+    const SRC_LIB_RS: [u8; 11] = [
+        SEP, b's', b'r', b'c', SEP, b'l', b'i', b'b', b'.', b'r', b's',
+    ];
+    unsafe { std::str::from_utf8_unchecked(&SRC_LIB_RS) }
+};
 
 pub fn resources(res: impl AsRef<Path>) -> std::path::PathBuf {
     let path = Path::new("rstest").join(res.as_ref());
@@ -257,12 +265,11 @@ fn should_reject_no_item_function() {
         format!(
             "
         error: expected `fn`
-         --> {}/src/lib.rs:4:1
+         --> {name}{SRC_LIB_RS}:4:1
           |
         4 | struct Foo;
           | ^^^^^^
-        ",
-            name
+        "
         )
         .unindent()
     );
@@ -272,12 +279,11 @@ fn should_reject_no_item_function() {
         format!(
             "
         error: expected `fn`
-         --> {}/src/lib.rs:7:1
+         --> {name}{SRC_LIB_RS}:7:1
           |
         7 | impl Foo {{}}
           | ^^^^
-        ",
-            name
+        "
         )
         .unindent()
     );
@@ -287,12 +293,11 @@ fn should_reject_no_item_function() {
         format!(
             "
         error: expected `fn`
-          --> {}/src/lib.rs:10:1
+          --> {name}{SRC_LIB_RS}:10:1
            |
         10 | mod mod_baz {{}}
            | ^^^
-        ",
-            name
+        "
         )
         .unindent()
     );
@@ -357,21 +362,21 @@ mod dump_input_values {
 
         assert_all_in!(
             output.stderr.str(),
-            format!("--> {}/src/lib.rs:10:11", name),
+            format!("--> {name}{SRC_LIB_RS}:10:11"),
             "fn single(fixture: S) {}",
             "^^^^^^^ `S` cannot be formatted using `{:?}`"
         );
 
         assert_in!(
             output.stderr.str(),
-            format!("--> {}/src/lib.rs:15:10", name),
+            format!("--> {name}{SRC_LIB_RS}:15:10"),
             "fn cases(s: S) {}",
             "^ `S` cannot be formatted using `{:?}`"
         );
 
         assert_in!(
             output.stderr.str(),
-            format!("--> {}/src/lib.rs:20:11", name),
+            format!("--> {name}{SRC_LIB_RS}:20:11"),
             "fn matrix(s: S) {}",
             "^ `S` cannot be formatted using `{:?}`"
         );
@@ -843,12 +848,11 @@ mod cases {
                 format!(
                     "
                 error: No cases for this argument.
-                 --> {}/src/lib.rs:3:10
+                 --> {name}{SRC_LIB_RS}:3:10
                   |
                 3 | #[rstest(one, two, three)]
                   |          ^^^
-                ",
-                    name
+                "
                 )
                 .unindent()
             );
@@ -1174,8 +1178,8 @@ mod import_crate_with_other_name {
         prj.add_dependency(
             "other_name",
             &format!(
-                r#"{{path="{}", package = "rstest", default-features = {}, features = [{}]}}"#,
-                prj.exec_dir_str().as_str(),
+                r#"{{path={}, package = "rstest", default-features = {}, features = [{}]}}"#,
+                rstest_test::to_toml_string(prj.exec_dir_str()),
                 default_features,
                 features
             ),
@@ -1195,8 +1199,8 @@ mod import_crate_with_other_name {
         prj.add_dependency(
             "rstest",
             &format!(
-                r#"{{path="{}", default-features = false}}"#,
-                prj.exec_dir_str().as_str(),
+                r#"{{path={}, default-features = false}}"#,
+                rstest_test::to_toml_string(prj.exec_dir_str()),
             ),
         );
         let prj = prj.set_code_file(resources("convert_string_literal.rs"));
@@ -1283,8 +1287,8 @@ mod async_timeout_feature {
         prj.add_dependency(
             "rstest",
             &format!(
-                r#"{{path="{}", default-features = false {}}}"#,
-                prj.exec_dir_str().as_str(),
+                r#"{{path={}, default-features = false {}}}"#,
+                rstest_test::to_toml_string(prj.exec_dir_str()),
                 features
             ),
         );
@@ -1340,10 +1344,9 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                  --> {}/src/lib.rs:13:33
+                  --> {name}{SRC_LIB_RS}:13:33
                    |
-                13 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}",
-                name
+                13 | fn error_cannot_resolve_fixture(no_fixture: u32, f: u32) {{}}"
             )
             .unindent()
         );
@@ -1358,12 +1361,11 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Missed argument: 'not_a_fixture' should be a test function argument.
-                  --> {}/src/lib.rs:28:23
+                  --> {name}{SRC_LIB_RS}:28:23
                    |
                 28 | #[rstest(f, case(42), not_a_fixture(24))]
                    |                       ^^^^^^^^^^^^^
-                ",
-                name
+                "
             )
             .unindent()
         );
@@ -1378,11 +1380,10 @@ mod should_show_correct_errors {
             format!(
                 r#"
                 error[E0308]: mismatched types
-                 --> {}/src/lib.rs:9:18
+                 --> {name}{SRC_LIB_RS}:9:18
                   |
                 9 |     let a: u32 = "";
-                "#,
-                name
+                "#
             )
             .unindent()
         );
@@ -1397,11 +1398,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:16:29
+                  --> {name}{SRC_LIB_RS}:16:29
                    |
                 16 | fn error_fixture_wrong_type(fixture: String, f: u32) {{}}
-                ",
-                name
+                "
             )
             .unindent()
         );
@@ -1416,10 +1416,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:19:26
+                  --> {name}{SRC_LIB_RS}:19:26
                    |
-                19 | fn error_case_wrong_type(f: &str) {{}}",
-                name
+                19 | fn error_case_wrong_type(f: &str) {{}}"
             )
             .unindent()
         );
@@ -1434,10 +1433,9 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                  --> {}/src/lib.rs:51:28
+                  --> {name}{SRC_LIB_RS}:51:28
                    |
-                51 | fn error_matrix_wrong_type(f: &str) {{}}",
-                name
+                51 | fn error_matrix_wrong_type(f: &str) {{}}"
             )
             .unindent()
         );
@@ -1446,12 +1444,12 @@ mod should_show_correct_errors {
     #[test]
     fn if_arbitrary_rust_code_has_some_errors() {
         let (output, name) = execute();
+        let src_lib_rs = regex::escape(SRC_LIB_RS);
 
         assert_regex!(
             format!(
                 r#"error\[E0308\]: mismatched types
-                \s+--> {}/src/lib\.rs:22:31"#,
-                name
+                \s+--> {name}{src_lib_rs}:22:31"#
             )
             .unindent(),
             output.stderr.str()
@@ -1464,8 +1462,7 @@ mod should_show_correct_errors {
         assert_regex!(
             format!(
                 r#"error\[E0308\]: mismatched types
-                \s+--> {}/src/lib\.rs:53:45"#,
-                name
+                \s+--> {name}{src_lib_rs}:53:45"#
             )
             .unindent(),
             output.stderr.str()
@@ -1485,11 +1482,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:41:13
+                  --> {name}{SRC_LIB_RS}:41:13
                    |
                 41 | #[rstest(f, f(42), case(12))]
-                   |             ^",
-                name
+                   |             ^"
             )
             .unindent()
         );
@@ -1504,11 +1500,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:44:17
+                  --> {name}{SRC_LIB_RS}:44:17
                    |
                 44 | #[rstest(f(42), f, case(12))]
-                   |                 ^",
-                name
+                   |                 ^"
             )
             .unindent()
         );
@@ -1523,11 +1518,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:47:20
+                  --> {name}{SRC_LIB_RS}:47:20
                    |
                 47 | #[rstest(v, f(42), f(42), case(12))]
-                   |                    ^",
-                name
+                   |                    ^"
             )
             .unindent()
         );
@@ -1542,11 +1536,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Missed argument: 'not_exist_1' should be a test function argument.
-                  --> {}/src/lib.rs:61:10
+                  --> {name}{SRC_LIB_RS}:61:10
                    |
                 61 | #[rstest(not_exist_1 => [42],
-                   |          ^^^^^^^^^^^",
-                name
+                   |          ^^^^^^^^^^^"
             )
             .unindent()
         );
@@ -1556,11 +1549,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Missed argument: 'not_exist_2' should be a test function argument.
-                  --> {}/src/lib.rs:62:10
+                  --> {name}{SRC_LIB_RS}:62:10
                    |
                 62 |          not_exist_2 => [42])]
-                   |          ^^^^^^^^^^^",
-                name
+                   |          ^^^^^^^^^^^"
             )
             .unindent()
         );
@@ -1575,11 +1567,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:65:25
+                  --> {name}{SRC_LIB_RS}:65:25
                    |
                 65 | #[rstest(f => [41, 42], f(42))]
-                   |                         ^",
-                name
+                   |                         ^"
             )
             .unindent()
         );
@@ -1594,11 +1585,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:77:25
+                  --> {name}{SRC_LIB_RS}:77:25
                    |
                 77 | #[rstest(a => [42, 24], a => [24, 42])]
-                   |                         ^",
-                name
+                   |                         ^"
             )
             .unindent()
         );
@@ -1613,11 +1603,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'f' is already defined.
-                  --> {}/src/lib.rs:68:17
+                  --> {name}{SRC_LIB_RS}:68:17
                    |
                 68 | #[rstest(f(42), f => [41, 42])]
-                   |                 ^",
-                name
+                   |                 ^"
             )
             .unindent()
         );
@@ -1632,11 +1621,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:71:23
+                  --> {name}{SRC_LIB_RS}:71:23
                    |
                 71 | #[rstest(a, case(42), a => [42])]
-                   |                       ^",
-                name
+                   |                       ^"
             )
             .unindent()
         );
@@ -1651,11 +1639,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:74:21
+                  --> {name}{SRC_LIB_RS}:74:21
                    |
                 74 | #[rstest(a => [42], a, case(42))]
-                   |                     ^",
-                name
+                   |                     ^"
             )
             .unindent()
         );
@@ -1670,11 +1657,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Duplicate argument: 'a' is already defined.
-                  --> {}/src/lib.rs:80:13
+                  --> {name}{SRC_LIB_RS}:80:13
                    |
                 80 | #[rstest(a, a, case(42))]
-                   |             ^",
-                name
+                   |             ^"
             )
             .unindent()
         );
@@ -1689,11 +1675,10 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Values list should not be empty
-                  --> {}/src/lib.rs:58:19
+                  --> {name}{SRC_LIB_RS}:58:19
                    |
                 58 | #[rstest(empty => [])]
-                   |                   ^^",
-                name
+                   |                   ^^"
             )
             .unindent()
         );
@@ -1703,7 +1688,7 @@ mod should_show_correct_errors {
     fn if_try_to_convert_literal_string_to_a_type_that_not_implement_from_str() {
         let (output, name) = execute();
 
-        assert_in!(output.stderr.str(), format!("--> {}/src/lib.rs:84:1", name));
+        assert_in!(output.stderr.str(), format!("--> {name}{SRC_LIB_RS}:84:1"));
         assert_in!(
             output.stderr.str(),
             "| -------- doesn't satisfy `S: FromStr`"
@@ -1718,12 +1703,11 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                  --> {}/src/lib.rs:93:8
+                  --> {name}{SRC_LIB_RS}:93:8
                    |
                 93 |     s: impl AsRef<str>,
                    |        ^^^^^^^^^^^^^^^
-                ",
-                name
+                "
             )
             .unindent()
         );
@@ -1737,12 +1721,11 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                   --> {}/src/lib.rs:102:5
+                   --> {name}{SRC_LIB_RS}:102:5
                     |
                 102 |     #[future]
                     |     ^^^^^^^^^
-                ",
-                name
+                "
             )
             .unindent()
         );
@@ -1757,12 +1740,11 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: expected attribute arguments in parentheses: #[timeout(...)]
-                   --> {}/src/lib.rs:108:3
+                   --> {name}{SRC_LIB_RS}:108:3
                     |
                 108 | #[timeout]
                     |   ^^^^^^^
-                ",
-                name
+                "
             )
             .unindent()
         );
@@ -1777,12 +1759,11 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: expected an expression
-                   --> {}/src/lib.rs:112:17
+                   --> {name}{SRC_LIB_RS}:112:17
                     |
                 112 | #[timeout(some -> strange -> invalid -> expression)]
                     |                 ^
-                ",
-                name
+                "
             )
             .unindent()
         );
@@ -1797,8 +1778,7 @@ mod should_show_correct_errors {
             format!(
                 "
                 error[E0308]: mismatched types
-                   --> {}/src/lib.rs:116:11",
-                name
+                   --> {name}{SRC_LIB_RS}:116:11"
             )
             .unindent()
         );
@@ -1822,8 +1802,7 @@ mod should_show_correct_errors {
             format!(
                 "
                 error: Invalid glob path: path contains non-relative component
-                   --> {}/src/lib.rs:120:30",
-                name
+                   --> {name}{SRC_LIB_RS}:120:30"
             )
             .unindent()
         );
@@ -1847,7 +1826,7 @@ mod should_show_correct_errors {
             format!(
                 r#"
                 error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
-                   --> {name}/src/lib.rs:126:27
+                   --> {name}{SRC_LIB_RS}:126:27
                     |
                 126 | fn wrong_destruct_fixture(T(a, b): T, #[with(42)] T(c, d): T) {{}}
                     |                           ^^^^^^^^^^"#,
@@ -1860,7 +1839,7 @@ mod should_show_correct_errors {
             format!(
                 r#"
                 error: To destruct a fixture you should provide a path to resolve it by '#[from(...)]' attribute.
-                   --> {name}/src/lib.rs:126:51
+                   --> {name}{SRC_LIB_RS}:126:51
                     |
                 126 | fn wrong_destruct_fixture(T(a, b): T, #[with(42)] T(c, d): T) {{}}
                     |                                                   ^^^^^^^^^^"#,
