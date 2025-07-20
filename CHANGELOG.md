@@ -10,6 +10,7 @@
 
 - Introduced the `#[dirs]` attribute, which can be used with `#[files(...)]` to explicitly include directory paths.
   See [#306](https://github.com/la10736/rstest/pull/306) thanks to @Obito-git.
+- The CI now runs builds and tests on Windows, as well.
 
 ### Fixed
 

@@ -16,8 +16,13 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        runs-on:
+        - ubuntu-latest
+        - windows-latest
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
 
     steps:
     - uses: actions/checkout@v4
@@ -33,11 +38,17 @@ jobs:
     - name: Build
       run: cargo build --all --verbose
     - name: Run tests stable
-      run: RSTEST_TEST_CHANNEL=stable cargo test --all --verbose
+      env:
+        RSTEST_TEST_CHANNEL: stable
+      run: cargo test --all --verbose
     - name: Run tests beta
-      run: RSTEST_TEST_CHANNEL=beta cargo test --all --verbose
+      env:
+        RSTEST_TEST_CHANNEL: beta
+      run: cargo test --all --verbose
     - name: Run tests nightly
-      run: RSTEST_TEST_CHANNEL=nightly cargo test --all --verbose
+      env:
+        RSTEST_TEST_CHANNEL: nightly
+      run: cargo test --all --verbose
   msrv:
     runs-on: ubuntu-latest
     steps:
