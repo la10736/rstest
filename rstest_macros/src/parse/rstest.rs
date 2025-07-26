@@ -49,19 +49,25 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let composed_tuple!(
-            _inner, excluded, _timeout, futures, global_awt, by_refs, ignores, contexts, test_attr
-        ) = merge_errors!(
-            self.data.extend_with_function_attrs(item_fn),
-            extract_excluded_trace(item_fn),
-            check_timeout_attrs(item_fn),
-            extract_futures(item_fn),
-            extract_global_awt(item_fn),
-            extract_by_ref(item_fn),
-            extract_ignores(item_fn),
-            extract_context(item_fn),
-            extract_test_attr(item_fn)
+        let (composed_tuple!(
+            excluded, _timeout, futures, global_awt, by_refs, ignores, contexts, test_attr
+            // Append here new extraction
+        ), _inner) = merge_errors!(
+                merge_errors!(
+                    extract_excluded_trace(item_fn),
+                    check_timeout_attrs(item_fn),
+                    extract_futures(item_fn),
+                    extract_global_awt(item_fn),
+                    extract_by_ref(item_fn),
+                    extract_ignores(item_fn),
+                    extract_context(item_fn),
+                    extract_test_attr(item_fn),
+                    // Append here new extraction
+                ),
+            // This one should be always the last one!
+            self.data.extend_with_function_attrs(item_fn)
         )?;
+        
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
