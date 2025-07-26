@@ -1283,6 +1283,27 @@ fn context() {
         .assert(output);
 }
 
+#[test]
+fn should_works_with_smol_async_runtime() {
+    let prj = prj("smol.rs");
+    prj.add_dependency("smol", r#""2.0.2""#);
+    prj.add_dependency("smol-macros", r#""0.1.1""#);
+    prj.add_dependency("macro_rules_attribute", r#""0.2.2""#);
+
+    let output = prj.run_tests().unwrap();
+
+    TestResults::new()
+        .with_contains(true)
+        .ok("async_test::case_1::c_1_2")
+        .ok("async_test::case_1::c_2_4")
+        .ok("async_test::case_1::c_3_16")
+        .ok("async_test::case_2::c_1_2")
+        .ok("async_test::case_2::c_2_4")
+        .ok("async_test::case_2::c_3_16")
+        .assert(output);
+}
+
+
 mod async_timeout_feature {
     use super::*;
 
