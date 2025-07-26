@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
 name = "rstest_macros"
 repository = "https://github.com/la10736/rstest"
 rust-version = "1.70.0"
-version = "0.25.0-dev"
+version = "0.26.0"
 
 [lib]
 proc-macro = true
