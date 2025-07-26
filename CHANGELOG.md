@@ -11,6 +11,12 @@
 - Introduced the `#[dirs]` attribute, which can be used with `#[files(...)]` to explicitly include directory paths.
   See [#306](https://github.com/la10736/rstest/pull/306) thanks to @Obito-git.
 - The CI now runs builds and tests on Windows, as well.
+- `#[test_attr]` to define test attribute explicit and also enable the use of
+  `#[macro_rules_attribute::apply(<macro>)]`: naw also `smol` works. See
+  [#303](https://github.com/la10736/rstest/pull/303) 
+  [#311](https://github.com/la10736/rstest/pull/311) 
+  [#315](https://github.com/la10736/rstest/pull/315)
+  thanks to @coriolinus.
 
 ### Fixed
 
@@ -18,6 +24,7 @@
 - Add missed tests about ignore attribute's args in `rstest` expansion.
   See [#313](https://github.com/la10736/rstest/pull/313)
 - The `#[files(...)]` attribute now works reliably on Windows.
+- Now global attributes can go everywhere in the list also where case is used
 
 ## [0.25.0] 2025/3/2
 
