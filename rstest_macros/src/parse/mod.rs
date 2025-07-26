@@ -334,7 +334,7 @@ impl VisitMut for PartialsTypeFunctionExtractor {
                 Err(e) => errors.push(e),
             }
         }
-        self.0 = if errors.len() > 0 {
+        self.0 = if !errors.is_empty() {
             Err(errors)
         } else {
             Ok(data)

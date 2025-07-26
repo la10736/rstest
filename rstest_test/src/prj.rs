@@ -150,7 +150,7 @@ impl Project {
                 self
             }
 
-            code => panic!("cargo init return an error code: {}", code),
+            code => panic!("cargo init return an error code: {code}"),
         }
     }
 

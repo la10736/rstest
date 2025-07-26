@@ -173,7 +173,7 @@ pub(crate) struct FixtureData {
 impl FixtureData {
     pub(crate) fn fixtures(&self) -> impl Iterator<Item = &Fixture> {
         self.items.iter().filter_map(|f| match f {
-            FixtureItem::Fixture(ref fixture) => Some(fixture),
+            FixtureItem::Fixture(ref fixture) => Some(fixture.as_ref()),
             _ => None,
         })
     }
@@ -212,13 +212,13 @@ impl ArgumentValue {
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum FixtureItem {
-    Fixture(Fixture),
+    Fixture(Box<Fixture>),
     ArgumentValue(Box<ArgumentValue>),
 }
 
 impl From<Fixture> for FixtureItem {
     fn from(f: Fixture) -> Self {
-        FixtureItem::Fixture(f)
+        FixtureItem::Fixture(f.into())
     }
 }
 
@@ -235,7 +235,7 @@ impl Parse for FixtureItem {
 impl RefPat for FixtureItem {
     fn pat(&self) -> &Pat {
         match self {
-            FixtureItem::Fixture(Fixture { ref arg, .. }) => arg,
+            FixtureItem::Fixture(ref fix) => &fix.arg,
             FixtureItem::ArgumentValue(ref av) => &av.arg,
         }
     }

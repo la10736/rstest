@@ -1978,7 +1978,7 @@ mod test_attribute_should {
         let mut out = String::from("#[rstest]\n");
         match attr_style {
             TestAttrStyle::Explicit => {
-                info.arguments.set_test_attr(Some(TestAttr::Explicit(attr("#[my_explicit_test_attr]"))));
+                info.arguments.set_test_attr(Some(TestAttr::Explicit(attr("#[my_explicit_test_attr]").into())));
             }
             TestAttrStyle::Implicit => {
                 info.arguments.set_test_attr(Some(TestAttr::InAttrs));

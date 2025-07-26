@@ -70,7 +70,7 @@ mod should {
     use crate::test::{attr, ToAst};
 
     fn explicit(a: &str) -> TestAttr {
-        TestAttr::Explicit(attr(format!("#[{a}]")))
+        TestAttr::Explicit(attr(format!("#[{a}]")).into())
     }
 
     fn in_attrs() -> TestAttr {

@@ -85,8 +85,7 @@ impl FilesGlobReferences {
                 (None, _) if ignore_missing => String::new(),
                 (None, _) => {
                     return Err(attr.error(&format!(
-                        "Could not find the environment variable {:?}",
-                        var_name
+                        "Could not find the environment variable {var_name:?}"
                     )))
                 }
             };

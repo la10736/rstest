@@ -95,12 +95,12 @@ impl Args {
 #[derive(Clone, PartialEq, Debug)]
 pub enum TestAttr {
     InAttrs,
-    Explicit(syn::Attribute),
+    Explicit(Box<syn::Attribute>),
 }
 
 impl From<syn::Attribute> for TestAttr {
     fn from(attr: syn::Attribute) -> Self {
-        TestAttr::Explicit(attr)
+        TestAttr::Explicit(attr.into())
     }
 }
 

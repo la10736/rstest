@@ -23,7 +23,7 @@ pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 's
             handle.join().unwrap().unwrap();
             result
         }
-        Err(mpsc::RecvTimeoutError::Timeout) => panic!("Timeout {:?} expired", timeout),
+        Err(mpsc::RecvTimeoutError::Timeout) => panic!("Timeout {timeout:?} expired"),
         Err(mpsc::RecvTimeoutError::Disconnected) => match handle.join() {
             Err(any) => std::panic::resume_unwind(any),
             Ok(_) => unreachable!(),
