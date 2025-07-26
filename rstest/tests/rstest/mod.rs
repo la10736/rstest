@@ -498,6 +498,7 @@ mod single {
             .fail("sync_case_fail")
             .fail("sync_case_panic_fail")
             .ok("async_case")
+            .ok("async_case_test_attr")
             .ok("async_case_panic")
             .fail("async_case_fail")
             .fail("async_case_panic_fail")
@@ -646,6 +647,9 @@ mod cases {
             .ok("fn_async::case_1_pass")
             .ok("fn_async::case_2_panic")
             .fail("fn_async::case_3_fail")
+            .ok("fn_async_test_attr::case_1_pass")
+            .ok("fn_async_test_attr::case_2_panic")
+            .fail("fn_async_test_attr::case_3_fail")
             .assert(output);
     }
 
@@ -969,6 +973,10 @@ mod matrix {
             .ok("fn_async::first_1")
             .fail("fn_async::first_1")
             .fail("fn_async::first_2")
+            .ok("fn_async::first_2")
+            .ok("fn_async_test_attr::first_1")
+            .fail("fn_async_test_attr::first_1")
+            .fail("fn_async_test_attr::first_2")
             .ok("fn_async::first_2")
             .assert(output);
     }

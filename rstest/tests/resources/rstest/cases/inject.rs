@@ -19,3 +19,11 @@ fn sync(expected: u32, value: u32) { assert_eq!(expected, value); }
 )]
 #[actix_rt::test]
 async fn fn_async(expected: u32, value: impl Future<Output=u32>) { assert_eq!(expected, value.await); }
+#[rstest(expected, value,
+    case::pass(42, async { 42 }),
+    #[should_panic]
+    case::panic(41, async { 42 }),
+    case::fail(1, async { 42 })
+)]
+#[test_attr(actix_rt::test)]
+async fn fn_async_test_attr(expected: u32, value: impl Future<Output=u32>) { assert_eq!(expected, value.await); }
