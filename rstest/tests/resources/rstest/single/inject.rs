@@ -28,6 +28,10 @@ fn sync_case_panic_fail(a: u32) { panic!("panic") }
 async fn async_case(a: u32) {}
 
 #[rstest]
+#[test_attr(actix_rt::test)]
+async fn async_case_test_attr(a: u32) {}
+
+#[rstest]
 #[actix_rt::test]
 async fn async_case_fail(a: u32) { assert_eq!(2, a); }
 
