@@ -372,12 +372,18 @@ fn single_test_case(
         .collect::<Vec<_>>();
 
     let execute = render_test_call(testfn_name.clone().into(), &args, timeout, is_async);
-    let lifetimes = generics.lifetimes();
-
+    let mut lifetimes = generics.lifetimes().peekable();
+    let lifetimes = if lifetimes.peek().is_some() {
+        Some(quote! {<#(#lifetimes,)*>})
+    } else {
+       None 
+    };
+    
+    
     quote! {
         #(#attrs)*
         #test_attr
-        #asyncness fn #name<#(#lifetimes,)*>(#(#ignored_args,)*) #output {
+        #asyncness fn #name #lifetimes (#(#ignored_args,)*) #output {
             #test_impl
             #inject
             #trace_args
