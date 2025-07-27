@@ -7,7 +7,7 @@
 //! hide the auxiliary utilities your tests make use of somewhere else.
 //! For instance, if you have an application that has many tests with users, shopping baskets, and
 //! products, you'd have to create a user, a shopping basket, and product every single time in
-//! every test which becomes unwieldy quickly. In order to cut down on that repetition, you can
+//! every test which becomes unwieldy quickly. To cut down on that repetition, you can
 //! instead use fixtures to declare that you need those objects for your function and the fixtures
 //! will take care of creating those by themselves. Focus on the important stuff in your tests!
 //!
@@ -21,8 +21,9 @@
 //!
 //! - [`[rstest]`](macro@rstest): Declare that a test or a group of tests that may take
 //!   [fixtures](attr.rstest.html#injecting-fixtures),
-//!   [input table](attr.rstest.html#test-parametrized-cases) or
-//!   [list of values](attr.rstest.html#values-lists).
+//!   [input table](attr.rstest.html#test-parametrized-cases),
+//!   [list of values](attr.rstest.html#values-lists) or read data from
+//!   [files](attr.rstest.html#files-path-as-input-arguments).
 //! - [`[fixture]`](macro@fixture): To mark a function as a fixture.
 //!
 //! ## Why
@@ -93,7 +94,7 @@
 //!     assert!(string_processor.output.contains("Alice"));
 //! }
 //! ```
-//! ### Features
+//! ## Features
 //!
 //! - `async-timeout`: `timeout` for `async` tests (Default enabled)
 //! - `crate-name`: Import `rstest` package with different name (Default enabled)
@@ -231,18 +232,6 @@
 //! }
 //! ```
 //! You can use this feature also in value list and in fixture default value.
-//!
-//! # Optional features
-//!
-//! `rstest` Enable all features by default. You can disable them if you need to
-//! speed up compilation.
-//!
-//! - **`async-timeout`** *(enabled by default)* — Implement timeout for async
-//!   tests.
-//!
-//! # Rust version compatibility
-//!
-//! The minimum supported Rust version is 1.67.1.
 //!
 
 #[doc(hidden)]
@@ -584,7 +573,7 @@ pub use rstest_macros::fixture;
 /// The attribute that you should use for your tests. Your
 /// annotated function's arguments can be
 /// [injected](attr.rstest.html#injecting-fixtures) with
-/// [`[fixture]`](macro@fixture)s, provided by
+/// [`fixture`](macro@fixture)s, provided by
 /// [parametrized cases](attr.rstest.html#test-parametrized-cases)
 /// or by [value lists](attr.rstest.html#values-lists).
 ///
@@ -608,6 +597,7 @@ pub use rstest_macros::fixture;
 /// - [inject fixtures](#injecting-fixtures)
 /// - Generate [parametrized test cases](#test-parametrized-cases)
 /// - Generate tests for each combination of [value lists](#values-lists)
+/// - Feed variables from [files](#files-path-as-input-arguments)
 ///
 /// Additional Attributes:
 ///
@@ -1246,9 +1236,6 @@ pub use rstest_macros::fixture;
 /// }
 /// ```
 ///
-/// When using an explicit test attribute, ensure it appears after any `#[case()]` attributes so that the attribute binds
-/// to the test function and not the case.
-///
 /// ### Implicit Test Attributes
 ///
 /// If your test contains an attribute whose path ends in `test`, this is treated
@@ -1275,9 +1262,6 @@ pub use rstest_macros::fixture;
 /// If you have an unrelated attribute whose path ends in `test`, you should declare an explicit test attribute
 /// for deconfliction.
 ///
-/// When using an implicit test attribute, ensure it appears after any `#[case()]` attributes so that the attribute binds to the
-/// test function and not the case.
-///
 /// ### Default Test Attributes
 ///
 /// Synchronous tests use `#[test]` as the default test attribute if nothing else is supplied explicitly or implicitly.
@@ -1286,7 +1270,7 @@ pub use rstest_macros::fixture;
 ///
 /// ## Test `Context` object
 ///
-/// You can have a [`Context`] object for your test just by annotate an argument by `#[context]` attribute.
+/// You can have a [`Context`] object for your test by annotating an argument by `#[context]` attribute.
 /// This object contains some useful information both to implement simple logics and debugging stuff.
 ///
 /// ```

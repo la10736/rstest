@@ -1,12 +1,10 @@
 # Changelog
 
-## Unreleased
-
-### Changed
-
-### Add
+## [0.26.1] 2025/7/27
 
 ### Fixed
+
+- Docs
 
 ## [0.26.0] 2025/7/26
 

@@ -14,7 +14,7 @@ following lines to your `Cargo.toml` file:
 
 ```toml
 [dev-dependencies]
-rstest = "0.26.0"
+rstest = "0.26.1"
 ```
 
 ### Features
@@ -588,10 +588,6 @@ is raised, but it's also possible to exclude a variable using the
 
 You can learn more on [Docs][docs-link] and find more examples in
 [`tests/resources`](/rstest/tests/resources) directory.
-
-## Rust version compatibility
-
-The minimum supported Rust version is 1.67.1.
 
 ## Changelog
 
