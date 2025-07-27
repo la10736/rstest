@@ -36,7 +36,7 @@ actix-rt = "2.9.0"
 async-std = { version = "1.13.0", features = ["attributes"] }
 lazy_static = "1.5.0"
 macro_rules_attribute = "0.2.0"
-mytest = { package = "rstest", version = "0.26.0", default-features = false }
+mytest = { package = "rstest", version = "0.25.0", default-features = false }
 rstest_test = { path = "../rstest_test" }
 smol-macros = "0.1.1"
 temp_testdir = "0.2.3"
