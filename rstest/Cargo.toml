@@ -32,7 +32,8 @@ futures-util = { version = "0.3.30", optional = true }
 rstest_macros = { version = "0.26.1-dev", path = "../rstest_macros", default-features = false }
 
 [dev-dependencies]
-actix-rt = "2.9.0"
+# Fir actix-rt = "2.10.0" to meet the msrv
+actix-rt = "=2.10.0"
 async-std = { version = "1.13.0", features = ["attributes"] }
 lazy_static = "1.5.0"
 macro_rules_attribute = "0.2.0"
