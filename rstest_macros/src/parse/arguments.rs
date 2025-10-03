@@ -108,6 +108,7 @@ impl From<syn::Attribute> for TestAttr {
 pub(crate) struct ArgumentsInfo {
     args: Args,
     is_global_await: bool,
+    is_default: bool,
     once: Option<syn::Attribute>,
     contexts: HashSet<Pat>,
     test_attr: Option<TestAttr>,
@@ -135,6 +136,10 @@ impl ArgumentsInfo {
         self.is_global_await = is_global_await;
     }
 
+    pub(crate) fn set_default(&mut self, is_default: bool) {
+        self.is_default = is_default;
+    }
+
     pub(crate) fn set_test_attr(&mut self, test_attr: Option<TestAttr>) {
         self.test_attr = test_attr;
     }
@@ -160,6 +165,10 @@ impl ArgumentsInfo {
 
     pub(crate) fn is_global_await(&self) -> bool {
         self.is_global_await
+    }
+
+    pub(crate) fn is_default(&self) -> bool {
+        self.is_default
     }
 
     pub(crate) fn set_once(&mut self, once: Option<syn::Attribute>) {
