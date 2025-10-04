@@ -23,14 +23,19 @@ pub mod messages {
 }
 
 pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
-    missed_arguments(test, info.data.items.iter())
+    let err = missed_arguments(test, info.data.items.iter())
         .chain(duplicate_arguments(info.data.items.iter()))
-        .chain(invalid_cases(&info.data))
         .chain(case_args_without_cases(&info.data))
         .chain(destruct_fixture_without_from(test, info))
-        .chain(test_attributes(test, &info.arguments))
-        .map(|e| e.to_compile_error())
-        .collect()
+        .chain(test_attributes(test, &info.arguments));
+
+    if info.arguments.is_default() {
+        err.map(|e| e.to_compile_error()).collect()
+    } else {
+        err.chain(invalid_cases(&info.data))
+            .map(|e| e.to_compile_error())
+            .collect()
+    }
 }
 
 pub(crate) fn fixture(test: &ItemFn, info: &FixtureInfo) -> TokenStream {
