@@ -130,9 +130,18 @@ pub(crate) mod values {
     }
 }
 
+/// Always resolves to the Default::default
+pub(crate) struct DefaultResolver;
+
 /// A trait that `resolve` the given ident to expression code to assign the value.
 pub(crate) trait Resolver {
     fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>>;
+}
+
+impl Resolver for DefaultResolver {
+    fn resolve(&self, _arg: &Pat) -> Option<Cow<'_, Expr>> {
+        Some(Cow::Owned(parse_quote! {Default::default()}))
+    }
 }
 
 impl Resolver for HashMap<Pat, &'_ Expr> {
@@ -195,6 +204,32 @@ mod should {
     use super::*;
     use crate::test::{assert_eq, *};
     use syn::parse_str;
+
+    #[test]
+    fn return_the_default_expression() {
+        let ast = parse_str("fn function(mut foo: String) {}").unwrap();
+        let arg = first_arg_pat(&ast);
+        let def_resolver = DefaultResolver;
+        let mut resolver = HashMap::new();
+        let expected = expr("Default::default()");
+        assert_eq!(
+            expected,
+            (&resolver, &def_resolver)
+                .resolve(&arg)
+                .unwrap()
+                .into_owned()
+        );
+
+        let expected = expr("bar()");
+        resolver.insert(pat("foo").with_mut(), &expected);
+        assert_eq!(
+            expected,
+            (&resolver, &def_resolver)
+                .resolve(&arg)
+                .unwrap()
+                .into_owned()
+        )
+    }
 
     #[test]
     fn return_the_given_expression() {
