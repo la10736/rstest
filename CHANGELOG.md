@@ -4,6 +4,8 @@
 
 ### Changed
 
+-  Bump msrv to 1.76.0 
+
 ### Add
 
 ### Fixed

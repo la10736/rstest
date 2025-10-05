@@ -11,7 +11,7 @@ keywords = ["test", "fixture"]
 license = "MIT OR Apache-2.0"
 name = "rstest_macros"
 repository = "https://github.com/la10736/rstest"
-rust-version = "1.70.0"
+rust-version = "1.76.0"
 version = "0.26.1-dev"
 
 [lib]
