@@ -11,6 +11,8 @@
 
 ### Fixed
 
+-  Fix compilation under bazel by upgrade proc-macro-crate to 3.4.0
+
 ## [0.26.1] 2025/7/27
 
 ### Fixed
