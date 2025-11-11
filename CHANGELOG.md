@@ -4,7 +4,7 @@
 
 ### Changed
 
--  Bump msrv to 1.76.0 
+-  Bump msrv to 1.82.0 
 
 ### Add
 

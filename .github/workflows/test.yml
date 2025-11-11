@@ -57,5 +57,5 @@ jobs:
     - run: cargo hack check --rust-version --workspace --ignore-private
     - run: |
         cargo hack test --rust-version --workspace \
-          --exclude rstest_reuse --ignore-private \
+          --ignore-private \
           -- --skip rstest::ignore_attributes_args_if_any
