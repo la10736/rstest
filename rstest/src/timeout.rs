@@ -1,9 +1,11 @@
-use std::{sync::mpsc, thread, time::Duration};
+#[cfg(feature = "async-timeout")]
+use std::future::Future;
+use std::{pin::pin, sync::mpsc, thread, time::Duration};
 
 #[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
 #[cfg(feature = "async-timeout")]
-use futures_util::{select, Future, FutureExt};
+use futures_util::future::{select, Either};
 
 pub fn execute_with_timeout_sync<T: 'static + Send, F: FnOnce() -> T + Send + 'static>(
     code: F,
@@ -36,11 +38,14 @@ pub async fn execute_with_timeout_async<T, Fut: Future<Output = T>, F: FnOnce() 
     code: F,
     timeout: Duration,
 ) -> T {
-    select! {
-        () = async {
-            Delay::new(timeout).await;
-        }.fuse() => panic!("Timeout {:?} expired", timeout),
-        out = code().fuse() => out,
+    let timeout_fut = pin!(Delay::new(timeout));
+    let code_fut = pin!(code());
+
+    match select(timeout_fut, code_fut).await {
+        Either::Left(((), _)) => {
+            panic!("Timeout {:?} expired", timeout)
+        }
+        Either::Right((out, _)) => out,
     }
 }
 
