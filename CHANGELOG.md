@@ -4,7 +4,8 @@
 
 ### Changed
 
--  Bump msrv to 1.82.0 
+- Bump msrv to 1.82.0
+- Disabled default features of `futures-util`
 
 ### Add
 
