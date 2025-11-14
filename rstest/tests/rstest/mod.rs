@@ -634,6 +634,28 @@ mod cases {
     }
 
     #[test]
+    fn should_get_default_values() {
+        let prj = prj(res("default.rs"));
+        let output = prj.run_tests().unwrap();
+
+        TestResults::new()
+            .ok("my_default_test::case_1")
+            .ok("my_default_test::case_2")
+            .ok("multiple_default_value::case_1")
+            .ok("multiple_default_value::case_2")
+            .ok("multiple_default_value::case_3")
+            .ok("multiple_default_value::case_4")
+            .ok("different_default_value::case_1")
+            .ok("different_default_value::case_2")
+            .ok("different_default_value::case_3")
+            .ok("option_default_value::case_1")
+            .ok("option_default_value::case_2")
+            .ok("option_default_value::case_3")
+            .ok("option_default_value::case_4")
+            .assert(output);
+    }
+
+    #[test]
     fn should_use_injected_test_attr() {
         let prj = prj(res("inject.rs"));
         prj.add_dependency("actix-rt", r#""1.1.0""#);
@@ -1302,7 +1324,6 @@ fn should_works_with_smol_async_runtime() {
         .ok("async_test::case_2::c_3_16")
         .assert(output);
 }
-
 
 mod async_timeout_feature {
     use super::*;
