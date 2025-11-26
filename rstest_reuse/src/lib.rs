@@ -331,12 +331,12 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     };
 
     let macro_name = template.sig.ident.clone();
-    let macro_name_rand = format_ident!("{}_{}", macro_name, rand::random::<u64>());
+    let macro_inner_name = format_ident!("{}_inner", macro_name);
 
     let tokens = quote! {
         /// Apply #macro_name template to given body
         #macro_attribute
-        macro_rules! #macro_name_rand {
+        macro_rules! #macro_inner_name {
             ( $test:item ) => {
                         ::rstest_reuse::merge_attrs! {
                             #template,
@@ -345,7 +345,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                     }
         }
         #[allow(unused_imports)]
-        #visibility use #macro_name_rand as #macro_name;
+        #visibility use #macro_inner_name as #macro_name;
     };
     tokens.into()
 }
