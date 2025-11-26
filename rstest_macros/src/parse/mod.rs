@@ -19,7 +19,9 @@ use quote::ToTokens;
 use testcase::TestCase;
 
 use self::{
-    expressions::Expressions, just_once::JustOnceFnArgAttributeExtractor, vlist::ValueList,
+    expressions::Expressions,
+    just_once::JustOnceFnArgAttributeExtractor,
+    vlist::{MatrixValues, ValueList},
 };
 
 // To use the macros this should be the first one module
@@ -363,10 +365,11 @@ impl VisitMut for CasesFunctionExtractor {
             if attr_starts_with(&attr, &case) {
                 match attr.parse_args::<Expressions>() {
                     Ok(expressions) => {
+                        let args = expressions.take();
                         let description =
                             attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
                         self.0.push(TestCase {
-                            args: expressions.into(),
+                            args,
                             attrs: std::mem::take(&mut attrs_buffer),
                             description,
                         });
@@ -398,9 +401,9 @@ pub(crate) fn extract_value_list(item_fn: &mut ItemFn) -> Result<Vec<ValueList>,
         type Out = ValueList;
 
         fn build(attr: syn::Attribute, extra: &Pat) -> syn::Result<Self::Out> {
-            attr.parse_args::<Expressions>().map(|v| ValueList {
+            attr.parse_args::<MatrixValues>().map(|v| ValueList {
                 arg: extra.clone(),
-                values: v.take().into_iter().map(|e| e.into()).collect(),
+                values: v.into_values(),
             })
         }
     }

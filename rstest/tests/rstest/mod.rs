@@ -907,6 +907,10 @@ mod matrix {
             .ok("strlen_test::expected_1_4::input_2___buzz__")
             .ok("strlen_test::expected_2_2_3_2::input_1___ciao__")
             .ok("strlen_test::expected_2_2_3_2::input_2___buzz__")
+            .ok("doc_comment_strlen_test::expected_1_len_four::input_1_greet_ciao")
+            .ok("doc_comment_strlen_test::expected_1_len_four::input_2_greet_buzz")
+            .ok("doc_comment_strlen_test::expected_2_len_four_alt::input_1_greet_ciao")
+            .ok("doc_comment_strlen_test::expected_2_len_four_alt::input_2_greet_buzz")
             .assert(output);
     }
 
@@ -998,6 +1002,18 @@ mod matrix {
             .ok("second::expected_1_4::input_2___buzz__")
             .ok("second::expected_2_2_3_2::input_1___ciao__")
             .ok("second::expected_2_2_3_2::input_2___buzz__")
+            .ok("doc_comment_both::expected_1_len_four::input_1_greet_ciao")
+            .ok("doc_comment_both::expected_1_len_four::input_2_greet_buzz")
+            .ok("doc_comment_both::expected_2_len_four_alt::input_1_greet_ciao")
+            .ok("doc_comment_both::expected_2_len_four_alt::input_2_greet_buzz")
+            .ok("doc_comment_first::input_1_greet_ciao::expected_1_len_four")
+            .ok("doc_comment_first::input_2_greet_buzz::expected_1_len_four")
+            .ok("doc_comment_first::input_1_greet_ciao::expected_2_len_four_alt")
+            .ok("doc_comment_first::input_2_greet_buzz::expected_2_len_four_alt")
+            .ok("doc_comment_second::expected_1_len_four::input_1_greet_ciao")
+            .ok("doc_comment_second::expected_1_len_four::input_2_greet_buzz")
+            .ok("doc_comment_second::expected_2_len_four_alt::input_1_greet_ciao")
+            .ok("doc_comment_second::expected_2_len_four_alt::input_2_greet_buzz")
             .assert(output);
     }
 }
