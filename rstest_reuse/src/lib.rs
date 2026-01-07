@@ -286,6 +286,12 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
         .find(|&attr| attr.path().is_ident(&format_ident!("export")))
 }
 
+fn get_hidden(attributes: &[Attribute]) -> Option<&Attribute> {
+    attributes
+        .iter()
+        .find(|&attr| attr.path().is_ident(&format_ident!("hidden")))
+}
+
 /// Define a template where the name is given from the function name. This attribute register all
 /// attributes. The function signature don't really mater but to make it clear is better that you
 /// use a signature like if you're wrinting a standard `rstest`.
@@ -331,12 +337,26 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     };
 
     let macro_name = template.sig.ident.clone();
-    let macro_inner_name = format_ident!("{}_inner", macro_name);
+    let macro_name_rand = format_ident!("{}_{}", macro_name, rand::random::<u64>());
+
+    let doc = match get_hidden(&attributes) {
+        Some(_) => {
+            quote! {
+                #[doc(hidden)]
+            }
+        }
+        None => {
+            let docstr = format!("Apply {macro_name} template to given body");
+            quote! {
+                #[doc = #docstr]
+            }
+        }
+    };
 
     let tokens = quote! {
-        /// Apply #macro_name template to given body
+        #doc
         #macro_attribute
-        macro_rules! #macro_inner_name {
+        macro_rules! #macro_name_rand {
             ( $test:item ) => {
                         ::rstest_reuse::merge_attrs! {
                             #template,
@@ -345,7 +365,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                     }
         }
         #[allow(unused_imports)]
-        #visibility use #macro_inner_name as #macro_name;
+        #visibility use #macro_name_rand as #macro_name;
     };
     tokens.into()
 }
