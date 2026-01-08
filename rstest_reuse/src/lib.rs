@@ -340,16 +340,13 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     let macro_name_rand = format_ident!("{}_{}", macro_name, rand::random::<u64>());
 
     let doc = if get_hidden(&attributes).is_some() {
-        Some(_) => {
-            quote! {
-                #[doc(hidden)]
-            }
+        quote! {
+            #[doc(hidden)]
         }
-        None => {
-            let docstr = format!("Apply {macro_name} template to given body");
-            quote! {
-                #[doc = #docstr]
-            }
+    } else {
+        let docstr = format!("Apply {macro_name} template to given body");
+        quote! {
+            #[doc = #docstr]
         }
     };
 

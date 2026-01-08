@@ -180,6 +180,12 @@ pub use rstest_reuse;
 
 And not just `use rstest_reuse` like in the standard cases.
 
+## `#[hidden]` Attribute
+
+Adds a `#[doc(hidden)]` attribute to the generated macro, hiding it from documentation.
+
+When using `#[export]`, the exported macro would otherwise appear in your public docs with a random suffix (used to prevent name collisions). Using `#[hidden]` keeps your documentation clean, which is especially useful with tools like `cargo-semver-checks`.
+
 ## Disclaimer
 
 This crate is in a development stage. I don't know if I'll include it in `rstest` or change some syntax in the future.
