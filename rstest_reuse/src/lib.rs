@@ -339,7 +339,7 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     let macro_name = template.sig.ident.clone();
     let macro_name_rand = format_ident!("{}_{}", macro_name, rand::random::<u64>());
 
-    let doc = match get_hidden(&attributes) {
+    let doc = if get_hidden(&attributes).is_some() {
         Some(_) => {
             quote! {
                 #[doc(hidden)]
