@@ -190,6 +190,29 @@ fn rstest_reuse_not_in_crate_root() {
     TestResults::new().ok("test::case_1").assert(output);
 }
 
+#[test]
+fn hidden_attribute() {
+    let (output, _) = run_test("export_hidden_template.rs");
+
+    TestResults::new()
+        .ok("public_test::case_1")
+        .ok("private_test::case_1")
+        .ok("foo::test::case_1")
+        .assert(output);
+}
+
+#[test]
+fn hidden_deny_docs() {
+    let (output, _) = run_test("hidden_deny_docs.rs");
+
+    TestResults::new()
+        .ok("public_it_works::case_1")
+        .ok("public_it_works::case_2")
+        .ok("private_it_works::case_1")
+        .ok("private_it_works::case_2")
+        .assert(output);
+}
+
 lazy_static! {
     static ref ROOT_DIR: TempDir = TempDir::new(std::env::temp_dir().join("rstest_reuse"), false);
     static ref ROOT_PROJECT: Project = Project::new(ROOT_DIR.as_ref());

@@ -286,6 +286,12 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
         .find(|&attr| attr.path().is_ident(&format_ident!("export")))
 }
 
+fn get_hidden(attributes: &[Attribute]) -> Option<&Attribute> {
+    attributes
+        .iter()
+        .find(|&attr| attr.path().is_ident(&format_ident!("hidden")))
+}
+
 /// Define a template where the name is given from the function name. This attribute register all
 /// attributes. The function signature don't really mater but to make it clear is better that you
 /// use a signature like if you're wrinting a standard `rstest`.
@@ -293,6 +299,9 @@ fn get_export(attributes: &[Attribute]) -> Option<&Attribute> {
 /// If you need to export the template at the root of your crate or use it from another crate you
 /// should annotate it with `#[export]` attribute. This attribute add `#[macro_export]` attribute to
 /// the template macro and make possible to use it from another crate.
+///
+/// If you care about maintaining clean external docs, or use tools like `cargo-semver-check`, you
+/// can use the `#[hidden]` attribute to hide the generated macro from external rust docs.
 ///
 /// When define a template you can also set the arguments attributes like `#[case]`, `#[values]`
 /// and `#[with]`: when you apply it attributes will be copied to the matched by name arguments.
@@ -333,8 +342,19 @@ pub fn template(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
     let macro_name = template.sig.ident.clone();
     let macro_name_rand = format_ident!("{}_{}", macro_name, rand::random::<u64>());
 
+    let doc = if get_hidden(&attributes).is_some() {
+        quote! {
+            #[doc(hidden)]
+        }
+    } else {
+        let docstr = format!("Apply {macro_name} template to given body");
+        quote! {
+            #[doc = #docstr]
+        }
+    };
+
     let tokens = quote! {
-        /// Apply #macro_name template to given body
+        #doc
         #macro_attribute
         macro_rules! #macro_name_rand {
             ( $test:item ) => {
