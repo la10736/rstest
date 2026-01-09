@@ -300,6 +300,9 @@ fn get_hidden(attributes: &[Attribute]) -> Option<&Attribute> {
 /// should annotate it with `#[export]` attribute. This attribute add `#[macro_export]` attribute to
 /// the template macro and make possible to use it from another crate.
 ///
+/// If you care about maintaining clean external docs, or use tools like `cargo-semver-check`, you
+/// can use the `#[hidden]` attribute to hide the generated macro from external rust docs.
+///
 /// When define a template you can also set the arguments attributes like `#[case]`, `#[values]`
 /// and `#[with]`: when you apply it attributes will be copied to the matched by name arguments.
 ///
