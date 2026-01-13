@@ -28,22 +28,26 @@ use crate::{
 };
 use wrapper::WrapByModule;
 
-pub(crate) use fixture::render as fixture;
-use crate::parse::arguments::TestAttr;
 use self::apply_arguments::ApplyArguments;
 use self::crate_resolver::crate_name;
+use crate::parse::arguments::TestAttr;
+pub(crate) use fixture::render as fixture;
 pub(crate) mod apply_arguments;
 pub(crate) mod inject;
 
 pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test.apply_arguments(&mut info.arguments, &mut ());
 
-    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
-
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
     let asyncness = test.sig.asyncness;
+    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
+    let resolver: Box<dyn Resolver> = if info.arguments.is_default() {
+        Box::new((resolver, crate::resolver::DefaultResolver))
+    } else {
+        Box::new(resolver)
+    };
     single_test_case(
         &test.sig.ident,
         &test.sig.ident,
@@ -208,20 +212,14 @@ pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
-fn resolve_test_attr(
-    test_attr: Option<&TestAttr>,
-) -> Option<TokenStream> {
+fn resolve_test_attr(test_attr: Option<&TestAttr>) -> Option<TokenStream> {
     match test_attr {
-        Some(TestAttr::Explicit(attr)) => {
-            Some(quote! { #attr })
-        }
+        Some(TestAttr::Explicit(attr)) => Some(quote! { #attr }),
         Some(TestAttr::InAttrs) => {
             // test attr is already in the attributes; we don't need to re-inject it
             None
         }
-        None => {
-            Some(quote! { #[test] })
-        }
+        None => Some(quote! { #[test] }),
     }
 }
 
@@ -376,10 +374,9 @@ fn single_test_case(
     let lifetimes = if lifetimes.peek().is_some() {
         Some(quote! {<#(#lifetimes,)*>})
     } else {
-       None 
+        None
     };
-    
-    
+
     quote! {
         #(#attrs)*
         #test_attr
@@ -509,10 +506,15 @@ fn cases_data(info: &RsTestInfo, name_span: Span) -> impl Iterator<Item = CaseDa
                 .map(|arg| info.arguments.inner_pat(&arg).clone())
                 .zip(case.args.iter())
                 .collect::<HashMap<_, _>>();
+            let resolver: Box<dyn Resolver> = if info.arguments.is_default() {
+                Box::new((resolver_case, crate::resolver::DefaultResolver))
+            } else {
+                Box::new(resolver_case)
+            };
             CaseDataValues::new(
                 Ident::new(&format_case_name(case, n + 1, display_len), name_span),
                 case.attrs.as_slice(),
-                Box::new(resolver_case),
+                resolver,
                 Some(CaseInfo::new(case.description.clone(), n)),
             )
         }
