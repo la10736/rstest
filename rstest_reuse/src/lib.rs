@@ -194,7 +194,10 @@ use std::collections::HashMap;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse, parse::Parse, parse_macro_input, Attribute, Ident, ItemFn, PatType, Path, Token};
+use syn::{
+    parse, parse::Parse, parse_macro_input, Attribute, Error, Ident, Item, ItemFn, ItemMod,
+    PatType, Path, Token,
+};
 
 struct MergeAttrs {
     template: ItemFn,
@@ -446,4 +449,89 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
         }
     };
     tokens.into()
+}
+
+#[allow(missing_docs)]
+#[proc_macro_attribute]
+pub fn template_group(
+    _args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let module = parse_macro_input!(input as ItemMod);
+    let module_name = module.ident.clone();
+    let macro_name = format_ident!("{}", module_name.to_string());
+
+    let Some((_, content)) = module.content.clone() else {
+        return Error::new_spanned(
+            module.ident,
+            "Cannot add tests to non-inline module. Use `mod name { ... }`",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let mut macro_context = Vec::with_capacity(content.len());
+    let mut module_context = Vec::with_capacity(content.len());
+
+    for item in content.iter() {
+        module_context.push(item);
+
+        if let Item::Fn(func) = item {
+            if func
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident(&format_ident!("{}", "replace")))
+            {
+                continue;
+            }
+        }
+
+        macro_context.push(item);
+    }
+
+    let tokens = quote! {
+        #[macro_export]
+        macro_rules! #macro_name {
+            () => {
+                #(#macro_context)*
+            }
+        }
+
+        #[cfg(test)]
+        pub mod #module_name {
+            #(#module_context)*
+        }
+    };
+
+    tokens.into()
+}
+
+#[allow(missing_docs)]
+#[proc_macro_attribute]
+pub fn replace(_args: TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    input.into()
+}
+
+#[allow(missing_docs)]
+#[proc_macro_attribute]
+pub fn apply_group(args: TokenStream, input: TokenStream) -> TokenStream {
+    let macro_name = parse_macro_input!(args as Path);
+    let module = parse_macro_input!(input as ItemMod);
+    let module_name = module.ident.clone();
+
+    let Some((_, module_content)) = module.content else {
+        return Error::new_spanned(
+            module.ident,
+            "Cannot add tests to non-inline module. Use `mod name { ... }`",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    TokenStream::from(quote! {
+        mod #module_name {
+            #(#module_content)*
+            #macro_name!();
+        }
+    })
 }

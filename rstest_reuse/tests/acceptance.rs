@@ -163,6 +163,16 @@ fn use_same_name_for_more_templates() {
 }
 
 #[test]
+fn use_template_for_group() {
+    let (output, _) = run_test("template_group.rs");
+
+    TestResults::new()
+        .ok("inner::test")
+        .fail("template_example::test")
+        .assert(output);
+}
+
+#[test]
 fn no_local_macro_should_not_compile() {
     let (output, _) = run_test("no_local_macro_should_not_compile.rs");
 
