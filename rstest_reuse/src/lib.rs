@@ -464,7 +464,7 @@ pub fn template_group(
     let Some((_, content)) = module.content.clone() else {
         return Error::new_spanned(
             module.ident,
-            "Cannot add tests to non-inline module. Use `mod name { ... }`",
+            "Cannot create template tests to non-inline module. Use `mod name { ... }`",
         )
         .to_compile_error()
         .into();
