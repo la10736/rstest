@@ -1,5 +1,5 @@
-#[rstest_reuse::template_group]
-pub mod template_example {
+#[rstest_reuse::template_group(template_example)]
+pub mod inner1 {
     use rstest::rstest;
     use rstest_reuse::replace;
 

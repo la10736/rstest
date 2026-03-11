@@ -168,7 +168,7 @@ fn use_template_for_group() {
 
     TestResults::new()
         .ok("inner::test")
-        .fail("template_example::test")
+        .fail("inner1::test")
         .assert(output);
 }
 

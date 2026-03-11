@@ -454,12 +454,12 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
 #[allow(missing_docs)]
 #[proc_macro_attribute]
 pub fn template_group(
-    _args: proc_macro::TokenStream,
+    args: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
+    let macro_name = parse_macro_input!(args as Path);
     let module = parse_macro_input!(input as ItemMod);
     let module_name = module.ident.clone();
-    let macro_name = format_ident!("{}", module_name.to_string());
 
     let Some((_, content)) = module.content.clone() else {
         return Error::new_spanned(
@@ -530,6 +530,8 @@ pub fn apply_group(args: TokenStream, input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         mod #module_name {
+            #![allow(unused_imports)]
+
             #(#module_content)*
             #macro_name!();
         }
