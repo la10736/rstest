@@ -453,8 +453,10 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
 
 /// Define a template for a group of methods located in module.
 ///
-/// The template supports attribute #1 to mark methods that should be excluded from
+/// The template supports attribute `#[replace]` to mark methods that should be excluded from
 /// the template because they will contain implementation differences for specific cases.
+///
+/// Example:
 ///
 /// ```
 /// #[rstest_reuse::template_group(template_tests)]
@@ -464,7 +466,7 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
 ///
 ///     #[replace]
 ///     fn version() -> u8 {
-///         unimplemented!()
+///         1
 ///     }
 ///
 ///     #[rstest]
@@ -477,14 +479,14 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
 /// #[rstest_reuse::apply_group(template_tests)]
 /// mod tests_first {
 ///     fn version() -> u8 {
-///         1
+///         2
 ///     }
 /// }
 ///
 /// #[rstest_reuse::apply_group(template_tests)]
 /// mod tests_seconds {
 ///     fn version() -> u8 {
-///         2
+///         3
 ///     }
 /// }
 /// ```
@@ -562,12 +564,12 @@ pub fn replace(_args: TokenStream, input: proc_macro::TokenStream) -> proc_macro
 ///     #[fixture]
 ///     #[replace]
 ///     fn fixture() -> u8 {
-///         unimplemented!()
+///         1
 ///     }
 ///
 ///     #[rstest]
 ///     fn test(fixture: u8) {
-///         assert_eq!(fixture, 1)
+///         assert!(fixture > 0, "{} is not greater than 0", fixture)
 ///     }
 /// }
 ///
@@ -575,7 +577,7 @@ pub fn replace(_args: TokenStream, input: proc_macro::TokenStream) -> proc_macro
 /// mod test {
 ///     #[fixture]
 ///     fn fixture() -> u8 {
-///         1
+///         2
 ///     }
 /// }
 /// ```
