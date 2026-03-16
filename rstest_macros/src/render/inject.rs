@@ -110,7 +110,7 @@ fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
     parse_quote! {
         {
             use #rstest_path::magic_conversion::*;
-            (&&&Magic::<#arg_type>(core::marker::PhantomData)).magic_conversion(#fixture)
+            (&&&Magic::<#arg_type>(::core::marker::PhantomData)).magic_conversion(#fixture)
         }
     }
 }
@@ -215,7 +215,7 @@ mod should {
         0,
         "let arg = {
             use rstest::magic_conversion::*;
-            (&&&Magic::<MyType>(core::marker::PhantomData)).magic_conversion(\"value to convert\")
+            (&&&Magic::<MyType>(::core::marker::PhantomData)).magic_conversion(\"value to convert\")
         };"
     )]
     #[case::discard_impl(
@@ -233,7 +233,7 @@ mod should {
         0,
         "let arg = {
             use rstest::magic_conversion::*;
-            (&&&Magic::<&MyType>(core::marker::PhantomData)).magic_conversion(\"value to convert\")
+            (&&&Magic::<&MyType>(::core::marker::PhantomData)).magic_conversion(\"value to convert\")
         };"
     )]
     #[case::mutable_reference_type(
@@ -241,7 +241,7 @@ mod should {
         0,
         "let arg = {
             use rstest::magic_conversion::*;
-            (&&&Magic::<&mut MyType>(core::marker::PhantomData)).magic_conversion(\"value to convert\")
+            (&&&Magic::<&mut MyType>(::core::marker::PhantomData)).magic_conversion(\"value to convert\")
         };"
     )]
     #[case::generic_type_with_lifetime(
@@ -249,7 +249,7 @@ mod should {
         0,
         "let arg = {
             use rstest::magic_conversion::*;
-            (&&&Magic::<&'a T>(core::marker::PhantomData)).magic_conversion(\"value to convert\")
+            (&&&Magic::<&'a T>(::core::marker::PhantomData)).magic_conversion(\"value to convert\")
         };"
     )]
     #[case::type_with_generic_parameters(
@@ -257,7 +257,7 @@ mod should {
         0,
         "let arg = {
             use rstest::magic_conversion::*;
-            (&&&Magic::<Option<MyType>>(core::marker::PhantomData)).magic_conversion(\"value to convert\")
+            (&&&Magic::<Option<MyType>>(::core::marker::PhantomData)).magic_conversion(\"value to convert\")
         };"
     )]
     #[case::complex_type(
@@ -265,7 +265,7 @@ mod should {
         0,
         "let arg = {
             use rstest::magic_conversion::*;
-            (&&&Magic::<Result<Vec<MyType>, MyError>>(core::marker::PhantomData)).magic_conversion(\"value to convert\")
+            (&&&Magic::<Result<Vec<MyType>, MyError>>(::core::marker::PhantomData)).magic_conversion(\"value to convert\")
         };"
     )]
     fn generated_code_uses_phantom_data(
