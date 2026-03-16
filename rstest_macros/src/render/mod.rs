@@ -28,10 +28,10 @@ use crate::{
 };
 use wrapper::WrapByModule;
 
-pub(crate) use fixture::render as fixture;
-use crate::parse::arguments::TestAttr;
 use self::apply_arguments::ApplyArguments;
 use self::crate_resolver::crate_name;
+use crate::parse::arguments::TestAttr;
+pub(crate) use fixture::render as fixture;
 pub(crate) mod apply_arguments;
 pub(crate) mod inject;
 
@@ -208,20 +208,14 @@ pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test_group(test, rendered_cases)
 }
 
-fn resolve_test_attr(
-    test_attr: Option<&TestAttr>,
-) -> Option<TokenStream> {
+fn resolve_test_attr(test_attr: Option<&TestAttr>) -> Option<TokenStream> {
     match test_attr {
-        Some(TestAttr::Explicit(attr)) => {
-            Some(quote! { #attr })
-        }
+        Some(TestAttr::Explicit(attr)) => Some(quote! { #attr }),
         Some(TestAttr::InAttrs) => {
             // test attr is already in the attributes; we don't need to re-inject it
             None
         }
-        None => {
-            Some(quote! { #[test] })
-        }
+        None => Some(quote! { #[test] }),
     }
 }
 
@@ -242,7 +236,7 @@ fn render_test_call(
     let timeout = timeout.map(|x| quote! {#x}).or_else(|| {
         std::env::var("RSTEST_TIMEOUT")
             .ok()
-            .map(|to| quote! { core::time::Duration::from_secs( (#to).parse().unwrap()) })
+            .map(|to| quote! { ::core::time::Duration::from_secs( (#to).parse().unwrap()) })
     });
     let rstest_path = crate_name();
     match (timeout, is_async) {
@@ -376,10 +370,9 @@ fn single_test_case(
     let lifetimes = if lifetimes.peek().is_some() {
         Some(quote! {<#(#lifetimes,)*>})
     } else {
-       None 
+        None
     };
-    
-    
+
     quote! {
         #(#attrs)*
         #test_attr

@@ -265,7 +265,7 @@ mod should {
         let item_fn = parse_str::<ItemFn>(r#"
                 pub fn test<R: AsRef<str>, B>(mut s: String, v: &u32, a: &mut [i32], r: R) -> (u32, B, String, &str)
                             where B: Borrow<u32>
-                    { }    
+                    { }
         "#).unwrap();
         let info = FixtureInfo::default().with_once();
 
@@ -541,8 +541,8 @@ mod should {
         let expected = parse_str::<syn::ItemFn>(
             r#"
                     async fn get<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>, 
-                        async_u32: impl core::future::Future<Output = u32>, 
+                        async_ref_u32: impl ::core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl ::core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }

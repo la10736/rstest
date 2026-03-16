@@ -332,8 +332,8 @@ mod single_test_should {
 
         let expected = parse_str::<syn::ItemFn>(
             r#"async fn test<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
-                        async_u32: impl core::future::Future<Output = u32>,
+                        async_ref_u32: impl ::core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl ::core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }
@@ -922,8 +922,8 @@ mod cases_should {
 
         let expected = parse_str::<syn::ItemFn>(
             r#"async fn test<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
-                        async_u32: impl core::future::Future<Output = u32>,
+                        async_ref_u32: impl ::core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl ::core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }
@@ -1333,8 +1333,8 @@ mod matrix_cases_should {
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
         item_fn.set_async(is_async);
         item_fn.attrs = attributes.clone();
-        let mut info : RsTestInfo = data.into();
-        info.arguments.set_test_attr(Some(TestAttr::InAttrs));        
+        let mut info: RsTestInfo = data.into();
+        info.arguments.set_test_attr(Some(TestAttr::InAttrs));
 
         let tokens = matrix(item_fn, info);
 
@@ -1408,8 +1408,8 @@ mod matrix_cases_should {
 
         let expected = parse_str::<syn::ItemFn>(
             r#"async fn test<'_async_ref_u32>(
-                        async_ref_u32: impl core::future::Future<Output = &'_async_ref_u32 u32>,
-                        async_u32: impl core::future::Future<Output = u32>,
+                        async_ref_u32: impl ::core::future::Future<Output = &'_async_ref_u32 u32>,
+                        async_u32: impl ::core::future::Future<Output = u32>,
                         simple: u32
                     )
                     { }
@@ -1978,7 +1978,9 @@ mod test_attribute_should {
         let mut out = String::from("#[rstest]\n");
         match attr_style {
             TestAttrStyle::Explicit => {
-                info.arguments.set_test_attr(Some(TestAttr::Explicit(attr("#[my_explicit_test_attr]").into())));
+                info.arguments.set_test_attr(Some(TestAttr::Explicit(
+                    attr("#[my_explicit_test_attr]").into(),
+                )));
             }
             TestAttrStyle::Implicit => {
                 info.arguments.set_test_attr(Some(TestAttr::InAttrs));
