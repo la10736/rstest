@@ -56,6 +56,18 @@ jobs:
     - uses: taiki-e/install-action@cargo-hack
     - run: cargo hack check --rust-version --workspace --ignore-private
     - run: |
+        # All ignores related to async (`no_std` and `timeout`) are due to an indirect dependency
+        # of test that use `asynct-std` : "async-lock@3.4.2 requires rustc 1.85"
+        # If we bump msrv we can stop to skip them.
         cargo hack test --rust-version --workspace \
           --ignore-private \
-          -- --skip rstest::ignore_attributes_args_if_any
+          -- \
+          --skip rstest::ignore_attributes_args_if_any \
+          --skip rstest::should_works_with_smol_async_runtime \
+          --skip rstest::single::should_run_async_function \
+          --skip fixture::should::resolve_async_fixture \
+          --skip rstest::async_timeout_feature \
+          --skip should_run_async_function \
+          --skip rstest::cases::should_run_async_mut \
+          --skip rstest::no_std \
+          --skip rstest::timeout

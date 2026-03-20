@@ -16,6 +16,7 @@
 ### Fixed
 
 -  Fix compilation under bazel by upgrading proc-macro-crate to 3.4.0
+- msrv test should ignore async: "async-lock@3.4.2 requires rustc 1.85" but we don't want to bump msrv to 1.85.0
 
 ## [0.26.1] 2025/7/27
 
