@@ -9,6 +9,7 @@
 
 ### Add
 
+- Added `CLAUDE.md` for Claude Code guidance when working with this repository.
 - Doc comments before `#[values(...)]` entries can be used to override the generated matrix
   test names (both for the legacy `arg => [..]` syntax and the new attribute form).
   See [#321](https://github.com/la10736/rstest/pull/321) thanks to @orhun.
