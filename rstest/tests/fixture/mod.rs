@@ -242,17 +242,17 @@ mod should {
         }
 
         #[rstest]
-        fn when_cannot_resolve_fixture(errors_rs: &(Output, String)) {
-            let (output, name) = errors_rs.clone();
+        fn when_cannot_resolve_fixture() {
+            let (output, name) = run_test("errors_unresolvable.rs");
 
             assert_in!(output.stderr.str(), "error[E0433]: ");
             assert_in!(
                 output.stderr.str(),
                 format!(
                     r#"
-                      --> {name}{SRC_LIB_RS}:14:33
-                       |
-                    14 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#
+                     --> {name}{SRC_LIB_RS}:9:33
+                      |
+                    9 | fn error_cannot_resolve_fixture(no_fixture: u32) {{"#
                 )
                 .unindent()
             );
