@@ -194,7 +194,10 @@ use std::collections::HashMap;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse, parse::Parse, parse_macro_input, Attribute, Ident, ItemFn, PatType, Path, Token};
+use syn::{
+    parse, parse::Parse, parse_macro_input, Attribute, Error, Ident, Item, ItemFn, ItemMod,
+    PatType, Path, Token,
+};
 
 struct MergeAttrs {
     template: ItemFn,
@@ -446,4 +449,159 @@ pub fn apply(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> T
         }
     };
     tokens.into()
+}
+
+/// Define a template for a group of methods located in module.
+///
+/// The template supports attribute `#[replace]` to mark methods that should be excluded from
+/// the template because they will contain implementation differences for specific cases.
+///
+/// Example:
+///
+/// ```
+/// #[rstest_reuse::template_group(template_tests)]
+/// mod tests {
+///     use rstest::rstest;
+///     use rstest_reuse::replace;
+///
+///     #[replace]
+///     fn version() -> u8 {
+///         1
+///     }
+///
+///     #[rstest]
+///     fn test() {
+///         let value = version();
+///         assert!(value > 0, "{} is not greater than 0", value)
+///     }
+/// }
+///
+/// #[rstest_reuse::apply_group(template_tests)]
+/// mod tests_first {
+///     fn version() -> u8 {
+///         2
+///     }
+/// }
+///
+/// #[rstest_reuse::apply_group(template_tests)]
+/// mod tests_seconds {
+///     fn version() -> u8 {
+///         3
+///     }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn template_group(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let macro_name = parse_macro_input!(args as Path);
+    let module = parse_macro_input!(input as ItemMod);
+    let module_name = module.ident.clone();
+
+    let Some((_, content)) = module.content.clone() else {
+        return Error::new_spanned(
+            module.ident,
+            "Cannot create template tests to non-inline module. Use `mod name { ... }`",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let mut macro_context = Vec::with_capacity(content.len());
+    let mut module_context = Vec::with_capacity(content.len());
+
+    for item in content.iter() {
+        module_context.push(item);
+
+        if let Item::Fn(func) = item {
+            if func
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident(&format_ident!("{}", "replace")))
+            {
+                continue;
+            }
+        }
+
+        macro_context.push(item);
+    }
+
+    let tokens = quote! {
+        #[macro_export]
+        macro_rules! #macro_name {
+            () => {
+                #(#macro_context)*
+            }
+        }
+
+        #[cfg(test)]
+        pub mod #module_name {
+            #(#module_context)*
+        }
+    };
+
+    tokens.into()
+}
+
+/// Mark a method as requiring replacement with a different implementation.
+/// Used in conjunction with `#[template_group]`
+#[proc_macro_attribute]
+pub fn replace(_args: TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    input.into()
+}
+
+/// Apply a defined group template.
+///
+/// Example:
+///
+/// ```
+/// #[rstest_reuse::template_group(template_inner)]
+/// mod inner {
+///     use rstest::{rstest, fixture};
+///     use rstest_reuse::replace;
+///
+///     #[fixture]
+///     #[replace]
+///     fn fixture() -> u8 {
+///         1
+///     }
+///
+///     #[rstest]
+///     fn test(fixture: u8) {
+///         assert!(fixture > 0, "{} is not greater than 0", fixture)
+///     }
+/// }
+///
+/// #[rstest_reuse::apply_group(template_inner)]
+/// mod test {
+///     #[fixture]
+///     fn fixture() -> u8 {
+///         2
+///     }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn apply_group(args: TokenStream, input: TokenStream) -> TokenStream {
+    let macro_name = parse_macro_input!(args as Path);
+    let module = parse_macro_input!(input as ItemMod);
+    let module_name = module.ident.clone();
+
+    let Some((_, module_content)) = module.content else {
+        return Error::new_spanned(
+            module.ident,
+            "Cannot add tests to non-inline module. Use `mod name { ... }`",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    TokenStream::from(quote! {
+        mod #module_name {
+            #![allow(unused_imports)]
+
+            #(#module_content)*
+            #macro_name!();
+        }
+    })
 }

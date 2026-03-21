@@ -163,6 +163,36 @@ fn use_same_name_for_more_templates() {
 }
 
 #[test]
+fn use_template_group() {
+    let (output, _) = run_test("template_group.rs");
+
+    TestResults::new()
+        .ok("inner::test")
+        .fail("inner1::test")
+        .assert(output);
+}
+
+#[test]
+fn use_template_group_with_replace() {
+    let (output, _) = run_test("template_group_with_replace.rs");
+
+    TestResults::new()
+        .ok("inner::test")
+        .fail("inner1::test")
+        .assert(output);
+}
+
+#[test]
+fn use_template_group_with_replace_fixture() {
+    let (output, _) = run_test("template_group_with_replace_fixture.rs");
+
+    TestResults::new()
+        .ok("inner::test")
+        .fail("inner1::test")
+        .assert(output);
+}
+
+#[test]
 fn no_local_macro_should_not_compile() {
     let (output, _) = run_test("no_local_macro_should_not_compile.rs");
 
