@@ -16,7 +16,8 @@
 
 ### Fixed
 
--  Fix compilation under bazel by upgrading proc-macro-crate to 3.4.0
+- Use fully-qualified `core` import. See [#336](https://github.com/la10736/rstest/pull/336).
+- Fix compilation under bazel by upgrading proc-macro-crate to 3.4.0.
 
 ## [0.26.1] 2025/7/27
 
