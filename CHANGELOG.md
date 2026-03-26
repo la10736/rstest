@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Bump msrv to 1.85.0
+- Bump msrv to 1.85.0 both for `rstest` and `rstest_reuse`
 - Disabled default features of `futures-util`
 
 ### Add
