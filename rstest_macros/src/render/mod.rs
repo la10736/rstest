@@ -38,12 +38,16 @@ pub(crate) mod inject;
 pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test.apply_arguments(&mut info.arguments, &mut ());
 
-    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
-
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
     let asyncness = test.sig.asyncness;
+    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
+    let resolver: Box<dyn Resolver> = if info.arguments.is_default() {
+        Box::new((resolver, crate::resolver::DefaultResolver))
+    } else {
+        Box::new(resolver)
+    };
     single_test_case(
         &test.sig.ident,
         &test.sig.ident,
@@ -502,10 +506,15 @@ fn cases_data(info: &RsTestInfo, name_span: Span) -> impl Iterator<Item = CaseDa
                 .map(|arg| info.arguments.inner_pat(&arg).clone())
                 .zip(case.args.iter())
                 .collect::<HashMap<_, _>>();
+            let resolver: Box<dyn Resolver> = if info.arguments.is_default() {
+                Box::new((resolver_case, crate::resolver::DefaultResolver))
+            } else {
+                Box::new(resolver_case)
+            };
             CaseDataValues::new(
                 Ident::new(&format_case_name(case, n + 1, display_len), name_span),
                 case.attrs.as_slice(),
-                Box::new(resolver_case),
+                resolver,
                 Some(CaseInfo::new(case.description.clone(), n)),
             )
         }
