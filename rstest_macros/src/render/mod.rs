@@ -12,7 +12,7 @@ use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Pat, Path, ReturnT
 
 use quote::{format_ident, quote};
 
-use crate::refident::MaybePat;
+use crate::refident::{MaybePat, MaybePatIdent};
 use crate::utils::sanitize_ident;
 use crate::{
     parse::{
@@ -390,14 +390,22 @@ fn trace_arguments<'a>(
     attributes: &RsTestAttributes,
 ) -> Option<TokenStream> {
     let mut statements = args
-        .filter(|&arg| attributes.trace_me(arg))
-        .map(|arg| {
+        .filter_map(|arg| {
+            if !attributes.trace_me(arg) {
+                return None;
+            }
+
+            let ident = arg
+                .maybe_patident()
+                .map(|patident| &patident.ident)
+                .or_else(|| arg.maybe_ident())?;
             let s: Stmt = parse_quote! {
-                println!("{} = {:?}", stringify!(#arg), #arg);
+                println!("{} = {:?}", stringify!(#ident), #ident);
             };
-            s
+            Some(s)
         })
         .peekable();
+
     if statements.peek().is_some() {
         Some(quote! {
             println!("{:-^40}", " TEST ARGUMENTS ");
