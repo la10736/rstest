@@ -218,7 +218,7 @@ mod single_test_should {
 
     #[test]
     fn trace_arguments_values() {
-        let input_fn: ItemFn = r#"#[trace]fn test(s: String, a:i32) {} "#.ast();
+        let input_fn: ItemFn = r#"#[trace]fn test(s: String, a:i32, mut b: i32) {} "#.ast();
 
         let item_fn: ItemFn = single(input_fn.clone(), Default::default()).ast();
 
@@ -230,16 +230,24 @@ mod single_test_should {
             item_fn.block.display_code(),
             trace_argument_code_string("a")
         );
+        assert_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("b")
+        );
     }
 
     #[test]
     fn trace_not_all_arguments_values() {
         let input_fn: ItemFn =
-            r#"#[trace] fn test(a_trace: i32, b_no_trace:i32, c_no_trace:i32, d_trace:i32) {} "#
+            r#"#[trace] fn test(a_trace: i32, b_no_trace:i32, c_no_trace:i32, d_trace:i32, mut e_no_trace:i32) {} "#
                 .ast();
 
         let mut attributes = RsTestAttributes::default();
-        attributes.add_notraces(vec![pat("b_no_trace"), pat("c_no_trace")]);
+        attributes.add_notraces(vec![
+            pat("b_no_trace"),
+            pat("c_no_trace"),
+            pat("mut e_no_trace"),
+        ]);
 
         let item_fn: ItemFn = single(
             input_fn.clone(),
@@ -265,6 +273,10 @@ mod single_test_should {
         assert_in!(
             item_fn.block.display_code(),
             trace_argument_code_string("d_trace")
+        );
+        assert_not_in!(
+            item_fn.block.display_code(),
+            trace_argument_code_string("e_no_trace")
         );
     }
 
