@@ -246,13 +246,44 @@ fn resolve_template_arg<'a>(
     }
 }
 
+fn from_attr_ident(attrs: &[Attribute]) -> Option<Ident> {
+    attrs
+        .iter()
+        .find(|attr| attr.path().is_ident(&format_ident!("from")))
+        .and_then(|attr| attr.parse_args::<Ident>().ok())
+}
+
+fn is_parametrized(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        attr.path().is_ident(&format_ident!("case"))
+            || attr.path().is_ident(&format_ident!("values"))
+    })
+}
+
 fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
     let to_merge_args = collect_template_args(source);
 
     for arg in dest.sig.inputs.iter_mut() {
         if let syn::FnArg::Typed(a) = arg {
-            if let syn::Pat::Ident(ref id) = *a.pat {
-                if let Some(source_arg) = resolve_template_arg(&to_merge_args, &id.ident) {
+            // A `#[from(name)]` attribute names the template argument to inherit
+            // attributes from. This is the only way to link a destructured
+            // argument (like `(a, b)`) to its template argument, as it has no
+            // identifier of its own.
+            let from = from_attr_ident(&a.attrs);
+            let key = from.clone().or_else(|| match *a.pat {
+                syn::Pat::Ident(ref id) => Some(id.ident.clone()),
+                _ => None,
+            });
+            if let Some(key) = key {
+                if let Some(source_arg) = resolve_template_arg(&to_merge_args, &key) {
+                    // When the template argument is a case or values argument, the
+                    // `#[from(...)]` used to link a destructured argument is only a
+                    // reuse-side hint. Drop it so rstest sees a plain parametrized
+                    // argument, which it resolves by position rather than by name.
+                    if from.is_some() && is_parametrized(&source_arg.attrs) {
+                        a.attrs
+                            .retain(|attr| !attr.path().is_ident(&format_ident!("from")));
+                    }
                     merge_arg_attributes(&mut a.attrs, &source_arg.attrs);
                 }
             }

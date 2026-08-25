@@ -16,6 +16,9 @@
 
 ### Fixed
 
+- `rstest_reuse` now merges template attributes onto destructured arguments in the
+  applied test. Link a destructured argument to its template argument with
+  `#[from(...)]`. See [#273](https://github.com/la10736/rstest/issues/273).
 - Use fully-qualified `core` import. See [#336](https://github.com/la10736/rstest/pull/336).
 - Fix compilation under bazel by upgrading proc-macro-crate to 3.4.0.
 
