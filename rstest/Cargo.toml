@@ -6,11 +6,9 @@ Rust fixture based test framework. It use procedural macro
 to implement fixtures and table based tests.
 """
 edition = "2021"
-homepage = "https://github.com/la10736/rstest"
 keywords = ["test", "fixture"]
 license = "MIT OR Apache-2.0"
 name = "rstest"
-readme = "README.md"
 repository = "https://github.com/la10736/rstest"
 rust-version = "1.85.0"
 version = "0.26.1"

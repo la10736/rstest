@@ -134,7 +134,7 @@ impl Project {
         match Command::new("cargo")
             .current_dir(&self.root)
             .arg("init")
-            .args(vec!["--edition", "2018"])
+            .args(["--edition", "2018"])
             .arg(&self.name)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -147,6 +147,15 @@ impl Project {
         {
             0 => {
                 std::fs::File::create(self.code_path()).unwrap();
+                // Suppress nightly cargo lints in generated test projects
+                if matches!(self.channel, Some(Channel::Nightly)) {
+                    let mut doc = self.read_cargo_toml();
+                    doc["lints"]["cargo"]["unused_dependencies"]
+                        .or_insert(Item::Value("allow".into()));
+                    doc["lints"]["cargo"]["non_kebab_case_bins"]
+                        .or_insert(Item::Value("allow".into()));
+                    self.save_cargo_toml(&doc);
+                }
                 self
             }
 
