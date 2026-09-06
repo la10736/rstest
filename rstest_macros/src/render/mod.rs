@@ -498,8 +498,7 @@ fn cases_data(info: &RsTestInfo, name_span: Span) -> impl Iterator<Item = CaseDa
             let resolver_case = info
                 .data
                 .case_args()
-                .cloned()
-                .map(|arg| info.arguments.inner_pat(&arg).clone())
+                .map(|arg| info.arguments.inner_pat(arg).clone())
                 .zip(case.args.iter())
                 .collect::<HashMap<_, _>>();
             CaseDataValues::new(

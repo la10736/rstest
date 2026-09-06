@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::thread;
 
 #[macro_export]
@@ -421,5 +423,15 @@ mod test {
 }
 
 pub fn sanitize_name<S: AsRef<str>>(s: S) -> String {
-    s.as_ref().replace(':', "_").replace("__", "_")
+    const MAX_LEN: usize = 50;
+    let name = s.as_ref().replace(':', "_").replace("__", "_");
+    if name.len() <= MAX_LEN {
+        name
+    } else {
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        let hash = hasher.finish();
+        let prefix = name[..MAX_LEN - 17].trim_end_matches('_');
+        format!("{prefix}_{}", hash % 10_000_000_000_000_000)
+    }
 }

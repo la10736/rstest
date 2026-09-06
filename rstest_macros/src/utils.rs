@@ -36,7 +36,7 @@ pub(crate) fn fn_args(item_fn: &ItemFn) -> impl Iterator<Item = &FnArg> {
 }
 
 pub(crate) fn attr_ends_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {
-    attr.path().segments.iter().last() == Some(segment)
+    attr.path().segments.iter().next_back() == Some(segment)
 }
 
 pub(crate) fn attr_starts_with(attr: &Attribute, segment: &syn::PathSegment) -> bool {

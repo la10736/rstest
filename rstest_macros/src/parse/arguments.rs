@@ -253,7 +253,7 @@ impl ArgumentsInfo {
     ) -> impl Iterator<Item = FnArg> + 'a {
         fn_args.map(|mut fn_arg| {
             if let Some(p) = fn_arg.maybe_pat_type_mut() {
-                p.pat = Box::new(self.inner_pat(p.pat.as_ref()).clone());
+                *p.pat = self.inner_pat(&p.pat).clone();
             }
             fn_arg
         })
