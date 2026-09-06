@@ -14,7 +14,7 @@ following lines to your `Cargo.toml` file:
 
 ```toml
 [dev-dependencies]
-rstest = "0.26.1"
+rstest = "0.27.0"
 ```
 
 ### Features

@@ -1,15 +1,14 @@
 # Changelog
 
-## Unreleased
+## [0.27.0] 2026/9/6
 
 ### Changed
 
 - Bump msrv to 1.85.0 both for `rstest` and `rstest_reuse`
 - Disabled default features of `futures-util`
 
-### Add
+### Added
 
-- Added `CLAUDE.md` for Claude Code guidance when working with this repository.
 - Doc comments before `#[values(...)]` entries can be used to override the generated matrix
   test names (both for the legacy `arg => [..]` syntax and the new attribute form).
   See [#321](https://github.com/la10736/rstest/pull/321) thanks to @orhun.
