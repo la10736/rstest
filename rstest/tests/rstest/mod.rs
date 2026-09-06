@@ -402,6 +402,28 @@ mod dump_input_values {
     }
 
     #[test]
+    fn should_trace_mut_arguments() {
+        let (output, _) = run_test("dump_mut_args.rs");
+        let out = output.stdout.str().to_string();
+
+        TestResults::new()
+            .fail("single_mut_fail")
+            .fail("cases_mut_fail::case_1")
+            .fail_with("matrix_mut_fail", false, 4)
+            .assert(output);
+
+        assert_in!(out, "fu32 = 42");
+        assert_in!(out, "u = 42");
+        assert_in!(out, r#"s = "str""#);
+        assert_in!(out, "u = 1");
+        assert_in!(out, r#"s = "a""#);
+
+        // Verify trace does NOT show "mut" in the argument name
+        assert!(!out.contains("mut fu32"), "trace should not include 'mut' keyword");
+        assert!(!out.contains("mut u"), "trace should not include 'mut' keyword");
+    }
+
+    #[test]
     fn should_be_enclosed_in_an_explicit_session() {
         let (output, _) = run_test(Path::new("single").join("dump_debug.rs"));
         let out = output.stdout.str().to_string();
