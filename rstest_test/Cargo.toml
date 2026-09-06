@@ -11,7 +11,8 @@ license = "MIT OR Apache-2.0"
 name = "rstest_test"
 readme = "README.md"
 repository = "https://github.com/la10736/rstest"
-rust-version = "1.82"
+rust-version = "1.85"
+publish = false
 version = "0.14.0"
 
 [dependencies]
