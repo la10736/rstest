@@ -221,9 +221,9 @@ fn resolve_test_attr(test_attr: Option<&TestAttr>) -> Option<TokenStream> {
 
 fn render_exec_call(fn_path: Path, args: &[Expr], is_async: bool) -> TokenStream {
     if is_async {
-        quote! {#fn_path(#(#args),*).await}
+        quote! {super::#fn_path(#(#args),*).await}
     } else {
-        quote! {#fn_path(#(#args),*)}
+        quote! {super::#fn_path(#(#args),*)}
     }
 }
 
