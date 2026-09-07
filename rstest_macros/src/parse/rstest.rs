@@ -7,6 +7,7 @@ use super::{
     by_ref::extract_by_ref,
     check_timeout_attrs,
     context::extract_context,
+    default::extract_default,
     extract_case_args, extract_cases, extract_excluded_trace, extract_fixtures, extract_value_list,
     future::{extract_futures, extract_global_awt},
     ignore::extract_ignores,
@@ -49,27 +50,32 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (composed_tuple!(
-            excluded, _timeout, futures, global_awt, by_refs, ignores, contexts, test_attr
-            // Append here new extraction
-        ), _inner) = merge_errors!(
-                merge_errors!(
-                    extract_excluded_trace(item_fn),
-                    check_timeout_attrs(item_fn),
-                    extract_futures(item_fn),
-                    extract_global_awt(item_fn),
-                    extract_by_ref(item_fn),
-                    extract_ignores(item_fn),
-                    extract_context(item_fn),
-                    extract_test_attr(item_fn),
-                    // Append here new extraction
-                ),
+        let (
+            composed_tuple!(
+                excluded, _timeout, futures, global_awt, default, by_refs, ignores, contexts,
+                test_attr // Append here new extraction
+            ),
+            _inner,
+        ) = merge_errors!(
+            merge_errors!(
+                extract_excluded_trace(item_fn),
+                check_timeout_attrs(item_fn),
+                extract_futures(item_fn),
+                extract_global_awt(item_fn),
+                extract_default(item_fn),
+                extract_by_ref(item_fn),
+                extract_ignores(item_fn),
+                extract_context(item_fn),
+                extract_test_attr(item_fn),
+                // Append here new extraction
+            ),
             // This one should be always the last one!
             self.data.extend_with_function_attrs(item_fn)
         )?;
-        
+
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
+        self.arguments.set_default(default);
         self.arguments.set_futures(futures.into_iter());
         self.arguments.set_by_refs(by_refs.into_iter());
         self.arguments.set_ignores(ignores.into_iter());
