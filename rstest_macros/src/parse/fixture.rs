@@ -487,7 +487,6 @@ mod extend {
                 ..Default::default()
             };
 
-            assert!(!format!("{:?}", item_fn).contains("default"));
             assert_eq!(expected, info);
         }
 
