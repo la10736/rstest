@@ -28,7 +28,7 @@ proc-macro2 = "1.0.86"
 quote = "1.0.37"
 regex = "1.10.6"
 relative-path = "1.9.3"
-syn = { version = "2.0.79", features = [
+syn = { version = "3.0.0", features = [
     "full",
     "parsing",
     "extra-traits",

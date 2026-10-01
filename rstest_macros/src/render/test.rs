@@ -2019,7 +2019,7 @@ mod test_attribute_should {
         assert_eq!(expect.vis, result.vis);
         assert_eq!(expect.sig.constness, result.sig.constness);
         assert_eq!(expect.sig.asyncness, result.sig.asyncness);
-        assert_eq!(expect.sig.unsafety, result.sig.unsafety);
+        assert_eq!(expect.sig.safety, result.sig.safety);
         assert_eq!(expect.sig.abi, result.sig.abi);
         assert_eq!(expect.sig.fn_token, result.sig.fn_token);
         assert_eq!(expect.sig.ident, result.sig.ident);
