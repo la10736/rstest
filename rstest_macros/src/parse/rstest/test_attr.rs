@@ -105,16 +105,8 @@ mod should {
         "fn test(){}",
         Some(explicit("macro_rules_attribute::apply(smol_macros::test!)"))
     )]
-    #[case::in_attr_not_guessing(
-        "#[a_test] fn test(){}",
-        "#[a_test] fn test(){}",
-        None
-    )]
-    #[case::in_attr_not_guessing(
-        "#[test_a] fn test(){}",
-        "#[test_a] fn test(){}",
-        None
-    )]
+    #[case::in_attr_not_guessing("#[a_test] fn test(){}", "#[a_test] fn test(){}", None)]
+    #[case::in_attr_not_guessing("#[test_a] fn test(){}", "#[test_a] fn test(){}", None)]
     fn extract(
         #[case] item_fn: &str,
         #[case] expected_fn: &str,

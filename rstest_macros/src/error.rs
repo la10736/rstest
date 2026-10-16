@@ -2,14 +2,14 @@
 use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
-use syn::{visit, ItemFn, Pat};
 use syn::{spanned::Spanned, visit::Visit};
+use syn::{visit, ItemFn, Pat};
 
+use crate::parse::arguments::ArgumentsInfo;
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestData, RsTestInfo},
 };
-use crate::parse::arguments::ArgumentsInfo;
 use crate::refident::{MaybeIdent, MaybePat};
 use crate::utils::attr_is;
 
@@ -290,10 +290,16 @@ impl RenderType for syn::Pat {
 }
 
 fn test_attributes<'a>(test: &'a ItemFn, arguments: &'a ArgumentsInfo) -> Errors<'a> {
-    Box::new(async_test_without_test_attribute(test, arguments).chain(malformed_explicit_test_attr(test)))
+    Box::new(
+        async_test_without_test_attribute(test, arguments)
+            .chain(malformed_explicit_test_attr(test)),
+    )
 }
 
-fn async_test_without_test_attribute<'a>(test: &'a ItemFn, arguments: &'a ArgumentsInfo) -> Errors<'a> {
+fn async_test_without_test_attribute<'a>(
+    test: &'a ItemFn,
+    arguments: &'a ArgumentsInfo,
+) -> Errors<'a> {
     if test.sig.asyncness.is_some() && arguments.test_attr().is_none() {
         let span = test.sig.ident.span();
         Box::new(std::iter::once(syn::Error::new(span, "async test requires either explicit `test_attr` or implicit (attribute path ends with `test`)")))

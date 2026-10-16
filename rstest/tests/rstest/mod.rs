@@ -202,7 +202,11 @@ fn should_not_show_a_warning_for_should_panic_attribute() {
 fn should_not_show_a_warning_for_values_test_names() {
     let (output, _) = run_test("values_tests_name.rs");
 
-    assert_not_in!(output.stderr.str(), "warning:");
+    crate::assert_no_warning_diagnostics(output.stderr.str().as_ref());
+    TestResults::new()
+        .with_contains(true)
+        .ok_times("name_values::", 12)
+        .assert(output);
 }
 
 #[test]
@@ -419,8 +423,14 @@ mod dump_input_values {
         assert_in!(out, r#"s = "a""#);
 
         // Verify trace does NOT show "mut" in the argument name
-        assert!(!out.contains("mut fu32"), "trace should not include 'mut' keyword");
-        assert!(!out.contains("mut u"), "trace should not include 'mut' keyword");
+        assert!(
+            !out.contains("mut fu32"),
+            "trace should not include 'mut' keyword"
+        );
+        assert!(
+            !out.contains("mut u"),
+            "trace should not include 'mut' keyword"
+        );
     }
 
     #[test]
@@ -1340,7 +1350,6 @@ fn should_works_with_smol_async_runtime() {
         .ok("async_test::case_2::c_3_16")
         .assert(output);
 }
-
 
 mod async_timeout_feature {
     use super::*;
