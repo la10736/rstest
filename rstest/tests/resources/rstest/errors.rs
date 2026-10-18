@@ -124,3 +124,43 @@ struct T(u32, u32);
 #[rstest]
 #[case(T(3, 4))]
 fn wrong_destruct_fixture(T(a, b): T, #[with(42)] T(c, d): T) {}
+
+#[rstest]
+#[case(42)]
+fn error_invalid_case_arg_attribute(#[case(foo)] a: u32) {}
+
+#[rstest]
+#[case(_, 42)]
+fn error_infer_value_without_fallback(#[case] a: u32, #[case(default)] b: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_missed_value_without_fallback(#[case(opt)] a: Option<u32>, #[case] b: u32) {}
+
+#[rstest]
+#[case(1, 2, 3)]
+fn error_too_many_values_with_fallbacks(#[case] a: u32, #[case(default)] b: u32) {}
+
+#[rstest]
+#[case()]
+fn error_missed_values_in_empty_case(#[case(opt)] a: Option<u32>, #[case] b: u32, #[case] c: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_case_arg_attribute_name_value(#[case = 3] a: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_default_assign_modifier(#[case(default = 3)] a: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_more_case_arg_attributes(#[case(opt)] #[case(default)] a: Option<u32>) {}
+
+#[rstest]
+#[case(_)]
+fn error_optional_future(#[future] #[case(opt)] a: Option<u32>) {}
+
+#[rstest]
+#[case(_)]
+fn error_default_future(#[future] #[case(default)] a: u32) {}

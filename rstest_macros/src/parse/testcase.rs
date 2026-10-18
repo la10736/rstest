@@ -1,7 +1,7 @@
 use syn::{
     parse::{Error, Parse, ParseStream, Result},
     punctuated::Punctuated,
-    Attribute, Expr, Ident, Token,
+    token, Attribute, Expr, Ident, Token,
 };
 
 use proc_macro2::TokenStream;
@@ -14,6 +14,8 @@ pub(crate) struct TestCase {
     pub(crate) args: Vec<Expr>,
     pub(crate) attrs: Vec<Attribute>,
     pub(crate) description: Option<Ident>,
+    /// Used just to locate the empty cases (syn tokens are always equal)
+    pub(crate) paren: token::Paren,
 }
 
 impl Parse for TestCase {
@@ -27,7 +29,7 @@ impl Parse for TestCase {
                 description = Some(input.parse()?);
             }
             let content;
-            let _ = syn::parenthesized!(content in input);
+            let paren = syn::parenthesized!(content in input);
             let args = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?
                 .into_iter()
                 .collect();
@@ -35,6 +37,7 @@ impl Parse for TestCase {
                 args,
                 attrs,
                 description,
+                paren,
             })
         } else {
             Err(Error::new(case.span(), "expected a test case"))
@@ -45,6 +48,62 @@ impl Parse for TestCase {
 impl ToTokens for TestCase {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.args.iter().for_each(|c| c.to_tokens(tokens))
+    }
+}
+
+/// The value that a `#[case]` argument takes when a case omits it or uses `_`
+#[derive(PartialEq, Debug, Clone)]
+pub(crate) enum CaseArgFallback {
+    /// `#[case(default)]`: use `Default::default()`
+    Default(Ident),
+    /// `#[case(default(expr))]`: use the given expression
+    Value(Expr),
+    /// `#[case(opt)]`: use `None` and wrap the given values in `Some()`
+    Optional(Ident),
+}
+
+impl CaseArgFallback {
+    /// Parse the `#[case]` argument attribute: `#[case]` (or `#[case()]`) has no fallback,
+    /// `#[case(opt)]`, `#[case(default)]` and `#[case(default(expr))]` define it.
+    pub(crate) fn from_case_attribute(attr: &Attribute) -> Result<Option<Self>> {
+        const VALID_FORMS: &str =
+            "use #[case], #[case(opt)], #[case(default)] or #[case(default(...))]";
+        match &attr.meta {
+            syn::Meta::Path(_) => return Ok(None),
+            syn::Meta::List(list) if list.tokens.is_empty() => return Ok(None),
+            syn::Meta::List(_) => {}
+            syn::Meta::NameValue(_) => {
+                return Err(Error::new_spanned(
+                    attr,
+                    format!("Invalid #[case] argument attribute: {VALID_FORMS}."),
+                ))
+            }
+        }
+        attr.parse_args_with(|input: ParseStream| {
+            let modifier = input.parse::<Ident>()?;
+            let fallback = if modifier == "opt" {
+                Self::Optional(modifier)
+            } else if modifier == "default" && input.peek(token::Paren) {
+                let content;
+                let _ = syn::parenthesized!(content in input);
+                let expr = content.parse::<Expr>()?;
+                if !content.is_empty() {
+                    return Err(content.error("Invalid #[case(default(...))]: expected just one expression."));
+                }
+                Self::Value(expr)
+            } else if modifier == "default" {
+                Self::Default(modifier)
+            } else {
+                return Err(Error::new_spanned(
+                    &modifier,
+                    format!("Invalid '{modifier}' modifier for #[case] argument attribute: {VALID_FORMS}."),
+                ));
+            };
+            if !input.is_empty() {
+                return Err(input.error(format!("Invalid #[case] argument attribute: {VALID_FORMS}.")));
+            }
+            Ok(Some(fallback))
+        })
     }
 }
 

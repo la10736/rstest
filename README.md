@@ -99,6 +99,34 @@ Or create a _matrix_ test by using _list of values_ for some
 variables that will generate the cartesian product of all the
 values.
 
+#### Omit case values
+
+A `#[case]` argument can declare the value to use when a case omits it:
+`#[case(default)]` uses `Default::default()`, `#[case(default(expr))]` uses
+`expr` and `#[case(opt)]` (for `Option<T>` arguments) wraps the given plain
+`T` value in `Some()` and uses `None` when it's omitted. You can omit the
+trailing values or use `_` to skip a value in the middle.
+
+```rust
+use rstest::rstest;
+
+#[rstest]
+#[case("  hello  ")]
+#[case("--hello--", _, '-')]
+#[case("**bye**", "bye", '*')]
+fn trim(
+    #[case] input: &str,
+    #[case(default("hello"))] expected: &str,
+    #[case(opt)] c: Option<char>,
+) {
+    let trimmed = match c {
+        Some(c) => input.trim_matches(c),
+        None => input.trim(),
+    };
+    assert_eq!(expected, trimmed)
+}
+```
+
 #### Use Parametrize definition in more tests
 
 If you need to use a test list for more than one test you can use [`rstest_reuse`][reuse-crate-link]

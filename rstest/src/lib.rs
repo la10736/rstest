@@ -609,6 +609,8 @@ pub use rstest_macros::fixture;
 ///   - [`#[test_attr(...)]`](#explicit-test-attr) define an explicit test attribute
 /// - Arguments Attributes:
 ///   - [`#[case]`](#test-parametrized-cases) define an argument parametrized by test cases
+///   - [`#[case(opt)]`-`#[case(default)]`-`#[case(default(...))]`](#omit-case-values)
+///     define a case argument that can be omitted
 ///   - [`#[values(...)]`](#values-lists) define an argument that can be a list of values
 ///   - [`#[files(...)]`-`#[exclude(...)]`-`#[base_dir = ... ]`-`#[mode = ...]`](#files-path-as-input-arguments)
 ///     define an argument that can be a list of path based on a glob pattern
@@ -887,6 +889,52 @@ pub use rstest_macros::fixture;
 /// #[should_panic]
 /// fn fail(#[case] v: u32) { assert_eq!(0, v) }
 /// ```
+///
+/// ### Omit case values
+///
+/// A `#[case]` argument can declare the value to use when a case omits it:
+///
+/// - `#[case(default)]`: use [`Default::default()`]
+/// - `#[case(default(expr))]`: use `expr`
+/// - `#[case(opt)]`: the argument should be an `Option<T>`; the given value is a plain `T`
+///   value (not `Some(...)`) that will be wrapped in `Some()`, while `None` is used when
+///   it's omitted
+///
+/// You can omit the trailing values or use `_` to skip a value in the middle.
+///
+/// ```
+/// # use rstest::rstest;
+/// #[rstest]
+/// #[case("1.23456", 1.23456)]
+/// #[case("1.23456", 1.23, 2)]
+/// #[case("0.75", 1.0, 1, 2)]
+/// #[case("1", _, _, 2)]
+/// fn round(
+///     #[case] input: &str,
+///     #[case(default(1.0))] expected: f64,
+///     #[case(opt)] digits: Option<i32>,
+///     #[case(default(10))] base: i32,
+/// ) {
+///     let value: f64 = input.parse().unwrap();
+///     let value = match digits {
+///         Some(d) => (value * (base as f64).powi(d)).round() / (base as f64).powi(d),
+///         None => value,
+///     };
+///     assert_eq!(expected, value);
+/// }
+/// ```
+///
+/// [Magic conversion](#magic-conversion) works also for the `#[case(default(expr))]`
+/// expressions and for the `#[case(opt)]` values, where the conversion uses the `T` type of
+/// `Option<T>`.
+///
+/// Omitting the value of a plain `#[case]` argument is still a compile error. Moreover, a
+/// `#[future]` argument can use just `#[case(default(<future expression>))]`, because both
+/// `#[case(opt)]` and `#[case(default)]` cannot build a future.
+///
+/// Note: if you use [`rstest_reuse`](https://crates.io/crates/rstest_reuse), the `#[case]`
+/// argument attribute of the function where you apply the template replaces the
+/// template's one.
 ///
 /// ## Values Lists
 ///

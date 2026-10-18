@@ -283,6 +283,7 @@ impl<A: AsRef<str>> FromIterator<A> for TestCase {
             args: iter.into_iter().map(expr).collect(),
             attrs: Default::default(),
             description: None,
+            paren: Default::default(),
         }
     }
 }

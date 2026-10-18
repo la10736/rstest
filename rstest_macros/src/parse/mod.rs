@@ -16,7 +16,7 @@ use crate::{
 };
 use fixture::{ArgumentValue, FixtureModifiers, FixturesFunctionExtractor};
 use quote::ToTokens;
-use testcase::TestCase;
+use testcase::{CaseArgFallback, TestCase};
 
 use self::{
     expressions::Expressions,
@@ -31,7 +31,6 @@ pub(crate) mod macros;
 pub(crate) mod arguments;
 pub(crate) mod by_ref;
 pub(crate) mod context;
-pub(crate) mod default;
 pub(crate) mod expressions;
 pub(crate) mod fixture;
 pub(crate) mod future;
@@ -345,8 +344,20 @@ impl VisitMut for PartialsTypeFunctionExtractor {
     }
 }
 
-pub(crate) fn extract_case_args(item_fn: &mut ItemFn) -> Result<Vec<Pat>, ErrorsVec> {
-    let mut extractor = JustOnceFnArgAttributeExtractor::from("case");
+pub(crate) fn extract_case_args(
+    item_fn: &mut ItemFn,
+) -> Result<Vec<(Pat, Option<CaseArgFallback>)>, ErrorsVec> {
+    struct CaseArgBuilder;
+    impl AttrBuilder<Pat> for CaseArgBuilder {
+        type Out = (Pat, Option<CaseArgFallback>);
+
+        fn build(attr: syn::Attribute, pat: &Pat) -> syn::Result<Self::Out> {
+            CaseArgFallback::from_case_attribute(&attr).map(|fallback| (pat.clone(), fallback))
+        }
+    }
+    impl Validator<FnArg> for CaseArgBuilder {}
+
+    let mut extractor = JustOnceFnArgAttributeExtractor::<CaseArgBuilder>::new("case");
     extractor.visit_item_fn_mut(item_fn);
 
     extractor.take()
@@ -369,10 +380,18 @@ impl VisitMut for CasesFunctionExtractor {
                         let args = expressions.take();
                         let description =
                             attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
+                        let paren = match &attr.meta {
+                            syn::Meta::List(list) => match list.delimiter {
+                                syn::MacroDelimiter::Paren(paren) => paren,
+                                _ => Default::default(),
+                            },
+                            _ => Default::default(),
+                        };
                         self.0.push(TestCase {
                             args,
                             attrs: std::mem::take(&mut attrs_buffer),
                             description,
+                            paren,
                         });
                     }
                     Err(err) => self.1.push(err),

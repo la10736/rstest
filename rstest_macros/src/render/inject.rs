@@ -58,7 +58,9 @@ where
             .or_else(|| self.resolver.resolve(&fixture_name.clone().into_pat()))
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
 
-        if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
+        if fixture.is_literal()
+            && type_can_be_get_from_literal_str(arg_type, self.generic_types_names)
+        {
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
         }
         Some(parse_quote! {
@@ -79,25 +81,39 @@ where
             ident
         }
     }
+}
 
-    fn type_can_be_get_from_literal_str(&self, t: &Type) -> bool {
-        // Check valid type to apply magic conversion
-        match t {
-            Type::ImplTrait(_)
-            | Type::TraitObject(_)
-            | Type::Infer(_)
-            | Type::Group(_)
-            | Type::Macro(_)
-            | Type::Never(_)
-            | Type::Paren(_)
-            | Type::Verbatim(_)
-            | Type::Slice(_) => return false,
-            _ => {}
-        }
-        match t.maybe_ident() {
-            Some(id) => !self.generic_types_names.contains(id),
-            None => true,
-        }
+/// Check valid type to apply magic conversion
+fn type_can_be_get_from_literal_str(t: &Type, generic_types_names: &[Ident]) -> bool {
+    match t {
+        Type::ImplTrait(_)
+        | Type::TraitObject(_)
+        | Type::Infer(_)
+        | Type::Group(_)
+        | Type::Macro(_)
+        | Type::Never(_)
+        | Type::Paren(_)
+        | Type::Verbatim(_)
+        | Type::Slice(_) => return false,
+        _ => {}
+    }
+    match t.maybe_ident() {
+        Some(id) => !generic_types_names.contains(id),
+        None => true,
+    }
+}
+
+/// Apply the magic conversion to `expr` if it's a literal string and the `arg_type`
+/// can be built from it.
+pub(crate) fn magic_conversion<'a>(
+    expr: Cow<'a, Expr>,
+    arg_type: &Type,
+    generic_types_names: &[Ident],
+) -> Cow<'a, Expr> {
+    if expr.is_literal() && type_can_be_get_from_literal_str(arg_type, generic_types_names) {
+        Cow::Owned(handling_magic_conversion_code(expr, arg_type))
+    } else {
+        expr
     }
 }
 

@@ -227,8 +227,12 @@ fn collect_template_args(template: &ItemFn) -> HashMap<&Ident, &PatType> {
 }
 
 fn merge_arg_attributes(dest: &mut Vec<Attribute>, source: &[Attribute]) {
+    // The function's `#[case]` argument attribute wins over the template one: they can
+    // differ just by the modifier (e.g. `#[case(default)]`) and `#[case]` can be used once.
+    let is_case = |attr: &Attribute| attr.path().is_ident("case");
+    let dest_has_case = dest.iter().any(is_case);
     for s in source.iter() {
-        if !dest.contains(s) {
+        if !dest.contains(s) && !(dest_has_case && is_case(s)) {
             dest.push(s.clone())
         }
     }

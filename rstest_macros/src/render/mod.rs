@@ -3,21 +3,24 @@ pub(crate) mod fixture;
 mod test;
 mod wrapper;
 
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use syn::token::Async;
 
-use proc_macro2::{Span, TokenStream};
-use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Pat, Path, ReturnType, Stmt};
+use proc_macro2::TokenStream;
+use syn::{
+    parse_quote, Attribute, Expr, FnArg, GenericArgument, Ident, ItemFn, Pat, Path, PathArguments,
+    ReturnType, Stmt, Type,
+};
 
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 
 use crate::refident::{MaybePat, MaybePatIdent};
 use crate::utils::sanitize_ident;
 use crate::{
     parse::{
         rstest::{RsTestAttributes, RsTestInfo},
-        testcase::TestCase,
+        testcase::{CaseArgFallback, TestCase},
         vlist::ValueList,
     },
     utils::attr_is,
@@ -38,16 +41,12 @@ pub(crate) mod inject;
 pub(crate) fn single(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test.apply_arguments(&mut info.arguments, &mut ());
 
+    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
+
     let args = test.sig.inputs.iter().cloned().collect::<Vec<_>>();
     let attrs = std::mem::take(&mut test.attrs);
     let asyncness = test.sig.asyncness;
-    let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
-    let resolver: Box<dyn Resolver> = if info.arguments.is_default() {
-        Box::new((resolver, crate::resolver::DefaultResolver))
-    } else {
-        Box::new(resolver)
-    };
     single_test_case(
         &test.sig.ident,
         &test.sig.ident,
@@ -69,7 +68,7 @@ pub(crate) fn parametrize(mut test: ItemFn, info: RsTestInfo) -> TokenStream {
 
     let resolver_fixtures = resolver::fixtures::get(&info.arguments, info.data.fixtures());
 
-    let rendered_cases = cases_data(&info, test.sig.ident.span())
+    let rendered_cases = cases_data(&info, &test)
         .map(|c| {
             CaseDataValues::new(
                 c.ident,
@@ -183,16 +182,14 @@ fn _matrix_recursive<'a>(
 
 pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
     test.apply_arguments(&mut info.arguments, &mut ());
-    let span = test.sig.ident.span();
-
-    let cases = cases_data(&info, span).collect::<Vec<_>>();
 
     let resolver = resolver::fixtures::get(&info.arguments, info.data.fixtures());
-    let rendered_cases = if cases.is_empty() {
-        let list_values = info.data.list_values().collect::<Vec<_>>();
-        _matrix_recursive(&test, &list_values, &resolver, &[], &info, &None)
-    } else {
-        cases
+    let rendered_cases = match cases_data(&info, &test).collect::<Vec<_>>() {
+        cases if cases.is_empty() => {
+            let list_values = info.data.list_values().collect::<Vec<_>>();
+            _matrix_recursive(&test, &list_values, &resolver, &[], &info, &None)
+        }
+        cases => cases
             .into_iter()
             .map(|c| {
                 let list_values = info.data.list_values().collect::<Vec<_>>();
@@ -206,7 +203,7 @@ pub(crate) fn matrix(mut test: ItemFn, mut info: RsTestInfo) -> TokenStream {
                 )
                 .wrap_by_mod(&c.ident)
             })
-            .collect()
+            .collect(),
     };
 
     test_group(test, rendered_cases)
@@ -503,27 +500,96 @@ impl<'a> CaseDataValues<'a> {
     }
 }
 
-fn cases_data(info: &RsTestInfo, name_span: Span) -> impl Iterator<Item = CaseDataValues<'_>> {
+fn cases_data<'a>(
+    info: &'a RsTestInfo,
+    test: &'a ItemFn,
+) -> impl Iterator<Item = CaseDataValues<'a>> {
+    let name_span = test.sig.ident.span();
     let display_len = info.data.cases().count().display_len();
+    let generic_types = generics_types_ident(&test.sig.generics)
+        .cloned()
+        .collect::<Vec<_>>();
     info.data.cases().enumerate().map({
         move |(n, case)| {
             let resolver_case = info
                 .data
-                .case_args()
-                .map(|arg| info.arguments.inner_pat(arg).clone())
-                .zip(case.args.iter())
+                .case_args_with_fallback()
+                .enumerate()
+                .filter_map(|(i, (arg, fallback))| {
+                    let inner_pat = info.arguments.inner_pat(arg);
+                    // `#[case(opt)]` values are converted by the `Option`'s inner type
+                    let inner_type = fn_arg_type(test, inner_pat).and_then(option_inner_type);
+                    let convert = |expr: &'a Expr| match inner_type {
+                        Some(inner) => {
+                            inject::magic_conversion(Cow::Borrowed(expr), inner, &generic_types)
+                        }
+                        None => Cow::Borrowed(expr),
+                    };
+                    case_arg_value(case.args.get(i), fallback, convert)
+                        .map(|value| (inner_pat.clone(), value))
+                })
                 .collect::<HashMap<_, _>>();
-            let resolver: Box<dyn Resolver> = if info.arguments.is_default() {
-                Box::new((resolver_case, crate::resolver::DefaultResolver))
-            } else {
-                Box::new(resolver_case)
-            };
             CaseDataValues::new(
                 Ident::new(&format_case_name(case, n + 1, display_len), name_span),
                 case.attrs.as_slice(),
-                resolver,
+                Box::new(resolver_case),
                 Some(CaseInfo::new(case.description.clone(), n)),
             )
         }
     })
+}
+
+/// Compute the value of a case argument: when the value is omitted or it's `_` we use
+/// the argument fallback (`error::rstest()` already checked that the argument has one).
+/// The `#[case(opt)]` values are converted by `convert_optional` and wrapped in `Some()`.
+fn case_arg_value<'a>(
+    value: Option<&'a Expr>,
+    fallback: Option<&'a CaseArgFallback>,
+    convert_optional: impl FnOnce(&'a Expr) -> Cow<'a, Expr>,
+) -> Option<Cow<'a, Expr>> {
+    let value = value.filter(|expr| !matches!(expr, Expr::Infer(_)));
+    match (value, fallback) {
+        (Some(expr), Some(CaseArgFallback::Optional(_))) => {
+            let expr = convert_optional(expr);
+            Some(Cow::Owned(
+                parse_quote! { ::core::option::Option::Some(#expr) },
+            ))
+        }
+        (Some(expr), _) => Some(Cow::Borrowed(expr)),
+        (None, Some(CaseArgFallback::Default(default))) => Some(Cow::Owned(parse_quote_spanned(
+            quote_spanned! { default.span() => ::core::default::Default::default() },
+        ))),
+        (None, Some(CaseArgFallback::Value(expr))) => Some(Cow::Borrowed(expr)),
+        (None, Some(CaseArgFallback::Optional(opt))) => Some(Cow::Owned(parse_quote_spanned(
+            quote_spanned! { opt.span() => ::core::option::Option::None },
+        ))),
+        (None, None) => None,
+    }
+}
+
+fn parse_quote_spanned(tokens: TokenStream) -> Expr {
+    syn::parse2(tokens).expect("BUG: should be a valid expression")
+}
+
+fn fn_arg_type<'a>(test: &'a ItemFn, pat: &Pat) -> Option<&'a Type> {
+    test.sig.inputs.iter().find_map(|arg| match arg {
+        FnArg::Typed(t) if t.pat.as_ref() == pat => Some(t.ty.as_ref()),
+        _ => None,
+    })
+}
+
+/// Return `T` if the given type is `Option<T>`
+fn option_inner_type(ty: &Type) -> Option<&Type> {
+    let Type::Path(path) = ty else { return None };
+    let segment = path.path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
+    }
+    match &segment.arguments {
+        PathArguments::AngleBracketed(args) if args.args.len() == 1 => match args.args.first()? {
+            GenericArgument::Type(inner) => Some(inner),
+            _ => None,
+        },
+        _ => None,
+    }
 }
