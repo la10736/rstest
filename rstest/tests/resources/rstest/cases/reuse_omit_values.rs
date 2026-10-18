@@ -29,8 +29,19 @@ fn apply_and_add_modifier(expected: u32, #[case(default(7))] value: u32) {
     assert_eq!(expected, value);
 }
 
-#[apply(plain_template)]
-#[case(0, _)]
-fn apply_and_add_optional(expected: u32, #[case(opt)] value: Option<u32>) {
-    assert_eq!(expected, value.unwrap_or_default());
+#[apply(template_with_fallback)]
+fn apply_with_plain_case_attributes(#[case] expected: u32, #[case] value: u32) {
+    // The template's `#[case(default)]` is not replaced by the plain `#[case]`
+    assert_eq!(expected, value);
+}
+
+#[template]
+#[rstest]
+#[case(Some(1), 1)]
+fn plain_optional_template(#[case] expected: Option<u32>, #[case] value: Option<u32>) {}
+
+#[apply(plain_optional_template)]
+#[case(None, _)]
+fn apply_and_add_optional(expected: Option<u32>, #[case(opt)] value: Option<u32>) {
+    assert_eq!(expected, value);
 }

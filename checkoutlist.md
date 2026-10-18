@@ -19,6 +19,7 @@
   - [ ]  `cargo publish -p rstest_macros`
   - [ ]  `cargo publish -p rstest --dry-run`
   - [ ]  `cargo publish -p rstest`
+  - [ ]  If `rstest_reuse` changed, release it too (see `rstest_reuse/checkoutlist.md`)
 - [ ] Prepare next changelog
 - [ ] New `-dev` version
 - [ ] Update inner `rstest` reference

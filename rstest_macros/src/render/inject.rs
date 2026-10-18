@@ -52,17 +52,17 @@ where
         let arg_type = arg.maybe_type()?;
         let fixture_name = self.fixture_name(pat);
 
-        let mut fixture = self
+        let fixture = self
             .resolver
             .resolve(pat)
             .or_else(|| self.resolver.resolve(&fixture_name.clone().into_pat()))
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
-
-        if fixture.is_literal()
-            && type_can_be_get_from_literal_str(arg_type, self.generic_types_names)
-        {
-            fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
-        }
+        let fixture = convert_literal(
+            fixture,
+            arg_type,
+            self.generic_types_names,
+            self.magic_conversion,
+        );
         Some(parse_quote! {
             #unused_mut
             let #pat = #fixture;
@@ -110,8 +110,22 @@ pub(crate) fn magic_conversion<'a>(
     arg_type: &Type,
     generic_types_names: &[Ident],
 ) -> Cow<'a, Expr> {
+    convert_literal(
+        expr,
+        arg_type,
+        generic_types_names,
+        &handling_magic_conversion_code,
+    )
+}
+
+fn convert_literal<'a>(
+    expr: Cow<'a, Expr>,
+    arg_type: &Type,
+    generic_types_names: &[Ident],
+    conversion: &dyn Fn(Cow<Expr>, &Type) -> Expr,
+) -> Cow<'a, Expr> {
     if expr.is_literal() && type_can_be_get_from_literal_str(arg_type, generic_types_names) {
-        Cow::Owned(handling_magic_conversion_code(expr, arg_type))
+        Cow::Owned(conversion(expr, arg_type))
     } else {
         expr
     }

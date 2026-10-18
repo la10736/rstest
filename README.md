@@ -105,7 +105,8 @@ A `#[case]` argument can declare the value to use when a case omits it:
 `#[case(default)]` uses `Default::default()`, `#[case(default(expr))]` uses
 `expr` and `#[case(opt)]` (for `Option<T>` arguments) wraps the given plain
 `T` value in `Some()` and uses `None` when it's omitted. You can omit the
-trailing values or use `_` to skip a value in the middle.
+trailing values or use `_` to skip a value in the middle, while omitting the
+value of a plain `#[case]` argument is still a compile error.
 
 ```rust
 use rstest::rstest;

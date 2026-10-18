@@ -318,7 +318,7 @@ fn invalid_case(
     errors
 }
 
-/// Point to the case values or to the parenthesis if the case is empty
+/// Point to the case values or to the parentheses if the case is empty
 fn case_error(case: &TestCase, message: &str) -> syn::Error {
     if case.args.is_empty() {
         syn::Error::new(case.paren.span.join(), message)
@@ -330,7 +330,15 @@ fn case_error(case: &TestCase, message: &str) -> syn::Error {
 fn arg_name(arg: &Pat) -> String {
     arg.maybe_ident()
         .map(ToString::to_string)
-        .unwrap_or_else(|| arg.to_token_stream().to_string())
+        .unwrap_or_else(|| {
+            // Compact the tokens spacing (e.g. `T (x , y)` -> `T(x, y)`)
+            arg.to_token_stream()
+                .to_string()
+                .replace(" ,", ",")
+                .replace(" (", "(")
+                .replace("( ", "(")
+                .replace(" )", ")")
+        })
 }
 
 fn case_fallbacks_on_future_args(info: &RsTestInfo) -> Errors<'_> {
@@ -568,7 +576,7 @@ mod test {
     )]
     #[case::destruct(
         "#[case()] fn f(#[case(default)] a: u32, #[case] T(x, y): T) {}",
-        &["Missing 'T (x , y)' value"]
+        &["Missing 'T(x, y)' value"]
     )]
     fn invalid_cases_should_return_errors(#[case] f: &str, #[case] messages: &[&str]) {
         let info = rstest_info(f);

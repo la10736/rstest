@@ -228,6 +228,20 @@ mod should {
         assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
     }
 
+    #[rstest]
+    #[case::same_mutability("fn function(mut foo: String) {}")]
+    #[case::not_mut_searched("fn function(foo: String) {}")]
+    fn return_the_given_cow_expression(#[case] function: &str) {
+        let ast = parse_str(function).unwrap();
+        let arg = first_arg_pat(&ast);
+        let expected = expr("bar()");
+        let mut resolver = HashMap::new();
+
+        resolver.insert(pat("foo").with_mut(), Cow::Borrowed(&expected));
+
+        assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
+    }
+
     #[test]
     fn return_none_for_unknown_argument() {
         let ast = "fn function(mut fix: String) {}".ast();

@@ -164,3 +164,29 @@ fn error_optional_future(#[future] #[case(opt)] a: Option<u32>) {}
 #[rstest]
 #[case(_)]
 fn error_default_future(#[future] #[case(default)] a: u32) {}
+
+struct NoDefault;
+
+#[rstest]
+#[case()]
+fn error_default_not_implemented(#[case(default)] a: NoDefault) {}
+
+#[rstest]
+#[case(42)]
+fn error_default_without_expression(#[case(default())] a: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_default_with_more_expressions(#[case(default(1, 2))] a: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_case_arg_attribute_not_ident(#[case(42)] a: u32) {}
+
+#[rstest]
+#[case(42)]
+fn error_case_arg_attribute_brackets(#[case[opt]] a: Option<u32>) {}
+
+#[rstest]
+#[case(42)]
+fn error_optional_not_option(#[case(opt)] a: u32) {}

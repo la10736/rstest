@@ -112,7 +112,7 @@ fn with_values(#[case] expected: u32, #[case(default)] value: u32, #[values(5, 6
 
 #[rstest]
 #[case(3, Some(4), 2, 3)]
-#[case(1, Some(1))]
+#[case(1, None)]
 fn mutable(
     #[case] expected: u32,
     #[case] expected_opt: Option<u32>,
@@ -124,7 +124,7 @@ fn mutable(
         *o += 1;
     }
     assert_eq!(expected, value);
-    assert_eq!(expected_opt, opt.or(Some(value)));
+    assert_eq!(expected_opt, opt);
 }
 
 struct T(u32, u32);
@@ -150,11 +150,11 @@ fn by_ref(#[case] expected: u32, #[by_ref] #[case(default)] value: &u32) {
 }
 
 #[rstest]
-#[case(42, 42)]
-#[case(0)]
+#[case(Some(42), 42)]
+#[case(None)]
 #[trace]
-fn trace(#[case] expected: u32, #[case(opt)] value: Option<u32>) {
-    assert_eq!(expected, value.unwrap_or_default());
+fn trace(#[case] expected: Option<u32>, #[case(opt)] value: Option<u32>) {
+    assert_eq!(expected, value);
 }
 
 #[rstest]
@@ -183,5 +183,14 @@ async fn future(
 #[case(0)]
 #[async_std::test]
 async fn async_test(#[case] expected: u32, #[case(default)] value: u32) {
+    assert_eq!(expected, value);
+}
+
+#[rstest]
+#[case(2, 1)]
+#[case(1)]
+#[async_std::test]
+async fn async_mutable(#[case] expected: u32, #[case(default)] mut value: u32) {
+    value += 1;
     assert_eq!(expected, value);
 }

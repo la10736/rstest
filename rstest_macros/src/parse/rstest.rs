@@ -183,7 +183,7 @@ impl ExtendWithFunctionAttrs for RsTestData {
 #[derive(PartialEq, Debug)]
 pub(crate) enum RsTestItem {
     Fixture(Fixture),
-    /// A case argument and the value to use when a case omit it
+    /// A case argument and the value to use when a case omits it
     CaseArgName(Pat, Option<CaseArgFallback>),
     TestCase(TestCase),
     ValueList(ValueList),
@@ -1018,11 +1018,16 @@ mod test {
 
         #[rstest]
         #[case::unknown("#[case(foo)]", "Invalid 'foo' modifier for #[case] argument")]
-        #[case::not_ident("#[case(42)]", "expected identifier")]
+        #[case::not_ident("#[case(42)]", "Invalid #[case] argument attribute: use")]
+        #[case::brackets("#[case[opt]]", "Invalid #[case] argument attribute: use")]
+        #[case::braces("#[case{default}]", "Invalid #[case] argument attribute: use")]
         #[case::more_args("#[case(opt, foo)]", "Invalid #[case] argument attribute: use")]
         #[case::name_value("#[case = 42]", "Invalid #[case] argument attribute: use")]
         #[case::default_assign("#[case(default = 42)]", "Invalid #[case] argument attribute")]
-        #[case::default_without_expression("#[case(default())]", "expected an expression")]
+        #[case::default_without_expression(
+            "#[case(default())]",
+            "Invalid #[case(default(...))]: expected an expression"
+        )]
         #[case::default_with_more_expressions("#[case(default(1, 2))]", "expected just one")]
         #[case::more_than_once("#[case(opt)] #[case(default)]", "more than once")]
         fn should_reject_invalid_case_arg_attribute(#[case] attr: &str, #[case] message: &str) {

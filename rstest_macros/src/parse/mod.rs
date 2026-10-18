@@ -381,9 +381,8 @@ impl VisitMut for CasesFunctionExtractor {
                         let description =
                             attr.path().segments.iter().nth(1).map(|p| p.ident.clone());
                         let paren = match &attr.meta {
-                            syn::Meta::List(list) => match list.delimiter {
-                                syn::MacroDelimiter::Paren(paren) => paren,
-                                _ => Default::default(),
+                            syn::Meta::List(list) => token::Paren {
+                                span: *list.delimiter.span(),
                             },
                             _ => Default::default(),
                         };

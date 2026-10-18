@@ -706,6 +706,8 @@ mod cases {
             .ok("future::case_2")
             .ok("async_test::case_1")
             .ok("async_test::case_2")
+            .ok("async_mutable::case_1")
+            .ok("async_mutable::case_2")
             .assert(output);
     }
 
@@ -726,6 +728,8 @@ mod cases {
             .ok("apply_and_add_omitting_case::case_3")
             .ok("apply_and_add_modifier::case_1")
             .ok("apply_and_add_modifier::case_2")
+            .ok("apply_with_plain_case_attributes::case_1")
+            .ok("apply_with_plain_case_attributes::case_2")
             .ok("apply_and_add_optional::case_1")
             .ok("apply_and_add_optional::case_2")
             .assert(output);
@@ -2169,6 +2173,114 @@ mod should_show_correct_errors {
                     |
                 166 | fn error_default_future(#[future] #[case(default)] a: u32) {{}}
                     |                                          ^^^^^^^"#
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_default_case_arg_type_does_not_implement_default() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error[E0277]: the trait bound `NoDefault: Default` is not satisfied
+                   --> {name}{SRC_LIB_RS}:172:41
+                    |
+                172 | fn error_default_not_implemented(#[case(default)] a: NoDefault) {{}}
+                    |                                         ^^^^^^^"#
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_default_case_arg_has_no_expression() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Invalid #[case(default(...))]: expected an expression.
+                   --> {name}{SRC_LIB_RS}:176:51
+                    |
+                176 | fn error_default_without_expression(#[case(default())] a: u32) {{}}
+                    |                                                   ^^"#
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_default_case_arg_has_more_expressions() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Invalid #[case(default(...))]: expected just one expression.
+                   --> {name}{SRC_LIB_RS}:180:56
+                    |
+                180 | fn error_default_with_more_expressions(#[case(default(1, 2))] a: u32) {{}}
+                    |                                                        ^"#
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_case_arg_attribute_modifier_is_not_an_ident() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Invalid #[case] argument attribute: use #[case], #[case(opt)], #[case(default)] or #[case(default(...))].
+                   --> {name}{SRC_LIB_RS}:184:46
+                    |
+                184 | fn error_case_arg_attribute_not_ident(#[case(42)] a: u32) {{}}
+                    |                                              ^^"#
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_case_arg_attribute_uses_brackets() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error: Invalid #[case] argument attribute: use #[case], #[case(opt)], #[case(default)] or #[case(default(...))].
+                   --> {name}{SRC_LIB_RS}:188:38
+                    |
+                188 | fn error_case_arg_attribute_brackets(#[case[opt]] a: Option<u32>) {{}}
+                    |                                      ^^^^^^^^^^^^"#
+            )
+            .unindent()
+        );
+    }
+
+    #[test]
+    fn if_optional_case_arg_is_not_an_option() {
+        let (output, name) = execute();
+
+        assert_in!(
+            output.stderr.str(),
+            format!(
+                r#"
+                error[E0308]: mismatched types
+                   --> {name}{SRC_LIB_RS}:192:43
+                    |
+                192 | fn error_optional_not_option(#[case(opt)] a: u32) {{}}
+                    |    -------------------------              ^ expected `u32`, found `Option<{{integer}}>`"#
             )
             .unindent()
         );

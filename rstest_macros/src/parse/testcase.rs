@@ -58,52 +58,68 @@ pub(crate) enum CaseArgFallback {
     Default(Ident),
     /// `#[case(default(expr))]`: use the given expression
     Value(Expr),
-    /// `#[case(opt)]`: use `None` and wrap the given values in `Some()`
+    /// `#[case(opt)]`: use `None` and wrap the given value in `Some()`
     Optional(Ident),
 }
+
+const VALID_CASE_ARG_FORMS: &str =
+    "use #[case], #[case(opt)], #[case(default)] or #[case(default(...))]";
 
 impl CaseArgFallback {
     /// Parse the `#[case]` argument attribute: `#[case]` (or `#[case()]`) has no fallback,
     /// `#[case(opt)]`, `#[case(default)]` and `#[case(default(expr))]` define it.
     pub(crate) fn from_case_attribute(attr: &Attribute) -> Result<Option<Self>> {
-        const VALID_FORMS: &str =
-            "use #[case], #[case(opt)], #[case(default)] or #[case(default(...))]";
+        let message = format!("Invalid #[case] argument attribute: {VALID_CASE_ARG_FORMS}.");
+        let invalid = |span: proc_macro2::Span| Error::new(span, &message);
         match &attr.meta {
             syn::Meta::Path(_) => return Ok(None),
+            syn::Meta::List(list) if !matches!(list.delimiter, syn::MacroDelimiter::Paren(_)) => {
+                return Err(Error::new_spanned(attr, &message))
+            }
             syn::Meta::List(list) if list.tokens.is_empty() => return Ok(None),
             syn::Meta::List(_) => {}
-            syn::Meta::NameValue(_) => {
-                return Err(Error::new_spanned(
-                    attr,
-                    format!("Invalid #[case] argument attribute: {VALID_FORMS}."),
-                ))
-            }
+            syn::Meta::NameValue(_) => return Err(Error::new_spanned(attr, &message)),
         }
         attr.parse_args_with(|input: ParseStream| {
-            let modifier = input.parse::<Ident>()?;
+            let modifier = input.parse::<Ident>().map_err(|_| invalid(input.span()))?;
             let fallback = if modifier == "opt" {
                 Self::Optional(modifier)
             } else if modifier == "default" && input.peek(token::Paren) {
-                let content;
-                let _ = syn::parenthesized!(content in input);
-                let expr = content.parse::<Expr>()?;
-                if !content.is_empty() {
-                    return Err(content.error("Invalid #[case(default(...))]: expected just one expression."));
-                }
-                Self::Value(expr)
+                Self::Value(Self::parse_default_expression(input)?)
             } else if modifier == "default" {
                 Self::Default(modifier)
             } else {
                 return Err(Error::new_spanned(
                     &modifier,
-                    format!("Invalid '{modifier}' modifier for #[case] argument attribute: {VALID_FORMS}."),
+                    format!(
+                        "Invalid '{modifier}' modifier for #[case] argument attribute: \
+                        {VALID_CASE_ARG_FORMS}."
+                    ),
                 ));
             };
             if !input.is_empty() {
-                return Err(input.error(format!("Invalid #[case] argument attribute: {VALID_FORMS}.")));
+                return Err(invalid(input.span()));
             }
             Ok(Some(fallback))
         })
+    }
+
+    fn parse_default_expression(input: ParseStream) -> Result<Expr> {
+        let content;
+        let paren = syn::parenthesized!(content in input);
+        if content.is_empty() {
+            return Err(Error::new(
+                paren.span.join(),
+                "Invalid #[case(default(...))]: expected an expression.",
+            ));
+        }
+        let expr = content.parse::<Expr>()?;
+        if !content.is_empty() {
+            return Err(
+                content.error("Invalid #[case(default(...))]: expected just one expression.")
+            );
+        }
+        Ok(expr)
     }
 }
 
