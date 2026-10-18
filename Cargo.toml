@@ -1,4 +1,4 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 exclude = ["playground", "rstest_fixtures"]
 members = ["rstest_macros", "rstest", "rstest_test", "rstest_reuse"]

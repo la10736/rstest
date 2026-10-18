@@ -147,8 +147,10 @@ impl Project {
         {
             0 => {
                 std::fs::File::create(self.code_path()).unwrap();
-                // Suppress nightly cargo lints in generated test projects
-                if matches!(self.channel, Some(Channel::Nightly)) {
+                // Suppress cargo lints in generated test projects. Older cargo
+                // versions warn about the unknown `lints.cargo` table, so add it only
+                // when cargo supports it.
+                if self.cargo_supports_cargo_lints() {
                     let mut doc = self.read_cargo_toml();
                     doc["lints"]["cargo"]["unused_dependencies"]
                         .or_insert(Item::Value("allow".into()));
@@ -161,6 +163,24 @@ impl Project {
 
             code => panic!("cargo init return an error code: {code}"),
         }
+    }
+
+    /// `[lints.cargo]` is stable since cargo 1.100 and always accepted on nightly.
+    fn cargo_supports_cargo_lints(&self) -> bool {
+        const FIRST_STABLE_MINOR: u32 = 100;
+        if matches!(self.channel, Some(Channel::Nightly)) {
+            return true;
+        }
+        let Ok(output) = self.cargo_cmd_in(&self.root).arg("-V").output() else {
+            return false;
+        };
+        // Output looks like `cargo 1.100.0-beta.7 (72b77b8d9 2026-10-17)`
+        String::from_utf8_lossy(&output.stdout)
+            .split_whitespace()
+            .nth(1)
+            .and_then(|v| v.split('.').nth(1))
+            .and_then(|minor| minor.parse::<u32>().ok())
+            .is_some_and(|minor| minor >= FIRST_STABLE_MINOR)
     }
 
     fn has_test_global_attribute(&self, path: impl AsRef<Path>) -> bool {
@@ -219,11 +239,15 @@ impl Project {
     }
 
     fn cargo_cmd(&self) -> Command {
+        self.cargo_cmd_in(self.path())
+    }
+
+    fn cargo_cmd_in(&self, dir: impl AsRef<Path>) -> Command {
         let mut cmd = Command::new("cargo");
         if let Some(channel) = &self.cargo_channel_arg() {
             cmd.arg(channel);
         }
-        cmd.current_dir(self.path());
+        cmd.current_dir(dir);
         cmd
     }
 
