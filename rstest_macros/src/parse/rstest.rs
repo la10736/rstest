@@ -1,4 +1,7 @@
-use syn::{parse::{Parse, ParseStream}, Ident, ItemFn, Pat, Token};
+use syn::{
+    parse::{Parse, ParseStream},
+    Ident, ItemFn, Pat, Token,
+};
 
 use self::files::{extract_files, ValueListFromFiles};
 
@@ -14,11 +17,11 @@ use super::{
     testcase::{CaseArgFallback, TestCase},
     Attribute, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
+use crate::parse::rstest::test_attr::extract_test_attr;
 use crate::{error::ErrorsVec, refident::IntoPat};
 use crate::{parse::vlist::ValueList, refident::MaybePat};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, ToTokens};
-use crate::parse::rstest::test_attr::extract_test_attr;
 
 pub(crate) mod files;
 mod test_attr;
@@ -49,25 +52,28 @@ impl Parse for RsTestInfo {
 
 impl ExtendWithFunctionAttrs for RsTestInfo {
     fn extend_with_function_attrs(&mut self, item_fn: &mut ItemFn) -> Result<(), ErrorsVec> {
-        let (composed_tuple!(
-            excluded, _timeout, futures, global_awt, by_refs, ignores, contexts, test_attr
-            // Append here new extraction
-        ), _inner) = merge_errors!(
-                merge_errors!(
-                    extract_excluded_trace(item_fn),
-                    check_timeout_attrs(item_fn),
-                    extract_futures(item_fn),
-                    extract_global_awt(item_fn),
-                    extract_by_ref(item_fn),
-                    extract_ignores(item_fn),
-                    extract_context(item_fn),
-                    extract_test_attr(item_fn),
-                    // Append here new extraction
-                ),
+        let (
+            composed_tuple!(
+                excluded, _timeout, futures, global_awt, by_refs, ignores, contexts,
+                test_attr // Append here new extraction
+            ),
+            _inner,
+        ) = merge_errors!(
+            merge_errors!(
+                extract_excluded_trace(item_fn),
+                check_timeout_attrs(item_fn),
+                extract_futures(item_fn),
+                extract_global_awt(item_fn),
+                extract_by_ref(item_fn),
+                extract_ignores(item_fn),
+                extract_context(item_fn),
+                extract_test_attr(item_fn),
+                // Append here new extraction
+            ),
             // This one should be always the last one!
             self.data.extend_with_function_attrs(item_fn)
         )?;
-        
+
         self.attributes.add_notraces(excluded);
         self.arguments.set_global_await(global_awt);
         self.arguments.set_futures(futures.into_iter());
@@ -402,8 +408,8 @@ mod test {
     }
 
     mod no_cases {
-        use std::collections::HashSet;
         use super::{assert_eq, *};
+        use std::collections::HashSet;
 
         #[test]
         fn happy_path() {
@@ -609,8 +615,7 @@ mod test {
 
         #[test]
         fn extract_test_attr() {
-            let mut item_fn =
-                "#[test_attr(some_valid_data)] fn f() {}".ast();
+            let mut item_fn = "#[test_attr(some_valid_data)] fn f() {}".ast();
             let expected = "fn f() {}".ast();
 
             let mut info = RsTestInfo::default();

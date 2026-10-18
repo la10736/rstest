@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use quote::format_ident;
+use std::collections::{HashMap, HashSet};
 use syn::{FnArg, Ident, Pat};
 
 use crate::{

@@ -61,7 +61,8 @@ mod should {
     fn not_show_any_warning() {
         let (output, _) = run_test("no_warning.rs");
 
-        assert_not_in!(output.stderr.str(), "warning:");
+        crate::assert_no_warning_diagnostics(output.stderr.str().as_ref());
+        TestResults::new().ok("the_test").assert(output);
     }
 
     #[test]

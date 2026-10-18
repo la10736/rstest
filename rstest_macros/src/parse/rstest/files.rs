@@ -273,7 +273,14 @@ impl TryFrom<Attribute> for Exclude {
 
 impl From<Vec<LitStrAttr>> for FilesGlobReferences {
     fn from(value: Vec<LitStrAttr>) -> Self {
-        Self::new(value, Default::default(), true, true, false, Default::default())
+        Self::new(
+            value,
+            Default::default(),
+            true,
+            true,
+            false,
+            Default::default(),
+        )
     }
 }
 
@@ -365,11 +372,9 @@ impl ValueFilesExtractor {
             node,
             |a| attr_is(a, "dirs"),
             |attr| {
-                attr.meta.require_path_only().map_err(|_| {
-                    attr.error(
-                        "Use #[dirs] to include matched directories",
-                    )
-                })?;
+                attr.meta
+                    .require_path_only()
+                    .map_err(|_| attr.error("Use #[dirs] to include matched directories"))?;
                 Ok(attr)
             },
         )
@@ -782,20 +787,22 @@ mod should {
             files,
             expected_files
                 .into_iter()
-                .map(|(id, base_dir, globs, ex, ignore_dirs, ignore, ignore_envvars)| {
-                    (
-                        ident(id),
-                        FilesGlobReferences::new(
-                            globs.as_ref().iter().map(files_attr).collect(),
-                            ex.as_ref().iter().map(|&ex| ex.into()).collect(),
-                            *ignore_dirs,
-                            *ignore,
-                            *ignore_envvars,
-                            Default::default(),
+                .map(
+                    |(id, base_dir, globs, ex, ignore_dirs, ignore, ignore_envvars)| {
+                        (
+                            ident(id),
+                            FilesGlobReferences::new(
+                                globs.as_ref().iter().map(files_attr).collect(),
+                                ex.as_ref().iter().map(|&ex| ex.into()).collect(),
+                                *ignore_dirs,
+                                *ignore,
+                                *ignore_envvars,
+                                Default::default(),
+                            )
+                            .with_base_dir_opt(base_dir.map(base_dir_attr)),
                         )
-                        .with_base_dir_opt(base_dir.map(base_dir_attr)),
-                    )
-                })
+                    }
+                )
                 .collect::<Vec<_>>()
         );
     }
@@ -831,10 +838,7 @@ mod should {
         r#"fn f(#[files("some")] #[include_dot_files] #[include_dot_files] a: PathBuf) {}"#,
         "more than once"
     )]
-    #[case::dirs_without_files(
-        r#"fn f(#[dirs] a: PathBuf) {}"#,
-        "#[dirs] without #[files(...)]"
-    )]
+    #[case::dirs_without_files(r#"fn f(#[dirs] a: PathBuf) {}"#, "#[dirs] without #[files(...)]")]
     #[case::dirs_more_than_once(
         r#"fn f(#[files("some")] #[dirs] #[dirs] a: PathBuf) {}"#,
         "more than once"
