@@ -2,12 +2,14 @@
 use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
-use syn::{visit, ItemFn, Pat};
+use quote::ToTokens;
+use syn::{visit, Expr, ItemFn, Pat};
 use syn::{spanned::Spanned, visit::Visit};
 
 use crate::parse::{
     fixture::FixtureInfo,
     rstest::{RsTestData, RsTestInfo},
+    testcase::{CaseArgFallback, TestCase},
 };
 use crate::parse::arguments::ArgumentsInfo;
 use crate::refident::{MaybeIdent, MaybePat};
@@ -25,7 +27,8 @@ pub mod messages {
 pub(crate) fn rstest(test: &ItemFn, info: &RsTestInfo) -> TokenStream {
     missed_arguments(test, info.data.items.iter())
         .chain(duplicate_arguments(info.data.items.iter()))
-        .chain(invalid_cases(&info.data))
+        .chain(invalid_cases(info))
+        .chain(case_fallbacks_on_future_args(info))
         .chain(case_args_without_cases(&info.data))
         .chain(destruct_fixture_without_from(test, info))
         .chain(test_attributes(test, &info.arguments))
@@ -250,17 +253,110 @@ fn duplicate_arguments<'a, I: MaybePat + Spanned + 'a>(
     )
 }
 
-fn invalid_cases(params: &RsTestData) -> Errors<'_> {
-    let n_args = params.case_args().count();
+fn invalid_cases(info: &RsTestInfo) -> Errors<'_> {
+    let case_args = info.data.case_args_with_fallback().collect::<Vec<_>>();
+    let has_fallbacks = case_args.iter().any(|(_, fallback)| fallback.is_some());
     Box::new(
-        params
+        info.data
             .cases()
-            .filter(move |case| case.args.len() != n_args)
-            .map(|case| {
-                syn::Error::new_spanned(
-                    case,
-                    "Wrong case signature: should match the given parameters list.",
-                )
+            .flat_map(move |case| invalid_case(&case_args, has_fallbacks, case)),
+    )
+}
+
+const OMIT_CASE_VALUES: &str =
+    "only #[case(opt)], #[case(default)] or #[case(default(...))] arguments can be omitted.";
+
+fn invalid_case(
+    case_args: &[(&Pat, Option<&CaseArgFallback>)],
+    has_fallbacks: bool,
+    case: &TestCase,
+) -> Vec<syn::Error> {
+    let wrong_signature = || {
+        case_error(
+            case,
+            "Wrong case signature: should match the given parameters list.",
+        )
+    };
+    if case.args.len() > case_args.len() {
+        return vec![wrong_signature()];
+    }
+    let mut errors = Vec::new();
+    let mut missed = Vec::new();
+    for (i, (arg, _)) in case_args
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, fallback))| fallback.is_none())
+    {
+        match case.args.get(i) {
+            Some(Expr::Infer(infer)) => errors.push(syn::Error::new_spanned(
+                infer,
+                format!("Cannot omit '{}' value: {OMIT_CASE_VALUES}", arg_name(arg)),
+            )),
+            Some(_) => {}
+            None => missed.push(arg_name(arg)),
+        }
+    }
+    match missed.as_slice() {
+        [] => {}
+        _ if !has_fallbacks => errors.push(wrong_signature()),
+        [name] => errors.push(case_error(
+            case,
+            &format!("Missing '{name}' value: {OMIT_CASE_VALUES}"),
+        )),
+        names => errors.push(case_error(
+            case,
+            &format!(
+                "Missing {} values: {OMIT_CASE_VALUES}",
+                names
+                    .iter()
+                    .map(|name| format!("'{name}'"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        )),
+    }
+    errors
+}
+
+/// Point to the case values or to the parentheses if the case is empty
+fn case_error(case: &TestCase, message: &str) -> syn::Error {
+    if case.args.is_empty() {
+        syn::Error::new(case.paren.span.join(), message)
+    } else {
+        syn::Error::new_spanned(case, message)
+    }
+}
+
+fn arg_name(arg: &Pat) -> String {
+    arg.maybe_ident()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| {
+            // Compact the tokens spacing (e.g. `T (x , y)` -> `T(x, y)`)
+            arg.to_token_stream()
+                .to_string()
+                .replace(" ,", ",")
+                .replace(" (", "(")
+                .replace("( ", "(")
+                .replace(" )", ")")
+        })
+}
+
+fn case_fallbacks_on_future_args(info: &RsTestInfo) -> Errors<'_> {
+    Box::new(
+        info.data
+            .case_args_with_fallback()
+            .filter(|(arg, _)| info.arguments.is_future(arg))
+            .filter_map(|(_, fallback)| match fallback {
+                Some(CaseArgFallback::Optional(opt)) => Some(syn::Error::new_spanned(
+                    opt,
+                    "Cannot use #[case(opt)] with #[future] arguments.",
+                )),
+                Some(CaseArgFallback::Default(default)) => Some(syn::Error::new_spanned(
+                    default,
+                    "Cannot use #[case(default)] with #[future] arguments: \
+                    use #[case(default(<future expression>))] instead.",
+                )),
+                _ => None,
             }),
     )
 }
@@ -425,5 +521,103 @@ mod test {
         let errors = destruct_fixture_without_from(&f, &info);
 
         assert_eq!(0, errors.count());
+    }
+
+    fn rstest_info(f: &str) -> RsTestInfo {
+        let mut f: ItemFn = f.ast();
+        let mut info = RsTestInfo::default();
+        info.extend_with_function_attrs(&mut f).unwrap();
+        info
+    }
+
+    #[rstest]
+    #[case::all_values("#[case(1, 2)] fn f(#[case] a: u32, #[case] b: u32) {}")]
+    #[case::omit_trailing("#[case(1)] fn f(#[case] a: u32, #[case(default)] b: u32) {}")]
+    #[case::omit_more(
+        "#[case(1)] fn f(#[case] a: u32, #[case(opt)] b: Option<u32>, #[case(default(3))] c: u32) {}"
+    )]
+    #[case::infer("#[case(_, 2)] fn f(#[case(default)] a: u32, #[case] b: u32) {}")]
+    #[case::empty("#[case()] fn f(#[case(default)] a: u32, #[case(opt)] b: Option<u32>) {}")]
+    #[case::infer_inside_expression("#[case(Some(_))] fn f(#[case] a: Option<u32>) {}")]
+    fn valid_cases_should_not_return_errors(#[case] f: &str) {
+        let info = rstest_info(f);
+
+        assert_eq!(0, invalid_cases(&info).count());
+    }
+
+    #[rstest]
+    #[case::too_many_values(
+        "#[case(1, 2, 3)] fn f(#[case] a: u32, #[case(default)] b: u32) {}",
+        &["Wrong case signature"]
+    )]
+    #[case::too_few_values_without_fallbacks(
+        "#[case(1)] fn f(#[case] a: u32, #[case] b: u32) {}",
+        &["Wrong case signature"]
+    )]
+    #[case::missed_value(
+        "#[case(1)] fn f(#[case(opt)] a: Option<u32>, #[case] b: u32) {}",
+        &["Missing 'b' value: only #[case(opt)]"]
+    )]
+    #[case::missed_values(
+        "#[case()] fn f(#[case(opt)] a: Option<u32>, #[case] b: u32, #[case] mut c: u32) {}",
+        &["Missing 'b', 'c' values: only #[case(opt)]"]
+    )]
+    #[case::infer_without_fallback(
+        "#[case(_, 2)] fn f(#[case] a: u32, #[case(default)] b: u32) {}",
+        &["Cannot omit 'a' value: only #[case(opt)]"]
+    )]
+    #[case::more_infer_without_fallback(
+        "#[case(_, _)] fn f(#[case] a: u32, #[case] b: u32) {}",
+        &["Cannot omit 'a' value", "Cannot omit 'b' value"]
+    )]
+    #[case::infer_and_missed(
+        "#[case(_)] fn f(#[case] a: u32, #[case(default)] b: u32, #[case] c: u32) {}",
+        &["Cannot omit 'a' value", "Missing 'c' value"]
+    )]
+    #[case::destruct(
+        "#[case()] fn f(#[case(default)] a: u32, #[case] T(x, y): T) {}",
+        &["Missing 'T(x, y)' value"]
+    )]
+    fn invalid_cases_should_return_errors(#[case] f: &str, #[case] messages: &[&str]) {
+        let info = rstest_info(f);
+
+        let errors = invalid_cases(&info)
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(messages.len(), errors.len(), "{errors:?}");
+        for (error, message) in errors.iter().zip(messages) {
+            assert_in!(error, *message);
+        }
+    }
+
+    #[rstest]
+    #[case::opt(
+        "#[case(_)] fn f(#[future] #[case(opt)] a: Option<u32>) {}",
+        Some("Cannot use #[case(opt)] with #[future] arguments.")
+    )]
+    #[case::default(
+        "#[case(_)] fn f(#[future] #[case(default)] a: u32) {}",
+        Some("Cannot use #[case(default)] with #[future] arguments")
+    )]
+    #[case::default_expression(
+        "#[case(_)] fn f(#[future] #[case(default(async { 42 }))] a: u32) {}",
+        None
+    )]
+    #[case::not_future("#[case(_)] fn f(#[case(opt)] a: Option<u32>) {}", None)]
+    fn case_fallbacks_on_future_args_should(#[case] f: &str, #[case] message: Option<&str>) {
+        let info = rstest_info(f);
+
+        let errors = case_fallbacks_on_future_args(&info)
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>();
+
+        match message {
+            Some(message) => {
+                assert_eq!(1, errors.len());
+                assert_in!(errors[0], message);
+            }
+            None => assert!(errors.is_empty(), "{errors:?}"),
+        }
     }
 }

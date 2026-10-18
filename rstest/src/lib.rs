@@ -606,9 +606,11 @@ pub use rstest_macros::fixture;
 ///   - [`#[awt]`](#async) await all your future test function's inputs
 ///   - [`#[timeout(...)]`](#test-timeout) define a test timeout
 ///   - [`#[trace]`](#trace-input-arguments) tracing input arguments
-///   - [`#[test_attr(...)]`](#explicit-test-attr) define an explicit test attribute
+///   - [`#[test_attr(...)]`](#explicit-test-attributes) define an explicit test attribute
 /// - Arguments Attributes:
 ///   - [`#[case]`](#test-parametrized-cases) define an argument parametrized by test cases
+///   - [`#[case(opt)]`-`#[case(default)]`-`#[case(default(...))]`](#omit-case-values)
+///     define a case argument whose value can be omitted
 ///   - [`#[values(...)]`](#values-lists) define an argument that can be a list of values
 ///   - [`#[files(...)]`-`#[exclude(...)]`-`#[base_dir = ... ]`-`#[mode = ...]`](#files-path-as-input-arguments)
 ///     define an argument that can be a list of path based on a glob pattern
@@ -887,6 +889,59 @@ pub use rstest_macros::fixture;
 /// #[should_panic]
 /// fn fail(#[case] v: u32) { assert_eq!(0, v) }
 /// ```
+///
+/// ### Omit case values
+///
+/// A `#[case]` argument can declare the value to use when a case omits it:
+///
+/// - `#[case(default)]`: use [`Default::default()`]
+/// - `#[case(default(expr))]`: use `expr`
+/// - `#[case(opt)]`: the argument must be an `Option<T>`; the given value is a plain `T`
+///   value (not `Some(...)`) that will be wrapped in `Some()`, while `None` is used when
+///   it's omitted
+///
+/// You can omit the trailing values or use `_` to skip a value in the middle.
+///
+/// ```
+/// # use rstest::rstest;
+/// #[rstest]
+/// #[case("1.23456", 1.23456)]
+/// #[case("1.23456", 1.23, 2)]
+/// #[case("0.75", 1.0, 1, 2)]
+/// #[case("0.7", _, 0)]
+/// fn round(
+///     #[case] input: &str,
+///     #[case(default(1.0))] expected: f64,
+///     #[case(opt)] digits: Option<i32>,
+///     #[case(default(10))] base: i32,
+/// ) {
+///     let value: f64 = input.parse().unwrap();
+///     let value = match digits {
+///         Some(d) => (value * (base as f64).powi(d)).round() / (base as f64).powi(d),
+///         None => value,
+///     };
+///     assert_eq!(expected, value);
+/// }
+/// ```
+///
+/// [Magic conversion](#magic-conversion) also works for the `#[case(default(expr))]`
+/// expressions and for the `#[case(opt)]` values: in this case the conversion uses the `T`
+/// type of `Option<T>`, so the argument type should be written as `Option<T>` (type aliases
+/// are not recognized).
+///
+/// Some limitations:
+///
+/// - Omitting the value of a plain `#[case]` argument is still a compile error.
+/// - A `#[future]` argument can only use `#[case(default(<future expression>))]`, because
+///   neither `#[case(opt)]` nor `#[case(default)]` can build a future.
+/// - You cannot give an explicit `None` (or any other `Option` expression) to a
+///   `#[case(opt)]` argument: use `_` or omit the value instead.
+/// - The omitted values of `#[case(opt)]` and `#[case(default)]` arguments need a concrete
+///   type: with a generic or `impl Trait` argument the compiler cannot infer it.
+///
+/// Note: if you use [`rstest_reuse`](https://crates.io/crates/rstest_reuse) (0.7.1 or
+/// later), the template's `#[case]` argument attribute is used unless the function where you
+/// apply the template defines its own `#[case(...)]` modifier.
 ///
 /// ## Values Lists
 ///
@@ -1280,7 +1335,7 @@ pub use rstest_macros::fixture;
 /// }
 /// ```
 ///
-/// Implicit test attributes have a lower priority than [`explicit test attributes`](#explicit-test-attribute).
+/// Implicit test attributes have a lower priority than [`explicit test attributes`](#explicit-test-attributes).
 /// If you have an unrelated attribute whose path ends in `test`, you should declare an explicit test attribute
 /// for deconfliction.
 ///

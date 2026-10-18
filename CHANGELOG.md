@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Changed
+
+- `#[case(...)]` argument attributes other than `#[case(opt)]`, `#[case(default)]` and
+  `#[case(default(...))]` are now rejected: before they were silently accepted as `#[case]`.
+  `#[case()]` is still accepted as `#[case]`.
+- `rstest_reuse` 0.7.1: when the function where the template is applied defines a
+  `#[case(...)]` argument modifier, it replaces the template's `#[case]` attribute.
+
+### Added
+
+- Cases can omit the values of `#[case(default)]`, `#[case(default(expr))]` and
+  `#[case(opt)]` arguments: the trailing values can be omitted and `_` can be used to skip
+  a value. `#[case(opt)]` wraps the given value in `Some()` and uses `None` when omitted.
+  Magic conversion works for `#[case(default(expr))]` expressions and `#[case(opt)]` values.
+  See [#325](https://github.com/la10736/rstest/issues/325) and
+  [#327](https://github.com/la10736/rstest/pull/327), thanks to @Atreyagaurav.
+
 ## [0.27.0] 2026/9/6
 
 ### Changed

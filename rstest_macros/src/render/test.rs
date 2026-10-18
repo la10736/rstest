@@ -551,7 +551,7 @@ mod cases_should {
         RsTestData {
             items: fn_args_pats(item_fn)
                 .cloned()
-                .map(RsTestItem::CaseArgName)
+                .map(RsTestItem::from)
                 .collect(),
         }
     }
@@ -1091,11 +1091,13 @@ mod cases_should {
                     args: vec![expr("1")],
                     attrs: Default::default(),
                     description: Some(ident("my_description")),
+                    paren: Default::default(),
                 })
                 .push_case(TestCase {
                     args: vec![expr("2")],
                     attrs: Default::default(),
                     description: Some(ident("other_description")),
+                    paren: Default::default(),
                 })
                 .take();
         info.arguments.add_context(pat("ctx"));
@@ -2095,5 +2097,182 @@ mod test_attribute_should {
 
         assert!(result.attrs.iter().any(|attr| attr_is(attr, "test")));
         itemfn_near_match(&input, &result);
+    }
+}
+
+mod case_fallbacks_should {
+    use rstest_test::assert_in;
+
+    use crate::parse::{testcase::CaseArgFallback, ExtendWithFunctionAttrs};
+
+    use super::{assert_eq, *};
+
+    fn no_conversion(expr: &Expr) -> Cow<'_, Expr> {
+        Cow::Borrowed(expr)
+    }
+
+    #[rstest]
+    #[case::value("42", None, Some("42"))]
+    #[case::value_with_default("42", Some(CaseArgFallback::Default(ident("default"))), Some("42"))]
+    #[case::value_with_expression("42", Some(CaseArgFallback::Value(expr("1"))), Some("42"))]
+    #[case::optional_value(
+        "42",
+        Some(CaseArgFallback::Optional(ident("opt"))),
+        Some("::core::option::Option::Some(42)")
+    )]
+    #[case::infer_with_default(
+        "_",
+        Some(CaseArgFallback::Default(ident("default"))),
+        Some("::core::default::Default::default()")
+    )]
+    #[case::infer_with_expression("_", Some(CaseArgFallback::Value(expr("1 + 2"))), Some("1 + 2"))]
+    #[case::infer_with_optional(
+        "_",
+        Some(CaseArgFallback::Optional(ident("opt"))),
+        Some("::core::option::Option::None")
+    )]
+    #[case::infer_without_fallback("_", None, None)]
+    fn compute_case_value(
+        #[case] value: &str,
+        #[case] fallback: Option<CaseArgFallback>,
+        #[case] expected: Option<&str>,
+    ) {
+        let value = expr(value);
+
+        let resolved = case_arg_value(Some(&value), fallback.as_ref(), no_conversion);
+
+        assert_eq!(expected.map(expr), resolved.map(Cow::into_owned));
+    }
+
+    #[rstest]
+    #[case::default(
+        Some(CaseArgFallback::Default(ident("default"))),
+        Some("::core::default::Default::default()")
+    )]
+    #[case::expression(Some(CaseArgFallback::Value(expr("1 + 2"))), Some("1 + 2"))]
+    #[case::optional(
+        Some(CaseArgFallback::Optional(ident("opt"))),
+        Some("::core::option::Option::None")
+    )]
+    #[case::without_fallback(None, None)]
+    fn compute_omitted_case_value(
+        #[case] fallback: Option<CaseArgFallback>,
+        #[case] expected: Option<&str>,
+    ) {
+        let resolved = case_arg_value(None, fallback.as_ref(), no_conversion);
+
+        assert_eq!(expected.map(expr), resolved.map(Cow::into_owned));
+    }
+
+    #[test]
+    fn convert_just_the_optional_values() {
+        let value = expr(r#""42""#);
+        let converted = expr("converted");
+        let convert = |_: &Expr| Cow::Owned(converted.clone());
+        let optional = CaseArgFallback::Optional(ident("opt"));
+
+        assert_eq!(
+            expr("::core::option::Option::Some(converted)"),
+            case_arg_value(Some(&value), Some(&optional), convert)
+                .unwrap()
+                .into_owned()
+        );
+        assert_eq!(
+            value,
+            case_arg_value(Some(&value), None, convert)
+                .unwrap()
+                .into_owned()
+        );
+    }
+
+    #[rstest]
+    #[case::option("Option<u32>", Some("u32"))]
+    #[case::qualified_option("std::option::Option<Vec<u32>>", Some("Vec<u32>"))]
+    #[case::not_option("Vec<u32>", None)]
+    #[case::plain("u32", None)]
+    #[case::reference("&Option<u32>", None)]
+    fn extract_option_inner_type(#[case] ty: &str, #[case] expected: Option<&str>) {
+        let ty: Type = ty.ast();
+        let expected: Option<Type> = expected.map(|t| t.ast());
+
+        assert_eq!(expected.as_ref(), option_inner_type(&ty));
+    }
+
+    fn render_cases_code(code: &str) -> Vec<String> {
+        let mut item_fn: ItemFn = code.ast();
+        let mut info = RsTestInfo::default();
+        info.extend_with_function_attrs(&mut item_fn).unwrap();
+
+        TestsGroup::from(parametrize(item_fn, info))
+            .get_all_tests()
+            .iter()
+            .map(|t| t.block.display_code())
+            .collect()
+    }
+
+    fn stmt_code(code: &str) -> String {
+        let stmt: Stmt = code.ast();
+        stmt.display_code()
+    }
+
+    #[test]
+    fn resolve_omitted_and_infer_values() {
+        let code = render_cases_code(
+            r#"
+            #[case(1, 2, 3)]
+            #[case(1)]
+            #[case(_, _, _)]
+            fn test(#[case(default)] a: u32, #[case(opt)] b: Option<u32>, #[case(default(40 + 2))] c: u32) {}
+            "#,
+        );
+
+        assert_in!(code[0], stmt_code("let a = 1;"));
+        assert_in!(
+            code[0],
+            stmt_code("let b = ::core::option::Option::Some(2);")
+        );
+        assert_in!(code[0], stmt_code("let c = 3;"));
+        assert_in!(code[1], stmt_code("let a = 1;"));
+        assert_in!(code[1], stmt_code("let b = ::core::option::Option::None;"));
+        assert_in!(code[1], stmt_code("let c = 40 + 2;"));
+        assert_in!(
+            code[2],
+            stmt_code("let a = ::core::default::Default::default();")
+        );
+        assert_in!(code[2], stmt_code("let b = ::core::option::Option::None;"));
+        assert_in!(code[2], stmt_code("let c = 40 + 2;"));
+    }
+
+    #[test]
+    fn apply_magic_conversion_to_optional_values_by_inner_type() {
+        let code = render_cases_code(
+            r#"
+            #[case("42")]
+            fn test(#[case(opt)] b: Option<u32>) {}
+            "#,
+        );
+
+        let expected: Expr = parse_quote! {
+            ::core::option::Option::Some({
+                use rstest::magic_conversion::*;
+                (&&&Magic::<u32>(::core::marker::PhantomData)).magic_conversion("42")
+            })
+        };
+        assert_in!(code[0], expected.display_code());
+    }
+
+    #[test]
+    fn not_apply_magic_conversion_to_optional_generic_types() {
+        let code = render_cases_code(
+            r#"
+            #[case("42")]
+            fn test<T: AsRef<str>>(#[case(opt)] b: Option<T>) {}
+            "#,
+        );
+
+        assert_in!(
+            code[0],
+            stmt_code(r#"let b = ::core::option::Option::Some("42");"#)
+        );
     }
 }
