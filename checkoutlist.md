@@ -4,7 +4,7 @@
 - [ ] Run `cargo clippy`
 - [ ] Check msrv: 
   - [ ] `cargo hack check --rust-version --workspace --ignore-private`
-  - [ ] `cargo hack test --rust-version --workspace --exclude rstest_reuse --ignore-private -- --skip rstest::ignore_args_not_fixtures`
+  - [ ] `cargo hack test --rust-version --workspace --exclude rstest_reuse --ignore-private -- --skip rstest::ignore_attributes_args_if_any`
 - [ ] Update Release
   - [ ] `README.md`
 - [ ] Run all test: `for channel in stable beta nightly; do RSTEST_TEST_CHANNEL=${channel} cargo +${channel} test; done`
