@@ -153,7 +153,9 @@ impl Resolver for HashMap<Pat, Cow<'_, Expr>> {
 
 impl Resolver for HashMap<Pat, Expr> {
     fn resolve(&self, arg: &Pat) -> Option<Cow<'_, Expr>> {
-        self.get(arg).map(Cow::Borrowed)
+        self.get(arg)
+            .or_else(|| self.get(&pat_invert_mutability(arg)))
+            .map(Cow::Borrowed)
     }
 }
 
@@ -238,6 +240,20 @@ mod should {
         let mut resolver = HashMap::new();
 
         resolver.insert(pat("foo").with_mut(), Cow::Borrowed(&expected));
+
+        assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
+    }
+
+    #[rstest]
+    #[case::same_mutability("fn function(mut foo: String) {}")]
+    #[case::not_mut_searched("fn function(foo: String) {}")]
+    fn return_the_given_owned_expression(#[case] function: &str) {
+        let ast = parse_str(function).unwrap();
+        let arg = first_arg_pat(&ast);
+        let expected = expr("bar()");
+        let mut resolver = HashMap::new();
+
+        resolver.insert(pat("foo").with_mut(), expected.clone());
 
         assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
     }
