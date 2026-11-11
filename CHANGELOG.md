@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Upgrade `syn` to 3.0 in `rstest_macros` and `rstest_reuse`. The error for an invalid
+  `#[timeout(...)]` expression such as `#[timeout(a -> b)]` is now `unexpected token`.
+  See [#350](https://github.com/la10736/rstest/pull/350), thanks to @wojciech-graj.
+
 ### Fixed
 
 - Fix `#[with(...)]` ignored on `mut` arguments with `#[future]`: the fixture was resolved
