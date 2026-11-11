@@ -118,6 +118,7 @@ mod should {
             .ok("use_async_impl_output")
             .ok("use_async_nest_fixture_default")
             .ok("use_async_nest_fixture_injected")
+            .ok("use_async_nest_fixture_injected_mut")
             .ok("use_async_nest_fixture_with_default")
             .ok("use_two_args_mix_fixture")
             .ok("use_two_args_mix_fixture_inject_first")

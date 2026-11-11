@@ -37,6 +37,16 @@ async fn use_async_nest_fixture_injected(#[future] nest_fixture: u32) {
 
 #[rstest]
 #[async_std::test]
+async fn use_async_nest_fixture_injected_mut(
+    #[future]
+    #[with(async { 24 })]
+    mut nest_fixture: u32,
+) {
+    assert_eq!(24, nest_fixture.await);
+}
+
+#[rstest]
+#[async_std::test]
 async fn use_async_nest_fixture_with_default(#[future] nest_fixture_with_default: u32) {
     assert_eq!(42, nest_fixture_with_default.await);
 }

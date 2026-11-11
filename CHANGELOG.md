@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Fix `#[with(...)]` ignored on `mut` arguments with `#[future]`: the fixture was resolved
+  with its default arguments.
+
 ## [0.28.0] 2026/10/18
 
 ### Changed
