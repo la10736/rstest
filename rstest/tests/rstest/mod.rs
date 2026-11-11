@@ -1914,11 +1914,11 @@ mod should_show_correct_errors {
             output.stderr.str(),
             format!(
                 "
-                error: expected an expression
-                   --> {name}{SRC_LIB_RS}:112:17
+                error: unexpected token
+                   --> {name}{SRC_LIB_RS}:112:16
                     |
                 112 | #[timeout(some -> strange -> invalid -> expression)]
-                    |                 ^
+                    |                ^
                 "
             )
             .unindent()

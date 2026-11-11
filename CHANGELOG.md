@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- Upgrade `syn` to 3.0 in `rstest_macros` and `rstest_reuse`. Expressions like `a <-b` are now
+  rejected, as rustc does: write `a < -b`. The error for `#[timeout(a -> b)]` is now
+  `unexpected token` instead of `expected an expression`.
+  See [#350](https://github.com/la10736/rstest/pull/350), thanks to @wojciech-graj.
+
 ### Fixed
 
 - Fix `#[with(...)]` ignored on `mut` arguments with `#[future]`: the fixture was resolved
