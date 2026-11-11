@@ -487,6 +487,10 @@ mod extend {
                 ..Default::default()
             };
 
+            assert_eq!(
+                "fn my_fix(f1: &str, f2: (Vec<u32>, &str)) {}".ast::<ItemFn>(),
+                item_fn
+            );
             assert_eq!(expected, info);
         }
 
