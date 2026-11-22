@@ -138,6 +138,7 @@ fn destructure_arguments_from_template() {
         .ok("cases::destruct_tuple::case_2")
         .ok("cases::destruct_struct::case_1")
         .ok("cases::destruct_struct::case_2")
+        .ok("cases::renamed_fixture::case_1")
         .assert(output);
 }
 

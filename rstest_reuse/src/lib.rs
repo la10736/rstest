@@ -286,7 +286,10 @@ fn expand_function_arguments(dest: &mut ItemFn, source: &ItemFn) {
             // attributes from. This is the only way to link a destructured
             // argument (like `(a, b)`) to its template argument, as it has no
             // identifier of its own.
-            let from = from_attr_ident(&a.attrs);
+            // When `#[from(name)]` doesn't name a template argument, fall back to the
+            // argument identifier.
+            let from = from_attr_ident(&a.attrs)
+                .filter(|from| resolve_template_arg(&to_merge_args, from).is_some());
             let key = from.clone().or_else(|| match *a.pat {
                 syn::Pat::Ident(ref id) => Some(id.ident.clone()),
                 _ => None,

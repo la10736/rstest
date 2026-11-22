@@ -1,7 +1,7 @@
 use rstest_reuse;
 
 mod cases {
-    use rstest::rstest;
+    use rstest::{fixture, rstest};
     use rstest_reuse::*;
 
     #[template]
@@ -31,5 +31,22 @@ mod cases {
     #[apply(struct_template)]
     fn destruct_struct(#[from(s)] S { a, b }: S) {
         assert!(a * b == 42);
+    }
+
+    #[fixture]
+    fn double(#[default(1)] v: u32) -> u32 {
+        v * 2
+    }
+
+    #[template]
+    #[rstest]
+    #[case(42)]
+    fn fixture_template(#[case] expected: u32, #[from(double)] #[with(21)] value: u32) {}
+
+    // `#[from(double)]` doesn't name a template argument: the attributes come from the
+    // template argument with the same name.
+    #[apply(fixture_template)]
+    fn renamed_fixture(#[case] expected: u32, #[from(double)] value: u32) {
+        assert_eq!(expected, value);
     }
 }
