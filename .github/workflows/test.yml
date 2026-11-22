@@ -26,29 +26,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install latest nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-    - name: Install latest beta
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: beta
+    - uses: dtolnay/rust-toolchain@nightly
+    - uses: dtolnay/rust-toolchain@beta
+    # The last installed toolchain is the default one
+    - uses: dtolnay/rust-toolchain@stable
     - name: Build
       run: cargo build --all --verbose
     - name: Run tests stable
       env:
         RSTEST_TEST_CHANNEL: stable
-      run: cargo test --all --verbose
+      run: cargo +stable test --all --verbose
     - name: Run tests beta
       env:
         RSTEST_TEST_CHANNEL: beta
-      run: cargo test --all --verbose
+      run: cargo +beta test --all --verbose
     - name: Run tests nightly
       env:
         RSTEST_TEST_CHANNEL: nightly
-      run: cargo test --all --verbose
+      run: cargo +nightly test --all --verbose
   checks:
     runs-on: ubuntu-latest
     steps:
