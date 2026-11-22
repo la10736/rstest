@@ -248,6 +248,9 @@ impl Project {
             cmd.arg(channel);
         }
         cmd.current_dir(dir);
+        // Tests compare the cargo output with plain text: don't let the environment
+        // (e.g. `CARGO_TERM_COLOR=always` in CI) add color codes.
+        cmd.env("CARGO_TERM_COLOR", "never");
         cmd
     }
 
