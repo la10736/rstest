@@ -130,6 +130,19 @@ fn copy_case_attributes_from_template() {
 }
 
 #[test]
+fn destructure_arguments_from_template() {
+    let (output, _) = run_test("destructuring_from_template.rs");
+
+    TestResults::new()
+        .ok("cases::destruct_tuple::case_1")
+        .ok("cases::destruct_tuple::case_2")
+        .ok("cases::destruct_struct::case_1")
+        .ok("cases::destruct_struct::case_2")
+        .ok("cases::renamed_fixture::case_1")
+        .assert(output);
+}
+
+#[test]
 fn deny_docs() {
     let (output, _) = run_test("deny_docs.rs");
 

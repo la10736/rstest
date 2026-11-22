@@ -9,6 +9,13 @@
   `unexpected token` instead of `expected an expression`.
   See [#350](https://github.com/la10736/rstest/pull/350), thanks to @wojciech-graj.
 
+### Added
+
+- `rstest_reuse` 0.7.2: link a destructured argument of the applied test to its template
+  argument with `#[from(...)]`, so it gets the template attributes.
+  See [#273](https://github.com/la10736/rstest/issues/273) and
+  [#348](https://github.com/la10736/rstest/pull/348), thanks to @ChrisJr404.
+
 ### Fixed
 
 - Fix `#[with(...)]` ignored on `mut` arguments with `#[future]`: the fixture was resolved
