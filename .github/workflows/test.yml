@@ -49,6 +49,27 @@ jobs:
       env:
         RSTEST_TEST_CHANNEL: nightly
       run: cargo test --all --verbose
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+          components: rustfmt, clippy
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    - name: Clippy
+      run: cargo clippy --all -- -D warnings
+    - name: Docs
+      env:
+        RUSTDOCFLAGS: -D warnings
+      run: cargo doc --no-deps
+    # rstest is not checked: its `mytest` dev-dependency (the last published
+    # rstest) conflicts with the local rstest_macros `-dev` version.
+    - name: Publish dry-run
+      run: |
+        cargo publish -p rstest_macros --dry-run
+        cargo publish -p rstest_reuse --dry-run
   msrv:
     runs-on: ubuntu-latest
     steps:
