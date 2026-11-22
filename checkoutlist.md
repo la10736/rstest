@@ -1,18 +1,16 @@
 # TODO list
 
-- [ ] Update rustup
-- [ ] Run `cargo clippy`
-- [ ] Check msrv: 
-  - [ ] `cargo hack check --rust-version --workspace --ignore-private`
-  - [ ] `cargo hack test --rust-version --workspace --exclude rstest_reuse --ignore-private -- --skip rstest::ignore_attributes_args_if_any`
+CI (`.github/workflows/test.yml`) already runs on every PR and push: tests on stable, beta and
+nightly, msrv (`cargo hack check` and `cargo hack test`), `cargo fmt --all -- --check`,
+`cargo clippy --all -- -D warnings`, `cargo doc --no-deps` with `RUSTDOCFLAGS="-D warnings"`
+and `cargo publish --dry-run` of `rstest_macros` and `rstest_reuse`.
+
 - [ ] Update Release
   - [ ] `README.md`
-- [ ] Run all test: `for channel in stable beta nightly; do RSTEST_TEST_CHANNEL=${channel} cargo +${channel} test; done`
 - [ ] Remove the `-dev` suffix, run `cargo test` after
-- [ ] Create docs and checks links
 - [ ] Check CHANGELOG: **RELEASE DATE** and remove empty blocks
 - [ ] Check README
-- [ ] **Commit**
+- [ ] **Commit** and push, check that CI is green on the release commit
 - [ ] Create tag (Use github release)
 - [ ] deploy:
   - [ ]  `cargo publish -p rstest_macros --dry-run`
