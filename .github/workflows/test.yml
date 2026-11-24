@@ -54,7 +54,9 @@ jobs:
     - name: Check formatting
       run: cargo fmt --all -- --check
     - name: Clippy
-      run: cargo clippy --all -- -D warnings
+      run: |
+        cargo clippy --all -- -D warnings
+        cargo clippy --manifest-path rstest/Cargo.toml --test used_underscore_binding -- -D warnings
     - name: Docs
       env:
         RUSTDOCFLAGS: -D warnings

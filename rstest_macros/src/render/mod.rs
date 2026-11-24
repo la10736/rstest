@@ -359,11 +359,13 @@ fn single_test_case(
         .map(|arg| (arg, info.arguments.is_by_refs(arg)))
         .filter_map(|(a, by_refs)| a.maybe_ident().map(|id| (id, by_refs)))
         .map(|(arg, by_ref)| {
-            if by_ref {
-                parse_quote! { &#arg }
-            } else {
-                parse_quote! { #arg }
-            }
+            forward_underscore_read(arg, by_ref).unwrap_or_else(|| {
+                if by_ref {
+                    parse_quote! { &#arg }
+                } else {
+                    parse_quote! { #arg }
+                }
+            })
         })
         .collect::<Vec<_>>();
 
@@ -387,6 +389,35 @@ fn single_test_case(
     }
 }
 
+fn forward_underscore_read(ident: &Ident, borrow: bool) -> Option<Expr> {
+    let name = ident.to_string();
+    let name = name.strip_prefix("r#").unwrap_or(&name);
+    if !name.starts_with('_') || name.starts_with("__") {
+        return None;
+    }
+
+    // The declarative macro forms `$crate` on the MSRV. Its mixed-site span
+    // ties that path to this instance of `rstest_macros`, even through re-exports.
+    let forwarding_module = quote::quote_spanned! { proc_macro2::Span::mixed_site() =>
+        mod __rstest_forwarding {
+            macro_rules! import_forwarder {
+                () => { pub(super) use $crate::__forward_rstest as read; };
+            }
+            import_forwarder!();
+        }
+    };
+    let read = quote::quote_spanned! { ident.span() => __rstest_forwarding::read!(#ident) };
+    let read = if borrow {
+        quote! { &#read }
+    } else {
+        read
+    };
+    Some(parse_quote! {{
+        #forwarding_module
+        #read
+    }})
+}
+
 fn trace_arguments<'a>(
     args: impl Iterator<Item = &'a Pat>,
     attributes: &RsTestAttributes,
@@ -401,8 +432,11 @@ fn trace_arguments<'a>(
                 .maybe_patident()
                 .map(|patident| &patident.ident)
                 .or_else(|| arg.maybe_ident())?;
+            // Borrow before leaving the generated block, as println! would do with a bare binding.
+            let read =
+                forward_underscore_read(ident, true).unwrap_or_else(|| parse_quote! { #ident });
             let s: Stmt = parse_quote! {
-                println!("{} = {:?}", stringify!(#ident), #ident);
+                println!("{} = {:?}", stringify!(#ident), #read);
             };
             Some(s)
         })

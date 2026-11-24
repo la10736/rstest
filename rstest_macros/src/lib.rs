@@ -76,3 +76,11 @@ pub fn rstest(
     }
     .into()
 }
+
+#[doc(hidden)]
+#[proc_macro]
+pub fn __forward_rstest(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let mut ident = parse_macro_input!(input as syn::Ident);
+    ident.set_span(proc_macro2::Span::call_site());
+    ident.into_token_stream().into()
+}
