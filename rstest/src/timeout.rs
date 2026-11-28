@@ -1,6 +1,6 @@
 #[cfg(feature = "async-timeout")]
-use std::future::Future;
-use std::{pin::pin, sync::mpsc, thread, time::Duration};
+use std::{future::Future, pin::pin};
+use std::{sync::mpsc, thread, time::Duration};
 
 #[cfg(feature = "async-timeout")]
 use futures_timer::Delay;
