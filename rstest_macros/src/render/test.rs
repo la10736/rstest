@@ -783,7 +783,7 @@ mod cases_should {
         assert!(
             &tests[0].sig.ident.to_string().starts_with("case_1"),
             "Should starts with case_1 but is {}",
-            tests[0].sig.ident.to_string()
+            tests[0].sig.ident
         )
     }
 
