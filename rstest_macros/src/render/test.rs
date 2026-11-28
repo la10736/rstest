@@ -1935,7 +1935,7 @@ mod complete_should {
     fn assign_all_case_combination_in_tests() {
         let modules = test_case().module.get_modules();
 
-        let cases = vec![("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
+        let cases = [("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
         for module in modules {
             for ((x, y), f) in cases.iter().zip(module.get_all_tests().iter()) {
                 let assignments = Assignments::collect_assignments(f);
