@@ -898,13 +898,12 @@ mod should {
         let ok = extract_files(&mut item_fn).unwrap();
         let err: syn::Error = ok
             .into_iter()
-            .map(|(_id, refs)| {
+            .try_for_each(|(_id, refs)| {
                 let base_dir = refs.base_dir()?;
                 let x = refs.paths(base_dir.as_ref().unwrap_or(&PathBuf::from("/default")))?;
                 eprintln!("x {:?}", x);
                 Ok(())
             })
-            .collect::<Result<(), _>>()
             .unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
