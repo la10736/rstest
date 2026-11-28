@@ -38,7 +38,7 @@ mod single_test_should {
 
     use crate::{
         parse::arguments::{ArgumentsInfo, FutureArg},
-        test::{assert_eq, *},
+        test::assert_eq,
     };
 
     use super::*;
