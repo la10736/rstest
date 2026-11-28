@@ -320,10 +320,7 @@ mod should {
 
         let body = select_method(out.core_impl, method).unwrap().block;
         let last_statement = body.stmts.last().unwrap();
-        let is_await = match last_statement {
-            syn::Stmt::Expr(syn::Expr::Await(_), _) => true,
-            _ => false,
-        };
+        let is_await = matches!(last_statement, syn::Stmt::Expr(syn::Expr::Await(_), _));
 
         assert_eq!(is_async, is_await);
     }
