@@ -82,13 +82,14 @@ pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T
         test_case.as_ref()
     );
 
-    let item_fn = parse_str::<ItemFn>(&to_parse).expect(&format!("Cannot parse '{}'", to_parse));
+    let item_fn = parse_str::<ItemFn>(&to_parse)
+        .unwrap_or_else(|error| panic!("Cannot parse '{to_parse}': {error:?}"));
 
     let tokens = quote!(
         #item_fn
     );
 
-    let tt = tokens.into_iter().skip(1).next().unwrap();
+    let tt = tokens.into_iter().nth(1).unwrap();
 
     if let TokenTree::Group(g) = tt {
         let ts = g.stream();
@@ -188,12 +189,12 @@ pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> Argume
 pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
     ValueList {
         arg: pat(arg),
-        values: values.into_iter().map(|s| expr(s).into()).collect(),
+        values: values.iter().map(|s| expr(s).into()).collect(),
     }
 }
 
 pub(crate) fn first_arg_pat(ast: &ItemFn) -> &Pat {
-    fn_args_pats(&ast).next().unwrap()
+    fn_args_pats(ast).next().unwrap()
 }
 
 pub(crate) fn extract_inner_functions(block: &syn::Block) -> impl Iterator<Item = &syn::ItemFn> {
@@ -224,7 +225,7 @@ pub(crate) trait ExtractArgs {
 
 impl ExtractArgs for TestCase {
     fn args(&self) -> Vec<Expr> {
-        self.args.iter().cloned().collect()
+        self.args.to_vec()
     }
 }
 
@@ -323,7 +324,7 @@ impl From<Vec<FixtureItem>> for FixtureData {
 
 pub(crate) struct EmptyResolver;
 
-impl<'a> Resolver for EmptyResolver {
+impl Resolver for EmptyResolver {
     fn resolve(&self, _pat: &Pat) -> Option<Cow<'_, Expr>> {
         None
     }
@@ -335,10 +336,7 @@ pub(crate) trait IsAwait {
 
 impl IsAwait for Stmt {
     fn is_await(&self) -> bool {
-        match self {
-            Stmt::Expr(Expr::Await(_), _) => true,
-            _ => false,
-        }
+        matches!(self, Stmt::Expr(Expr::Await(_), _))
     }
 }
 

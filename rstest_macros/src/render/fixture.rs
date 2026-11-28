@@ -290,7 +290,7 @@ mod should {
         method: &str,
     ) {
         let prefix = if is_async { "async" } else { "" };
-        let (_, out) = parse_fixture(&format!(
+        let (_, out) = parse_fixture(format!(
             r#"
                     pub {} fn test(mut s: String, v: &u32, a: &mut [i32]) -> u32
                             where B: Borrow<u32>
@@ -310,7 +310,7 @@ mod should {
         method: &str,
     ) {
         let prefix = if is_async { "async" } else { "" };
-        let (_, out) = parse_fixture(&format!(
+        let (_, out) = parse_fixture(format!(
             r#"
                     pub {} fn test(mut s: String, v: &u32, a: &mut [i32]) -> u32
                     {{ }}
@@ -320,10 +320,7 @@ mod should {
 
         let body = select_method(out.core_impl, method).unwrap().block;
         let last_statement = body.stmts.last().unwrap();
-        let is_await = match last_statement {
-            syn::Stmt::Expr(syn::Expr::Await(_), _) => true,
-            _ => false,
-        };
+        let is_await = matches!(last_statement, syn::Stmt::Expr(syn::Expr::Await(_), _));
 
         assert_eq!(is_async, is_await);
     }

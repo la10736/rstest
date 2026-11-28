@@ -53,7 +53,7 @@ mod single_test_should {
     }
 
     fn extract_inner_test_function(outer: &ItemFn) -> ItemFn {
-        let first_stmt = outer.block.stmts.get(0).unwrap();
+        let first_stmt = outer.block.stmts.first().unwrap();
 
         parse_quote! {
             #first_stmt
@@ -110,7 +110,7 @@ mod single_test_should {
         input_fn.attrs = attributes;
 
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
-        let first_stmt = result.block.stmts.get(0).unwrap();
+        let first_stmt = result.block.stmts.first().unwrap();
 
         let inner_fn: ItemFn = parse_quote! {
             #first_stmt
@@ -469,7 +469,7 @@ impl ModuleInspector for ItemMod {
 
     fn get_all_tests(&self) -> Vec<ItemFn> {
         let mut f = TestFunctions(vec![]);
-        f.visit_item_mod(&self);
+        f.visit_item_mod(self);
         f.0
     }
 
@@ -509,15 +509,13 @@ struct Assignments(HashMap<String, syn::Expr>);
 impl<'ast> Visit<'ast> for Assignments {
     //noinspection RsTypeCheck
     fn visit_local(&mut self, assign: &syn::Local) {
-        match &assign {
-            syn::Local {
-                pat: syn::Pat::Ident(pat),
-                init: Some(LocalInit { expr, .. }),
-                ..
-            } => {
-                self.0.insert(pat.ident.to_string(), expr.as_ref().clone());
-            }
-            _ => {}
+        if let syn::Local {
+            pat: syn::Pat::Ident(pat),
+            init: Some(LocalInit { expr, .. }),
+            ..
+        } = &assign
+        {
+            self.0.insert(pat.ident.to_string(), expr.as_ref().clone());
         }
     }
 }
@@ -668,7 +666,7 @@ mod cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for t in tests {
             assert_eq!(item_fn.attrs, &t.attrs[..t.attrs.len() - 1]);
@@ -785,7 +783,7 @@ mod cases_should {
         assert!(
             &tests[0].sig.ident.to_string().starts_with("case_1"),
             "Should starts with case_1 but is {}",
-            tests[0].sig.ident.to_string()
+            tests[0].sig.ident
         )
     }
 
@@ -977,7 +975,7 @@ mod cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for name in &["a_trace_me", "b_trace_me"] {
                 assert_in!(test.block.display_code(), trace_argument_code_string(name));
@@ -998,7 +996,7 @@ mod cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for should_be_present in &["a_trace_me", "d_trace_me"] {
                 assert_in!(
@@ -1190,7 +1188,7 @@ mod matrix_cases_should {
         .ast();
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("fix", &["1"]).into()],
             },
             ..Default::default()
         };
@@ -1210,7 +1208,7 @@ mod matrix_cases_should {
                 .ast();
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("fix", &["1"]).into()],
             },
             ..Default::default()
         };
@@ -1228,7 +1226,7 @@ mod matrix_cases_should {
 
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("fix", &["1"]).into()],
             },
             ..Default::default()
         };
@@ -1237,7 +1235,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for t in tests {
             let end = t.attrs.len() - 2;
@@ -1250,7 +1248,7 @@ mod matrix_cases_should {
         let item_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1", "2", "3"]).into()].into(),
+                items: vec![values_list("fix", &["1", "2", "3"]).into()],
             },
             ..Default::default()
         };
@@ -1309,7 +1307,7 @@ mod matrix_cases_should {
         let arg_name = "fix";
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list(arg_name, &["1", "2", "3"]).into()].into(),
+                items: vec![values_list(arg_name, &["1", "2", "3"]).into()],
             },
             ..Default::default()
         };
@@ -1342,7 +1340,7 @@ mod matrix_cases_should {
         let attributes = attrs(attributes);
         let filter = attrs("#[allow(non_snake_case)]");
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
         item_fn.set_async(is_async);
@@ -1355,7 +1353,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             let filtered: Vec<_> = test
@@ -1383,7 +1381,7 @@ mod matrix_cases_should {
     ) {
         let attributes = attrs(attributes);
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
@@ -1395,7 +1393,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             assert_eq!(&test.attrs[..test.attrs.len() - 2], attributes.as_slice());
@@ -1448,7 +1446,7 @@ mod matrix_cases_should {
         let attributes = attrs(attributes);
         let non_snake_case = &attrs("#[allow(non_snake_case)]")[0];
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
@@ -1459,7 +1457,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             assert_eq!(&test.attrs[test.attrs.len() - 2], non_snake_case);
@@ -1472,7 +1470,7 @@ mod matrix_cases_should {
     #[case::async_fn(true, true)]
     fn use_await_for_async_test_function(#[case] is_async: bool, #[case] use_await: bool) {
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
@@ -1486,7 +1484,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             let last_stmt = test.block.stmts.last().unwrap();
@@ -1500,8 +1498,7 @@ mod matrix_cases_should {
             items: vec![
                 values_list("a_trace_me", &["1", "2"]).into(),
                 values_list("b_trace_me", &["3", "4"]).into(),
-            ]
-            .into(),
+            ],
         };
         let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_trace_me: u32) {}"#.ast();
 
@@ -1509,7 +1506,7 @@ mod matrix_cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for name in &["a_trace_me", "b_trace_me"] {
                 assert_in!(test.block.display_code(), trace_argument_code_string(name));
@@ -1525,8 +1522,7 @@ mod matrix_cases_should {
                 values_list("b_no_trace_me", &["3", "4"]).into(),
                 values_list("c_no_trace_me", &["5", "6"]).into(),
                 values_list("d_trace_me", &["7", "8"]).into(),
-            ]
-            .into(),
+            ],
         };
         let mut attributes: RsTestAttributes = Default::default();
         attributes.add_notraces(vec![pat("b_no_trace_me"), pat("c_no_trace_me")]);
@@ -1543,7 +1539,7 @@ mod matrix_cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for should_be_present in &["a_trace_me", "d_trace_me"] {
                 assert_in!(
@@ -1568,8 +1564,7 @@ mod matrix_cases_should {
                 values_list("a", &["1"]).into(),
                 values_list("b", &["2"]).into(),
                 values_list("c", &["3"]).into(),
-            ]
-            .into(),
+            ],
         };
         let mut info = RsTestInfo {
             data,
@@ -1599,8 +1594,7 @@ mod matrix_cases_should {
                 values_list("a", &["1"]).into(),
                 values_list("b", &["2"]).into(),
                 values_list("c", &["3"]).into(),
-            ]
-            .into(),
+            ],
         };
         let mut info = RsTestInfo {
             data,
@@ -1661,7 +1655,7 @@ mod matrix_cases_should {
                 .collect::<Vec<_>>();
 
             assert_eq!(expected.len(), modules.len());
-            for (e, m) in expected.into_iter().zip(modules.into_iter()) {
+            for (e, m) in expected.into_iter().zip(modules) {
                 assert_in!(m, e);
             }
         }
@@ -1676,7 +1670,7 @@ mod matrix_cases_should {
             let modules = TestsGroup::from(tokens).module.get_modules();
 
             for module in modules {
-                assert!(module.attrs.contains(&non_snake_case));
+                assert!(module.attrs.contains(non_snake_case));
             }
         }
 
@@ -1723,7 +1717,7 @@ mod matrix_cases_should {
                 .collect::<Vec<_>>();
 
             assert_eq!(expected.len(), tests.len());
-            for (e, m) in expected.into_iter().zip(tests.into_iter()) {
+            for (e, m) in expected.into_iter().zip(tests) {
                 assert_in!(m, e);
             }
         }
@@ -1941,7 +1935,7 @@ mod complete_should {
     fn assign_all_case_combination_in_tests() {
         let modules = test_case().module.get_modules();
 
-        let cases = vec![("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
+        let cases = [("12", "-3"), ("12", "42"), ("-2", "-3"), ("-2", "42")];
         for module in modules {
             for ((x, y), f) in cases.iter().zip(module.get_all_tests().iter()) {
                 let assignments = Assignments::collect_assignments(f);

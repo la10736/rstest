@@ -693,7 +693,7 @@ mod should {
     use rstest_test::assert_in;
 
     fn lit_str_attr(name: &str, value: impl AsRef<str>) -> LitStrAttr {
-        attrs(&format!(r#"#[{name}("{}")]"#, value.as_ref()))
+        attrs(format!(r#"#[{name}("{}")]"#, value.as_ref()))
             .into_iter()
             .next()
             .unwrap()
@@ -703,7 +703,7 @@ mod should {
 
     fn name_value_attr(name: &str, value: impl AsRef<str>) -> LitStrAttr {
         LitStrAttr::parse_meta_name_value(
-            &attrs(&format!(r#"#[{name} = "{}"]"#, value.as_ref()))
+            &attrs(format!(r#"#[{name} = "{}"]"#, value.as_ref()))
                 .into_iter()
                 .next()
                 .unwrap(),
@@ -742,6 +742,8 @@ mod should {
         }
     }
 
+    type ExpectedFileArgument<'a, G, E> = (&'a str, Option<&'a str>, G, E, bool, bool, bool);
+
     #[rstest]
     #[case::simple(r#"fn f(#[files("some_glob")] a: PathBuf) {}"#, "fn f(a: PathBuf) {}", &[("a", None, &["some_glob"], &[], true, true, false)])]
     #[case::more_than_one(
@@ -775,7 +777,7 @@ mod should {
     fn extract<'a, G: AsRef<[&'a str]>, E: AsRef<[&'a str]>>(
         #[case] item_fn: &str,
         #[case] expected: &str,
-        #[case] expected_files: &[(&str, Option<&str>, G, E, bool, bool, bool)],
+        #[case] expected_files: &[ExpectedFileArgument<'_, G, E>],
     ) {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
@@ -786,7 +788,7 @@ mod should {
         assert_eq!(
             files,
             expected_files
-                .into_iter()
+                .iter()
                 .map(
                     |(id, base_dir, globs, ex, ignore_dirs, ignore, ignore_envvars)| {
                         (
@@ -898,13 +900,12 @@ mod should {
         let ok = extract_files(&mut item_fn).unwrap();
         let err: syn::Error = ok
             .into_iter()
-            .map(|(_id, refs)| {
+            .try_for_each(|(_id, refs)| {
                 let base_dir = refs.base_dir()?;
                 let x = refs.paths(base_dir.as_ref().unwrap_or(&PathBuf::from("/default")))?;
                 eprintln!("x {:?}", x);
                 Ok(())
             })
-            .collect::<Result<(), _>>()
             .unwrap_err();
 
         assert_in!(format!("{:?}", err), message);
@@ -1021,7 +1022,7 @@ mod should {
         #[case] expected: &[&str],
     ) {
         let paths = paths
-            .map(|inner| inner.into_iter().map(files_attr).collect())
+            .map(|inner| inner.iter().map(files_attr).collect())
             .unwrap_or(vec![files_attr("no_mater")]);
         let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(
@@ -1059,7 +1060,7 @@ mod should {
             .zip(expected.iter())
             .for_each(|(v, &ex)| {
                 v.description = Some(render_file_description(
-                    &RelativePath::from_path(ex).unwrap(),
+                    RelativePath::from_path(ex).unwrap(),
                 ))
             });
         assert_eq!(vec![v_list], values);
@@ -1073,7 +1074,7 @@ mod should {
     #[case::ignore_current("./../other/name.txt", "_UP/other/name.txt")]
     fn render_file_description_should(#[case] path: &str, #[case] expected: &str) {
         assert_eq!(
-            render_file_description(&RelativePath::from_path(path).unwrap()),
+            render_file_description(RelativePath::from_path(path).unwrap()),
             expected
         );
     }
@@ -1089,7 +1090,7 @@ mod should {
             }
         }
 
-        ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
+        ValueListFromFiles::new(ErrorBaseDir, FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
                 FilesGlobReferences::new(

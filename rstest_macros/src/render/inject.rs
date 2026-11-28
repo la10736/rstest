@@ -234,7 +234,7 @@ mod should {
             magic_conversion: &_mock_conversion_code,
         };
 
-        let injected = ag.resolve(&arg).unwrap();
+        let injected = ag.resolve(arg).unwrap();
 
         assert_eq!(injected, expected.ast());
     }
@@ -319,7 +319,7 @@ mod should {
 
         let ag = ArgumentResolver::new(&resolver, &generics);
 
-        let injected = ag.resolve(&arg).unwrap();
+        let injected = ag.resolve(arg).unwrap();
 
         assert_eq!(injected, expected.ast());
     }

@@ -663,7 +663,7 @@ mod test {
 
             assert_eq!(vec![fixture("my_fixture", &["42", r#""foo""#])], fixtures);
             assert_eq!(
-                to_strs!(vec!["arg1", "arg2", "arg3"]),
+                to_strs!(["arg1", "arg2", "arg3"]),
                 data.case_args()
                     .map(DisplayCode::display_code)
                     .collect::<Vec<_>>()
@@ -1267,7 +1267,7 @@ mod test {
             assert_eq!(vec![fixture("the_fixture", &["42"])], fixtures);
 
             assert_eq!(
-                to_strs!(vec!["u", "a", "d"]),
+                to_strs!(["u", "a", "d"]),
                 data.case_args()
                     .map(DisplayCode::display_code)
                     .collect::<Vec<_>>()

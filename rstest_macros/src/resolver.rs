@@ -54,7 +54,7 @@ pub(crate) mod fixtures {
             #[case] expected: &str,
             #[values(None, Some("minnie"), Some("__destruct_1"))] inner_pat: Option<&str>,
         ) {
-            let data = vec![fixture("pippo", args)];
+            let data = [fixture("pippo", args)];
             let mut arguments: ArgumentsInfo = Default::default();
             let mut request = pat("pippo");
             if let Some(inner) = inner_pat {
@@ -79,7 +79,7 @@ pub(crate) mod fixtures {
             #[values("pluto", "minnie::pluto")] resolver_path: &str,
             #[values(None, Some("minnie"), Some("__destruct_1"))] inner_pat: Option<&str>,
         ) {
-            let data = vec![fixture("pippo", args).with_resolve(resolver_path)];
+            let data = [fixture("pippo", args).with_resolve(resolver_path)];
             let mut arguments: ArgumentsInfo = Default::default();
             let mut request = pat("pippo");
             if let Some(inner) = inner_pat {
@@ -112,7 +112,7 @@ pub(crate) mod values {
 
         #[test]
         fn resolve_by_use_the_given_name() {
-            let data = vec![
+            let data = [
                 arg_value("pippo", "42"),
                 arg_value("donaldduck", "vec![1,2]"),
             ];
@@ -215,7 +215,7 @@ mod should {
 
         resolver.insert(pat("foo").with_mut(), &expected);
 
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+        assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
     }
 
     #[test]
@@ -227,7 +227,7 @@ mod should {
 
         resolver.insert(pat("foo").with_mut(), &expected);
 
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+        assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
     }
 
     #[rstest]
@@ -263,6 +263,6 @@ mod should {
         let ast = "fn function(mut fix: String) {}".ast();
         let arg = first_arg_pat(&ast);
 
-        assert!(EmptyResolver.resolve(&arg).is_none())
+        assert!(EmptyResolver.resolve(arg).is_none())
     }
 }

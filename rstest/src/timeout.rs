@@ -105,9 +105,7 @@ mod tests {
             #[async_std::test]
             async fn should_compile_also_with_no_copy_move() {
                 struct S {}
-                async fn test(_s: S) {
-                    assert!(true);
-                }
+                async fn test(_s: S) {}
                 let s = S {};
 
                 execute_with_timeout_async(move || test(s), Duration::from_millis(20)).await
@@ -193,9 +191,7 @@ mod tests {
         #[test]
         fn should_compile_also_with_no_copy_move() {
             struct S {}
-            fn test(_s: S) {
-                assert!(true);
-            }
+            fn test(_s: S) {}
             let s = S {};
 
             execute_with_timeout_sync(move || test(s), Duration::from_millis(20))

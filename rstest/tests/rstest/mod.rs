@@ -22,10 +22,7 @@ fn prj(res: impl AsRef<Path>) -> Project {
 
 fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
     let prj = prj(res);
-    (
-        prj.run_tests().unwrap(),
-        prj.get_name().to_owned().to_string(),
-    )
+    (prj.run_tests().unwrap(), prj.get_name().into_owned())
 }
 
 fn prepare_folders_tests(project_path: std::path::PathBuf) {
@@ -1310,7 +1307,7 @@ mod import_crate_with_other_name {
                     .collect::<Vec<_>>()
                     .join(",")
             })
-            .unwrap_or_else(|| "".to_string());
+            .unwrap_or_default();
         prj.add_dependency(
             "other_name",
             &format!(

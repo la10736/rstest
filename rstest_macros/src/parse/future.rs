@@ -182,7 +182,7 @@ mod should {
         assert_eq!(
             futures,
             expected_futures
-                .into_iter()
+                .iter()
                 .map(|(id, a)| (pat(id), *a))
                 .collect::<Vec<_>>()
         );

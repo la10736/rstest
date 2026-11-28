@@ -20,10 +20,7 @@ fn prj(res: &str) -> Project {
 
 fn run_test(res: &str) -> (std::process::Output, String) {
     let prj = prj(res);
-    (
-        prj.run_tests().unwrap(),
-        prj.get_name().to_owned().to_string(),
-    )
+    (prj.run_tests().unwrap(), prj.get_name().into_owned())
 }
 
 mod should {

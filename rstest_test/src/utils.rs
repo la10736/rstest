@@ -382,6 +382,20 @@ pub fn to_toml_string(str: String) -> String {
     toml_edit::value(str).to_string()
 }
 
+pub fn sanitize_name<S: AsRef<str>>(s: S) -> String {
+    const MAX_LEN: usize = 50;
+    let name = s.as_ref().replace(':', "_").replace("__", "_");
+    if name.len() <= MAX_LEN {
+        name
+    } else {
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        let hash = hasher.finish();
+        let prefix = name[..MAX_LEN - 17].trim_end_matches('_');
+        format!("{prefix}_{}", hash % 10_000_000_000_000_000)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -419,19 +433,5 @@ mod test {
         use super::*;
 
         assert_eq!("utils::test::should_get_test_path", testname());
-    }
-}
-
-pub fn sanitize_name<S: AsRef<str>>(s: S) -> String {
-    const MAX_LEN: usize = 50;
-    let name = s.as_ref().replace(':', "_").replace("__", "_");
-    if name.len() <= MAX_LEN {
-        name
-    } else {
-        let mut hasher = DefaultHasher::new();
-        name.hash(&mut hasher);
-        let hash = hasher.finish();
-        let prefix = name[..MAX_LEN - 17].trim_end_matches('_');
-        format!("{prefix}_{}", hash % 10_000_000_000_000_000)
     }
 }
