@@ -668,7 +668,7 @@ mod cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for t in tests {
             assert_eq!(item_fn.attrs, &t.attrs[..t.attrs.len() - 1]);
@@ -977,7 +977,7 @@ mod cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for name in &["a_trace_me", "b_trace_me"] {
                 assert_in!(test.block.display_code(), trace_argument_code_string(name));
@@ -998,7 +998,7 @@ mod cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for should_be_present in &["a_trace_me", "d_trace_me"] {
                 assert_in!(
@@ -1237,7 +1237,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for t in tests {
             let end = t.attrs.len() - 2;
@@ -1355,7 +1355,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             let filtered: Vec<_> = test
@@ -1395,7 +1395,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             assert_eq!(&test.attrs[..test.attrs.len() - 2], attributes.as_slice());
@@ -1459,7 +1459,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             assert_eq!(&test.attrs[test.attrs.len() - 2], non_snake_case);
@@ -1486,7 +1486,7 @@ mod matrix_cases_should {
         let tests = TestsGroup::from(tokens).get_all_tests();
 
         // Sanity check
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
 
         for test in tests {
             let last_stmt = test.block.stmts.last().unwrap();
@@ -1509,7 +1509,7 @@ mod matrix_cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for name in &["a_trace_me", "b_trace_me"] {
                 assert_in!(test.block.display_code(), trace_argument_code_string(name));
@@ -1543,7 +1543,7 @@ mod matrix_cases_should {
 
         let tests = TestsGroup::from(tokens).get_all_tests();
 
-        assert!(tests.len() > 0);
+        assert!(!tests.is_empty());
         for test in tests {
             for should_be_present in &["a_trace_me", "d_trace_me"] {
                 assert_in!(
