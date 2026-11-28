@@ -24,7 +24,7 @@ crate-name = ["dep:proc-macro-crate"]
 [dependencies]
 cfg-if = "1.0.0"
 glob = "0.3.1"
-proc-macro2 = "1.0.86"
+proc-macro2 = "1.0.91"
 quote = "1.0.37"
 regex = "1.10.6"
 relative-path = "1.9.3"
