@@ -1089,7 +1089,7 @@ mod should {
             }
         }
 
-        ValueListFromFiles::new(ErrorBaseDir::default(), FakeResolver::default())
+        ValueListFromFiles::new(ErrorBaseDir, FakeResolver::default())
             .to_value_list(vec![(
                 ident("a"),
                 FilesGlobReferences::new(
