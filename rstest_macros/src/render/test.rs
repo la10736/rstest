@@ -509,15 +509,13 @@ struct Assignments(HashMap<String, syn::Expr>);
 impl<'ast> Visit<'ast> for Assignments {
     //noinspection RsTypeCheck
     fn visit_local(&mut self, assign: &syn::Local) {
-        match &assign {
-            syn::Local {
-                pat: syn::Pat::Ident(pat),
-                init: Some(LocalInit { expr, .. }),
-                ..
-            } => {
-                self.0.insert(pat.ident.to_string(), expr.as_ref().clone());
-            }
-            _ => {}
+        if let syn::Local {
+            pat: syn::Pat::Ident(pat),
+            init: Some(LocalInit { expr, .. }),
+            ..
+        } = &assign
+        {
+            self.0.insert(pat.ident.to_string(), expr.as_ref().clone());
         }
     }
 }
