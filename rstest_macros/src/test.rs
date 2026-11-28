@@ -324,7 +324,7 @@ impl From<Vec<FixtureItem>> for FixtureData {
 
 pub(crate) struct EmptyResolver;
 
-impl<'a> Resolver for EmptyResolver {
+impl Resolver for EmptyResolver {
     fn resolve(&self, _pat: &Pat) -> Option<Cow<'_, Expr>> {
         None
     }
