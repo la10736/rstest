@@ -89,7 +89,7 @@ pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T
         #item_fn
     );
 
-    let tt = tokens.into_iter().skip(1).next().unwrap();
+    let tt = tokens.into_iter().nth(1).unwrap();
 
     if let TokenTree::Group(g) = tt {
         let ts = g.stream();
