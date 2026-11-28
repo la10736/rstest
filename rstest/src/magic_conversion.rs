@@ -79,12 +79,8 @@ mod test {
             }
         }
 
-        assert_eq!(
-            "some",
-            (&&&Magic::<S>(std::marker::PhantomData))
-                .magic_conversion("some")
-                .0
-        );
+        let magic = &&&Magic::<S>(std::marker::PhantomData);
+        assert_eq!("some", magic.magic_conversion("some").0);
     }
 
     #[test]
@@ -99,6 +95,7 @@ mod test {
                 Err(E)
             }
         }
-        (&&&Magic::<MyTypeName>(std::marker::PhantomData)).magic_conversion("");
+        let magic = &&&Magic::<MyTypeName>(std::marker::PhantomData);
+        magic.magic_conversion("");
     }
 }

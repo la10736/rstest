@@ -215,7 +215,7 @@ mod should {
 
         resolver.insert(pat("foo").with_mut(), &expected);
 
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+        assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
     }
 
     #[test]
@@ -227,7 +227,7 @@ mod should {
 
         resolver.insert(pat("foo").with_mut(), &expected);
 
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+        assert_eq!(expected, resolver.resolve(arg).unwrap().into_owned())
     }
 
     #[rstest]
@@ -263,6 +263,6 @@ mod should {
         let ast = "fn function(mut fix: String) {}".ast();
         let arg = first_arg_pat(&ast);
 
-        assert!(EmptyResolver.resolve(&arg).is_none())
+        assert!(EmptyResolver.resolve(arg).is_none())
     }
 }

@@ -469,7 +469,7 @@ impl ModuleInspector for ItemMod {
 
     fn get_all_tests(&self) -> Vec<ItemFn> {
         let mut f = TestFunctions(vec![]);
-        f.visit_item_mod(&self);
+        f.visit_item_mod(self);
         f.0
     }
 
@@ -1676,7 +1676,7 @@ mod matrix_cases_should {
             let modules = TestsGroup::from(tokens).module.get_modules();
 
             for module in modules {
-                assert!(module.attrs.contains(&non_snake_case));
+                assert!(module.attrs.contains(non_snake_case));
             }
         }
 

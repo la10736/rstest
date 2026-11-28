@@ -194,7 +194,7 @@ pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
 }
 
 pub(crate) fn first_arg_pat(ast: &ItemFn) -> &Pat {
-    fn_args_pats(&ast).next().unwrap()
+    fn_args_pats(ast).next().unwrap()
 }
 
 pub(crate) fn extract_inner_functions(block: &syn::Block) -> impl Iterator<Item = &syn::ItemFn> {

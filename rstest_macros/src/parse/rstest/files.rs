@@ -1058,7 +1058,7 @@ mod should {
             .zip(expected.iter())
             .for_each(|(v, &ex)| {
                 v.description = Some(render_file_description(
-                    &RelativePath::from_path(ex).unwrap(),
+                    RelativePath::from_path(ex).unwrap(),
                 ))
             });
         assert_eq!(vec![v_list], values);
@@ -1072,7 +1072,7 @@ mod should {
     #[case::ignore_current("./../other/name.txt", "_UP/other/name.txt")]
     fn render_file_description_should(#[case] path: &str, #[case] expected: &str) {
         assert_eq!(
-            render_file_description(&RelativePath::from_path(path).unwrap()),
+            render_file_description(RelativePath::from_path(path).unwrap()),
             expected
         );
     }
