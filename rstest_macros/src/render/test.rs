@@ -1188,7 +1188,7 @@ mod matrix_cases_should {
         .ast();
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("fix", &["1"]).into()],
             },
             ..Default::default()
         };
@@ -1208,7 +1208,7 @@ mod matrix_cases_should {
                 .ast();
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("fix", &["1"]).into()],
             },
             ..Default::default()
         };
@@ -1226,7 +1226,7 @@ mod matrix_cases_should {
 
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1"]).into()].into(),
+                items: vec![values_list("fix", &["1"]).into()],
             },
             ..Default::default()
         };
@@ -1248,7 +1248,7 @@ mod matrix_cases_should {
         let item_fn: ItemFn = "fn function(fix: String) -> Result<i32, String> { Ok(42) }".ast();
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list("fix", &["1", "2", "3"]).into()].into(),
+                items: vec![values_list("fix", &["1", "2", "3"]).into()],
             },
             ..Default::default()
         };
@@ -1307,7 +1307,7 @@ mod matrix_cases_should {
         let arg_name = "fix";
         let info = RsTestInfo {
             data: RsTestData {
-                items: vec![values_list(arg_name, &["1", "2", "3"]).into()].into(),
+                items: vec![values_list(arg_name, &["1", "2", "3"]).into()],
             },
             ..Default::default()
         };
@@ -1340,7 +1340,7 @@ mod matrix_cases_should {
         let attributes = attrs(attributes);
         let filter = attrs("#[allow(non_snake_case)]");
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
         item_fn.set_async(is_async);
@@ -1381,7 +1381,7 @@ mod matrix_cases_should {
     ) {
         let attributes = attrs(attributes);
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
@@ -1446,7 +1446,7 @@ mod matrix_cases_should {
         let attributes = attrs(attributes);
         let non_snake_case = &attrs("#[allow(non_snake_case)]")[0];
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
@@ -1470,7 +1470,7 @@ mod matrix_cases_should {
     #[case::async_fn(true, true)]
     fn use_await_for_async_test_function(#[case] is_async: bool, #[case] use_await: bool) {
         let data = RsTestData {
-            items: vec![values_list("v", &["1", "2", "3"]).into()].into(),
+            items: vec![values_list("v", &["1", "2", "3"]).into()],
         };
 
         let mut item_fn: ItemFn = r#"fn test(v: u32) {{ println!("user code") }}"#.ast();
@@ -1498,8 +1498,7 @@ mod matrix_cases_should {
             items: vec![
                 values_list("a_trace_me", &["1", "2"]).into(),
                 values_list("b_trace_me", &["3", "4"]).into(),
-            ]
-            .into(),
+            ],
         };
         let item_fn: ItemFn = r#"#[trace] fn test(a_trace_me: u32, b_trace_me: u32) {}"#.ast();
 
@@ -1523,8 +1522,7 @@ mod matrix_cases_should {
                 values_list("b_no_trace_me", &["3", "4"]).into(),
                 values_list("c_no_trace_me", &["5", "6"]).into(),
                 values_list("d_trace_me", &["7", "8"]).into(),
-            ]
-            .into(),
+            ],
         };
         let mut attributes: RsTestAttributes = Default::default();
         attributes.add_notraces(vec![pat("b_no_trace_me"), pat("c_no_trace_me")]);
@@ -1566,8 +1564,7 @@ mod matrix_cases_should {
                 values_list("a", &["1"]).into(),
                 values_list("b", &["2"]).into(),
                 values_list("c", &["3"]).into(),
-            ]
-            .into(),
+            ],
         };
         let mut info = RsTestInfo {
             data,
@@ -1597,8 +1594,7 @@ mod matrix_cases_should {
                 values_list("a", &["1"]).into(),
                 values_list("b", &["2"]).into(),
                 values_list("c", &["3"]).into(),
-            ]
-            .into(),
+            ],
         };
         let mut info = RsTestInfo {
             data,
@@ -1659,7 +1655,7 @@ mod matrix_cases_should {
                 .collect::<Vec<_>>();
 
             assert_eq!(expected.len(), modules.len());
-            for (e, m) in expected.into_iter().zip(modules.into_iter()) {
+            for (e, m) in expected.into_iter().zip(modules) {
                 assert_in!(m, e);
             }
         }
@@ -1721,7 +1717,7 @@ mod matrix_cases_should {
                 .collect::<Vec<_>>();
 
             assert_eq!(expected.len(), tests.len());
-            for (e, m) in expected.into_iter().zip(tests.into_iter()) {
+            for (e, m) in expected.into_iter().zip(tests) {
                 assert_in!(m, e);
             }
         }
