@@ -22,10 +22,7 @@ fn prj(res: impl AsRef<Path>) -> Project {
 
 fn run_test(res: impl AsRef<Path>) -> (std::process::Output, String) {
     let prj = prj(res);
-    (
-        prj.run_tests().unwrap(),
-        prj.get_name().to_owned().to_string(),
-    )
+    (prj.run_tests().unwrap(), prj.get_name().into_owned())
 }
 
 fn prepare_folders_tests(project_path: std::path::PathBuf) {
