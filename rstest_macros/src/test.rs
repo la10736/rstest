@@ -82,7 +82,8 @@ pub(crate) fn parse_meta<T: syn::parse::Parse, S: AsRef<str>>(test_case: S) -> T
         test_case.as_ref()
     );
 
-    let item_fn = parse_str::<ItemFn>(&to_parse).expect(&format!("Cannot parse '{}'", to_parse));
+    let item_fn = parse_str::<ItemFn>(&to_parse)
+        .unwrap_or_else(|error| panic!("Cannot parse '{to_parse}': {error:?}"));
 
     let tokens = quote!(
         #item_fn
