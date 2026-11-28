@@ -742,6 +742,8 @@ mod should {
         }
     }
 
+    type ExpectedFileArgument<'a, G, E> = (&'a str, Option<&'a str>, G, E, bool, bool, bool);
+
     #[rstest]
     #[case::simple(r#"fn f(#[files("some_glob")] a: PathBuf) {}"#, "fn f(a: PathBuf) {}", &[("a", None, &["some_glob"], &[], true, true, false)])]
     #[case::more_than_one(
@@ -775,7 +777,7 @@ mod should {
     fn extract<'a, G: AsRef<[&'a str]>, E: AsRef<[&'a str]>>(
         #[case] item_fn: &str,
         #[case] expected: &str,
-        #[case] expected_files: &[(&str, Option<&str>, G, E, bool, bool, bool)],
+        #[case] expected_files: &[ExpectedFileArgument<'_, G, E>],
     ) {
         let mut item_fn: ItemFn = item_fn.ast();
         let expected: ItemFn = expected.ast();
