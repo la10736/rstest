@@ -786,7 +786,7 @@ mod should {
         assert_eq!(
             files,
             expected_files
-                .into_iter()
+                .iter()
                 .map(
                     |(id, base_dir, globs, ex, ignore_dirs, ignore, ignore_envvars)| {
                         (
@@ -1021,7 +1021,7 @@ mod should {
         #[case] expected: &[&str],
     ) {
         let paths = paths
-            .map(|inner| inner.into_iter().map(files_attr).collect())
+            .map(|inner| inner.iter().map(files_attr).collect())
             .unwrap_or(vec![files_attr("no_mater")]);
         let values = ValueListFromFiles::new(FakeBaseDir::from(bdir), resolver)
             .to_value_list(vec![(

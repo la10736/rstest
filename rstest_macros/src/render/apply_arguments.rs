@@ -200,9 +200,7 @@ mod should {
         let expected: ItemFn = expected.ast();
 
         let mut arguments = ArgumentsInfo::default();
-        futures
-            .into_iter()
-            .for_each(|&f| arguments.add_future(pat(f)));
+        futures.iter().for_each(|&f| arguments.add_future(pat(f)));
 
         item_fn.sig.apply_arguments(&mut arguments, &mut ());
 
@@ -234,9 +232,7 @@ mod should {
         let expected: ItemFn = expected.ast();
 
         let mut arguments = ArgumentsInfo::default();
-        futures
-            .into_iter()
-            .for_each(|&f| arguments.add_future(pat(f)));
+        futures.iter().for_each(|&f| arguments.add_future(pat(f)));
 
         item_fn.sig.apply_arguments(&mut arguments, &mut ());
 

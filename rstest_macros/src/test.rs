@@ -189,7 +189,7 @@ pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> Argume
 pub(crate) fn values_list<S: AsRef<str>>(arg: &str, values: &[S]) -> ValueList {
     ValueList {
         arg: pat(arg),
-        values: values.into_iter().map(|s| expr(s).into()).collect(),
+        values: values.iter().map(|s| expr(s).into()).collect(),
     }
 }
 
