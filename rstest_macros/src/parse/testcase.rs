@@ -145,7 +145,7 @@ mod should {
     #[test]
     fn some_literals() {
         let args_expressions = literal_expressions_str();
-        let test_case = parse_test_case(&format!("case({})", args_expressions.join(", ")));
+        let test_case = parse_test_case(format!("case({})", args_expressions.join(", ")));
         let args = test_case.args();
 
         assert_eq!(to_args!(args_expressions), args);

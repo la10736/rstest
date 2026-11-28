@@ -290,7 +290,7 @@ mod should {
         method: &str,
     ) {
         let prefix = if is_async { "async" } else { "" };
-        let (_, out) = parse_fixture(&format!(
+        let (_, out) = parse_fixture(format!(
             r#"
                     pub {} fn test(mut s: String, v: &u32, a: &mut [i32]) -> u32
                             where B: Borrow<u32>
@@ -310,7 +310,7 @@ mod should {
         method: &str,
     ) {
         let prefix = if is_async { "async" } else { "" };
-        let (_, out) = parse_fixture(&format!(
+        let (_, out) = parse_fixture(format!(
             r#"
                     pub {} fn test(mut s: String, v: &u32, a: &mut [i32]) -> u32
                     {{ }}

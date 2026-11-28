@@ -693,7 +693,7 @@ mod should {
     use rstest_test::assert_in;
 
     fn lit_str_attr(name: &str, value: impl AsRef<str>) -> LitStrAttr {
-        attrs(&format!(r#"#[{name}("{}")]"#, value.as_ref()))
+        attrs(format!(r#"#[{name}("{}")]"#, value.as_ref()))
             .into_iter()
             .next()
             .unwrap()
@@ -703,7 +703,7 @@ mod should {
 
     fn name_value_attr(name: &str, value: impl AsRef<str>) -> LitStrAttr {
         LitStrAttr::parse_meta_name_value(
-            &attrs(&format!(r#"#[{name} = "{}"]"#, value.as_ref()))
+            &attrs(format!(r#"#[{name} = "{}"]"#, value.as_ref()))
                 .into_iter()
                 .next()
                 .unwrap(),
