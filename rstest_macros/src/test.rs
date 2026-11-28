@@ -225,7 +225,7 @@ pub(crate) trait ExtractArgs {
 
 impl ExtractArgs for TestCase {
     fn args(&self) -> Vec<Expr> {
-        self.args.iter().cloned().collect()
+        self.args.to_vec()
     }
 }
 
