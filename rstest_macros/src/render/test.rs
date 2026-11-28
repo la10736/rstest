@@ -53,7 +53,7 @@ mod single_test_should {
     }
 
     fn extract_inner_test_function(outer: &ItemFn) -> ItemFn {
-        let first_stmt = outer.block.stmts.get(0).unwrap();
+        let first_stmt = outer.block.stmts.first().unwrap();
 
         parse_quote! {
             #first_stmt
@@ -110,7 +110,7 @@ mod single_test_should {
         input_fn.attrs = attributes;
 
         let result: ItemFn = single(input_fn.clone(), Default::default()).ast();
-        let first_stmt = result.block.stmts.get(0).unwrap();
+        let first_stmt = result.block.stmts.first().unwrap();
 
         let inner_fn: ItemFn = parse_quote! {
             #first_stmt
