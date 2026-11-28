@@ -1307,7 +1307,7 @@ mod import_crate_with_other_name {
                     .collect::<Vec<_>>()
                     .join(",")
             })
-            .unwrap_or_else(|| "".to_string());
+            .unwrap_or_default();
         prj.add_dependency(
             "other_name",
             &format!(
